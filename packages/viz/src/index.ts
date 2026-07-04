@@ -1,0 +1,4 @@
+// L3 visualization: trajectory renderer (Canvas/WebGL), vector-field overlay,
+// analysis plots. Implementation begins in Phase 3 (§7); this is the Phase 0
+// package skeleton.
+export const VIZ_PACKAGE = "@ballista/viz";

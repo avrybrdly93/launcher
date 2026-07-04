@@ -1,0 +1,28 @@
+{
+  "name": "@ballista/app",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "check-bundle-size": "node ../../scripts/check-bundle-size.mjs"
+  },
+  "dependencies": {
+    "@ballista/engine": "workspace:*",
+    "@ballista/solverkit": "workspace:*",
+    "@ballista/analysis": "workspace:*",
+    "@ballista/runtime": "workspace:*",
+    "@ballista/viz": "workspace:*",
+    "@ballista/ui": "workspace:*",
+    "preact": "^10.24.3"
+  },
+  "devDependencies": {
+    "@preact/preset-vite": "^2.9.1",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10",
+    "vitest": "^2.1.4"
+  }
+}

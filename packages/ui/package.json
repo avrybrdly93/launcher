@@ -1,0 +1,23 @@
+{
+  "name": "@ballista/ui",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@ballista/engine": "workspace:*",
+    "@ballista/solverkit": "workspace:*",
+    "@ballista/analysis": "workspace:*",
+    "@ballista/runtime": "workspace:*",
+    "@ballista/viz": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.4"
+  }
+}

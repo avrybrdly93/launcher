@@ -1,0 +1,13 @@
+{
+  "files": [],
+  "references": [
+    { "path": "packages/engine" },
+    { "path": "packages/solverkit" },
+    { "path": "packages/analysis" },
+    { "path": "packages/runtime" },
+    { "path": "packages/viz" },
+    { "path": "packages/ui" },
+    { "path": "packages/app" },
+    { "path": "packages/validation" }
+  ]
+}

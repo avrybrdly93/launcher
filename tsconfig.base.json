@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "declaration": true,
+    "declarationMap": true,
+    "composite": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "resolveJsonModule": true,
+    "baseUrl": ".",
+    "paths": {
+      "@ballista/engine": ["packages/engine/src/index.ts"],
+      "@ballista/solverkit": ["packages/solverkit/src/index.ts"],
+      "@ballista/analysis": ["packages/analysis/src/index.ts"],
+      "@ballista/runtime": ["packages/runtime/src/index.ts"],
+      "@ballista/viz": ["packages/viz/src/index.ts"],
+      "@ballista/ui": ["packages/ui/src/index.ts"],
+      "@ballista/validation": ["packages/validation/src/index.ts"]
+    }
+  }
+}
