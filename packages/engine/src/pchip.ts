@@ -24,6 +24,20 @@ export class PchipInterpolator {
     this.m = PchipInterpolator.slopes(x, y);
   }
 
+  /**
+   * One-sided, shape-preserving three-point endpoint derivative estimate
+   * (Fritsch–Carlson / de Boor, as used by SciPy's `PchipInterpolator`).
+   * A naive secant-slope endpoint (d = m0) is *not* equivalent to this and
+   * disagrees with SciPy past the first/last knot — this is what the
+   * cross-check fixture in pchip.test.ts pins down.
+   */
+  private static edgeSlope(h0: number, h1: number, m0: number, m1: number): number {
+    const d = ((2 * h0 + h1) * m0 - h0 * m1) / (h0 + h1);
+    if (Math.sign(d) !== Math.sign(m0)) return 0;
+    if (Math.sign(m0) !== Math.sign(m1) && Math.abs(d) > 3 * Math.abs(m0)) return 3 * m0;
+    return d;
+  }
+
   private static slopes(x: readonly number[], y: readonly number[]): number[] {
     const n = x.length;
     const h: number[] = [];
@@ -34,8 +48,6 @@ export class PchipInterpolator {
       d.push((y[i + 1]! - y[i]!) / hi);
     }
     const m = new Array<number>(n).fill(0);
-    m[0] = d[0]!;
-    m[n - 1] = d[n - 2]!;
     for (let i = 1; i < n - 1; i++) {
       const dPrev = d[i - 1]!;
       const dNext = d[i]!;
@@ -47,6 +59,9 @@ export class PchipInterpolator {
       const w2 = h[i]! + 2 * h[i - 1]!;
       m[i] = (w1 + w2) / (w1 / dPrev + w2 / dNext);
     }
+    m[0] = n > 2 ? PchipInterpolator.edgeSlope(h[0]!, h[1]!, d[0]!, d[1]!) : d[0]!;
+    m[n - 1] =
+      n > 2 ? PchipInterpolator.edgeSlope(h[n - 2]!, h[n - 3]!, d[n - 2]!, d[n - 3]!) : d[n - 2]!;
     return m;
   }
 

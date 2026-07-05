@@ -211,7 +211,7 @@
       "estMinutes": 20,
       "difficulty": "E",
       "validation": "schema parse/reject unit tests",
-      "status": "review",
+      "status": "done",
       "notes": ""
     },
     {
@@ -222,7 +222,7 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "typecheck; zero-alloc reuse test (no new objects across 1e4 samples)",
-      "status": "review",
+      "status": "done",
       "notes": ""
     },
     {
@@ -233,7 +233,7 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "returns \u03c1=1.225 \u00b10 everywhere",
-      "status": "review",
+      "status": "done",
       "notes": ""
     },
     {
@@ -244,7 +244,7 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "g(0)=9.80665; g(100)/g(0) matches (3.3) to 1e-12",
-      "status": "review",
+      "status": "done",
       "notes": ""
     },
     {
@@ -255,7 +255,7 @@
       "estMinutes": 20,
       "difficulty": "E",
       "validation": "mock force: accumulator sums two forces correctly",
-      "status": "review",
+      "status": "done",
       "notes": ""
     },
     {
@@ -266,7 +266,7 @@
       "estMinutes": 10,
       "difficulty": "E",
       "validation": "F=(0,\u2212mg) exact",
-      "status": "review",
+      "status": "done",
       "notes": ""
     },
     {
@@ -277,7 +277,7 @@
       "estMinutes": 20,
       "difficulty": "E",
       "validation": "F \u2225 \u2212v_rel; magnitude b\u00b7|v_rel| to 1e-15",
-      "status": "review",
+      "status": "done",
       "notes": ""
     },
     {
@@ -288,7 +288,7 @@
       "estMinutes": 20,
       "difficulty": "E",
       "validation": "magnitude \u00bd\u03c1C_dA|u|\u00b2 at 5 random states",
-      "status": "review",
+      "status": "done",
       "notes": ""
     },
     {
@@ -299,7 +299,7 @@
       "estMinutes": 15,
       "difficulty": "M",
       "validation": "rhs at v=w returns finite zeros",
-      "status": "review",
+      "status": "done",
       "notes": ""
     },
     {
@@ -310,7 +310,7 @@
       "estMinutes": 10,
       "difficulty": "E",
       "validation": "returns 0.47",
-      "status": "review",
+      "status": "done",
       "notes": ""
     },
     {
@@ -321,8 +321,8 @@
       "estMinutes": 30,
       "difficulty": "M",
       "validation": "interpolates monotone data without overshoot; matches SciPy PCHIP on fixture to 1e-10",
-      "status": "review",
-      "notes": ""
+      "status": "done",
+      "notes": "Fixed boundary-slope bug: endpoints used naive secant m0 instead of the shape-preserving one-sided three-point estimate SciPy PCHIP uses, causing disagreement in the first/last interval. Added SciPy-generated fixture test (pchip.test.ts) confirming match to 1e-10."
     },
     {
       "id": "P1.12",
@@ -332,7 +332,7 @@
       "estMinutes": 25,
       "difficulty": "M",
       "validation": "Cd(1e3)\u22480.47\u00b110%, Cd(4e5)<0.2; C\u00b9 continuity spot-check by finite differences",
-      "status": "review",
+      "status": "done",
       "notes": ""
     },
     {
@@ -343,8 +343,8 @@
       "estMinutes": 20,
       "difficulty": "E",
       "validation": "hand-computed Re for golf-ball case matches to 1e-12",
-      "status": "review",
-      "notes": ""
+      "status": "done",
+      "notes": "Added eval-context.test.ts with a hand-computed golf-ball Re/Mach check per validation criterion (was previously untested directly)."
     },
     {
       "id": "P1.14",
@@ -354,7 +354,7 @@
       "estMinutes": 25,
       "difficulty": "M",
       "validation": "backspin \u21d2 F_M\u00b7\u0135>0 for rightward motion; F_M \u22a5 v_rel to 1e-14",
-      "status": "review",
+      "status": "done",
       "notes": ""
     },
     {
@@ -365,7 +365,7 @@
       "estMinutes": 15,
       "difficulty": "M",
       "validation": "no NaN at apex-of-vertical-throw state",
-      "status": "review",
+      "status": "done",
       "notes": ""
     },
     {
@@ -409,8 +409,8 @@
       "estMinutes": 20,
       "difficulty": "E",
       "validation": "typecheck; mock model integrates via stub",
-      "status": "review",
-      "notes": ""
+      "status": "done",
+      "notes": "Added model.test.ts: mock Model + stub Euler integrator exercising rhs/invariants/events/partitions (was previously untested)."
     },
     {
       "id": "P1.20",
@@ -420,7 +420,7 @@
       "estMinutes": 25,
       "difficulty": "M",
       "validation": "rhs vs hand-expanded (3.18) at 10 random states to 1e-14",
-      "status": "review",
+      "status": "done",
       "notes": ""
     },
     {
