@@ -376,8 +376,8 @@
       "estMinutes": 10,
       "difficulty": "E",
       "validation": "soccer preset: |F_b|/|F_g| \u2248 1.0\u20131.6%",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Existing BuoyancyForce implementation and forces.test.ts already satisfied the criterion; tightened the test bounds from 0.5-2% to the spec's 1.0-1.6% band (actual ratio ~1.588%)."
     },
     {
       "id": "P1.17",
@@ -387,8 +387,8 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "registration order does not change rhs output (bit test)",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Existing createForceRegistry + forces.test.ts \"bit-identical regardless of registration order\" test already satisfies the criterion."
     },
     {
       "id": "P1.18",
@@ -398,8 +398,8 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "env.sample call-count == 1 per rhs (spy test)",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Existing composeForces (zeroing) + environment.test.ts \"samples exactly once per call\" spy test already satisfy the criterion."
     },
     {
       "id": "P1.19",
@@ -431,8 +431,8 @@
       "estMinutes": 25,
       "difficulty": "M",
       "validation": "1e5 rhs evals allocate 0 objects after warmup",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added rhs-allocation.test.ts. Forcing gc() both before and after the measured loop (not just before) is what makes it discriminating: non-escaping per-call temporaries are scalar-replaced by V8 and never allocate, while a genuinely retained per-call allocation (verified via a temporary injected leak) shows ~50-60 bytes/iter against a <5 threshold. Also added @types/node to packages/engine for process/global typings and wired --expose-gc into vitest.config.ts poolOptions."
     },
     {
       "id": "P1.22",

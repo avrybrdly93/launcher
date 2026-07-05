@@ -133,7 +133,7 @@ describe("MagnusForce", () => {
 });
 
 describe("BuoyancyForce", () => {
-  it("is a small upward fraction of weight for a soccer-ball-like body", () => {
+  it("is ~1.0-1.6% of weight for a soccer-ball preset (P1.16 validation criterion)", () => {
     const params = createSphericalProjectileParams({
       mass: 0.43,
       radius: 0.11,
@@ -147,8 +147,8 @@ describe("BuoyancyForce", () => {
     new BuoyancyForce().accumulate(0, y, ctx, out);
     const weight = ctx.params.mass * ctx.env.g;
     const ratio = out[1] / weight;
-    expect(ratio).toBeGreaterThan(0.005);
-    expect(ratio).toBeLessThan(0.02);
+    expect(ratio).toBeGreaterThan(0.01);
+    expect(ratio).toBeLessThan(0.016);
   });
 });
 
