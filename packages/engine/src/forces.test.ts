@@ -6,6 +6,7 @@ import { SaturatingLiftCoefficient } from "./lift-coefficient.js";
 import { createSphericalProjectileParams } from "./projectile-params.js";
 import {
   BuoyancyForce,
+  composeEnergyPower,
   composeForces,
   createForceRegistry,
   GravityForce,
@@ -193,5 +194,28 @@ describe("createForceRegistry / composeForces", () => {
     composeForces(createForceRegistry([...forces].reverse()), 0, y, ctx, outB);
     expect(outA[0]).toBe(outB[0]);
     expect(outA[1]).toBe(outB[1]);
+  });
+});
+
+describe("composeEnergyPower", () => {
+  it("sums each force's F.v, treating a missing energyPower as 0", () => {
+    const withPower: ForceModel = {
+      id: "a",
+      accumulate: () => {},
+      energyPower: () => 3,
+    };
+    const withoutPower: ForceModel = { id: "b", accumulate: () => {} };
+    const { ctx, env } = makeContext();
+    const y = new Float64Array([0, 0, 0, 0]);
+    refreshDerived(ctx, env, 0, y);
+    expect(composeEnergyPower([withPower, withoutPower], 0, y, ctx)).toBe(3);
+  });
+
+  it("matches gravity's own F.v = -mg*vy in isolation", () => {
+    const { ctx, env } = makeContext();
+    const y = new Float64Array([0, 0, 10, -7]);
+    refreshDerived(ctx, env, 0, y);
+    const power = composeEnergyPower([new GravityForce()], 0, y, ctx);
+    expect(power).toBeCloseTo(-ctx.params.mass * ctx.env.g * y[3]!, 14);
   });
 });

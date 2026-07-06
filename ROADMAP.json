@@ -464,8 +464,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "drag-off: dE/dt from powers \u2261 0 to 1e-13",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added composeEnergyPower (forces.ts) summing each force's F.v, mirroring composeForces. Wired an 'energy' InvariantSpec (E=0.5*m*|v|^2+m*g*y) onto createPlanarProjectileModel's returned Model, plus energyRateFromPowers(forces,t,y,ctx) which reduces dE/dt to eq. 3.19's F_aero.v: d(KE)/dt = sum of all forces' power and d(PE)/dt=mg*vy exactly cancels gravity's own -mg*vy, so with drag/Magnus/buoyancy off the result is identically 0 (verified to <1e-13 at 5 states in planar-projectile-model.test.ts), and with quadratic drag on it equals the drag force's F.v exactly (and is strictly negative, per \u00a73.8's still-air dissipation claim)."
     },
     {
       "id": "P1.25",

@@ -1,7 +1,12 @@
 import type { EvalContext } from "./eval-context.js";
-import { composeForces, createForceRegistry, type ForceModel } from "./forces.js";
+import {
+  composeEnergyPower,
+  composeForces,
+  createForceRegistry,
+  type ForceModel,
+} from "./forces.js";
 import { gravityQuadraticDragJacobian } from "./jacobian.js";
-import type { Model } from "./model.js";
+import type { InvariantSpec, Model } from "./model.js";
 import type { ChannelMeta } from "./schema.js";
 import { norm } from "./vec2.js";
 
@@ -28,6 +33,40 @@ const ANALYTIC_JACOBIAN_FORCE_IDS = new Set(["gravity", "drag-quadratic"]);
 
 function hasExactForceSet(forces: readonly ForceModel[], ids: ReadonlySet<string>): boolean {
   return forces.length === ids.size && forces.every((force) => ids.has(force.id));
+}
+
+/** Mechanical energy E = ½m|v|² + mgy (§3.8), self-contained (samples gravity fresh for any t,y). */
+const energyInvariant: InvariantSpec = {
+  name: "energy",
+  evaluate(t: number, y: Float64Array, ctx: EvalContext): number {
+    const x = y[X]!;
+    const yPos = y[Y]!;
+    const vx = y[VX]!;
+    const vy = y[VY]!;
+    ctx.environment.sample(t, x, yPos, ctx.env);
+    return 0.5 * ctx.params.mass * (vx * vx + vy * vy) + ctx.params.mass * ctx.env.g * yPos;
+  },
+};
+
+/**
+ * dE/dt for {@link energyInvariant}, computed from per-force powers rather
+ * than by differentiating a trajectory (eq. 3.19). Since d(KE)/dt equals the
+ * sum of every force's power (F_total = sum F_i, so F_total.v = sum(F_i.v))
+ * and d(PE)/dt = mg.vy exactly cancels gravity's own power (F_g.v = -mg.vy),
+ * this reduces to the aero-only F_aero.v of (3.19) whenever a GravityForce is
+ * present in `forces` — e.g. with drag/Magnus/buoyancy all off, it is
+ * identically 0. Requires `ctx` freshly refreshed by a preceding
+ * `model.rhs(t, y, ..., ctx)` call at the same (t, y), same as
+ * {@link composeEnergyPower}.
+ */
+export function energyRateFromPowers(
+  forces: readonly ForceModel[],
+  t: number,
+  y: Float64Array,
+  ctx: EvalContext,
+): number {
+  const totalPower = composeEnergyPower(forces, t, y, ctx);
+  return totalPower + ctx.params.mass * ctx.env.g * y[VY]!;
 }
 
 export function createPlanarProjectileModel(forces: readonly ForceModel[]): Model {
@@ -59,7 +98,13 @@ export function createPlanarProjectileModel(forces: readonly ForceModel[]): Mode
   // (P1.22); any other force combination (Magnus, linear drag, buoyancy)
   // leaves `jacobian` undefined until a generic FD fallback exists (P1.23).
   if (hasExactForceSet(forces, ANALYTIC_JACOBIAN_FORCE_IDS)) {
-    return { dim: 4, channels: PLANAR_CHANNELS, rhs, jacobian: gravityQuadraticDragJacobian };
+    return {
+      dim: 4,
+      channels: PLANAR_CHANNELS,
+      rhs,
+      jacobian: gravityQuadraticDragJacobian,
+      invariants: [energyInvariant],
+    };
   }
-  return { dim: 4, channels: PLANAR_CHANNELS, rhs };
+  return { dim: 4, channels: PLANAR_CHANNELS, rhs, invariants: [energyInvariant] };
 }

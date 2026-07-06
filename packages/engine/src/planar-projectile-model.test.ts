@@ -5,7 +5,7 @@ import { ConstantCd } from "./drag-coefficient.js";
 import { SaturatingLiftCoefficient } from "./lift-coefficient.js";
 import { createSphericalProjectileParams } from "./projectile-params.js";
 import { GravityForce, MagnusForce, QuadraticDragForce } from "./forces.js";
-import { createPlanarProjectileModel } from "./planar-projectile-model.js";
+import { createPlanarProjectileModel, energyRateFromPowers } from "./planar-projectile-model.js";
 
 describe("createPlanarProjectileModel", () => {
   it("declares dim=4 with the expected channels", () => {
@@ -92,5 +92,78 @@ describe("createPlanarProjectileModel", () => {
       expect(out[2]).toBeCloseTo(expectedVx, 12);
       expect(out[3]).toBeCloseTo(expectedVy, 12);
     }
+  });
+});
+
+describe("energy invariant (P1.24, eq. 3.19)", () => {
+  const mass = 0.145;
+  const radius = 0.0366;
+
+  it("declares a mechanical-energy invariant E = 0.5*m*|v|^2 + m*g*y", () => {
+    const model = createPlanarProjectileModel([new GravityForce()]);
+    const env = new Environment(new ConstantAtmosphere(), new UniformGravity());
+    const params = createSphericalProjectileParams({
+      mass,
+      radius,
+      dragCoefficient: new ConstantCd(0),
+    });
+    const ctx = createEvalContext(env, params);
+    const y = new Float64Array([0, 12, 8, -3]);
+
+    const invariant = model.invariants?.find((inv) => inv.name === "energy");
+    expect(invariant).toBeDefined();
+    const e = invariant!.evaluate(0, y, ctx);
+    expect(e).toBeCloseTo(0.5 * mass * (8 * 8 + 3 * 3) + mass * ctx.env.g * 12, 12);
+  });
+
+  it("drag-off: dE/dt from powers is identically 0 to 1e-13 (gravity is the only force)", () => {
+    const forces = [new GravityForce()];
+    const model = createPlanarProjectileModel(forces);
+    const env = new Environment(new ConstantAtmosphere(), new UniformGravity(), new ZeroWind());
+    const params = createSphericalProjectileParams({
+      mass,
+      radius,
+      dragCoefficient: new ConstantCd(0.47),
+    });
+    const ctx = createEvalContext(env, params);
+
+    const states: [number, number, number, number][] = [
+      [0, 0, 12.3, 4.1],
+      [10, 5, -8.2, 15.6],
+      [-3, 20, 25.0, -30.1],
+      [0, 0.5, 0.001, -0.002],
+      [5, 5, 5, 5],
+    ];
+
+    for (const state of states) {
+      const y = Float64Array.from(state);
+      const out = new Float64Array(4);
+      model.rhs(0, y, out, ctx); // refreshes ctx.vRel/speedRel/re/mach/env for (0, y)
+      const dEdt = energyRateFromPowers(forces, 0, y, ctx);
+      expect(Math.abs(dEdt)).toBeLessThan(1e-13);
+    }
+  });
+
+  it("drag-on: dE/dt from powers equals quadratic drag's F.v (nonzero, dissipative)", () => {
+    const forces = [new GravityForce(), new QuadraticDragForce()];
+    const model = createPlanarProjectileModel(forces);
+    const env = new Environment(new ConstantAtmosphere(), new UniformGravity(), new ZeroWind());
+    const params = createSphericalProjectileParams({
+      mass,
+      radius,
+      dragCoefficient: new ConstantCd(0.47),
+    });
+    const ctx = createEvalContext(env, params);
+    const y = new Float64Array([0, 10, 20, -5]);
+    const out = new Float64Array(4);
+    model.rhs(0, y, out, ctx);
+
+    const dEdt = energyRateFromPowers(forces, 0, y, ctx);
+    const cd = ctx.params.dragCoefficient.cd(ctx.re, ctx.mach);
+    const k = 0.5 * ctx.env.rho * cd * ctx.params.area * ctx.speedRel;
+    const expectedAeroPower = -k * (ctx.vRel[0] * y[2]! + ctx.vRel[1] * y[3]!);
+
+    expect(dEdt).toBeCloseTo(expectedAeroPower, 10);
+    expect(dEdt).toBeLessThan(0); // still air: drag strictly dissipates (§3.8)
   });
 });

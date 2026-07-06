@@ -144,3 +144,23 @@ export function composeForces(
     force.accumulate(t, y, ctx, outForce);
   }
 }
+
+/**
+ * Sums each force's instantaneous power F_i.v (eq. 3.19), in registry order;
+ * forces without `energyPower` contribute 0. Must be called with a `ctx`
+ * whose vRel/speedRel/re/mach/env were already refreshed for `(t, y)` — the
+ * same requirement `accumulate` has, since `energyPower` reads the same
+ * derived fields (P1.24).
+ */
+export function composeEnergyPower(
+  forces: readonly ForceModel[],
+  t: number,
+  y: Float64Array,
+  ctx: EvalContext,
+): number {
+  let power = 0;
+  for (const force of forces) {
+    power += force.energyPower?.(t, y, ctx) ?? 0;
+  }
+  return power;
+}
