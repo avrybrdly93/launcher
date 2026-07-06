@@ -7,6 +7,7 @@ export * from "./environment.js";
 export * from "./pchip.js";
 export * from "./drag-coefficient.js";
 export * from "./lift-coefficient.js";
+export * from "./projectile-assets.js";
 export * from "./projectile-params.js";
 export * from "./eval-context.js";
 export * from "./forces.js";

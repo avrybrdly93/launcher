@@ -475,8 +475,8 @@
       "estMinutes": 30,
       "difficulty": "E",
       "validation": "assets validate; each has provenance string",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added projectile-assets.ts: PROJECTILE_SPEC_SCHEMA (zod, matching §3.9's (m,R,Cd-model,CL-model,tau_omega,provenance) tuple, with drag/lift coefficient models as serializable discriminated-union specs rather than live instances) and PROJECTILE_ASSETS with the 7 required presets (smooth sphere, golf, soccer, baseball, table-tennis, cannonball, shot put), each carrying a rulebook/literature provenance string. projectile-assets.test.ts verifies every asset validates via parseWithSchema, has a non-empty provenance, has unique ids matching exactly the required set, and that corrupted specs (missing provenance, negative mass) are rejected. Resolving specs into live ProjectileParams instances (the asset loader) is P1.26, left for that task."
     },
     {
       "id": "P1.26",
