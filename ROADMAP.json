@@ -486,8 +486,8 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "corrupt fixture rejected with useful error",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added asset-loader.ts: loadProjectileSpec/loadProjectileSpecs validate raw data against PROJECTILE_SPEC_SCHEMA (batch loader tags failures with their index); resolveProjectileParams turns a validated ProjectileSpec into a live ProjectileParams (resolving the drag/lift coefficient specs from P1.25 into ConstantCd/TabulatedReynoldsCd/SaturatingLiftCoefficient instances). VALIDATED_PROJECTILE_ASSETS eagerly validates the whole PROJECTILE_ASSETS table at module load, so a corrupt bundled asset fails immediately with a field-naming SchemaValidationError rather than surfacing as a confusing runtime bug later. asset-loader.test.ts verifies the useful-error message names the offending fields, the batch loader's index-tagging, and correct resolution for both drag-coefficient kinds and both with/without a lift coefficient."
     },
     {
       "id": "P1.27",
