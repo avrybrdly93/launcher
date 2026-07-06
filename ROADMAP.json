@@ -453,8 +453,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "matches P1.22 analytic where available",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added finiteDifferenceJacobian to jacobian.ts: central differences via model.rhs alone (works on any Model, not just the planar projectile), per-component step h_j = cbrt(machine epsilon) * max(1, |y_j|) balancing truncation vs cancellation error. Scratch buffers (yPerturbed/fPlus/fMinus) are caller-provided via createFiniteDifferenceJacobianScratch(dim) so it stays allocation-free per ADR-004. jacobian.test.ts verifies it matches the P1.22 analytic gravityQuadraticDragJacobian to <1e-6 at the same 10 states, leaves the input state unmutated, and cross-checks against an independent central-difference reference on a model with Magnus (no analytic jacobian available)."
     },
     {
       "id": "P1.24",

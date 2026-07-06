@@ -1,4 +1,5 @@
 import type { EvalContext } from "./eval-context.js";
+import type { Model } from "./model.js";
 import { norm } from "./vec2.js";
 
 const X = 0;
@@ -58,5 +59,65 @@ export function gravityQuadraticDragJacobian(
     out[VX * DIM + VY] = -kd * dUxDvy;
     out[VY * DIM + VX] = -kd * dUxDvy;
     out[VY * DIM + VY] = -kd * dUyDvy;
+  }
+}
+
+/** Preallocated scratch for {@link finiteDifferenceJacobian}, sized once per model.dim (P1.23). */
+export interface FiniteDifferenceJacobianScratch {
+  readonly yPerturbed: Float64Array;
+  readonly fPlus: Float64Array;
+  readonly fMinus: Float64Array;
+}
+
+export function createFiniteDifferenceJacobianScratch(
+  dim: number,
+): FiniteDifferenceJacobianScratch {
+  return {
+    yPerturbed: new Float64Array(dim),
+    fPlus: new Float64Array(dim),
+    fMinus: new Float64Array(dim),
+  };
+}
+
+/** cbrt(machine epsilon): the step size minimizing central-difference error O(h^2*f''' + eps/h). */
+const CBRT_EPS = Math.cbrt(Number.EPSILON);
+
+/**
+ * Generic central-difference Jacobian, applicable to any Model via `rhs`
+ * alone — the fallback for models (or force combinations) that don't
+ * implement an analytic `jacobian` (P1.23; used e.g. by backward Euler's
+ * Newton solves, P2.38). Per-component step is scaled by the state's own
+ * magnitude, `h_j = cbrt(eps) * max(1, |y_j|)`, the standard compromise
+ * between truncation error (shrinks with h^2) and cancellation error (grows
+ * as eps/h). `out` is row-major, length dim*dim: out[i*n+j] = d(f_i)/d(y_j).
+ * `scratch` must be sized for `model.dim` (see {@link createFiniteDifferenceJacobianScratch})
+ * so the hot path allocates nothing (ADR-004).
+ */
+export function finiteDifferenceJacobian(
+  model: Model,
+  t: number,
+  y: Float64Array,
+  ctx: EvalContext,
+  out: Float64Array,
+  scratch: FiniteDifferenceJacobianScratch,
+): void {
+  const n = model.dim;
+  const { yPerturbed, fPlus, fMinus } = scratch;
+  yPerturbed.set(y);
+
+  for (let j = 0; j < n; j++) {
+    const yj = y[j]!;
+    const step = CBRT_EPS * Math.max(1, Math.abs(yj));
+
+    yPerturbed[j] = yj + step;
+    model.rhs(t, yPerturbed, fPlus, ctx);
+    yPerturbed[j] = yj - step;
+    model.rhs(t, yPerturbed, fMinus, ctx);
+    yPerturbed[j] = yj;
+
+    const invTwoStep = 1 / (2 * step);
+    for (let i = 0; i < n; i++) {
+      out[i * n + j] = (fPlus[i]! - fMinus[i]!) * invTwoStep;
+    }
   }
 }
