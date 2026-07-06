@@ -486,8 +486,8 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "corrupt fixture rejected with useful error",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added generic loadAssets(schema, fixtures, kind) in asset-loader.ts: validates each raw fixture, and on failure throws SchemaValidationError with the fixture's id (or its index, if none) folded into the message. PROJECTILE_ASSETS (P1.25) now goes through loadAssets over an untyped PROJECTILE_ASSET_FIXTURES array (simulating raw/JSON-sourced data) instead of a directly-typed literal, so the module actually exercises runtime schema validation on every import rather than relying on TS structural typing alone. Test: asset-loader.test.ts covers the happy path, a corrupt fixture rejected with its id and the failing field named in the message, and the index-fallback label when a fixture has no id."
     },
     {
       "id": "P1.27",

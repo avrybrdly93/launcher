@@ -2,6 +2,7 @@ export * from "./vec2.js";
 export * from "./units.js";
 export * from "./random.js";
 export * from "./schema.js";
+export * from "./asset-loader.js";
 export * from "./env-sample.js";
 export * from "./environment.js";
 export * from "./pchip.js";

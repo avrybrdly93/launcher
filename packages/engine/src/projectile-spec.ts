@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { loadAssets } from "./asset-loader.js";
 import { ConstantCd, TabulatedReynoldsCd } from "./drag-coefficient.js";
 import { SaturatingLiftCoefficient } from "./lift-coefficient.js";
 import { createSphericalProjectileParams, type ProjectileParams } from "./projectile-params.js";
@@ -69,11 +70,13 @@ const CANNONBALL_RADIUS_M = 0.05; // "0.1 m iron" (§3.9) => 0.1 m diameter
 const cannonballMass = IRON_DENSITY_KG_M3 * ((4 / 3) * Math.PI * CANNONBALL_RADIUS_M ** 3);
 
 /**
- * Initial projectile asset library (§3.9): smooth sphere, golf, soccer,
+ * Raw projectile asset fixtures (§3.9): smooth sphere, golf, soccer,
  * baseball, table-tennis, cannonball, shot put, spanning the regime groups
- * (Pi, Re, spin) the preset scenarios (P1.36) will draw from.
+ * (Pi, Re, spin) the preset scenarios (P1.36) will draw from. Untyped (as if
+ * sourced from a JSON data file) so `loadAssets` below actually exercises
+ * schema validation rather than relying on TS structural typing alone.
  */
-export const PROJECTILE_ASSETS: readonly ProjectileSpec[] = [
+const PROJECTILE_ASSET_FIXTURES: readonly unknown[] = [
   {
     id: "smooth-sphere",
     name: "Smooth sphere (reference)",
@@ -146,3 +149,14 @@ export const PROJECTILE_ASSETS: readonly ProjectileSpec[] = [
       "World Athletics rules, men's outdoor shot: mass >= 7.260 kg, diameter 110-130 mm; radius taken as the rule range's midpoint (60 mm). Smooth-sphere Cd=0.47 — the blueprint's canonical low-Pi (drag-negligible) regime example (§3.8).",
   },
 ];
+
+/**
+ * The validated asset library (P1.26): every fixture above is schema-checked
+ * as soon as this module is imported, so a corrupt fixture fails at
+ * build/import time with a useful error rather than shipping.
+ */
+export const PROJECTILE_ASSETS: readonly ProjectileSpec[] = loadAssets(
+  ProjectileSpecSchema,
+  PROJECTILE_ASSET_FIXTURES,
+  "projectile",
+);
