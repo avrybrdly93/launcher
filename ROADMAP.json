@@ -519,8 +519,8 @@
       "estMinutes": 10,
       "difficulty": "E",
       "validation": "w constant everywhere",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "The WindField interface (§3.5) already existed as WindModel (environment.ts, from earlier bootstrap work) with ZeroWind as its only implementation. Added UniformSteadyWind(wx, wy=0): returns the same (wx,wy) at every (t,x,y). This also makes a P1.22 code comment referencing 'ZeroWind/UniformSteadyWind' (forces.ts) accurate — it had been written slightly ahead of this task existing."
     },
     {
       "id": "P1.30",
