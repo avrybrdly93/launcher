@@ -442,8 +442,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "matches central finite differences to 1e-7 at 10 states",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added gravityQuadraticDragJacobian in packages/engine/src/jacobian.ts (row-major 4x4 df/dy), exact for ConstantCd under a state-independent environment; jacobian.test.ts checks it against central finite differences of the real rhs at 10 states to 1e-7, plus a v_rel=0 finite-zero guard. Not wired into Model.jacobian (that slot's ctx-less signature can't reach env/params); left as a standalone function per this task's scope. Also fixed a pre-existing bug in vitest.config.ts (missing `root`) that made `pnpm -r test` find zero test files from any package subdirectory."
     },
     {
       "id": "P1.23",
