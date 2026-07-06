@@ -1,5 +1,6 @@
 import type { EvalContext } from "./eval-context.js";
 import { composeForces, createForceRegistry, type ForceModel } from "./forces.js";
+import { gravityQuadraticDragJacobian } from "./jacobian.js";
 import type { Model } from "./model.js";
 import type { ChannelMeta } from "./schema.js";
 import { norm } from "./vec2.js";
@@ -24,6 +25,9 @@ const VY = 3;
  */
 export function createPlanarProjectileModel(forces: readonly ForceModel[]): Model {
   const registry = createForceRegistry(forces);
+  const forceIds = new Set(registry.map((f) => f.id));
+  const isGravityQuadraticDragOnly =
+    forceIds.size === 2 && forceIds.has("gravity") && forceIds.has("drag-quadratic");
 
   return {
     dim: 4,
@@ -49,5 +53,6 @@ export function createPlanarProjectileModel(forces: readonly ForceModel[]): Mode
       out[VX] = ctx.forceAccum[0] / ctx.params.mass;
       out[VY] = ctx.forceAccum[1] / ctx.params.mass;
     },
+    ...(isGravityQuadraticDragOnly ? { jacobian: gravityQuadraticDragJacobian } : {}),
   };
 }

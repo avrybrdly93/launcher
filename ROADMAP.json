@@ -442,8 +442,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "matches central finite differences to 1e-7 at 10 states",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added gravityQuadraticDragJacobian (packages/engine/src/jacobian.ts), valid under a spatially-uniform environment (constant atmosphere/gravity, spatially uniform wind) so kd=rho*Cd*A/(2m) has no y-dependence; singular at v_rel=0 per SS3.8. Wired into createPlanarProjectileModel.jacobian only when the force set is exactly {gravity, drag-quadratic}. Extended Model.jacobian's signature to take ctx (like rhs) since it needs env/params access. jacobian.test.ts verifies match to central finite differences (abs diff < 1e-7) at 10 random nonzero-v_rel states."
     },
     {
       "id": "P1.23",
