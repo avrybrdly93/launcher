@@ -442,8 +442,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "matches central finite differences to 1e-7 at 10 states",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added jacobian.ts: gravityQuadraticDragJacobian analytically differentiates eq. 3.18's drag term (homogeneous degree-2 in v_rel, so the velocity block is exact and vanishes at v_rel=0, matching the C1 kink of §3.8); position/wind/gravity partials are 0 under the constant-atmosphere/non-altitude-gravity/zero-or-uniform-wind assumption. Widened Model.jacobian's signature to take ctx (needed for mass/rho/Cd/area, same as rhs). createPlanarProjectileModel only wires it as model.jacobian when the force set is exactly {gravity, drag-quadratic} - Magnus/linear-drag/buoyancy combinations leave jacobian undefined until P1.23's generic FD fallback exists. jacobian.test.ts verifies the 10-state FD match (well within the 1e-7 bound), the undefined-when-Magnus-present case, and the exact-zero limit at v_rel=0."
     },
     {
       "id": "P1.23",

@@ -1,5 +1,6 @@
 import type { EvalContext } from "./eval-context.js";
 import { composeForces, createForceRegistry, type ForceModel } from "./forces.js";
+import { gravityQuadraticDragJacobian } from "./jacobian.js";
 import type { Model } from "./model.js";
 import type { ChannelMeta } from "./schema.js";
 import { norm } from "./vec2.js";
@@ -22,32 +23,43 @@ const VY = 3;
  * the first Model SolverKit will integrate — deliberately just a Model, with
  * no special status in the engine (§1.4).
  */
+/** Force ids for which {@link gravityQuadraticDragJacobian}'s analytic formula is exact (P1.22). */
+const ANALYTIC_JACOBIAN_FORCE_IDS = new Set(["gravity", "drag-quadratic"]);
+
+function hasExactForceSet(forces: readonly ForceModel[], ids: ReadonlySet<string>): boolean {
+  return forces.length === ids.size && forces.every((force) => ids.has(force.id));
+}
+
 export function createPlanarProjectileModel(forces: readonly ForceModel[]): Model {
   const registry = createForceRegistry(forces);
 
-  return {
-    dim: 4,
-    channels: PLANAR_CHANNELS,
-    rhs(t: number, y: Float64Array, out: Float64Array, ctx: EvalContext): void {
-      const x = y[X]!;
-      const yPos = y[Y]!;
-      const vx = y[VX]!;
-      const vy = y[VY]!;
+  const rhs = (t: number, y: Float64Array, out: Float64Array, ctx: EvalContext): void => {
+    const x = y[X]!;
+    const yPos = y[Y]!;
+    const vx = y[VX]!;
+    const vy = y[VY]!;
 
-      ctx.environment.sample(t, x, yPos, ctx.env);
+    ctx.environment.sample(t, x, yPos, ctx.env);
 
-      ctx.vRel[0] = vx - ctx.env.wx;
-      ctx.vRel[1] = vy - ctx.env.wy;
-      ctx.speedRel = norm(ctx.vRel);
-      ctx.re = (ctx.env.rho * ctx.speedRel * (2 * ctx.params.radius)) / ctx.env.eta;
-      ctx.mach = ctx.env.c > 0 ? ctx.speedRel / ctx.env.c : 0;
+    ctx.vRel[0] = vx - ctx.env.wx;
+    ctx.vRel[1] = vy - ctx.env.wy;
+    ctx.speedRel = norm(ctx.vRel);
+    ctx.re = (ctx.env.rho * ctx.speedRel * (2 * ctx.params.radius)) / ctx.env.eta;
+    ctx.mach = ctx.env.c > 0 ? ctx.speedRel / ctx.env.c : 0;
 
-      composeForces(registry, t, y, ctx, ctx.forceAccum);
+    composeForces(registry, t, y, ctx, ctx.forceAccum);
 
-      out[X] = vx;
-      out[Y] = vy;
-      out[VX] = ctx.forceAccum[0] / ctx.params.mass;
-      out[VY] = ctx.forceAccum[1] / ctx.params.mass;
-    },
+    out[X] = vx;
+    out[Y] = vy;
+    out[VX] = ctx.forceAccum[0] / ctx.params.mass;
+    out[VY] = ctx.forceAccum[1] / ctx.params.mass;
   };
+
+  // Only gravity+quadratic-drag has a known-exact analytic Jacobian so far
+  // (P1.22); any other force combination (Magnus, linear drag, buoyancy)
+  // leaves `jacobian` undefined until a generic FD fallback exists (P1.23).
+  if (hasExactForceSet(forces, ANALYTIC_JACOBIAN_FORCE_IDS)) {
+    return { dim: 4, channels: PLANAR_CHANNELS, rhs, jacobian: gravityQuadraticDragJacobian };
+  }
+  return { dim: 4, channels: PLANAR_CHANNELS, rhs };
 }
