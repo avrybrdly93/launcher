@@ -530,8 +530,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "w(y_r\u00b7(e\u22121))\u00b7\u03ba/u* = 1 check; w finite at y=0",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added LogProfileWind to environment.ts: w_x(y)=(u*/kappa)*ln((y+y_r)/y_r) per eq 3.13 (kappa=0.41, default roughness y_r=0.01m for grass). y is clamped to >=0 before the log so ground-level or transiently-below-ground states stay finite instead of ln() of a non-positive argument. environment.test.ts checks the w(y_r*(e-1))*kappa/u*=1 identity to 1e-12, finiteness (and exact 0) at y=0 and below, and monotonic increase with height."
     },
     {
       "id": "P1.31",

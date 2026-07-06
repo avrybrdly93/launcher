@@ -93,6 +93,30 @@ export class UniformWind implements WindField {
 }
 
 /**
+ * Logarithmic boundary-layer wind profile (eq. 3.13): wind speed increases
+ * with height above a rough surface. `y` is clamped to >= 0 before entering
+ * the log so a projectile transiently at or slightly below ground level
+ * (numerical overshoot before event detection stops it) still gets a
+ * finite, well-defined sample instead of ln() of a non-positive argument.
+ */
+export class LogProfileWind implements WindField {
+  private static readonly KAPPA = 0.41; // von Karman constant
+
+  constructor(
+    private readonly uStar: number,
+    private readonly roughnessLength = 0.01, // m, grass (§3.5)
+  ) {}
+
+  sample(_t: number, _x: number, y: number, out: EnvSample): void {
+    const yGround = Math.max(y, 0);
+    out.wx =
+      (this.uStar / LogProfileWind.KAPPA) *
+      Math.log((yGround + this.roughnessLength) / this.roughnessLength);
+    out.wy = 0;
+  }
+}
+
+/**
  * Composes an Atmosphere + GravityModel + WindField into the single
  * `Environment` the engine exports (§2.2 module table). `sample` is called
  * exactly once per rhs evaluation (§2.4a); internally it delegates to the
