@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { EnvSample } from "./env-sample.js";
-import { ConstantAtmosphere, Environment, UniformGravity, ZeroWind } from "./environment.js";
+import {
+  ConstantAtmosphere,
+  Environment,
+  ExponentialAtmosphere,
+  UniformGravity,
+  ZeroWind,
+} from "./environment.js";
 import { EARTH_RADIUS_M, G_STD, ISA } from "./units.js";
 
 describe("ConstantAtmosphere", () => {
@@ -11,6 +17,40 @@ describe("ConstantAtmosphere", () => {
       atm.sample(0, y, out);
       expect(out.rho).toBe(ISA.rho0);
     }
+  });
+});
+
+describe("ExponentialAtmosphere", () => {
+  it("rho(0) = rho0 exactly", () => {
+    const atm = new ExponentialAtmosphere();
+    const out = new EnvSample();
+    atm.sample(0, 0, out);
+    expect(out.rho).toBe(ISA.rho0);
+  });
+
+  it("rho(H) = rho0/e to 1e-15", () => {
+    const atm = new ExponentialAtmosphere();
+    const out = new EnvSample();
+    atm.sample(0, ISA.scaleHeight, out);
+    const expected = ISA.rho0 / Math.E;
+    expect(Math.abs(out.rho - expected) / expected).toBeLessThan(1e-15);
+  });
+
+  it("pressure decays with the same exponential factor as density", () => {
+    const atm = new ExponentialAtmosphere();
+    const out = new EnvSample();
+    atm.sample(0, ISA.scaleHeight, out);
+    expect(out.p / ISA.p0).toBeCloseTo(out.rho / ISA.rho0, 15);
+  });
+
+  it("holds temperature and speed of sound fixed (isothermal approximation)", () => {
+    const atm = new ExponentialAtmosphere();
+    const outLow = new EnvSample();
+    const outHigh = new EnvSample();
+    atm.sample(0, 0, outLow);
+    atm.sample(0, 20000, outHigh);
+    expect(outHigh.T).toBe(outLow.T);
+    expect(outHigh.c).toBe(outLow.c);
   });
 });
 
