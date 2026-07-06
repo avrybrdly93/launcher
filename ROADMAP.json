@@ -464,8 +464,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "drag-off: dE/dt from powers \u2261 0 to 1e-13",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added composeEnergyPower (sums per-force energyPower, forces.ts) plus createEnergyInvariant (E=0.5*m*|v|^2+m*g*y, wired as model.invariants) and energyDerivativeFromPowers in planar-projectile-model.ts. The latter is composeEnergyPower(forces)+m*g*vy: gravity's own -m*g*vy power exactly cancels d(PE)/dt, leaving only non-conservative work, so it's 0 with aero off, 0 with ideal Magnus only (F_M perp v), and <=0 for drag in still air. Tests (energy-invariant.test.ts) cover all three plus a buoyancy-does-real-work sanity check and a chain-rule cross-check against rhs()."
     },
     {
       "id": "P1.25",

@@ -184,6 +184,25 @@ export function composeForces(
   }
 }
 
+/**
+ * Sums every wired force's instantaneous power (F.v, eq. 3.19), in registry
+ * order; forces without `energyPower` (none currently) contribute 0. This is
+ * dKE/dt exactly — combined with d(PE)/dt = m*g*vy it gives the mechanical
+ * energy invariant's dE/dt (`createEnergyInvariant`, P1.24).
+ */
+export function composeEnergyPower(
+  forces: readonly ForceModel[],
+  t: number,
+  y: Float64Array,
+  ctx: EvalContext,
+): number {
+  let power = 0;
+  for (const force of forces) {
+    power += force.energyPower?.(t, y, ctx) ?? 0;
+  }
+  return power;
+}
+
 /** True iff every force in the set has a closed-form Jacobian (P1.22/P1.23). */
 export function allForcesHaveJacobian(forces: readonly ForceModel[]): boolean {
   return forces.every((force) => typeof force.jacobian === "function");

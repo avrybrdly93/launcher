@@ -1,12 +1,13 @@
 import type { EvalContext } from "./eval-context.js";
 import {
   allForcesHaveJacobian,
+  composeEnergyPower,
   composeForces,
   composeJacobian,
   createForceRegistry,
   type ForceModel,
 } from "./forces.js";
-import type { Model } from "./model.js";
+import type { InvariantSpec, Model } from "./model.js";
 import type { ChannelMeta } from "./schema.js";
 import { norm } from "./vec2.js";
 
@@ -39,6 +40,49 @@ function sampleRelativeMotion(
   ctx.speedRel = norm(ctx.vRel);
   ctx.re = (ctx.env.rho * ctx.speedRel * (2 * ctx.params.radius)) / ctx.env.eta;
   ctx.mach = ctx.env.c > 0 ? ctx.speedRel / ctx.env.c : 0;
+}
+
+/**
+ * Mechanical energy E = 0.5*m*|v|^2 + m*g*y (§3.8), assuming uniform gravity
+ * `ctx.env.g` acts on the projectile. Re-samples the environment itself so
+ * it's valid to call independently of the last rhs()/jacobian() call (e.g.
+ * from a recorder sink at an arbitrary playhead time).
+ */
+export function createEnergyInvariant(): InvariantSpec {
+  return {
+    name: "energy",
+    evaluate(t: number, y: Float64Array, ctx: EvalContext): number {
+      const x = y[X]!;
+      const yPos = y[Y]!;
+      const vx = y[VX]!;
+      const vy = y[VY]!;
+      sampleRelativeMotion(t, x, yPos, vx, vy, ctx);
+      return 0.5 * ctx.params.mass * (vx * vx + vy * vy) + ctx.params.mass * ctx.env.g * yPos;
+    },
+  };
+}
+
+/**
+ * dE/dt as predicted by the wired forces' instantaneous powers (eq. 3.19):
+ * dKE/dt (= `composeEnergyPower`, F.v summed over `forces`) plus
+ * d(PE)/dt = m*g*vy. With `GravityForce` among `forces`, its own -m*g*vy
+ * power exactly cancels the d(PE)/dt term, leaving only the
+ * non-conservative (aero/buoyancy) contribution — the three exact runtime
+ * checks §3.8 describes: aero off => 0; ideal Magnus only => 0 (F_M ⊥ v);
+ * drag on in still air => <= 0 (strictly dissipative).
+ */
+export function energyDerivativeFromPowers(
+  forces: readonly ForceModel[],
+  t: number,
+  y: Float64Array,
+  ctx: EvalContext,
+): number {
+  const x = y[X]!;
+  const yPos = y[Y]!;
+  const vx = y[VX]!;
+  const vy = y[VY]!;
+  sampleRelativeMotion(t, x, yPos, vx, vy, ctx);
+  return composeEnergyPower(forces, t, y, ctx) + ctx.params.mass * ctx.env.g * vy;
 }
 
 /**
@@ -98,6 +142,7 @@ export function createPlanarProjectileModel(forces: readonly ForceModel[]): Mode
     dim: DIM,
     channels: PLANAR_CHANNELS,
     rhs,
+    invariants: [createEnergyInvariant()],
     ...(allForcesHaveJacobian(registry) ? { jacobian } : {}),
   };
 }
