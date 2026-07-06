@@ -519,8 +519,8 @@
       "estMinutes": 10,
       "difficulty": "E",
       "validation": "w constant everywhere",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Renamed environment.ts's WindModel interface to WindField (matching the blueprint SS3.5 name w(t,r)->R^d; only referenced within that one file, so the rename was self-contained). Added UniformWind(wx, wy=0), the slider-controlled constant-vector case. environment.test.ts checks w is identical across widely varying (t,x,y) samples and that wy defaults to 0."
     },
     {
       "id": "P1.30",

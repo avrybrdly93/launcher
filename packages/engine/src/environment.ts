@@ -12,8 +12,8 @@ export interface GravityModel {
   sample(x: number, y: number, out: EnvSample): void;
 }
 
-/** Fills the wind fields (wx, wy) of an EnvSample at a point and time (§3.5). */
-export interface WindModel {
+/** w(t, r) -> R^d (§3.5): fills the wind fields (wx, wy) of an EnvSample at a point and time. */
+export interface WindField {
   sample(t: number, x: number, y: number, out: EnvSample): void;
 }
 
@@ -71,16 +71,29 @@ export class UniformGravity implements GravityModel {
   }
 }
 
-/** Default no-wind model: wx = wy = 0 everywhere (§3.5 case 1 with w = 0). */
-export class ZeroWind implements WindModel {
+/** Default no-wind field: wx = wy = 0 everywhere (§3.5 case 1 with w = 0). */
+export class ZeroWind implements WindField {
   sample(_t: number, _x: number, _y: number, out: EnvSample): void {
     out.wx = 0;
     out.wy = 0;
   }
 }
 
+/** Uniform steady wind (§3.5 case 1): w = (wx, wy), constant over all t and r. */
+export class UniformWind implements WindField {
+  constructor(
+    private readonly wx: number,
+    private readonly wy: number = 0,
+  ) {}
+
+  sample(_t: number, _x: number, _y: number, out: EnvSample): void {
+    out.wx = this.wx;
+    out.wy = this.wy;
+  }
+}
+
 /**
- * Composes an Atmosphere + GravityModel + WindModel into the single
+ * Composes an Atmosphere + GravityModel + WindField into the single
  * `Environment` the engine exports (§2.2 module table). `sample` is called
  * exactly once per rhs evaluation (§2.4a); internally it delegates to the
  * three components against the same shared EnvSample buffer.
@@ -89,7 +102,7 @@ export class Environment {
   constructor(
     private readonly atmosphere: Atmosphere,
     private readonly gravity: GravityModel,
-    private readonly wind: WindModel = new ZeroWind(),
+    private readonly wind: WindField = new ZeroWind(),
   ) {}
 
   sample(t: number, x: number, y: number, out: EnvSample): void {
