@@ -475,8 +475,8 @@
       "estMinutes": 30,
       "difficulty": "E",
       "validation": "assets validate; each has provenance string",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added packages/engine/src/projectile-spec.ts: ProjectileSpecSchema (zod, discriminated-union drag/lift model selection) plus PROJECTILE_ASSETS with the 7 required entries (smooth-sphere, golf-ball, soccer-ball, baseball, table-tennis-ball, cannonball, shot-put), each with a literature/rulebook provenance string. Assembling a spec into runtime ProjectileParams (live DragCoefficientModel instances) is left to the asset loader (P1.26). projectile-spec.test.ts checks all assets parse, all have non-empty provenance, the required id set is present, and corrupt fixtures (negative mass / missing provenance) are rejected."
     },
     {
       "id": "P1.26",
