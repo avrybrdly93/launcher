@@ -464,8 +464,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "drag-off: dE/dt from powers \u2261 0 to 1e-13",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added packages/engine/src/energy.ts: mechanicalEnergy(y,ctx) = (1/2)m|v|^2+mgy, wired as the model's 'energy' InvariantSpec; aeroEnergyPower(forces,t,y,ctx) sums every non-gravity force's energyPower (gravity excluded since its work is already folded into the potential term -- eq 3.19's dE/dt = F_aero.v). energy.test.ts confirms: all-aero-off is exactly 0, drag-off/Magnus-only in still air is <1e-13 (matches validation), drag-on in still air is <=0 (monotone dissipation), and buoyancy (a non-gravity constant force) correctly shows up in the aero sum."
     },
     {
       "id": "P1.25",

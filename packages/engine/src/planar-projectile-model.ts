@@ -1,4 +1,5 @@
 import type { EvalContext } from "./eval-context.js";
+import { mechanicalEnergy } from "./energy.js";
 import { composeForces, createForceRegistry, type ForceModel } from "./forces.js";
 import { gravityQuadraticDragJacobian } from "./jacobian.js";
 import type { Model } from "./model.js";
@@ -53,6 +54,12 @@ export function createPlanarProjectileModel(forces: readonly ForceModel[]): Mode
       out[VX] = ctx.forceAccum[0] / ctx.params.mass;
       out[VY] = ctx.forceAccum[1] / ctx.params.mass;
     },
+    invariants: [
+      {
+        name: "energy",
+        evaluate: (_t: number, y: Float64Array, ctx: EvalContext) => mechanicalEnergy(y, ctx),
+      },
+    ],
     ...(isGravityQuadraticDragOnly ? { jacobian: gravityQuadraticDragJacobian } : {}),
   };
 }
