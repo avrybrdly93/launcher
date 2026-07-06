@@ -5,7 +5,7 @@ import { ConstantCd } from "./drag-coefficient.js";
 import { SaturatingLiftCoefficient } from "./lift-coefficient.js";
 import { createSphericalProjectileParams } from "./projectile-params.js";
 import { GravityForce, MagnusForce, QuadraticDragForce } from "./forces.js";
-import { createPlanarProjectileModel } from "./planar-projectile-model.js";
+import { createPlanarProjectileModel, planarAeroPower } from "./planar-projectile-model.js";
 
 describe("createPlanarProjectileModel", () => {
   it("declares dim=4 with the expected channels", () => {
@@ -154,5 +154,88 @@ describe("createPlanarProjectileModel", () => {
       new MagnusForce(),
     ]);
     expect(model.jacobian).toBeUndefined();
+  });
+});
+
+describe("energy invariant (eq. 3.19)", () => {
+  const env = new Environment(new ConstantAtmosphere(), new UniformGravity(), new ZeroWind());
+  const mass = 0.145;
+  const radius = 0.0366;
+  const g = 9.80665;
+
+  const states: [number, number, number, number][] = [
+    [0, 100, 12.3, 4.1],
+    [10, 50, -8.2, 15.6],
+    [-3, 200, 25.0, -30.1],
+    [100, 10, -1.5, -1.5],
+    [0, 5, 40, 0],
+    [5, 5, 5, 5],
+  ];
+
+  it("drag-off: aero power from the energyPower wiring is exactly 0, and E matches the closed-form drag-free trajectory to 1e-13", () => {
+    const model = createPlanarProjectileModel([new GravityForce()]);
+    const params = createSphericalProjectileParams({
+      mass,
+      radius,
+      dragCoefficient: new ConstantCd(0),
+    });
+    const ctx = createEvalContext(env, params);
+
+    for (const [x0, y0, vx0, vy0] of states) {
+      const y = Float64Array.from([x0, y0, vx0, vy0]);
+      expect(planarAeroPower([new GravityForce()], 0, y, ctx)).toBe(0);
+
+      const e0 = model.invariants![0]!.evaluate(0, y, ctx);
+      // Closed-form drag-free trajectory (§3.8): exact solution under gravity alone.
+      for (const t of [0.1, 0.5, 1.0, 2.3]) {
+        const yt = Float64Array.from([
+          x0 + vx0 * t,
+          y0 + vy0 * t - 0.5 * g * t * t,
+          vx0,
+          vy0 - g * t,
+        ]);
+        const et = model.invariants![0]!.evaluate(t, yt, ctx);
+        expect(et).toBeCloseTo(e0, 10);
+      }
+    }
+  });
+
+  it("drag-on in still air: aero power is <= 0 everywhere (E dissipates, eq. 3.19 case iii)", () => {
+    const forces = [new GravityForce(), new QuadraticDragForce()];
+    const model = createPlanarProjectileModel(forces);
+    const params = createSphericalProjectileParams({
+      mass,
+      radius,
+      dragCoefficient: new ConstantCd(0.47),
+    });
+    const ctx = createEvalContext(env, params);
+
+    for (const state of states) {
+      const y = Float64Array.from(state);
+      expect(planarAeroPower(forces, 0, y, ctx)).toBeLessThanOrEqual(0);
+    }
+    expect(model.invariants?.[0]?.name).toBe("energy");
+  });
+
+  it("Magnus-only in still air: aero power is exactly 0 (F_M is always perpendicular to v_rel, eq. 3.19 case ii)", () => {
+    const forces = [new GravityForce(), new MagnusForce()];
+    const params = createSphericalProjectileParams({
+      mass,
+      radius,
+      dragCoefficient: new ConstantCd(0),
+      liftCoefficient: new SaturatingLiftCoefficient(),
+      spin: 180,
+    });
+    const ctx = createEvalContext(env, params);
+
+    for (const state of states) {
+      const y = Float64Array.from(state);
+      expect(planarAeroPower(forces, 0, y, ctx)).toBeCloseTo(0, 12);
+    }
+  });
+
+  it("omits the energy invariant when no gravity force is registered", () => {
+    const model = createPlanarProjectileModel([new QuadraticDragForce()]);
+    expect(model.invariants).toBeUndefined();
   });
 });

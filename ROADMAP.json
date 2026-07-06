@@ -464,8 +464,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "drag-off: dE/dt from powers \u2261 0 to 1e-13",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added planarMechanicalEnergy(t,y,ctx) = (1/2)m|v|^2 + mgy and planarAeroPower(forces,t,y,ctx) = sum of energyPower over every registered force except gravity (whose work is already the mgy term, so excluding it is what makes the sum exactly dE/dt per eq 3.19 rather than d(KE)/dt). createPlanarProjectileModel wires invariants:[{name:'energy',evaluate:planarMechanicalEnergy}] whenever a GravityForce is registered. Tests cover all three eq-3.19 exact runtime checks: drag-off aero power ==0 and E matches the closed-form drag-free trajectory to 1e-13 over several t; drag-on-in-still-air aero power <=0 everywhere; Magnus-only aero power ==0 (F_M always perp to v_rel)."
     },
     {
       "id": "P1.25",

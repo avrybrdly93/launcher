@@ -87,6 +87,42 @@ function gravityQuadraticDragJacobian(
 }
 
 /**
+ * E = (1/2)m|v|^2 + mgy, the mechanical energy of §3.8. This is the only
+ * potential term folded in — gravity is the sole force whose work is already
+ * accounted for by a term in E, which is what makes `planarAeroPower` below
+ * exactly equal to dE/dt (eq. 3.19).
+ */
+export function planarMechanicalEnergy(t: number, y: Float64Array, ctx: EvalContext): number {
+  const vx = y[VX]!;
+  const vy = y[VY]!;
+  ctx.environment.sample(t, y[X]!, y[Y]!, ctx.env);
+  return 0.5 * ctx.params.mass * (vx * vx + vy * vy) + ctx.params.mass * ctx.env.g * y[Y]!;
+}
+
+/**
+ * F_aero . v (eq. 3.19): sum of every registered force's `energyPower`
+ * except gravity's. Gravity is excluded because its work is already the mgy
+ * term in `planarMechanicalEnergy` — including it here would double-count
+ * and yield d(KE)/dt instead of dE/dt. With aero forces off this is exactly
+ * 0 (E conserved); with drag on in still air it is <= 0 (E dissipates); with
+ * only an ideal Magnus force it is exactly 0 (F_M is always ⊥ v_rel).
+ */
+export function planarAeroPower(
+  forces: readonly ForceModel[],
+  t: number,
+  y: Float64Array,
+  ctx: EvalContext,
+): number {
+  refreshFlowState(t, y[X]!, y[Y]!, y[VX]!, y[VY]!, ctx);
+  let power = 0;
+  for (const force of forces) {
+    if (force.id === "gravity" || !force.energyPower) continue;
+    power += force.energyPower(t, y, ctx);
+  }
+  return power;
+}
+
+/**
  * The workhorse planar projectile model (dim 4, eq. 3.17-3.18): wires
  * gravity/drag/Magnus/buoyancy force composition into a single rhs. This is
  * the first Model SolverKit will integrate — deliberately just a Model, with
@@ -97,6 +133,7 @@ export function createPlanarProjectileModel(forces: readonly ForceModel[]): Mode
   const hasAnalyticJacobian =
     registry.length === GRAVITY_QUADRATIC_DRAG_IDS.length &&
     registry.every((force, i) => force.id === GRAVITY_QUADRATIC_DRAG_IDS[i]);
+  const hasGravity = registry.some((force) => force.id === "gravity");
 
   return {
     dim: 4,
@@ -116,6 +153,7 @@ export function createPlanarProjectileModel(forces: readonly ForceModel[]): Mode
       out[VX] = ctx.forceAccum[0] / ctx.params.mass;
       out[VY] = ctx.forceAccum[1] / ctx.params.mass;
     },
+    ...(hasGravity ? { invariants: [{ name: "energy", evaluate: planarMechanicalEnergy }] } : {}),
     ...(hasAnalyticJacobian ? { jacobian: gravityQuadraticDragJacobian } : {}),
   };
 }
