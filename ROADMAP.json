@@ -519,8 +519,8 @@
       "estMinutes": 10,
       "difficulty": "E",
       "validation": "w constant everywhere",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "The WindModel interface (this task's WindField) already existed from earlier work. Added UniformWind(wx, wy), constant in space and time, alongside ZeroWind (its wx=wy=0 special case). The class itself landed in the P1.27 commit by an accidental git-add-p hunk-split slip; this commit adds its test coverage (constant-everywhere check per this task's validation, plus the zero-arg default)."
     },
     {
       "id": "P1.30",
