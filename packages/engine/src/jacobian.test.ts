@@ -5,7 +5,12 @@ import { ConstantCd } from "./drag-coefficient.js";
 import { createSphericalProjectileParams } from "./projectile-params.js";
 import { GravityForce, QuadraticDragForce } from "./forces.js";
 import { createPlanarProjectileModel } from "./planar-projectile-model.js";
-import { gravityQuadraticDragJacobian, PLANAR_JACOBIAN_DIM } from "./jacobian.js";
+import {
+  createFiniteDifferenceScratch,
+  finiteDifferenceJacobian,
+  gravityQuadraticDragJacobian,
+  PLANAR_JACOBIAN_DIM,
+} from "./jacobian.js";
 
 function makeContext(): { ctx: EvalContext; env: Environment } {
   const params = createSphericalProjectileParams({
@@ -85,5 +90,41 @@ describe("gravityQuadraticDragJacobian", () => {
     // drag block vanishes in the limit.
     expect(out[2 * PLANAR_JACOBIAN_DIM + 2]).toBe(0);
     expect(out[3 * PLANAR_JACOBIAN_DIM + 3]).toBe(0);
+  });
+});
+
+describe("finiteDifferenceJacobian", () => {
+  const { ctx } = makeContext();
+  const model = createPlanarProjectileModel([new GravityForce(), new QuadraticDragForce()]);
+  const scratch = createFiniteDifferenceScratch(model.dim);
+
+  it("matches the P1.22 analytic Jacobian where available (10 states)", () => {
+    const analytic = new Float64Array(PLANAR_JACOBIAN_DIM * PLANAR_JACOBIAN_DIM);
+    const fd = new Float64Array(PLANAR_JACOBIAN_DIM * PLANAR_JACOBIAN_DIM);
+    for (const state of RANDOM_STATES) {
+      const y = new Float64Array(state);
+      gravityQuadraticDragJacobian(0, y, ctx, analytic);
+      finiteDifferenceJacobian(model, 0, y, ctx, scratch, fd);
+      for (let k = 0; k < analytic.length; k++) {
+        expect(fd[k]).toBeCloseTo(analytic[k]!, 6);
+      }
+    }
+  });
+
+  it("does not mutate the input state y", () => {
+    const y = new Float64Array([3, -2, 25, -8]);
+    const before = Float64Array.from(y);
+    const out = new Float64Array(PLANAR_JACOBIAN_DIM * PLANAR_JACOBIAN_DIM);
+    finiteDifferenceJacobian(model, 0, y, ctx, scratch, out);
+    expect(y).toEqual(before);
+  });
+
+  it("scales its step by the state component's own magnitude (not a single fixed h)", () => {
+    // A component near zero and one far from zero both get well-conditioned,
+    // finite derivative estimates from the same call.
+    const y = new Float64Array([0, 0, 1e-6, 5000]);
+    const out = new Float64Array(PLANAR_JACOBIAN_DIM * PLANAR_JACOBIAN_DIM);
+    finiteDifferenceJacobian(model, 0, y, ctx, scratch, out);
+    for (const v of out) expect(Number.isFinite(v)).toBe(true);
   });
 });

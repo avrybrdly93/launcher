@@ -453,8 +453,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "matches P1.22 analytic where available",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added finiteDifferenceJacobian in packages/engine/src/jacobian.ts: model-generic central-difference Jacobian with per-component scaled step h_j = sqrt(eps)*max(|y_j|,1), zero-alloc via createFiniteDifferenceScratch. jacobian.test.ts checks it matches gravityQuadraticDragJacobian (P1.22) to 1e-6 at the same 10 states, plus no-mutation and mixed-magnitude-state finiteness checks."
     },
     {
       "id": "P1.24",

@@ -1,4 +1,5 @@
 import type { EvalContext } from "./eval-context.js";
+import type { Model } from "./model.js";
 
 /** State/Jacobian dimension for the planar projectile (x, y, vx, vy). */
 export const PLANAR_JACOBIAN_DIM = 4;
@@ -66,4 +67,65 @@ export function gravityQuadraticDragJacobian(
   out[VX * PLANAR_JACOBIAN_DIM + VY] = daxDvy;
   out[VY * PLANAR_JACOBIAN_DIM + VX] = daxDvy;
   out[VY * PLANAR_JACOBIAN_DIM + VY] = dayDvy;
+}
+
+/** Relative step scale for the FD Jacobian: sqrt(machine epsilon), the standard central-difference-optimal choice. */
+const FD_REL_STEP = Math.sqrt(Number.EPSILON);
+/** Absolute floor on the step so components with y_j == 0 still get a finite, well-scaled perturbation. */
+const FD_TYPICAL_SCALE = 1;
+
+/** Preallocated buffers for `finiteDifferenceJacobian`, sized once per model dimension and reused across calls. */
+export interface FiniteDifferenceScratch {
+  readonly yPerturbed: Float64Array;
+  readonly fPlus: Float64Array;
+  readonly fMinus: Float64Array;
+}
+
+export function createFiniteDifferenceScratch(dim: number): FiniteDifferenceScratch {
+  return {
+    yPerturbed: new Float64Array(dim),
+    fPlus: new Float64Array(dim),
+    fMinus: new Float64Array(dim),
+  };
+}
+
+/**
+ * Generic central finite-difference Jacobian fallback (P1.23): works for any
+ * `Model`, used where no analytic `Model.jacobian` is available (e.g. once
+ * Magnus or a non-constant Cd is in play). Column j is estimated by
+ * perturbing y_j by a scaled step h_j = sqrt(eps)*max(|y_j|, 1) -- large
+ * enough to survive floating-point cancellation, small enough to keep
+ * truncation error low -- rather than a single fixed step across all
+ * components, whose scale would be wrong whenever state components differ
+ * by orders of magnitude (positions in meters vs. e.g. a slow spin-decay
+ * state). `out` is row-major dim x dim: out[i*dim+j] = df_i/dy_j. Zero-alloc
+ * given a `scratch` sized by `createFiniteDifferenceScratch(model.dim)`.
+ */
+export function finiteDifferenceJacobian(
+  model: Model,
+  t: number,
+  y: Float64Array,
+  ctx: EvalContext,
+  scratch: FiniteDifferenceScratch,
+  out: Float64Array,
+): void {
+  const dim = model.dim;
+  const { yPerturbed, fPlus, fMinus } = scratch;
+  yPerturbed.set(y);
+
+  for (let j = 0; j < dim; j++) {
+    const yj = y[j]!;
+    const h = FD_REL_STEP * Math.max(Math.abs(yj), FD_TYPICAL_SCALE);
+
+    yPerturbed[j] = yj + h;
+    model.rhs(t, yPerturbed, fPlus, ctx);
+    yPerturbed[j] = yj - h;
+    model.rhs(t, yPerturbed, fMinus, ctx);
+    yPerturbed[j] = yj;
+
+    const invTwoH = 1 / (2 * h);
+    for (let i = 0; i < dim; i++) {
+      out[i * dim + j] = (fPlus[i]! - fMinus[i]!) * invTwoH;
+    }
+  }
 }
