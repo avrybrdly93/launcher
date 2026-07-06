@@ -1,5 +1,11 @@
 import { EnvSample } from "./env-sample.js";
-import { EARTH_RADIUS_M, G_STD, ISA } from "./units.js";
+import { EARTH_RADIUS_M, G_STD, ISA, SUTHERLAND } from "./units.js";
+
+/** Sutherland's law, eq. (3.12): dynamic viscosity of air as a function of temperature. */
+export function sutherlandViscosity(T: number): number {
+  const { etaRef, Tref, S } = SUTHERLAND;
+  return etaRef * Math.pow(T / Tref, 1.5) * ((Tref + S) / (T + S));
+}
 
 /** Fills the thermodynamic fields of an EnvSample (rho, T, p, eta, c) at a point (§3.4). */
 export interface Atmosphere {
@@ -24,7 +30,7 @@ export class ConstantAtmosphere implements Atmosphere {
     out.rho = ISA.rho0;
     out.T = ISA.T0;
     out.p = ISA.p0;
-    out.eta = 1.789e-5;
+    out.eta = sutherlandViscosity(ISA.T0);
     out.c = Math.sqrt(ConstantAtmosphere.GAMMA * ISA.Rs * ISA.T0);
   }
 }
@@ -32,9 +38,9 @@ export class ConstantAtmosphere implements Atmosphere {
 /**
  * Isothermal exponential atmosphere (§3.4): rho(y) = rho0*e^(-y/H), scale
  * height H = Rs*T/g ~ 8.5 km (`ISA.scaleHeight`). Temperature is held at
- * `T0` by the isothermal assumption, so eta stays the same fixed value
- * `ConstantAtmosphere` uses (Sutherland's law, P1.28, is what lets eta
- * actually vary once a model introduces a temperature lapse).
+ * `T0` by the isothermal assumption, so eta via Sutherland's law (P1.28,
+ * eq. 3.12) is constant too — it only varies once a model introduces a
+ * temperature lapse (ISA troposphere, Phase 4).
  */
 export class ExponentialAtmosphere implements Atmosphere {
   private static readonly GAMMA = 1.4;
@@ -49,7 +55,7 @@ export class ExponentialAtmosphere implements Atmosphere {
     out.rho = this.rho0 * Math.exp(-y / this.scaleHeight);
     out.T = this.T0;
     out.p = out.rho * ISA.Rs * this.T0;
-    out.eta = 1.789e-5;
+    out.eta = sutherlandViscosity(this.T0);
     out.c = Math.sqrt(ExponentialAtmosphere.GAMMA * ISA.Rs * this.T0);
   }
 }

@@ -4,10 +4,11 @@ import {
   ConstantAtmosphere,
   Environment,
   ExponentialAtmosphere,
+  sutherlandViscosity,
   UniformGravity,
   ZeroWind,
 } from "./environment.js";
-import { EARTH_RADIUS_M, G_STD, ISA } from "./units.js";
+import { EARTH_RADIUS_M, G_STD, ISA, SUTHERLAND } from "./units.js";
 
 describe("ConstantAtmosphere", () => {
   it("returns ISA sea-level density everywhere", () => {
@@ -17,6 +18,32 @@ describe("ConstantAtmosphere", () => {
       atm.sample(0, y, out);
       expect(out.rho).toBe(ISA.rho0);
     }
+  });
+
+  it("eta matches Sutherland's law at ISA sea-level temperature (P1.28)", () => {
+    const atm = new ConstantAtmosphere();
+    const out = new EnvSample();
+    atm.sample(0, 0, out);
+    expect(out.eta).toBeCloseTo(1.789e-5, 10);
+  });
+});
+
+describe("sutherlandViscosity (P1.28, eq. 3.12)", () => {
+  it("matches the reference viscosity at the reference temperature to 1%", () => {
+    const eta = sutherlandViscosity(SUTHERLAND.Tref);
+    expect(Math.abs(eta - 1.789e-5) / 1.789e-5).toBeLessThan(0.01);
+  });
+
+  it("is exact at T = Tref (both correction factors become 1)", () => {
+    expect(sutherlandViscosity(SUTHERLAND.Tref)).toBe(SUTHERLAND.etaRef);
+  });
+
+  it("increases monotonically with temperature", () => {
+    const etaCold = sutherlandViscosity(250);
+    const etaWarm = sutherlandViscosity(288.15);
+    const etaHot = sutherlandViscosity(350);
+    expect(etaCold).toBeLessThan(etaWarm);
+    expect(etaWarm).toBeLessThan(etaHot);
   });
 });
 
@@ -46,13 +73,14 @@ describe("ExponentialAtmosphere (P1.27)", () => {
     }
   });
 
-  it("stays isothermal: T is constant with altitude", () => {
+  it("stays isothermal: T and eta (Sutherland's law) are constant with altitude", () => {
     const atm = new ExponentialAtmosphere();
     const out = new EnvSample();
     atm.sample(0, 0, out);
-    const t0 = out.T;
+    const [t0, eta0] = [out.T, out.eta];
     atm.sample(0, 12000, out);
     expect(out.T).toBe(t0);
+    expect(out.eta).toBe(eta0);
   });
 });
 
