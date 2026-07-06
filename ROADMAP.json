@@ -453,8 +453,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "matches P1.22 analytic where available",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added finiteDifferenceJacobian in packages/engine/src/finite-difference-jacobian.ts: model-agnostic central-difference Jacobian over any Model.rhs, with per-component scaled steps h_j = relativeStep*max(1,|y_j|), and a JacobianScratch buffer struct so repeated calls (Newton iterations, P2.38) don't allocate. Placed in engine (L0) rather than solverkit since it only depends on Model/EvalContext and solverkit is still an unstarted Phase-2 skeleton. Test: matches P1.22's analytic gravity+quadratic-drag Jacobian to <1e-7 at the same 10 states, runs finite on a Magnus-including model (no analytic Jacobian available), and matches a hand-differentiable mock model exactly."
     },
     {
       "id": "P1.24",
