@@ -486,8 +486,8 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "corrupt fixture rejected with useful error",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added packages/engine/src/asset-loader.ts: loadProjectileAsset/loadProjectileAssets validate raw candidates against ProjectileSpecSchema via parseWithSchema, tagging the failing array index on batch loads. VALIDATED_PROJECTILE_ASSETS re-validates PROJECTILE_ASSETS at import time so a corrupt built-in entry fails immediately (build-time check). Dropped ProjectileSpecSchema's liftModel .default() (it made the zod Input/Output types diverge, breaking parseWithSchema's generic inference) in favor of a mandatory field -- all assets already set it explicitly. asset-loader.test.ts covers the corrupt-fixture cases (negative radius, missing required field) asserting a SchemaValidationError with a useful, locatable message, plus batch-load index tagging."
     },
     {
       "id": "P1.27",
