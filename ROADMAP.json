@@ -486,8 +486,8 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "corrupt fixture rejected with useful error",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added projectile-asset-loader.ts: loadProjectileSpec (validate raw data via ProjectileSpecSchema, throwing SchemaValidationError with a field-referencing message), resolveProjectileParams (spec -> runtime ProjectileParams with live ConstantCd/TabulatedReynoldsCd/SaturatingLiftCoefficient instances), and loadProjectileParams composing both. spinDecayTau is intentionally dropped for now (no ProjectileParams field to hold it until the P4.07 spin-decay model dimension exists). Tests cover corrupt-fixture rejection (missing constantCd, negative mass) with useful messages, all 7 shipped assets round-tripping, and both drag-model branches resolving to the correct DragCoefficientModel."
     },
     {
       "id": "P1.27",
