@@ -508,8 +508,8 @@
       "estMinutes": 10,
       "difficulty": "E",
       "validation": "\u03b7(288.15K)=1.789e\u22125\u00b11%",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added sutherlandViscosity(T) to units.ts using the existing SUTHERLAND constants; wired it into both ConstantAtmosphere and ExponentialAtmosphere in place of the hardcoded 1.789e-5 (identical output at T=Tref, now correct at other T). index.test.ts checks eta(288.15K)=1.789e-5 to within 1% (this task's validation) and monotonicity with T."
     },
     {
       "id": "P1.29",
