@@ -475,8 +475,8 @@
       "estMinutes": 30,
       "difficulty": "E",
       "validation": "assets validate; each has provenance string",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added projectile-spec.ts (ProjectileSpec interface + zod ProjectileSpecSchema, refined so constantCd is required iff dragModel==='constant') and projectile-assets.ts with the 7 presets named in the task (smooth-sphere, golf-ball, soccer-ball, baseball, table-tennis-ball, cannonball, shot-put), each carrying a provenance citation (rulebook figures for the regulation sports balls, Achenbach 1972 for the Cd(Re) tabulated-reynolds ones). This is the declarative/serializable asset format, distinct from the existing runtime ProjectileParams; P1.26 will add the loader that resolves one into the other."
     },
     {
       "id": "P1.26",
