@@ -552,8 +552,8 @@
       "estMinutes": 25,
       "difficulty": "M",
       "validation": "circulation integral on ring \u2248 \u0393 to 1% (numeric quadrature test)",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added GaussianVortexWind to environment.ts: Lamb-Oseen-style tangential flow v_theta(r)=Gamma/(2*pi*r)*(1-e^(-r^2/r_c^2)), regularized at r=0 via the analytic small-r limit Gamma/(2*pi*r_c^2) (guarded below r^2<1e-8*r_c^2 to avoid 0/0 cancellation). environment.test.ts checks finiteness at the vortex center, that flow is purely tangential (w.r_hat=0) off-center, and a midpoint-rule circulation integral on a ring 5 core radii out matches Gamma to <1% (the validation criterion)."
     },
     {
       "id": "P1.33",

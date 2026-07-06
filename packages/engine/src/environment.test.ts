@@ -4,6 +4,7 @@ import {
   ConstantAtmosphere,
   Environment,
   ExponentialAtmosphere,
+  GaussianVortexWind,
   LogProfileWind,
   SinusoidalGustWind,
   UniformGravity,
@@ -165,6 +166,49 @@ describe("SinusoidalGustWind", () => {
     const out = new EnvSample();
     wind.sample(0, 0, 0, out);
     expect(out.wx).toBe(0); // sin(0) = 0
+  });
+});
+
+describe("GaussianVortexWind", () => {
+  it("is finite (and zero) at the vortex center", () => {
+    const wind = new GaussianVortexWind(10, 0.5);
+    const out = new EnvSample();
+    wind.sample(0, 0, 0, out);
+    expect(Number.isFinite(out.wx)).toBe(true);
+    expect(Number.isFinite(out.wy)).toBe(true);
+    expect(out.wx).toBeCloseTo(0, 15);
+    expect(out.wy).toBeCloseTo(0, 15);
+  });
+
+  it("flow is purely tangential (w . r_hat = 0) off-center", () => {
+    const wind = new GaussianVortexWind(10, 0.5, 1, 2);
+    const out = new EnvSample();
+    const dx = 0.8;
+    const dy = -1.3;
+    wind.sample(0, 1 + dx, 2 + dy, out);
+    expect(out.wx * dx + out.wy * dy).toBeCloseTo(0, 12);
+  });
+
+  it("circulation integral on a ring a few core radii out ≈ Gamma to 1% (numeric quadrature)", () => {
+    const circulation = 10; // m^2/s
+    const coreRadius = 0.5;
+    const wind = new GaussianVortexWind(circulation, coreRadius, 0, 0);
+    const out = new EnvSample();
+    const r = 5 * coreRadius;
+    const n = 2000;
+
+    let circ = 0;
+    for (let i = 0; i < n; i++) {
+      const theta0 = (2 * Math.PI * i) / n;
+      const theta1 = (2 * Math.PI * (i + 1)) / n;
+      const thetaMid = (theta0 + theta1) / 2;
+      wind.sample(0, r * Math.cos(thetaMid), r * Math.sin(thetaMid), out);
+      const dx = r * (Math.cos(theta1) - Math.cos(theta0));
+      const dy = r * (Math.sin(theta1) - Math.sin(theta0));
+      circ += out.wx * dx + out.wy * dy;
+    }
+
+    expect(Math.abs(circ - circulation) / circulation).toBeLessThan(0.01);
   });
 });
 

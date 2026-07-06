@@ -131,6 +131,41 @@ export class SinusoidalGustWind implements WindField {
   }
 }
 
+const VORTEX_CORE_EPS = 1e-8;
+
+/**
+ * Lamb-Oseen-style Gaussian vortex (§3.5 case 3): purely tangential flow
+ * around (centerX, centerY) with circulation `circulation` (Gamma) and
+ * Gaussian core radius `coreRadius` (r_c) regularizing the classical
+ * irrotational-vortex singularity at r=0. Tangential speed
+ * v_theta(r) = Gamma/(2*pi*r) * (1 - e^(-r^2/r_c^2)) -> 0 as r -> 0 and
+ * -> Gamma/(2*pi*r) (ideal vortex) as r >> r_c, so the circulation on a
+ * ring of radius r approaches Gamma once r is a few core radii out.
+ */
+export class GaussianVortexWind implements WindField {
+  constructor(
+    private readonly circulation: number, // Gamma, m^2/s
+    private readonly coreRadius: number, // r_c, m
+    private readonly centerX = 0,
+    private readonly centerY = 0,
+  ) {}
+
+  sample(_t: number, x: number, y: number, out: EnvSample): void {
+    const dx = x - this.centerX;
+    const dy = y - this.centerY;
+    const rc2 = this.coreRadius * this.coreRadius;
+    const r2 = dx * dx + dy * dy;
+    // k(r) = v_theta(r)/r; the r->0 limit is Gamma/(2*pi*r_c^2), used below
+    // that threshold to avoid the 0/0 cancellation in the general formula.
+    const k =
+      r2 < VORTEX_CORE_EPS * rc2
+        ? this.circulation / (2 * Math.PI * rc2)
+        : (this.circulation / (2 * Math.PI * r2)) * (1 - Math.exp(-r2 / rc2));
+    out.wx = -k * dy;
+    out.wy = k * dx;
+  }
+}
+
 /**
  * Composes an Atmosphere + GravityModel + WindField into the single
  * `Environment` the engine exports (§2.2 module table). `sample` is called
