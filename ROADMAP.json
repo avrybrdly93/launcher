@@ -453,8 +453,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "matches P1.22 analytic where available",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added finiteDifferenceJacobian (packages/engine/src/jacobian.ts): generic central-difference dim x dim Jacobian for any Model, per-component step h_j=sqrt(eps_mach)*max(|y_j|,1), with an optional reusable scratch (createFiniteDifferenceScratch) to stay allocation-free across repeated calls (e.g. Newton iterations in the future P2.38 backward Euler). jacobian.test.ts verifies it matches the P1.22 analytic gravityQuadraticDragJacobian to <1e-6 at the same 10 states, and that passing scratch buffers doesn't change results."
     },
     {
       "id": "P1.24",

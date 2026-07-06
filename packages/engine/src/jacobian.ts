@@ -1,4 +1,5 @@
 import type { EvalContext } from "./eval-context.js";
+import type { Model } from "./model.js";
 
 const DIM = 4;
 const X = 0;
@@ -43,4 +44,59 @@ export function gravityQuadraticDragJacobian(
   out[VX * DIM + VY] = (-kd * (ux * uy)) / u;
   out[VY * DIM + VX] = (-kd * (ux * uy)) / u;
   out[VY * DIM + VY] = -kd * ((uy * uy) / u + u);
+}
+
+/** Preallocated buffers for `finiteDifferenceJacobian`, reused across calls to stay allocation-free. */
+export interface FiniteDifferenceScratch {
+  readonly outPlus: Float64Array;
+  readonly outMinus: Float64Array;
+  readonly yPerturbed: Float64Array;
+}
+
+export function createFiniteDifferenceScratch(dim: number): FiniteDifferenceScratch {
+  return {
+    outPlus: new Float64Array(dim),
+    outMinus: new Float64Array(dim),
+    yPerturbed: new Float64Array(dim),
+  };
+}
+
+const SQRT_EPS = Math.sqrt(Number.EPSILON);
+
+/**
+ * Generic central-difference J = df/dy (row-major dim x dim) fallback for
+ * any `Model`, used where an analytic `jacobian` (like P1.22's) isn't
+ * available -- e.g. backward Euler's Newton solver (P2.38) against models
+ * with Magnus/buoyancy/non-uniform environments. Per-component step
+ * h_j = sqrt(eps_mach) * max(|y_j|, 1) balances truncation error (~h^2)
+ * against rounding error (~eps/h). Pass `scratch` to avoid allocating on
+ * repeated calls (e.g. once per Newton iteration).
+ */
+export function finiteDifferenceJacobian(
+  model: Model,
+  t: number,
+  y: Float64Array,
+  out: Float64Array,
+  ctx: EvalContext,
+  scratch: FiniteDifferenceScratch = createFiniteDifferenceScratch(model.dim),
+): void {
+  const dim = model.dim;
+  scratch.yPerturbed.set(y);
+
+  for (let col = 0; col < dim; col++) {
+    const h = SQRT_EPS * Math.max(Math.abs(y[col]!), 1);
+
+    scratch.yPerturbed[col] = y[col]! + h;
+    model.rhs(t, scratch.yPerturbed, scratch.outPlus, ctx);
+
+    scratch.yPerturbed[col] = y[col]! - h;
+    model.rhs(t, scratch.yPerturbed, scratch.outMinus, ctx);
+
+    scratch.yPerturbed[col] = y[col]!;
+
+    const inv2h = 1 / (2 * h);
+    for (let row = 0; row < dim; row++) {
+      out[row * dim + col] = (scratch.outPlus[row]! - scratch.outMinus[row]!) * inv2h;
+    }
+  }
 }
