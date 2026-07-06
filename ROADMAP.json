@@ -475,8 +475,8 @@
       "estMinutes": 30,
       "difficulty": "E",
       "validation": "assets validate; each has provenance string",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added packages/engine/src/projectile-spec.ts: ProjectileSpecSchema (zod, discriminated-union drag/lift descriptors) plus PROJECTILE_ASSETS with all 7 required assets (smooth sphere, golf, soccer, baseball, table-tennis, cannonball, shot put), each carrying a provenance string citing the source of its numeric data (regulation specs where applicable, or an explicit 'idealized reference' note). resolveProjectileSpec() bridges a spec's data-only descriptors to live ProjectileParams (ConstantCd/TabulatedReynoldsCd/SaturatingLiftCoefficient instances) for use by the rest of the engine. Tests validate every asset against the schema, check provenance/uniqueness/positivity, verify resolveProjectileSpec produces usable runtime params, and check schema rejection of a corrupt fixture (asset-loader wiring itself is P1.26, next)."
     },
     {
       "id": "P1.26",
