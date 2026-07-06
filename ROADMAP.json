@@ -442,8 +442,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "matches central finite differences to 1e-7 at 10 states",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added Model.jacobian(t,y,out,ctx) (ctx param added to the interface; a physics model's Jacobian needs runtime params/environment, not just (t,y)). createPlanarProjectileModel attaches an analytic jacobian only when the registered force set is exactly {gravity, drag-quadratic} (sorted ids), assuming locally-uniform rho/g/wind (exactly true for every environment implemented so far) and state-independent Cd (exact for ConstantCd). Test in planar-projectile-model.test.ts checks against central finite differences (h scaled per-component) at 10 states to 1e-7, plus a check that jacobian is undefined when Magnus is also registered."
     },
     {
       "id": "P1.23",

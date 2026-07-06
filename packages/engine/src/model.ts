@@ -24,7 +24,13 @@ export interface Model {
   rhs(t: number, y: Float64Array, out: Float64Array, ctx: EvalContext): void;
   readonly invariants?: readonly InvariantSpec[];
   readonly events?: readonly EventSpec[];
-  jacobian?(t: number, y: Float64Array, out: Float64Array): void;
+  /**
+   * Optional analytic J = ∂f/∂y, row-major flattened: out[i*dim+j] = ∂f_i/∂y_j.
+   * Takes the same EvalContext as `rhs` since J generally depends on the
+   * runtime params/environment, not just (t, y). Absent when no analytic
+   * form is registered for the model's current force set (P1.23 FD fallback).
+   */
+  jacobian?(t: number, y: Float64Array, out: Float64Array, ctx: EvalContext): void;
   /** Index sets (q, p) for symplectic/Verlet steppers requiring second-order mechanical structure. */
   readonly partitions?: { readonly q: readonly number[]; readonly p: readonly number[] };
 }

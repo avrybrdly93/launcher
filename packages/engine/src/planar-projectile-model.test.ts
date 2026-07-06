@@ -93,4 +93,66 @@ describe("createPlanarProjectileModel", () => {
       expect(out[3]).toBeCloseTo(expectedVy, 12);
     }
   });
+
+  it("exposes an analytic jacobian for gravity+quadratic-drag matching central finite differences to 1e-7", () => {
+    const model = createPlanarProjectileModel([new GravityForce(), new QuadraticDragForce()]);
+    const env = new Environment(new ConstantAtmosphere(), new UniformGravity(), new ZeroWind());
+    const params = createSphericalProjectileParams({
+      mass: 0.145,
+      radius: 0.0366,
+      dragCoefficient: new ConstantCd(0.47),
+    });
+    const ctx = createEvalContext(env, params);
+    expect(model.jacobian).toBeDefined();
+
+    const states: [number, number, number, number][] = [
+      [0, 0, 12.3, 4.1],
+      [10, 5, -8.2, 15.6],
+      [-3, 20, 25.0, -30.1],
+      [0, 0.5, 0.5, -0.3],
+      [100, 10, -1.5, -1.5],
+      [0, 0, 40, 0],
+      [0, 0, 0, 40],
+      [5, 5, 5, 5],
+      [-10, -10, -20, 20],
+      [1, 1, 33.3, -12.7],
+    ];
+
+    const dim = 4;
+    const analytic = new Float64Array(dim * dim);
+    const fPlus = new Float64Array(dim);
+    const fMinus = new Float64Array(dim);
+    const fd = new Float64Array(dim * dim);
+
+    for (const state of states) {
+      const y = Float64Array.from(state);
+      model.jacobian!(0, y, analytic, ctx);
+
+      for (let j = 0; j < dim; j++) {
+        const h = 1e-6 * Math.max(1, Math.abs(y[j]!));
+        const yPlus = Float64Array.from(y);
+        const yMinus = Float64Array.from(y);
+        yPlus[j] = yPlus[j]! + h;
+        yMinus[j] = yMinus[j]! - h;
+        model.rhs(0, yPlus, fPlus, ctx);
+        model.rhs(0, yMinus, fMinus, ctx);
+        for (let i = 0; i < dim; i++) {
+          fd[i * dim + j] = (fPlus[i]! - fMinus[i]!) / (2 * h);
+        }
+      }
+
+      for (let k = 0; k < dim * dim; k++) {
+        expect(analytic[k]).toBeCloseTo(fd[k]!, 7);
+      }
+    }
+  });
+
+  it("omits jacobian when the force set isn't exactly gravity+quadratic-drag", () => {
+    const model = createPlanarProjectileModel([
+      new GravityForce(),
+      new QuadraticDragForce(),
+      new MagnusForce(),
+    ]);
+    expect(model.jacobian).toBeUndefined();
+  });
 });
