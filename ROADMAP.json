@@ -453,8 +453,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "matches P1.22 analytic where available",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added fd-jacobian.ts: fdJacobian(model, t, y, out, ctx, scratch) computes a central-difference J for any {dim, rhs} model, step scaled per component (h_j = cbrt(eps)*max(1,|y_j|)), using a caller-provided FdJacobianScratch so repeated calls (e.g. Newton iterations, P2.38) allocate nothing. Row-major output matches Model.jacobian's convention. Test compares against the P1.22 analytic gravity+quadratic-drag jacobian at the same 10 states (agrees to 1e-6) plus a closed-form decay-model sanity check and a scratch-reuse identity check."
     },
     {
       "id": "P1.24",
