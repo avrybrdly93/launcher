@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { parseWithSchema } from "./schema.js";
 
 /**
  * Serializable description of a drag-coefficient model (§3.3): either a
@@ -44,8 +45,12 @@ export type ProjectileSpec = z.infer<typeof ProjectileSpecSchema>;
  * ball, baseball, table-tennis ball, cannonball, shot put. Figures are
  * standard textbook/rulebook values (see each `provenance`), not
  * high-precision measurements of a specific manufactured ball.
+ *
+ * Declared as `unknown` data and parsed through `ProjectileSpecSchema` below
+ * (P1.26): a typo here (e.g. a negative mass) throws as soon as this module
+ * is loaded/built, rather than surfacing later as a subtle physics bug.
  */
-export const PROJECTILE_ASSETS: readonly ProjectileSpec[] = [
+const RAW_PROJECTILE_ASSETS: readonly unknown[] = [
   {
     id: "smooth-sphere",
     displayName: "Smooth sphere (reference)",
@@ -110,3 +115,8 @@ export const PROJECTILE_ASSETS: readonly ProjectileSpec[] = [
       "World Athletics (IAAF) rules: men's shot mass 7.26 kg, diameter 110-130 mm (using ~120 mm). Modeled as a smooth sphere; Cd ~= 0.47 subcritical -- shot-put speeds keep Re well below the drag crisis.",
   },
 ];
+
+/** Build-time-validated projectile asset library: every entry above, parsed through `ProjectileSpecSchema`. */
+export const PROJECTILE_ASSETS: readonly ProjectileSpec[] = RAW_PROJECTILE_ASSETS.map((raw) =>
+  parseWithSchema(ProjectileSpecSchema, raw),
+);

@@ -486,8 +486,8 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "corrupt fixture rejected with useful error",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "PROJECTILE_ASSETS in projectile-spec.ts is now parsed through ProjectileSpecSchema at module load (build time), so a malformed built-in asset throws immediately rather than surfacing later. Added asset-loader.ts: loadProjectileAsset(data) validates arbitrary input and builds a live ProjectileParams (ConstantCd/TabulatedReynoldsCd/SaturatingLiftCoefficient from the spec's serializable dragModel/liftModel); projectileParamsFromSpec(spec) does the same for an already-validated spec. asset-loader.test.ts covers: every shipped asset loads into working ProjectileParams; tabulated-re vs constant dragModel wiring is correct; and corrupt fixtures (empty provenance, negative radius) are rejected via SchemaValidationError whose message names the offending field (this task's validation criterion)."
     },
     {
       "id": "P1.27",
