@@ -497,8 +497,8 @@
       "estMinutes": 10,
       "difficulty": "E",
       "validation": "\u03c1(H)=\u03c1\u2080/e to 1e-15",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added ExponentialAtmosphere in environment.ts: rho(y)=rho0*e^(-y/H) using the existing ISA.scaleHeight (~8.5km) constant, isothermal at T0 (eta held at ConstantAtmosphere's fixed value pending P1.28's Sutherland law). Tests: rho(0)=rho0 exactly, rho(H)=rho0/e to 1e-15, monotonic decrease with altitude, and T constant (isothermal)."
     },
     {
       "id": "P1.28",

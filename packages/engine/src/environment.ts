@@ -29,6 +29,31 @@ export class ConstantAtmosphere implements Atmosphere {
   }
 }
 
+/**
+ * Isothermal exponential atmosphere (§3.4): rho(y) = rho0*e^(-y/H), scale
+ * height H = Rs*T/g ~ 8.5 km (`ISA.scaleHeight`). Temperature is held at
+ * `T0` by the isothermal assumption, so eta stays the same fixed value
+ * `ConstantAtmosphere` uses (Sutherland's law, P1.28, is what lets eta
+ * actually vary once a model introduces a temperature lapse).
+ */
+export class ExponentialAtmosphere implements Atmosphere {
+  private static readonly GAMMA = 1.4;
+
+  constructor(
+    private readonly rho0: number = ISA.rho0,
+    private readonly scaleHeight: number = ISA.scaleHeight,
+    private readonly T0: number = ISA.T0,
+  ) {}
+
+  sample(_x: number, y: number, out: EnvSample): void {
+    out.rho = this.rho0 * Math.exp(-y / this.scaleHeight);
+    out.T = this.T0;
+    out.p = out.rho * ISA.Rs * this.T0;
+    out.eta = 1.789e-5;
+    out.c = Math.sqrt(ExponentialAtmosphere.GAMMA * ISA.Rs * this.T0);
+  }
+}
+
 /** Uniform gravity, optionally with the altitude correction (3.3) behind a flag. */
 export class UniformGravity implements GravityModel {
   constructor(
