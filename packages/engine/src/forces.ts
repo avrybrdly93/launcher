@@ -11,6 +11,15 @@ export interface ForceModel {
   accumulate(t: number, y: Float64Array, ctx: EvalContext, outForce: MutVec2): void;
   /** Instantaneous power this force delivers, F.v using the true velocity (eq. 3.19). */
   energyPower?(t: number, y: Float64Array, ctx: EvalContext): number;
+  /**
+   * Analytic ∂F/∂y contribution, *added* into `outJ` — a preallocated 2x4
+   * row-major block (row 0 = ∂Fx/∂(x,y,vx,vy), row 1 = ∂Fy/∂(x,y,vx,vy),
+   * matching the planar state layout X=0,Y=1,VX=2,VY=3). Optional: forces
+   * without a closed-form derivative (e.g. Magnus) simply omit this, and
+   * `allForcesHaveJacobian` tells callers to fall back to finite differences
+   * (P1.23) rather than silently compose an incomplete Jacobian.
+   */
+  jacobian?(t: number, y: Float64Array, ctx: EvalContext, outJ: Float64Array): void;
 }
 
 const VX = 2;
@@ -27,6 +36,9 @@ export class GravityForce implements ForceModel {
   energyPower(_t: number, y: Float64Array, ctx: EvalContext): number {
     return -ctx.params.mass * ctx.env.g * y[VY]!;
   }
+
+  // F_g is constant in y (uniform gravity) -> zero Jacobian contribution.
+  jacobian(_t: number, _y: Float64Array, _ctx: EvalContext, _outJ: Float64Array): void {}
 }
 
 /** Stokes drag F = -b*v_rel, b = 6*pi*eta*R, valid for Re << 1 (eq. 3.5). */
@@ -65,8 +77,35 @@ export class QuadraticDragForce implements ForceModel {
     const k = 0.5 * ctx.env.rho * cd * ctx.params.area * ctx.speedRel;
     return -k * (ctx.vRel[0] * y[VX]! + ctx.vRel[1] * y[VY]!);
   }
+
+  /**
+   * Analytic Jacobian of F = -k*u*u_rel (k treated as locally constant in
+   * u, exact for `ConstantCd`) w.r.t. (vx, vy):
+   *   dFx/dvx = -k*(u^2+ux^2)/u,  dFx/dvy = dFy/dvx = -k*ux*uy/u,
+   *   dFy/dvy = -k*(u^2+uy^2)/u
+   * Position columns are zero: rho and the wind fields currently wired
+   * (ZeroWind/UniformSteadyWind) don't vary with position. As u -> 0 each
+   * term -> 0 (ux, uy = O(u)), so below the epsilon guard the contribution
+   * is left at zero rather than evaluating the removable 0/0 singularity.
+   */
+  jacobian(_t: number, _y: Float64Array, ctx: EvalContext, outJ: Float64Array): void {
+    const u = ctx.speedRel;
+    if (u < QUADRATIC_DRAG_JACOBIAN_SPEED_EPS) return;
+
+    const cd = ctx.params.dragCoefficient.cd(ctx.re, ctx.mach);
+    const kOverU = (0.5 * ctx.env.rho * cd * ctx.params.area) / u;
+    const ux = ctx.vRel[0];
+    const uy = ctx.vRel[1];
+    const u2 = u * u;
+
+    outJ[2] = outJ[2]! - kOverU * (u2 + ux * ux); // dFx/dvx
+    outJ[3] = outJ[3]! - kOverU * ux * uy; // dFx/dvy
+    outJ[6] = outJ[6]! - kOverU * ux * uy; // dFy/dvx
+    outJ[7] = outJ[7]! - kOverU * (u2 + uy * uy); // dFy/dvy
+  }
 }
 
+const QUADRATIC_DRAG_JACOBIAN_SPEED_EPS = 1e-9;
 const MAGNUS_SPEED_EPS = 1e-9;
 
 /**
@@ -142,5 +181,24 @@ export function composeForces(
   outForce[1] = 0;
   for (const force of forces) {
     force.accumulate(t, y, ctx, outForce);
+  }
+}
+
+/** True iff every force in the set has a closed-form Jacobian (P1.22/P1.23). */
+export function allForcesHaveJacobian(forces: readonly ForceModel[]): boolean {
+  return forces.every((force) => typeof force.jacobian === "function");
+}
+
+/** Zeroes `outJ` then accumulates every force's analytic ∂F/∂y, in registry order. */
+export function composeJacobian(
+  forces: readonly ForceModel[],
+  t: number,
+  y: Float64Array,
+  ctx: EvalContext,
+  outJ: Float64Array,
+): void {
+  outJ.fill(0);
+  for (const force of forces) {
+    force.jacobian?.(t, y, ctx, outJ);
   }
 }

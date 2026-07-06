@@ -442,8 +442,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "matches central finite differences to 1e-7 at 10 states",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added ForceModel.jacobian (per-force analytic dF/dy, composeJacobian/allForcesHaveJacobian in forces.ts) and wired Model.jacobian into createPlanarProjectileModel, exposed only when every wired force supports it (gravity: zero contribution; quadratic drag: closed-form d(F)/d(vx,vy) with a speed-epsilon guard at the removable u=0 singularity). Magnus has no jacobian yet, so model.jacobian stays undefined when it's included, per the task's 'no Magnus' scope; that combo falls back to P1.23's FD Jacobian. Extended Model.jacobian's signature to take ctx (needed to resample env/Re/Mach at the query state), since nothing depended on the old signature yet. Test: planar-projectile-model.test.ts new describe block checks jacobian is undefined with Magnus, defined without it, and matches central finite differences to <1e-7 at 10 random states."
     },
     {
       "id": "P1.23",
