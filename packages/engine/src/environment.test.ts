@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { EnvSample } from "./env-sample.js";
-import { ConstantAtmosphere, Environment, UniformGravity, ZeroWind } from "./environment.js";
+import {
+  ConstantAtmosphere,
+  Environment,
+  ExponentialAtmosphere,
+  UniformGravity,
+  ZeroWind,
+} from "./environment.js";
 import { EARTH_RADIUS_M, G_STD, ISA } from "./units.js";
 
 describe("ConstantAtmosphere", () => {
@@ -11,6 +17,40 @@ describe("ConstantAtmosphere", () => {
       atm.sample(0, y, out);
       expect(out.rho).toBe(ISA.rho0);
     }
+  });
+});
+
+describe("ExponentialAtmosphere", () => {
+  it("has rho(0) = rho0", () => {
+    const atm = new ExponentialAtmosphere();
+    const out = new EnvSample();
+    atm.sample(0, 0, out);
+    expect(out.rho).toBe(ISA.rho0);
+  });
+
+  it("has rho(H) = rho0/e to 1e-15 (P1.27 validation)", () => {
+    const atm = new ExponentialAtmosphere();
+    const out = new EnvSample();
+    atm.sample(0, ISA.scaleHeight, out);
+    expect(out.rho).toBeCloseTo(ISA.rho0 / Math.E, 15);
+  });
+
+  it("density decreases monotonically with altitude", () => {
+    const atm = new ExponentialAtmosphere();
+    const out = new EnvSample();
+    let previous = Infinity;
+    for (const y of [0, 1000, 5000, 8500, 20000]) {
+      atm.sample(0, y, out);
+      expect(out.rho).toBeLessThan(previous);
+      previous = out.rho;
+    }
+  });
+
+  it("keeps pressure and density thermodynamically consistent (isothermal ideal gas)", () => {
+    const atm = new ExponentialAtmosphere();
+    const out = new EnvSample();
+    atm.sample(0, 3000, out);
+    expect(out.p).toBeCloseTo(out.rho * ISA.Rs * ISA.T0, 8);
   });
 });
 

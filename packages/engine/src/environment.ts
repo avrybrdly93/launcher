@@ -29,6 +29,24 @@ export class ConstantAtmosphere implements Atmosphere {
   }
 }
 
+/** Isothermal exponential atmosphere, rho(y) = rho0*e^(-y/H) (§3.4, eq. approximated between 3.10/3.11). */
+export class ExponentialAtmosphere implements Atmosphere {
+  private static readonly GAMMA = 1.4;
+
+  constructor(
+    private readonly rho0: number = ISA.rho0,
+    private readonly scaleHeight: number = ISA.scaleHeight,
+  ) {}
+
+  sample(_x: number, y: number, out: EnvSample): void {
+    out.rho = this.rho0 * Math.exp(-y / this.scaleHeight);
+    out.T = ISA.T0; // isothermal approximation: T constant, so p and rho decay together
+    out.p = out.rho * ISA.Rs * ISA.T0;
+    out.eta = 1.789e-5;
+    out.c = Math.sqrt(ExponentialAtmosphere.GAMMA * ISA.Rs * ISA.T0);
+  }
+}
+
 /** Uniform gravity, optionally with the altitude correction (3.3) behind a flag. */
 export class UniformGravity implements GravityModel {
   constructor(
@@ -51,6 +69,19 @@ export class ZeroWind implements WindModel {
   sample(_t: number, _x: number, _y: number, out: EnvSample): void {
     out.wx = 0;
     out.wy = 0;
+  }
+}
+
+/** Uniform steady wind: w = (wx, wy) everywhere, constant in space and time (§3.5 case 1). */
+export class UniformWind implements WindModel {
+  constructor(
+    private readonly wx: number = 0,
+    private readonly wy: number = 0,
+  ) {}
+
+  sample(_t: number, _x: number, _y: number, out: EnvSample): void {
+    out.wx = this.wx;
+    out.wy = this.wy;
   }
 }
 
