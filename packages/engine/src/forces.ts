@@ -144,3 +144,22 @@ export function composeForces(
     force.accumulate(t, y, ctx, outForce);
   }
 }
+
+/**
+ * Sums `energyPower` (F_i . v, the true-velocity work rate) over every force
+ * in `forces` that defines it (P1.24, eq. 3.19's per-force power wiring).
+ * Registry order does not affect the result to within floating-point
+ * summation order, mirroring `composeForces`.
+ */
+export function composeEnergyPower(
+  forces: readonly ForceModel[],
+  t: number,
+  y: Float64Array,
+  ctx: EvalContext,
+): number {
+  let power = 0;
+  for (const force of forces) {
+    if (force.energyPower) power += force.energyPower(t, y, ctx);
+  }
+  return power;
+}

@@ -464,8 +464,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "drag-off: dE/dt from powers \u2261 0 to 1e-13",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added mechanicalEnergy (energy.ts, E = 0.5m|v|^2 + mgy) and composeEnergyPower (forces.ts, sums energyPower over a force list). createPlanarProjectileModel now declares invariants 'energy' (E(y)) and 'energy-power' (aero-only, i.e. all non-gravity forces' energyPower summed -- equals dE/dt per eq 3.19 since gravity's work is already folded into E's potential term). energy.test.ts checks: drag-off energy is conserved to 1e-13 relative along the analytic parabola and the energy-power invariant is 0 to 1e-13 (this task's validation criterion); drag-on-in-still-air dE/dt <= 0 (monotone dissipation, \u00a73.8); and energy-power matches an independently-computed F_aero.v cross-check."
     },
     {
       "id": "P1.25",
