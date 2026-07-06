@@ -116,6 +116,21 @@ export class LogProfileWind implements WindField {
   }
 }
 
+/** Sinusoidal gust: w_x(t) = mean + amplitude*sin(omega*t + phase) (§3.5 case 3). */
+export class SinusoidalGustWind implements WindField {
+  constructor(
+    private readonly mean: number,
+    private readonly amplitude: number,
+    private readonly omega: number,
+    private readonly phase = 0,
+  ) {}
+
+  sample(t: number, _x: number, _y: number, out: EnvSample): void {
+    out.wx = this.mean + this.amplitude * Math.sin(this.omega * t + this.phase);
+    out.wy = 0;
+  }
+}
+
 /**
  * Composes an Atmosphere + GravityModel + WindField into the single
  * `Environment` the engine exports (§2.2 module table). `sample` is called
