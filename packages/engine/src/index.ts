@@ -4,6 +4,7 @@ export * from "./random.js";
 export * from "./schema.js";
 export * from "./env-sample.js";
 export * from "./environment.js";
+export * from "./gridded-wind-field.js";
 export * from "./pchip.js";
 export * from "./drag-coefficient.js";
 export * from "./lift-coefficient.js";

@@ -563,8 +563,8 @@
       "estMinutes": 30,
       "difficulty": "M",
       "validation": "reproduces linear field exactly; clamp documented+tested",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "GriddedWindField (gridded-wind-field.ts): rectilinear grid + bilinear interpolation via locateBracket/bilinear helpers. Out-of-domain policy: clamp to nearest edge value (documented in locateBracket's docstring), not extrapolation. Verified bilinear reproduces an affine field exactly (to 1e-12) at grid nodes and off-grid interior points, and that out-of-domain queries on every side plus a corner match the corresponding clamped edge/corner value."
     },
     {
       "id": "P1.34",
