@@ -453,8 +453,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "matches P1.22 analytic where available",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added createFdJacobian(model) in fd-jacobian.ts: a model-agnostic central-difference Jacobian with per-column step scaled by cbrt(machine-epsilon)*max(|y_j|,1) (the error-minimizing scale for central, as opposed to forward, differences). Preallocates its scratch buffers in closure so repeated calls (e.g. Newton iteration, P2.38) don't allocate. Tests: matches the P1.22 analytic Jacobian to 1e-6 at the same 10 states where both exist (gravity+quadratic-drag), and separately runs successfully as the true fallback on a Magnus-equipped model where model.jacobian is undefined."
     },
     {
       "id": "P1.24",
