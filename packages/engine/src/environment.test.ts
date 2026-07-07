@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { EnvSample } from "./env-sample.js";
-import { ConstantAtmosphere, Environment, UniformGravity, ZeroWind } from "./environment.js";
+import {
+  ConstantAtmosphere,
+  Environment,
+  ExponentialAtmosphere,
+  UniformGravity,
+  ZeroWind,
+} from "./environment.js";
 import { EARTH_RADIUS_M, G_STD, ISA } from "./units.js";
 
 describe("ConstantAtmosphere", () => {
@@ -11,6 +17,42 @@ describe("ConstantAtmosphere", () => {
       atm.sample(0, y, out);
       expect(out.rho).toBe(ISA.rho0);
     }
+  });
+});
+
+describe("ExponentialAtmosphere", () => {
+  it("rho(H) = rho0/e to 1e-15", () => {
+    const atm = new ExponentialAtmosphere();
+    const out = new EnvSample();
+    atm.sample(0, ISA.scaleHeight, out);
+    expect(out.rho).toBeCloseTo(ISA.rho0 / Math.E, 15);
+  });
+
+  it("rho(0) = rho0 exactly", () => {
+    const atm = new ExponentialAtmosphere();
+    const out = new EnvSample();
+    atm.sample(0, 0, out);
+    expect(out.rho).toBe(ISA.rho0);
+  });
+
+  it("is monotonically decreasing with altitude and rises below sea level", () => {
+    const atm = new ExponentialAtmosphere();
+    const outLow = new EnvSample();
+    const outHigh = new EnvSample();
+    atm.sample(0, -1000, outLow);
+    atm.sample(0, 10000, outHigh);
+    expect(outLow.rho).toBeGreaterThan(ISA.rho0);
+    expect(outHigh.rho).toBeLessThan(ISA.rho0);
+  });
+
+  it("keeps temperature and speed of sound constant (isothermal assumption)", () => {
+    const atm = new ExponentialAtmosphere();
+    const outAt0 = new EnvSample();
+    const outAt5000 = new EnvSample();
+    atm.sample(0, 0, outAt0);
+    atm.sample(0, 5000, outAt5000);
+    expect(outAt5000.T).toBe(outAt0.T);
+    expect(outAt5000.c).toBe(outAt0.c);
   });
 });
 

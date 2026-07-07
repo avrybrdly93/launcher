@@ -18,6 +18,15 @@ export const SUTHERLAND = {
   S: 110.4, // K
 } as const;
 
+/** Sutherland's law: dynamic viscosity of air as a function of temperature (eq. 3.12). */
+export function sutherlandViscosity(T: number): number {
+  return (
+    SUTHERLAND.etaRef *
+    (T / SUTHERLAND.Tref) ** 1.5 *
+    ((SUTHERLAND.Tref + SUTHERLAND.S) / (T + SUTHERLAND.S))
+  );
+}
+
 export const EARTH_RADIUS_M = 6.371e6;
 
 export function degToRad(deg: number): number {

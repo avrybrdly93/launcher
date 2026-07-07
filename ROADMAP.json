@@ -497,8 +497,8 @@
       "estMinutes": 10,
       "difficulty": "E",
       "validation": "\u03c1(H)=\u03c1\u2080/e to 1e-15",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added ExponentialAtmosphere in environment.ts: rho(y)=rho0*e^(-y/H), p(y)=p0*e^(-y/H) (consistent isothermal-ideal-gas scaling), H defaults to ISA.scaleHeight (8500 m); T and c stay at their sea-level values since the isothermal assumption means only rho/p vary with altitude. Validated rho(H)=rho0/e to 1e-15, rho(0)=rho0 exactly, monotonic decrease with altitude, and T/c held constant across altitude."
     },
     {
       "id": "P1.28",
@@ -508,8 +508,8 @@
       "estMinutes": 10,
       "difficulty": "E",
       "validation": "\u03b7(288.15K)=1.789e\u22125\u00b11%",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added sutherlandViscosity(T) in units.ts implementing eq. 3.12 exactly (eta = etaRef*(T/Tref)^1.5*(Tref+S)/(T+S)). Standalone utility, not yet wired into an Atmosphere: the only two atmosphere models in scope (ConstantAtmosphere, P1.27's ExponentialAtmosphere) are both isothermal, so eta is legitimately constant for them; wiring belongs to the ISA-troposphere model (Phase 4, varying T). Validated eta(288.15K)=1.789e-5 within 1% (exact at the reference point by construction), monotonic increase with T, and an independent closed-form cross-check to 1e-15."
     },
     {
       "id": "P1.29",
