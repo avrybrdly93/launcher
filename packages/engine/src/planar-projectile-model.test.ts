@@ -94,3 +94,89 @@ describe("createPlanarProjectileModel", () => {
     }
   });
 });
+
+describe("createPlanarProjectileModel analytic jacobian (P1.22)", () => {
+  const mass = 0.145;
+  const radius = 0.0366;
+
+  function makeGravityDragModel() {
+    return createPlanarProjectileModel([new GravityForce(), new QuadraticDragForce()]);
+  }
+
+  function makeCtx() {
+    const env = new Environment(new ConstantAtmosphere(), new UniformGravity(), new ZeroWind());
+    const params = createSphericalProjectileParams({
+      mass,
+      radius,
+      dragCoefficient: new ConstantCd(0.47),
+    });
+    return createEvalContext(env, params);
+  }
+
+  /** Central finite-difference Jacobian, column j = d(rhs)/d(y_j), h scaled for O(1e-10) accuracy. */
+  function fdJacobian(
+    model: ReturnType<typeof makeGravityDragModel>,
+    y: Float64Array,
+    ctx: ReturnType<typeof makeCtx>,
+  ) {
+    const h = 1e-6;
+    const out = new Float64Array(16);
+    const plus = new Float64Array(4);
+    const minus = new Float64Array(4);
+    for (let j = 0; j < 4; j++) {
+      const yPlus = Float64Array.from(y);
+      const yMinus = Float64Array.from(y);
+      yPlus[j] = yPlus[j]! + h;
+      yMinus[j] = yMinus[j]! - h;
+      model.rhs(0, yPlus, plus, ctx);
+      model.rhs(0, yMinus, minus, ctx);
+      for (let i = 0; i < 4; i++) {
+        out[i * 4 + j] = (plus[i]! - minus[i]!) / (2 * h);
+      }
+    }
+    return out;
+  }
+
+  it("is defined when forces are gravity + quadratic drag only (no Magnus)", () => {
+    const model = makeGravityDragModel();
+    expect(typeof model.jacobian).toBe("function");
+  });
+
+  it("is undefined once Magnus is added to the composition", () => {
+    const model = createPlanarProjectileModel([
+      new GravityForce(),
+      new QuadraticDragForce(),
+      new MagnusForce(),
+    ]);
+    expect(model.jacobian).toBeUndefined();
+  });
+
+  it("matches central finite differences to 1e-7 at 10 random states", () => {
+    const model = makeGravityDragModel();
+    const ctx = makeCtx();
+
+    const states: [number, number, number, number][] = [
+      [0, 0, 12.3, 4.1],
+      [10, 5, -8.2, 15.6],
+      [-3, 20, 25.0, -30.1],
+      [0, 0.5, 3.1, -2.2],
+      [100, 10, -1.5, -1.5],
+      [0, 0, 40, 0],
+      [0, 0, 0, 40],
+      [5, 5, 5, 5],
+      [-10, -10, -20, 20],
+      [1, 1, 33.3, -12.7],
+    ];
+
+    for (const [x, yPos, vx, vy] of states) {
+      const y = new Float64Array([x, yPos, vx, vy]);
+      const analytic = new Float64Array(16);
+      model.jacobian!(0, y, analytic, ctx);
+      const fd = fdJacobian(model, y, ctx);
+
+      for (let k = 0; k < 16; k++) {
+        expect(Math.abs(analytic[k]! - fd[k]!)).toBeLessThan(1e-7);
+      }
+    }
+  });
+});

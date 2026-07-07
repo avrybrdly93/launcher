@@ -24,7 +24,15 @@ export interface Model {
   rhs(t: number, y: Float64Array, out: Float64Array, ctx: EvalContext): void;
   readonly invariants?: readonly InvariantSpec[];
   readonly events?: readonly EventSpec[];
-  jacobian?(t: number, y: Float64Array, out: Float64Array): void;
+  /**
+   * Optional analytic J = df/dy, row-major dim*dim. Takes `ctx` for the same
+   * reason `rhs` does: mass/environment live there, not in the Model itself
+   * (§3.7). Present only when every force in the composed model supplies one
+   * (P1.22); models that can't provide an exact analytic Jacobian (e.g. with
+   * Magnus enabled) omit this and callers fall back to finite differences
+   * (P1.23).
+   */
+  jacobian?(t: number, y: Float64Array, out: Float64Array, ctx: EvalContext): void;
   /** Index sets (q, p) for symplectic/Verlet steppers requiring second-order mechanical structure. */
   readonly partitions?: { readonly q: readonly number[]; readonly p: readonly number[] };
 }

@@ -442,8 +442,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "matches central finite differences to 1e-7 at 10 states",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Per-force ForceModel.jacobian (Gravity: no-op, QuadraticDrag: analytic d(F)/dv) composed via composeForceJacobians; createPlanarProjectileModel exposes model.jacobian only when hasAnalyticJacobian(registry) is true (false once Magnus is added, since MagnusForce has no jacobian method). Model.jacobian signature updated to take ctx (like rhs) since mass/environment live there. Verified vs central FD (h=1e-6) to <1e-7 at 10 random states in planar-projectile-model.test.ts."
     },
     {
       "id": "P1.23",
