@@ -442,8 +442,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "matches central finite differences to 1e-7 at 10 states",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added jacobian.ts: createGravityQuadraticDragJacobian(ctx) computing the analytic velocity-block Jacobian of gravity+quadratic-drag (row-major 4x4), assuming constant atmosphere/wind (drho/dr=0, dw/dr=0) and a locally Re/Mach-insensitive Cd (exact for ConstantCd; tabulated Cd(Re) needs P1.23 FD fallback). Verified against central finite differences to 1e-7 at 10 random states in jacobian.test.ts, plus symmetry and u->0 smoothness checks."
     },
     {
       "id": "P1.23",
