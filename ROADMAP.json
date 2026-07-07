@@ -486,8 +486,8 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "corrupt fixture rejected with useful error",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added projectile-asset-loader.ts: loadProjectileAssets(raw) validates each fixture against projectileSpecSchema, throwing SchemaValidationError naming the offending fixture by id (or array index when it has none) plus the underlying zod issues. Verified: valid PROJECTILE_ASSETS load unchanged; a corrupt fixture (negative mass, missing provenance, no id) is rejected with an error naming the fixture and the bad field."
     },
     {
       "id": "P1.27",
