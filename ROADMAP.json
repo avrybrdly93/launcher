@@ -497,8 +497,8 @@
       "estMinutes": 10,
       "difficulty": "E",
       "validation": "\u03c1(H)=\u03c1\u2080/e to 1e-15",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added ExponentialAtmosphere (environment.ts): isothermal rho(y)=rho0*exp(-y/H), H=ISA.scaleHeight (8500m); T/eta/c held fixed at the ISA sea-level values since the model is isothermal (the ISA troposphere lapse-rate model is Phase 4). Verified rho(H)=rho0/e to 1e-15, rho(0)=rho0, monotone density decrease with altitude, and eta/c/T constant across altitude."
     },
     {
       "id": "P1.28",

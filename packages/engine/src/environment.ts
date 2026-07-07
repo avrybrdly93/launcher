@@ -29,6 +29,27 @@ export class ConstantAtmosphere implements Atmosphere {
   }
 }
 
+/**
+ * Isothermal exponential atmosphere, ρ(y) = ρ₀·e^(−y/H) with scale height
+ * H = Rs·T₀/g (§3.4). Temperature is held at T₀ (that's what "isothermal"
+ * means here) — the ISA troposphere's linear lapse rate is a Phase-4
+ * extension — so viscosity and speed of sound use the same fixed-T₀
+ * formulas as `ConstantAtmosphere`.
+ */
+export class ExponentialAtmosphere implements Atmosphere {
+  private static readonly GAMMA = 1.4;
+
+  constructor(private readonly scaleHeight: number = ISA.scaleHeight) {}
+
+  sample(_x: number, y: number, out: EnvSample): void {
+    out.T = ISA.T0;
+    out.rho = ISA.rho0 * Math.exp(-y / this.scaleHeight);
+    out.p = out.rho * ISA.Rs * ISA.T0;
+    out.eta = 1.789e-5;
+    out.c = Math.sqrt(ExponentialAtmosphere.GAMMA * ISA.Rs * ISA.T0);
+  }
+}
+
 /** Uniform gravity, optionally with the altitude correction (3.3) behind a flag. */
 export class UniformGravity implements GravityModel {
   constructor(
