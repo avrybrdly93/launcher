@@ -464,8 +464,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "drag-off: dE/dt from powers \u2261 0 to 1e-13",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "mechanicalEnergy(t,y,ctx)=0.5*m*|v|^2+m*g*y and createEnergyInvariant() wired into createPlanarProjectileModel.invariants (energy-invariant.ts). energyRate(forces,t,y,ctx) sums each force's energyPower plus the analytic PE-rate m*g*vy, self-consistently giving dE/dt; extracted the rhs/jacobian env+vRel+re+mach refresh into planar-derived-state.ts (shared by rhs, jacobian, and energyRate, avoiding a circular import with energy-invariant.ts). Verified gravity-only dE/dt is exactly 0 to 1e-13 at 10 states; also checked buoyancy (nonzero, matches direct force power) and Magnus+drag (dE/dt<=0, dissipative) cases stay finite and sane."
     },
     {
       "id": "P1.25",

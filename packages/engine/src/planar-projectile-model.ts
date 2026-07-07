@@ -1,4 +1,5 @@
 import type { EvalContext } from "./eval-context.js";
+import { createEnergyInvariant } from "./energy-invariant.js";
 import {
   composeForceJacobians,
   composeForces,
@@ -7,8 +8,8 @@ import {
   type ForceModel,
 } from "./forces.js";
 import type { Model } from "./model.js";
+import { refreshDerivedState } from "./planar-derived-state.js";
 import type { ChannelMeta } from "./schema.js";
-import { norm } from "./vec2.js";
 
 export const PLANAR_CHANNELS: readonly ChannelMeta[] = [
   { name: "x", unit: "m" },
@@ -22,22 +23,6 @@ const Y = 1;
 const VX = 2;
 const VY = 3;
 const STATE_DIM = 4;
-
-/** Samples the environment and refreshes vRel/speedRel/re/mach for (t, y) — shared by rhs and jacobian. */
-function refreshDerivedState(t: number, y: Float64Array, ctx: EvalContext): void {
-  const x = y[X]!;
-  const yPos = y[Y]!;
-  const vx = y[VX]!;
-  const vy = y[VY]!;
-
-  ctx.environment.sample(t, x, yPos, ctx.env);
-
-  ctx.vRel[0] = vx - ctx.env.wx;
-  ctx.vRel[1] = vy - ctx.env.wy;
-  ctx.speedRel = norm(ctx.vRel);
-  ctx.re = (ctx.env.rho * ctx.speedRel * (2 * ctx.params.radius)) / ctx.env.eta;
-  ctx.mach = ctx.env.c > 0 ? ctx.speedRel / ctx.env.c : 0;
-}
 
 /**
  * The workhorse planar projectile model (dim 4, eq. 3.17-3.18): wires
@@ -56,6 +41,7 @@ export function createPlanarProjectileModel(forces: readonly ForceModel[]): Mode
   const model: Model = {
     dim: 4,
     channels: PLANAR_CHANNELS,
+    invariants: [createEnergyInvariant()],
     rhs(t: number, y: Float64Array, out: Float64Array, ctx: EvalContext): void {
       refreshDerivedState(t, y, ctx);
 
