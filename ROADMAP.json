@@ -475,8 +475,8 @@
       "estMinutes": 30,
       "difficulty": "E",
       "validation": "assets validate; each has provenance string",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added projectile-spec.ts (ProjectileSpecSchema: id/name/mass/radius/dragCoefficient/liftCoefficient?/spinDecayTau?/provenance, zod discriminated unions for the Cd/CL model choice) and projectile-assets.ts with the 7 named presets, each run through loadProjectileSpec at module load so a malformed literal fails on import. spinDecayTau is recorded but not yet wired into ProjectileParams (spin decay needs a 5th state channel, out of scope for the dim-4 model)."
     },
     {
       "id": "P1.26",
@@ -486,8 +486,8 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "corrupt fixture rejected with useful error",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "loadProjectileSpec(raw) in projectile-spec.ts wraps parseWithSchema, throwing SchemaValidationError with a field-path-qualified message (P0's existing schema.ts infra). projectile-assets.test.ts validates every PROJECTILE_ASSETS entry, and covers rejection of a corrupt fixture (negative mass) and a fixture missing required fields, asserting both the error type and that the message names the offending field."
     },
     {
       "id": "P1.27",
