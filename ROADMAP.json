@@ -486,8 +486,8 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "corrupt fixture rejected with useful error",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added projectile-asset-loader.ts: projectileParamsFromSpec (instantiates ConstantCd/TabulatedReynoldsCd and SaturatingLiftCoefficient from a validated ProjectileSpec's discriminated-union selectors) and loadProjectileAsset (parseWithSchema + convert, throwing SchemaValidationError with a useful per-field message on corrupt data). PROJECTILE_LIBRARY eagerly maps every PROJECTILE_ASSETS entry through the loader at module-evaluation time, so a corrupt shipped asset fails any build/test importing the module rather than only the user flow that selects it. Tests cover both drag-model variants, the lift-model variant, corrupt-fixture rejection (negative mass, unknown drag-coefficient type) with a useful message, and that PROJECTILE_LIBRARY covers all 7 assets. spinDecayTau is intentionally not consumed here — spin decay is P4.07's dim-5 model, not a ProjectileParams field."
     },
     {
       "id": "P1.27",
