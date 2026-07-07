@@ -475,8 +475,8 @@
       "estMinutes": 30,
       "difficulty": "E",
       "validation": "assets validate; each has provenance string",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added projectile-spec.ts (ProjectileSpecSchema: mass/radius/dragCoefficient-selector/optional liftCoefficient-selector/optional spinDecayTau/provenance, zod-validated, discriminated-union drag-coefficient spec for constant vs. tabulatedReynolds) and projectile-assets.ts with the 7 SS3.9 assets (smooth-sphere, golf-ball, soccer-ball, baseball, table-tennis-ball, cannonball, shot-put), each carrying regulation mass/size figures and a provenance citation string. Note: this is the serializable spec/asset layer only; converting a ProjectileSpec into a runtime ProjectileParams (instantiating the named DragCoefficientModel/LiftCoefficientModel classes) is P1.26's asset loader, not yet wired here. Tests validate every asset against the schema, check provenance is non-empty, and exercise schema rejection (negative mass, missing provenance, mismatched re/cd table lengths)."
     },
     {
       "id": "P1.26",
