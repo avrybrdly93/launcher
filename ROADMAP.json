@@ -453,8 +453,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "matches P1.22 analytic where available",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added createFiniteDifferenceJacobian(model, ctx) in jacobian.ts: generic central-difference Jacobian for any Model, scaled step h_j = sqrt(eps)*max(|y_j|,1), scratch buffers preallocated once (closed over) rather than per call. Verified it matches the P1.22 analytic Jacobian to 1e-6 at the same 10 states, plus a scratch-buffer-reuse smoke test and a generic non-projectile model test."
     },
     {
       "id": "P1.24",

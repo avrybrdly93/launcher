@@ -1,6 +1,9 @@
 import type { EvalContext } from "./eval-context.js";
 import type { Model } from "./model.js";
 
+/** sqrt(machine epsilon): the standard central-difference step-scale tradeoff (truncation ~ h^2 vs. roundoff ~ eps/h). */
+const FD_STEP_SCALE = Math.sqrt(Number.EPSILON);
+
 const X = 0;
 const Y = 1;
 const VX = 2;
@@ -66,5 +69,48 @@ export function createGravityQuadraticDragJacobian(
     out[VX * DIM + VY] = dax_dvy;
     out[VY * DIM + VX] = dax_dvy;
     out[VY * DIM + VY] = day_dvy;
+  };
+}
+
+/**
+ * Generic central-difference Jacobian, the fallback for any `Model` that
+ * does not supply an analytic `jacobian` (e.g. P1.22's gravity+quadratic-drag
+ * case, or a model with Magnus/buoyancy/non-constant atmosphere where the
+ * analytic derivative isn't implemented). Column j is perturbed by a
+ * *scaled* step h_j = sqrt(eps)*max(|y_j|, 1) — scaling to the state's own
+ * magnitude keeps the truncation/roundoff tradeoff well-balanced whether y_j
+ * is O(1) or O(1e5), unlike a single fixed absolute step.
+ *
+ * Row-major: `out[i*dim+j]` = df_i/dy_j. Scratch buffers are preallocated
+ * once per model (closed over), not per call, so repeated evaluation (e.g.
+ * inside a Newton iteration) does not allocate on every step.
+ */
+export function createFiniteDifferenceJacobian(
+  model: Model,
+  ctx: EvalContext,
+): NonNullable<Model["jacobian"]> {
+  const dim = model.dim;
+  const yPerturbed = new Float64Array(dim);
+  const fPlus = new Float64Array(dim);
+  const fMinus = new Float64Array(dim);
+
+  return (t: number, y: Float64Array, out: Float64Array): void => {
+    yPerturbed.set(y);
+
+    for (let col = 0; col < dim; col++) {
+      const yCol = y[col]!;
+      const h = FD_STEP_SCALE * Math.max(1, Math.abs(yCol));
+
+      yPerturbed[col] = yCol + h;
+      model.rhs(t, yPerturbed, fPlus, ctx);
+      yPerturbed[col] = yCol - h;
+      model.rhs(t, yPerturbed, fMinus, ctx);
+      yPerturbed[col] = yCol;
+
+      const inv2h = 1 / (2 * h);
+      for (let row = 0; row < dim; row++) {
+        out[row * dim + col] = (fPlus[row]! - fMinus[row]!) * inv2h;
+      }
+    }
   };
 }
