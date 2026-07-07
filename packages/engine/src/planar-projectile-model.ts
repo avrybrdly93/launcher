@@ -1,5 +1,6 @@
 import type { EvalContext } from "./eval-context.js";
 import { composeForces, createForceRegistry, type ForceModel } from "./forces.js";
+import { analyticGravityQuadraticDragJacobian } from "./jacobian-quadratic-drag.js";
 import type { Model } from "./model.js";
 import type { ChannelMeta } from "./schema.js";
 import { norm } from "./vec2.js";
@@ -22,10 +23,13 @@ const VY = 3;
  * the first Model SolverKit will integrate — deliberately just a Model, with
  * no special status in the engine (§1.4).
  */
+/** Force-id set for which the analytic Jacobian (P1.22) is valid: gravity + quadratic drag only. */
+const ANALYTIC_JACOBIAN_FORCE_IDS = new Set(["gravity", "drag-quadratic"]);
+
 export function createPlanarProjectileModel(forces: readonly ForceModel[]): Model {
   const registry = createForceRegistry(forces);
 
-  return {
+  const model: Model = {
     dim: 4,
     channels: PLANAR_CHANNELS,
     rhs(t: number, y: Float64Array, out: Float64Array, ctx: EvalContext): void {
@@ -50,4 +54,24 @@ export function createPlanarProjectileModel(forces: readonly ForceModel[]): Mode
       out[VY] = ctx.forceAccum[1] / ctx.params.mass;
     },
   };
+
+  const isAnalyticJacobianEligible =
+    registry.length > 0 && registry.every((f) => ANALYTIC_JACOBIAN_FORCE_IDS.has(f.id));
+  if (isAnalyticJacobianEligible) {
+    return {
+      ...model,
+      jacobian(t: number, y: Float64Array, out: Float64Array, ctx: EvalContext): void {
+        // Refresh ctx's scratch fields at (t, y) ourselves rather than trusting
+        // a prior rhs call left them current — jacobian must be independently callable.
+        ctx.environment.sample(t, y[X]!, y[Y]!, ctx.env);
+        ctx.vRel[0] = y[VX]! - ctx.env.wx;
+        ctx.vRel[1] = y[VY]! - ctx.env.wy;
+        ctx.speedRel = norm(ctx.vRel);
+        ctx.re = (ctx.env.rho * ctx.speedRel * (2 * ctx.params.radius)) / ctx.env.eta;
+        ctx.mach = ctx.env.c > 0 ? ctx.speedRel / ctx.env.c : 0;
+        analyticGravityQuadraticDragJacobian(t, y, out, ctx);
+      },
+    };
+  }
+  return model;
 }

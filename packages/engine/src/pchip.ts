@@ -89,4 +89,32 @@ export class PchipInterpolator {
     const h11 = t3 - t2;
     return h00 * y[lo]! + h10 * h * m[lo]! + h01 * y[hi]! + h11 * h * m[hi]!;
   }
+
+  /**
+   * Closed-form dp/dx of the same cubic Hermite piece `evaluate` uses.
+   * Matches `evaluate`'s flat clamp outside the domain: derivative is 0
+   * there, not the boundary slope `m[0]`/`m[n-1]`.
+   */
+  derivative(xq: number): number {
+    const { x, y, m } = this;
+    const n = x.length;
+    if (xq <= x[0]! || xq >= x[n - 1]!) return 0;
+
+    let lo = 0;
+    let hi = n - 1;
+    while (hi - lo > 1) {
+      const mid = (lo + hi) >> 1;
+      if (x[mid]! <= xq) lo = mid;
+      else hi = mid;
+    }
+
+    const h = x[hi]! - x[lo]!;
+    const t = (xq - x[lo]!) / h;
+    const t2 = t * t;
+    const dh00 = 6 * t2 - 6 * t;
+    const dh10 = 3 * t2 - 4 * t + 1;
+    const dh01 = -6 * t2 + 6 * t;
+    const dh11 = 3 * t2 - 2 * t;
+    return (dh00 * y[lo]! + dh01 * y[hi]!) / h + dh10 * m[lo]! + dh11 * m[hi]!;
+  }
 }

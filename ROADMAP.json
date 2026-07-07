@@ -442,8 +442,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "matches central finite differences to 1e-7 at 10 states",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Implemented in jacobian-quadratic-drag.ts, wired into createPlanarProjectileModel's Model.jacobian only when the force set is exactly {gravity, drag-quadratic} (Magnus/linear-drag/buoyancy fall back to undefined, i.e. FD per P1.23). Assumes position-independent environment (constant atmosphere, uniform gravity/wind) per the model's current scope; exponential atmosphere / sheared wind (P1.27/P1.30) will need FD or an extended analytic path. Added PchipInterpolator.derivative() (closed-form) and DragCoefficientModel.dcdDre() (optional analytic dCd/dRe, implemented for ConstantCd and TabulatedReynoldsCd) to support the chain rule; falls back to a scaled central difference on cd() when a model doesn't provide dcdDre. Validated to 1e-6 abs vs central FD across 10 states with both ConstantCd and TabulatedReynoldsCd."
     },
     {
       "id": "P1.23",

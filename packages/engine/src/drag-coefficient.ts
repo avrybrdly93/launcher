@@ -3,6 +3,8 @@ import { PchipInterpolator } from "./pchip.js";
 /** Maps flow regime (Reynolds, Mach) to a drag coefficient (§3.3). */
 export interface DragCoefficientModel {
   cd(re: number, mach: number): number;
+  /** Optional analytic dCd/dRe, used by the analytic Jacobian (P1.22) when available. */
+  dcdDre?(re: number, mach: number): number;
 }
 
 /** Smooth sphere, subcritical regime — the platform default (§3.3 option 1). */
@@ -11,6 +13,10 @@ export class ConstantCd implements DragCoefficientModel {
 
   cd(_re: number, _mach: number): number {
     return this.value;
+  }
+
+  dcdDre(_re: number, _mach: number): number {
+    return 0;
   }
 }
 
@@ -29,6 +35,10 @@ export class TabulatedReynoldsCd implements DragCoefficientModel {
 
   cd(re: number, _mach: number): number {
     return this.interpolator.evaluate(re);
+  }
+
+  dcdDre(re: number, _mach: number): number {
+    return this.interpolator.derivative(re);
   }
 }
 
