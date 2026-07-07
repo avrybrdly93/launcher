@@ -1,5 +1,5 @@
 import { EnvSample } from "./env-sample.js";
-import { EARTH_RADIUS_M, G_STD, ISA } from "./units.js";
+import { EARTH_RADIUS_M, G_STD, ISA, SUTHERLAND } from "./units.js";
 
 /** Fills the thermodynamic fields of an EnvSample (rho, T, p, eta, c) at a point (§3.4). */
 export interface Atmosphere {
@@ -16,6 +16,15 @@ export interface WindModel {
   sample(t: number, x: number, y: number, out: EnvSample): void;
 }
 
+/** Sutherland's law: dynamic viscosity of air as a function of temperature (§3.4, eq. 3.12). */
+export function sutherlandViscosity(T: number): number {
+  return (
+    SUTHERLAND.etaRef *
+    Math.pow(T / SUTHERLAND.Tref, 1.5) *
+    ((SUTHERLAND.Tref + SUTHERLAND.S) / (T + SUTHERLAND.S))
+  );
+}
+
 /** ISA sea-level atmosphere, uniform with altitude (§3.4 default). */
 export class ConstantAtmosphere implements Atmosphere {
   private static readonly GAMMA = 1.4;
@@ -24,7 +33,7 @@ export class ConstantAtmosphere implements Atmosphere {
     out.rho = ISA.rho0;
     out.T = ISA.T0;
     out.p = ISA.p0;
-    out.eta = 1.789e-5;
+    out.eta = sutherlandViscosity(ISA.T0);
     out.c = Math.sqrt(ConstantAtmosphere.GAMMA * ISA.Rs * ISA.T0);
   }
 }
@@ -33,8 +42,9 @@ export class ConstantAtmosphere implements Atmosphere {
  * Isothermal exponential atmosphere, ρ(y) = ρ₀·e^(−y/H) with scale height
  * H = Rs·T₀/g (§3.4). Temperature is held at T₀ (that's what "isothermal"
  * means here) — the ISA troposphere's linear lapse rate is a Phase-4
- * extension — so viscosity and speed of sound use the same fixed-T₀
- * formulas as `ConstantAtmosphere`.
+ * extension — so viscosity is Sutherland's law evaluated at the one
+ * constant T₀, and speed of sound uses the same fixed-T₀ formula as
+ * `ConstantAtmosphere`.
  */
 export class ExponentialAtmosphere implements Atmosphere {
   private static readonly GAMMA = 1.4;
@@ -45,7 +55,7 @@ export class ExponentialAtmosphere implements Atmosphere {
     out.T = ISA.T0;
     out.rho = ISA.rho0 * Math.exp(-y / this.scaleHeight);
     out.p = out.rho * ISA.Rs * ISA.T0;
-    out.eta = 1.789e-5;
+    out.eta = sutherlandViscosity(ISA.T0);
     out.c = Math.sqrt(ExponentialAtmosphere.GAMMA * ISA.Rs * ISA.T0);
   }
 }
