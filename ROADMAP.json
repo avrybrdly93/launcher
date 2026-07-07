@@ -453,8 +453,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "matches P1.22 analytic where available",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added packages/solverkit/src/jacobian.ts (L1): fdJacobian (scratch-based, scaled central differences with h_j = cbrt(eps)*max(1,|y_j|)), createFdJacobianScratch, fdJacobianAlloc convenience wrapper, and jacobianOf(model,...) which dispatches to model.jacobian when present else fdJacobian, so callers never special-case models. Validated against the P1.22 analytic Jacobian (gravity+quadratic-drag) to ~1.5e-5 abs at 10 states, plus a generic-model (Magnus included, no analytic jacobian) smoke test and an allocation check (<5 bytes/iter after warmup) for the scratch-based path."
     },
     {
       "id": "P1.24",
