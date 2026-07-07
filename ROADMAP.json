@@ -475,8 +475,8 @@
       "estMinutes": 30,
       "difficulty": "E",
       "validation": "assets validate; each has provenance string",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added projectile-spec.ts (zod projectileSpecSchema + ProjectileSpec type: mass, radius, dragCoefficient, optional liftCoefficient/spinDecayTau, provenance) and projectile-assets.ts with 7 data assets (smooth sphere, golf, soccer, baseball, table tennis, cannonball, shot put), each with a cited provenance string. projectile-assets.test.ts validates every asset against the schema and checks provenance is non-empty; loader with corrupt-fixture rejection is P1.26."
     },
     {
       "id": "P1.26",
