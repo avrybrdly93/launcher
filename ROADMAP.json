@@ -497,8 +497,8 @@
       "estMinutes": 10,
       "difficulty": "E",
       "validation": "\u03c1(H)=\u03c1\u2080/e to 1e-15",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "ExponentialAtmosphere in environment.ts: rho(y)=rho0*e^(-y/H) (H=ISA.scaleHeight), isothermal at T0 so p follows the ideal-gas law and eta/c match ConstantAtmosphere exactly. Verified rho(H)=rho0/e to 1e-15 relative."
     },
     {
       "id": "P1.28",
@@ -508,8 +508,8 @@
       "estMinutes": 10,
       "difficulty": "E",
       "validation": "\u03b7(288.15K)=1.789e\u22125\u00b11%",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "sutherlandViscosity(T) in environment.ts implements eq 3.12; equals SUTHERLAND.etaRef exactly at T=Tref (used by ExponentialAtmosphere), and eta(288.15K) matches 1.789e-5 within 1%."
     },
     {
       "id": "P1.29",
@@ -519,8 +519,8 @@
       "estMinutes": 10,
       "difficulty": "E",
       "validation": "w constant everywhere",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "The WindField interface already existed as WindModel (P1.x bootstrap); added UniformWind(wx,wy) implementing it as the nonzero-constant case (ZeroWind was already the w=0 special case). Verified constant across varied (t,x,y)."
     },
     {
       "id": "P1.30",
@@ -530,8 +530,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "w(y_r\u00b7(e\u22121))\u00b7\u03ba/u* = 1 check; w finite at y=0",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "LogProfileWind in environment.ts: w_x(y)=(u_star/kappa)*ln((y+y_r)/y_r), clamps y to >=0 before the log so it's finite (0) at and below y=0 instead of NaN/-Infinity. Verified w(y_r*(e-1))*kappa/u_star = 1 to 1e-12 and finiteness for y in {-0.005,-1,-1000,0}."
     },
     {
       "id": "P1.31",
@@ -541,8 +541,8 @@
       "estMinutes": 10,
       "difficulty": "E",
       "validation": "matches formula at sampled t",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "SinusoidalGustWind in environment.ts: w_x(t)=wMean+amplitude*sin(omega*t+phase). Verified against the closed-form formula to 1e-14 at 5 sampled t including negative t."
     },
     {
       "id": "P1.32",
