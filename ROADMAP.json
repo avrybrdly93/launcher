@@ -453,8 +453,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "matches P1.22 analytic where available",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "finiteDifferenceJacobian(model, t, y, ctx, out) in finite-difference-jacobian.ts: central differences, per-component step h_j = sqrt(eps_machine)*max(|y_j|,1), works against any Model via rhs alone (no analytic jacobian required). Tested to match P1.22's analytic gravity+quadratic-drag jacobian to <1e-6 at 10 states, and verified finite + kinematically-correct (dx/dt=vx, dy/dt=vy rows) on a Magnus-inclusive model that has no analytic jacobian."
     },
     {
       "id": "P1.24",
