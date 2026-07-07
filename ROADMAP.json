@@ -475,8 +475,8 @@
       "estMinutes": 30,
       "difficulty": "E",
       "validation": "assets validate; each has provenance string",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "ProjectileSpecSchema (zod, projectile-spec.ts) with a serializable dragCoefficient/liftCoefficient discriminated-union kind + createProjectileParamsFromSpec bridging to live model instances. PROJECTILE_ASSETS (projectile-assets.ts) has all 7 required presets, each with a citation in `provenance` (real-world mass/size from official rules, Cd from cited references)."
     },
     {
       "id": "P1.26",
@@ -486,8 +486,8 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "corrupt fixture rejected with useful error",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Reuses the existing generic parseWithSchema/SchemaValidationError (schema.ts) as the loader against ProjectileSpecSchema; projectile-assets.test.ts validates every real asset parses, and separately that negative mass, a missing provenance field, and an unrecognized dragCoefficient.kind are each rejected with a SchemaValidationError whose message names the offending field."
     },
     {
       "id": "P1.27",

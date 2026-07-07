@@ -15,3 +15,5 @@ export * from "./planar-derived-state.js";
 export * from "./planar-projectile-model.js";
 export * from "./finite-difference-jacobian.js";
 export * from "./energy-invariant.js";
+export * from "./projectile-spec.js";
+export * from "./projectile-assets.js";
