@@ -464,8 +464,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "drag-off: dE/dt from powers \u2261 0 to 1e-13",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added energy.ts: createEnergyInvariant() (InvariantSpec, E = KE + mgy) wired onto createPlanarProjectileModel's `invariants`, plus aeroEnergyPower(forces,...) summing every registered force's energyPower except gravity's (already folded into E's mgy potential, so excluding it avoids double-counting). Tests cover all three eq.-3.19 runtime checks: drag-off aero power \u2261 0 to 1e-13 (task's stated criterion), Magnus-alone \u2261 0 (F_M perp v), and drag-on \u2264 0 matching -0.5*rho*Cd*A*u^3 exactly; plus a general dE/dt-via-gradient-dot-rhs identity check across an arbitrary force mix (gravity+drag+Magnus+buoyancy) to 1e-13, tying rhs and energyPower together."
     },
     {
       "id": "P1.25",
