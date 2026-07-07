@@ -464,8 +464,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "drag-off: dE/dt from powers \u2261 0 to 1e-13",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added energy.ts: mechanicalEnergy(y,ctx)=0.5m|v|^2+mgy and nonGravityEnergyPower(forces,t,y,ctx), which sums every registered force's energyPower except gravity's (gravity's power exactly cancels the mgy term's own derivative by construction of E, so including it would double-count). createPlanarProjectileModel now always declares invariants=[{name:'energy', evaluate}]. Per-force energyPower was already implemented on every ForceModel (prior commits); this task was the missing E(y) + wiring + cross-check. Validated: (1) gravity-alone (drag/Magnus/buoyancy off) gives nonGravityEnergyPower \u2261 0 to 1e-13 at 10 states; (2) with gravity+drag+Magnus+buoyancy all active, nonGravityEnergyPower matches dE/dt computed independently via the rhs chain rule (m(vx*ax+vy*ay)+mg*vy) to 1e-11 at the same 10 states; (3) still-air quadratic drag gives dE/dt <= 0 (dissipative)."
     },
     {
       "id": "P1.25",

@@ -1,7 +1,8 @@
 import type { EvalContext } from "./eval-context.js";
+import { mechanicalEnergy } from "./energy.js";
 import { composeForces, createForceRegistry, type ForceModel } from "./forces.js";
 import { analyticGravityQuadraticDragJacobian } from "./jacobian-quadratic-drag.js";
-import type { Model } from "./model.js";
+import type { InvariantSpec, Model } from "./model.js";
 import type { ChannelMeta } from "./schema.js";
 import { norm } from "./vec2.js";
 
@@ -26,12 +27,21 @@ const VY = 3;
 /** Force-id set for which the analytic Jacobian (P1.22) is valid: gravity + quadratic drag only. */
 const ANALYTIC_JACOBIAN_FORCE_IDS = new Set(["gravity", "drag-quadratic"]);
 
+/** Mechanical energy E = (1/2)m|v|^2 + mgy (§3.8), the universal invariant/monotonicity diagnostic. */
+const ENERGY_INVARIANT: InvariantSpec = {
+  name: "energy",
+  evaluate(_t: number, y: Float64Array, ctx: EvalContext): number {
+    return mechanicalEnergy(y, ctx);
+  },
+};
+
 export function createPlanarProjectileModel(forces: readonly ForceModel[]): Model {
   const registry = createForceRegistry(forces);
 
   const model: Model = {
     dim: 4,
     channels: PLANAR_CHANNELS,
+    invariants: [ENERGY_INVARIANT],
     rhs(t: number, y: Float64Array, out: Float64Array, ctx: EvalContext): void {
       const x = y[X]!;
       const yPos = y[Y]!;
