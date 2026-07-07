@@ -519,8 +519,8 @@
       "estMinutes": 10,
       "difficulty": "E",
       "validation": "w constant everywhere",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added UniformWind (environment.ts) implementing WindModel: constant (wx,wy) regardless of t/x/y, wy defaults to 0. The WindField interface itself (WindModel + sample(t,x,y,out)) already existed from earlier Phase 1 work alongside ZeroWind. Verified w is identical across widely varying (t,x,y) samples."
     },
     {
       "id": "P1.30",
