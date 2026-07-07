@@ -530,8 +530,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "w(y_r\u00b7(e\u22121))\u00b7\u03ba/u* = 1 check; w finite at y=0",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added LogProfileWind (environment.ts) implementing eq 3.13: w_x(y)=(u_star/kappa)*ln((y+y_r)/y_r), kappa=0.41. Height is clamped to 0 for y<=0 (the guard) so the log argument never goes non-positive and w_x(0)=0 exactly. Verified w(y_r*(e-1))*kappa/u_star=1 (log argument = e by construction), w finite (=0) at y=0 and for y below ground, and monotone increase with height."
     },
     {
       "id": "P1.31",
