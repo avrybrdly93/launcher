@@ -442,8 +442,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "matches central finite differences to 1e-7 at 10 states",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added ForceModel.jacobian(t,y,ctx,outJv) contributing a frozen-coefficient d(F)/d(v) 2x2 block; gravity/buoyancy are no-ops, linear drag is -b*I, quadratic drag matches the blueprint SS4.4 eigenvalue analysis (streamwise term doubles crosswise). Model.jacobian only appears when every registered force implements it (forcesSupportJacobian), so registering Magnus leaves it undefined for now (P1.23 FD fallback picks up the slack). Extended Model.jacobian's signature with an EvalContext param, matching rhs, since params/environment live there rather than on the Model. New tests: forces.test.ts (per-force jacobian vs hand formula + FD, zero-speed guard, Magnus exclusion) and planar-projectile-model.test.ts (model.jacobian vs central FD of rhs to 1e-7 at 10 states, undefined-with-Magnus check)."
     },
     {
       "id": "P1.23",

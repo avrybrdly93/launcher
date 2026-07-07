@@ -7,7 +7,9 @@ import { createSphericalProjectileParams } from "./projectile-params.js";
 import {
   BuoyancyForce,
   composeForces,
+  composeVelocityJacobian,
   createForceRegistry,
+  forcesSupportJacobian,
   GravityForce,
   LinearDragForce,
   MagnusForce,
@@ -193,5 +195,102 @@ describe("createForceRegistry / composeForces", () => {
     composeForces(createForceRegistry([...forces].reverse()), 0, y, ctx, outB);
     expect(outA[0]).toBe(outB[0]);
     expect(outA[1]).toBe(outB[1]);
+  });
+});
+
+describe("ForceModel.jacobian (P1.22)", () => {
+  it("GravityForce and BuoyancyForce contribute a zero d(F)/d(v) block", () => {
+    const { ctx, env } = makeContext();
+    const y = new Float64Array([0, 0, 12, -7]);
+    refreshDerived(ctx, env, 0, y);
+    const outJv = new Float64Array(4);
+    new GravityForce().jacobian!(0, y, ctx, outJv);
+    new BuoyancyForce().jacobian!(0, y, ctx, outJv);
+    expect([...outJv]).toEqual([0, 0, 0, 0]);
+  });
+
+  it("LinearDragForce contributes -b on the diagonal, 0 off-diagonal", () => {
+    const { ctx, env } = makeContext();
+    const y = new Float64Array([0, 0, 3, -4]);
+    refreshDerived(ctx, env, 0, y);
+    const outJv = new Float64Array(4);
+    new LinearDragForce().jacobian!(0, y, ctx, outJv);
+    const b = 6 * Math.PI * ctx.env.eta * ctx.params.radius;
+    expect(outJv[0]).toBeCloseTo(-b, 15);
+    expect(outJv[1]).toBe(0);
+    expect(outJv[2]).toBe(0);
+    expect(outJv[3]).toBeCloseTo(-b, 15);
+  });
+
+  it("QuadraticDragForce jacobian matches central finite differences of its own force at several states", () => {
+    const { ctx, env } = makeContext();
+    const force = new QuadraticDragForce();
+    const h = 1e-5;
+
+    for (const [vx, vy] of [
+      [10, 0],
+      [0, -20],
+      [7, 7],
+      [-15, 3],
+      [1, -1],
+    ] as const) {
+      const y = new Float64Array([0, 0, vx, vy]);
+      refreshDerived(ctx, env, 0, y);
+      const outJv = new Float64Array(4);
+      force.jacobian!(0, y, ctx, outJv);
+
+      for (let col = 0; col < 2; col++) {
+        const yPlus = new Float64Array(y);
+        const yMinus = new Float64Array(y);
+        yPlus[2 + col]! += h;
+        yMinus[2 + col]! -= h;
+        refreshDerived(ctx, env, 0, yPlus);
+        const outPlus: [number, number] = [0, 0];
+        force.accumulate(0, yPlus, ctx, outPlus);
+        refreshDerived(ctx, env, 0, yMinus);
+        const outMinus: [number, number] = [0, 0];
+        force.accumulate(0, yMinus, ctx, outMinus);
+
+        const fdX = (outPlus[0] - outMinus[0]) / (2 * h);
+        const fdY = (outPlus[1] - outMinus[1]) / (2 * h);
+        expect(Math.abs(outJv[col]! - fdX)).toBeLessThan(1e-6);
+        expect(Math.abs(outJv[2 + col]! - fdY)).toBeLessThan(1e-6);
+      }
+    }
+  });
+
+  it("returns the analytic limit (0) at v_rel = 0 instead of NaN from 0/0", () => {
+    const { ctx, env } = makeContext();
+    const y = new Float64Array([0, 0, 0, 0]);
+    refreshDerived(ctx, env, 0, y);
+    const outJv = new Float64Array(4);
+    new QuadraticDragForce().jacobian!(0, y, ctx, outJv);
+    expect([...outJv]).toEqual([0, 0, 0, 0]);
+  });
+
+  it("MagnusForce has no jacobian method (excluded per task scope)", () => {
+    const magnus: ForceModel = new MagnusForce();
+    expect(magnus.jacobian).toBeUndefined();
+  });
+});
+
+describe("forcesSupportJacobian / composeVelocityJacobian", () => {
+  it("is true for gravity+quadratic-drag, false once Magnus is included", () => {
+    expect(forcesSupportJacobian([new GravityForce(), new QuadraticDragForce()])).toBe(true);
+    expect(
+      forcesSupportJacobian([new GravityForce(), new QuadraticDragForce(), new MagnusForce()]),
+    ).toBe(false);
+  });
+
+  it("sums d(F)/d(v) blocks in a zeroed accumulator, order-independent", () => {
+    const { ctx, env } = makeContext();
+    const y = new Float64Array([0, 0, 10, -6]);
+    refreshDerived(ctx, env, 0, y);
+    const forces = [new GravityForce(), new LinearDragForce(), new QuadraticDragForce()];
+    const outA = new Float64Array([999, 999, 999, 999]);
+    composeVelocityJacobian(createForceRegistry(forces), 0, y, ctx, outA);
+    const outB = new Float64Array(4);
+    composeVelocityJacobian(createForceRegistry([...forces].reverse()), 0, y, ctx, outB);
+    expect([...outA]).toEqual([...outB]);
   });
 });

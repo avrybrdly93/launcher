@@ -94,3 +94,61 @@ describe("createPlanarProjectileModel", () => {
     }
   });
 });
+
+describe("createPlanarProjectileModel.jacobian (P1.22)", () => {
+  const states: readonly [number, number, number, number][] = [
+    [0, 0, 12.3, 4.1],
+    [10, 5, -8.2, 15.6],
+    [-3, 20, 25.0, -30.1],
+    [0, 0.5, 0.001, -0.002],
+    [100, 10, -1.5, -1.5],
+    [0, 0, 40, 0],
+    [0, 0, 0, 40],
+    [5, 5, 5, 5],
+    [-10, -10, -20, 20],
+    [1, 1, 33.3, -12.7],
+  ];
+
+  it("is undefined once Magnus is registered (no tractable analytic linearization)", () => {
+    const model = createPlanarProjectileModel([
+      new GravityForce(),
+      new QuadraticDragForce(),
+      new MagnusForce(),
+    ]);
+    expect(model.jacobian).toBeUndefined();
+  });
+
+  it("matches central finite differences of rhs to 1e-7 at 10 states", () => {
+    const model = createPlanarProjectileModel([new GravityForce(), new QuadraticDragForce()]);
+    const env = new Environment(new ConstantAtmosphere(), new UniformGravity(), new ZeroWind());
+    const params = createSphericalProjectileParams({
+      mass: 0.145,
+      radius: 0.0366,
+      dragCoefficient: new ConstantCd(0.47),
+    });
+    const ctx = createEvalContext(env, params);
+    const h = 1e-5;
+    const J = new Float64Array(16);
+    const outPlus = new Float64Array(4);
+    const outMinus = new Float64Array(4);
+
+    for (const state of states) {
+      const y = new Float64Array(state);
+      model.jacobian!(0, y, J, ctx);
+
+      for (let col = 0; col < 4; col++) {
+        const yPlus = new Float64Array(y);
+        const yMinus = new Float64Array(y);
+        yPlus[col]! += h;
+        yMinus[col]! -= h;
+        model.rhs(0, yPlus, outPlus, ctx);
+        model.rhs(0, yMinus, outMinus, ctx);
+
+        for (let row = 0; row < 4; row++) {
+          const fd = (outPlus[row]! - outMinus[row]!) / (2 * h);
+          expect(Math.abs(J[row * 4 + col]! - fd)).toBeLessThan(1e-7);
+        }
+      }
+    }
+  });
+});
