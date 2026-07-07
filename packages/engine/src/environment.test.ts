@@ -4,6 +4,7 @@ import {
   ConstantAtmosphere,
   Environment,
   ExponentialAtmosphere,
+  GaussianVortexWind,
   LogProfileWind,
   SinusoidalGustWind,
   sutherlandViscosity,
@@ -138,6 +139,53 @@ describe("SinusoidalGustWind (P1.31)", () => {
       expect(out.wx).toBeCloseTo(wMean + amplitude * Math.sin(omega * t + phase), 14);
       expect(out.wy).toBe(0);
     }
+  });
+});
+
+describe("GaussianVortexWind (P1.32)", () => {
+  it("circulation integral on a ring (r >> coreRadius) matches Gamma to 1% (numeric quadrature)", () => {
+    const gamma = 12.5;
+    const coreRadius = 0.5;
+    const centerX = 2;
+    const centerY = -3;
+    const wind = new GaussianVortexWind(gamma, coreRadius, centerX, centerY);
+    const out = new EnvSample();
+
+    // Circulation = ∮ w . dl = ∫[0,2π] w(theta) . (dr/dtheta) dtheta, r(theta)
+    // parametrizing a ring of radius R around the vortex center. Uniform
+    // sampling of a periodic smooth integrand is the trapezoidal rule for a
+    // closed contour, which converges spectrally (not just O(1/n)).
+    const ringRadius = 20 * coreRadius;
+    const n = 2000;
+    let circulation = 0;
+    for (let i = 0; i < n; i++) {
+      const theta = (2 * Math.PI * i) / n;
+      const px = centerX + ringRadius * Math.cos(theta);
+      const py = centerY + ringRadius * Math.sin(theta);
+      wind.sample(0, px, py, out);
+      const dxDtheta = -ringRadius * Math.sin(theta);
+      const dyDtheta = ringRadius * Math.cos(theta);
+      circulation += out.wx * dxDtheta + out.wy * dyDtheta;
+    }
+    circulation *= (2 * Math.PI) / n;
+
+    expect(Math.abs(circulation - gamma) / gamma).toBeLessThan(0.01);
+  });
+
+  it("is finite (zero) exactly at the vortex center", () => {
+    const wind = new GaussianVortexWind(5, 1, 3, 4);
+    const out = new EnvSample();
+    wind.sample(0, 3, 4, out);
+    expect(out.wx).toBe(0);
+    expect(out.wy).toBe(0);
+  });
+
+  it("velocity is perpendicular to the radius vector (purely tangential)", () => {
+    const wind = new GaussianVortexWind(5, 1, 0, 0);
+    const out = new EnvSample();
+    wind.sample(0, 3, 4, out);
+    const radialDot = out.wx * 3 + out.wy * 4;
+    expect(Math.abs(radialDot)).toBeLessThan(1e-12);
   });
 });
 

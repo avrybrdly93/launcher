@@ -139,6 +139,44 @@ export class SinusoidalGustWind implements WindModel {
   }
 }
 
+const GAUSSIAN_VORTEX_R_SQ_EPS = 1e-12;
+
+/**
+ * Lamb-Oseen ("Gaussian") vortex, the standard smooth analytic vortex model
+ * (vorticity is a Gaussian bump, hence the name; velocity itself has no
+ * singularity): tangential speed
+ *   v_theta(r) = (Gamma / (2*pi*r)) * (1 - exp(-r^2 / coreRadius^2))
+ * around (centerX, centerY), circulation `circulation` (Gamma, m^2/s). The
+ * (1 - exp(...)) factor kills the classic irrotational-vortex 1/r
+ * singularity at the core, so w is finite (0) at the center by construction
+ * — no eps guard needed away from an exact r=0 sample, which is handled
+ * directly since the whole expression's r->0 limit is 0.
+ */
+export class GaussianVortexWind implements WindModel {
+  constructor(
+    private readonly circulation: number,
+    private readonly coreRadius: number,
+    private readonly centerX = 0,
+    private readonly centerY = 0,
+  ) {}
+
+  sample(_t: number, x: number, y: number, out: EnvSample): void {
+    const dx = x - this.centerX;
+    const dy = y - this.centerY;
+    const rSq = dx * dx + dy * dy;
+    if (rSq < GAUSSIAN_VORTEX_R_SQ_EPS) {
+      out.wx = 0;
+      out.wy = 0;
+      return;
+    }
+    const factor =
+      (this.circulation / (2 * Math.PI * rSq)) *
+      (1 - Math.exp(-rSq / (this.coreRadius * this.coreRadius)));
+    out.wx = -factor * dy;
+    out.wy = factor * dx;
+  }
+}
+
 /**
  * Composes an Atmosphere + GravityModel + WindModel into the single
  * `Environment` the engine exports (§2.2 module table). `sample` is called

@@ -552,8 +552,8 @@
       "estMinutes": 25,
       "difficulty": "M",
       "validation": "circulation integral on ring \u2248 \u0393 to 1% (numeric quadrature test)",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "GaussianVortexWind in environment.ts: standard Lamb-Oseen vortex, v_theta(r)=(Gamma/(2*pi*r))*(1-exp(-r^2/coreRadius^2)) \u2014 smooth by construction (finite at r=0, no eps-guard branch needed beyond the exact-zero case). Verified the numeric line-integral circulation on a ring at r=20*coreRadius matches Gamma to <1% (periodic trapezoidal quadrature, n=2000), plus finiteness at the center and pure-tangential (perpendicular to radius) direction."
     },
     {
       "id": "P1.33",
