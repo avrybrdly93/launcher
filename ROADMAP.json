@@ -464,8 +464,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "drag-off: dE/dt from powers \u2261 0 to 1e-13",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added energy.ts: energyInvariant (InvariantSpec, E=0.5m|v|^2+mgy) and energyRateFromPowers(forces,t,y,ctx), which reconstructs dE/dt from the per-force energyPower terms already on GravityForce/LinearDragForce/QuadraticDragForce/MagnusForce/BuoyancyForce (sum of powers = F_total.v; adding back mg*vy undoes the exact cancellation with the mgy term of E, per eq 3.19). Verified: drag-off dE/dt = 0 to 1e-13 across 9 states; drag-on-in-still-air matches the closed form -0.5*rho*Cd*A*|v|^3 and is <=0; Magnus-only does no work to 1e-13."
     },
     {
       "id": "P1.25",
