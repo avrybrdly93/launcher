@@ -519,8 +519,8 @@
       "estMinutes": 10,
       "difficulty": "E",
       "validation": "w constant everywhere",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "The w(t,r) interface already existed as `WindModel` in environment.ts (kept that name for consistency with the sibling `Atmosphere`/`GravityModel` interfaces rather than renaming to the blueprint's literal `WindField`). Added `UniformWind` (§3.5 case 1: constant (wx,wy) for all t,x,y) alongside the existing `ZeroWind` default. Validated the configured (wx,wy) is returned unchanged across widely varying t/x/y."
     },
     {
       "id": "P1.30",
