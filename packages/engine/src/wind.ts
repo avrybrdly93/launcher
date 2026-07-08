@@ -56,3 +56,41 @@ export class SinusoidalGustWind implements WindModel {
     out.wy = 0;
   }
 }
+
+const VORTEX_CORE_EPS = 1e-9;
+
+/**
+ * Gaussian (Lamb-Oseen) vortex (§3.5 case 3): tangential speed
+ * v_theta(r) = (circulation / (2*pi*r)) * (1 - exp(-(r/coreRadius)^2)),
+ * regularized so it vanishes linearly (not singularly) at the vortex
+ * center. The enclosed circulation at radius r is
+ * circulation*(1-exp(-(r/coreRadius)^2)), approaching the full
+ * `circulation` for r >> coreRadius.
+ */
+export class GaussianVortexWind implements WindModel {
+  constructor(
+    private readonly centerX: number,
+    private readonly centerY: number,
+    private readonly circulation: number,
+    private readonly coreRadius: number,
+  ) {}
+
+  sample(_t: number, x: number, y: number, out: EnvSample): void {
+    const dx = x - this.centerX;
+    const dy = y - this.centerY;
+    const r = Math.hypot(dx, dy);
+
+    if (r < VORTEX_CORE_EPS) {
+      out.wx = 0;
+      out.wy = 0;
+      return;
+    }
+
+    // v_theta/r, so multiplying by (-dy, dx) directly gives the tangential
+    // velocity without a second division by r.
+    const factor =
+      (this.circulation / (2 * Math.PI * r * r)) * (1 - Math.exp(-((r / this.coreRadius) ** 2)));
+    out.wx = -factor * dy;
+    out.wy = factor * dx;
+  }
+}

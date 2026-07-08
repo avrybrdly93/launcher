@@ -552,8 +552,8 @@
       "estMinutes": 25,
       "difficulty": "M",
       "validation": "circulation integral on ring \u2248 \u0393 to 1% (numeric quadrature test)",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added GaussianVortexWind to wind.ts: Lamb-Oseen tangential profile v_theta(r)=(Gamma/(2*pi*r))*(1-exp(-(r/coreRadius)^2)), regularized to 0 at r=0 (no singularity). Tested via a 2000-point composite-trapezoid line-integral quadrature of w.dl around a ring at 6*coreRadius, matching Gamma to <1%; plus exact finiteness at the center and a purely-tangential (w perp r_hat) check."
     },
     {
       "id": "P1.33",

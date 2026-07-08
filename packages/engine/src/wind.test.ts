@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { EnvSample } from "./env-sample.js";
-import { LogProfileWind, SinusoidalGustWind, UniformWind } from "./wind.js";
+import { GaussianVortexWind, LogProfileWind, SinusoidalGustWind, UniformWind } from "./wind.js";
 
 describe("UniformWind", () => {
   it("is constant everywhere: position, height, and time do not matter", () => {
@@ -82,5 +82,64 @@ describe("SinusoidalGustWind", () => {
     const out = new EnvSample();
     wind.sample(0, 0, 0, out);
     expect(out.wx).toBeCloseTo(0, 14);
+  });
+});
+
+/** Composite trapezoid rule for the closed line integral oint w.dl over a circle of radius r. */
+function circulationOnRing(
+  wind: GaussianVortexWind,
+  centerX: number,
+  centerY: number,
+  r: number,
+  n = 2000,
+): number {
+  const out = new EnvSample();
+  let circulation = 0;
+  let prevTangential = 0;
+
+  for (let i = 0; i <= n; i++) {
+    const theta = (2 * Math.PI * i) / n;
+    // Unit tangent for a counterclockwise parametrization: (-sin, cos).
+    const tx = -Math.sin(theta);
+    const ty = Math.cos(theta);
+    wind.sample(0, centerX + r * Math.cos(theta), centerY + r * Math.sin(theta), out);
+    const tangential = out.wx * tx + out.wy * ty;
+    if (i > 0) circulation += 0.5 * (tangential + prevTangential) * ((2 * Math.PI * r) / n);
+    prevTangential = tangential;
+  }
+  return circulation;
+}
+
+describe("GaussianVortexWind", () => {
+  it("circulation integral on a ring far outside the core matches Gamma to 1%", () => {
+    const gamma = 12.5;
+    const coreRadius = 0.5;
+    const wind = new GaussianVortexWind(3, -2, gamma, coreRadius);
+
+    const circulation = circulationOnRing(wind, 3, -2, 6 * coreRadius);
+    expect(Math.abs(circulation - gamma) / Math.abs(gamma)).toBeLessThan(0.01);
+  });
+
+  it("is finite (no NaN) exactly at the vortex center", () => {
+    const wind = new GaussianVortexWind(0, 0, 10, 1);
+    const out = new EnvSample();
+    wind.sample(0, 0, 0, out);
+    expect(out.wx).toBe(0);
+    expect(out.wy).toBe(0);
+  });
+
+  it("wind is purely tangential (w . r_hat = 0 away from center)", () => {
+    const wind = new GaussianVortexWind(0, 0, 10, 1);
+    const out = new EnvSample();
+    for (const [x, y] of [
+      [2, 0],
+      [0, 3],
+      [1, 1],
+      [-2, 1.5],
+    ] as const) {
+      wind.sample(0, x, y, out);
+      const radialDot = out.wx * x + out.wy * y;
+      expect(Math.abs(radialDot)).toBeLessThan(1e-12);
+    }
   });
 });
