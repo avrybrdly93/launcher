@@ -486,8 +486,8 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "corrupt fixture rejected with useful error",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added asset-loader.ts: loadProjectileAsset/loadProjectileAssets wrap parseWithSchema, re-throwing SchemaValidationError prefixed with the offending bundle index. asset-loader.test.ts covers a clean load of the full PROJECTILE_ASSETS bundle plus three corrupt-fixture cases (missing provenance, negative mass inside a bundle -- checks the index prefix, and a bad dragCoefficient discriminant), each asserting the error message names the bad field."
     },
     {
       "id": "P1.27",
