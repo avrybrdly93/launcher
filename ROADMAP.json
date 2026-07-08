@@ -607,8 +607,8 @@
       "estMinutes": 20,
       "difficulty": "E",
       "validation": "v_T for skydiver-like preset \u2248 50\u201360 m/s",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added characteristic-scales.ts: computeCharacteristicScales() returns terminalVelocity (eq 3.10), dragTimescale=v_T/g, pi=(v0/v_T)^2, and the drag-free apexEstimate=v0^2*sin^2(theta)/(2g). Tested v_T for a skydiver-like preset (80kg, 0.7m^2, Cd 0.6) falls in 50-60 m/s, plus exact-formula checks for each of the four quantities."
     },
     {
       "id": "P1.38",
