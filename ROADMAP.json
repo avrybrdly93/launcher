@@ -629,8 +629,8 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "ground event function g=y\u2212h(x) evaluates",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added terrain.ts: Terrain interface (height(x)), FlatTerrain (h=0), FunctionTerrain (arbitrary h(x)), and createGroundEventSpec(terrain) building the EventSpec g(t,y)=y-h(x). Tested flat terrain (g=y) and a sine-curve terrain (g=y-sin(x))."
     },
     {
       "id": "P1.40",
