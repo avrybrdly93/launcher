@@ -442,8 +442,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "matches central finite differences to 1e-7 at 10 states",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added jacobian.ts: analyticJacobianGravityQuadraticDrag(ctx, out) computes the row-major 4x4 J=df/dy assuming state-independent Cd (ConstantCd) and a spatially-uniform environment (rho/g/wind constant at the point), so only the velocity-velocity drag block and the kinematic dx/dvx=dy/dvy=1 entries are nonzero. Verified against finiteDifferenceJacobian (P1.23) at the same 10-state fixture used by planar-projectile-model.test.ts; max abs diff ~7.1e-8, under the 1e-7 bound (jacobian.test.ts)."
     },
     {
       "id": "P1.23",
@@ -453,8 +453,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "matches P1.22 analytic where available",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added finiteDifferenceJacobian in jacobian.ts: generic central-difference Jacobian for any rhs(t,y,out), per-component step h_j = sqrt(eps)*max(|y_j|,1), preallocated scratch (createFiniteDifferenceJacobianScratch) so no per-call allocation. Tested against a known-linear ODE Jacobian and cross-checked against the P1.22 analytic Jacobian at the 10-state fixture (jacobian.test.ts)."
     },
     {
       "id": "P1.24",
