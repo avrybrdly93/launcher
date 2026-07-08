@@ -144,3 +144,22 @@ export function composeForces(
     force.accumulate(t, y, ctx, outForce);
   }
 }
+
+/**
+ * Sums `energyPower` (F.v) across `forces` (eq. 3.19). Callers checking the
+ * energy invariant (energy.ts) must exclude the gravity force from `forces`
+ * here — gravity's work is already folded into mechanicalEnergy's mgy term,
+ * so including it would double-count it against dE/dt.
+ */
+export function composeEnergyPower(
+  forces: readonly ForceModel[],
+  t: number,
+  y: Float64Array,
+  ctx: EvalContext,
+): number {
+  let power = 0;
+  for (const force of forces) {
+    if (force.energyPower) power += force.energyPower(t, y, ctx);
+  }
+  return power;
+}

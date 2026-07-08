@@ -464,8 +464,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "drag-off: dE/dt from powers \u2261 0 to 1e-13",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added energy.ts (mechanicalEnergy(y,mass,g) = 0.5*m|v|^2+mgy, and ENERGY_INVARIANT: InvariantSpec reporting it) and forces.ts:composeEnergyPower (sums energyPower across a force list, mirroring composeForces). Key design point documented in both files: gravity's own energyPower must be excluded from the sum used against dE/dt, since gravity's work is already folded into E's mgy term - callers pass forces.filter(f => f.id !== 'gravity'). energy.test.ts verifies: (1) gravity-alone (drag-off) gives an empty non-gravity sum and chain-rule dE/dt is exactly 0 to 1e-13; (2) with drag+Magnus+buoyancy on, the non-gravity energyPower sum matches the chain-rule dE/dt (computed straight from rhs's acceleration output) to 1e-13 - the general (3.19) identity, not just the degenerate drag-off case; (3) still-air quadratic drag alone never does positive work; (4) ENERGY_INVARIANT.evaluate matches mechanicalEnergy directly."
     },
     {
       "id": "P1.25",
