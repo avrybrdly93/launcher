@@ -1,5 +1,6 @@
 import type { EvalContext } from "./eval-context.js";
 import { composeForces, createForceRegistry, type ForceModel } from "./forces.js";
+import { gravityQuadraticDragJacobian } from "./jacobian.js";
 import type { Model } from "./model.js";
 import type { ChannelMeta } from "./schema.js";
 import { norm } from "./vec2.js";
@@ -22,10 +23,17 @@ const VY = 3;
  * the first Model SolverKit will integrate — deliberately just a Model, with
  * no special status in the engine (§1.4).
  */
+/** True iff `forces` is exactly {gravity, drag-quadratic}, the case P1.22's analytic Jacobian covers. */
+function isGravityQuadraticDragOnly(registry: readonly ForceModel[]): boolean {
+  return (
+    registry.length === 2 && registry.every((f) => f.id === "gravity" || f.id === "drag-quadratic")
+  );
+}
+
 export function createPlanarProjectileModel(forces: readonly ForceModel[]): Model {
   const registry = createForceRegistry(forces);
 
-  return {
+  const model: Model = {
     dim: 4,
     channels: PLANAR_CHANNELS,
     rhs(t: number, y: Float64Array, out: Float64Array, ctx: EvalContext): void {
@@ -50,4 +58,10 @@ export function createPlanarProjectileModel(forces: readonly ForceModel[]): Mode
       out[VY] = ctx.forceAccum[1] / ctx.params.mass;
     },
   };
+
+  if (isGravityQuadraticDragOnly(registry)) {
+    model.jacobian = gravityQuadraticDragJacobian;
+  }
+
+  return model;
 }

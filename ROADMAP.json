@@ -442,8 +442,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "matches central finite differences to 1e-7 at 10 states",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "gravityQuadraticDragJacobian in jacobian.ts; Model.jacobian gained a ctx param (mirrors rhs) since the analytic form needs env/params. Auto-attached by createPlanarProjectileModel only when the force set is exactly {gravity, drag-quadratic}. Position derivatives are zero (all wired environments are position-independent); C_d is frozen at its evaluated value, exact for ConstantCd."
     },
     {
       "id": "P1.23",
