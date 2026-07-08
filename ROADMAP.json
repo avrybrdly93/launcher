@@ -453,8 +453,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "matches P1.22 analytic where available",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added finite-difference-jacobian.ts: finiteDifferenceJacobian(model,t,y,ctx,out), a central difference over any Model.rhs with per-component scaled step h_j=sqrt(eps)*max(|y_j|,1) (balances round-off vs truncation, and stays usable for components near zero). finite-difference-jacobian.test.ts checks it against gravityQuadraticDragJacobian (P1.22) at the same 10 fixture states, agreeing to 1e-5, plus a no-mutation-of-input check."
     },
     {
       "id": "P1.24",
