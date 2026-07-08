@@ -1,5 +1,6 @@
 import type { EvalContext } from "./eval-context.js";
 import { createEnergyInvariant } from "./energy.js";
+import { createMomentumXInvariant } from "./momentum.js";
 import type { EventSpec } from "./model.js";
 import { composeForces, createForceRegistry, type ForceModel } from "./forces.js";
 import type { Model } from "./model.js";
@@ -46,7 +47,7 @@ export function createPlanarProjectileModel(
   return {
     dim: 4,
     channels: PLANAR_CHANNELS,
-    invariants: [createEnergyInvariant()],
+    invariants: [createEnergyInvariant(), createMomentumXInvariant()],
     events: [createGroundEventSpec(terrain), createApexEventSpec()],
     rhs(t: number, y: Float64Array, out: Float64Array, ctx: EvalContext): void {
       const x = y[X]!;
