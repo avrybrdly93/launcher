@@ -475,8 +475,8 @@
       "estMinutes": 30,
       "difficulty": "E",
       "validation": "assets validate; each has provenance string",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added projectile-spec.ts: ProjectileSpecSchema (zod) plus PROJECTILE_ASSETS covering all 7 presets (smooth-sphere, golf-ball, soccer-ball, baseball, table-tennis-ball, cannonball, shot-put), each with a non-empty provenance citation and a dragCoefficient/liftCoefficient descriptor resolved by projectileParamsFromSpec into a runtime ProjectileParams. projectile-spec.test.ts checks id coverage, schema validity, provenance presence, and that each resolves to sane params."
     },
     {
       "id": "P1.26",
@@ -486,8 +486,8 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "corrupt fixture rejected with useful error",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "PROJECTILE_ASSETS is built by piping raw literals through parseProjectileSpec (zod .safeParse + SchemaValidationError, P1.01's parseWithSchema) at module-load time, so a corrupt asset fails as soon as the module is imported rather than silently reaching a scenario. projectile-spec.test.ts covers negative mass, missing provenance, and an unknown dragCoefficient kind, asserting SchemaValidationError with a message naming the bad field."
     },
     {
       "id": "P1.27",
