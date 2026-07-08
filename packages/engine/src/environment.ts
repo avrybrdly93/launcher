@@ -30,6 +30,20 @@ export class ConstantAtmosphere implements Atmosphere {
 }
 
 /**
+ * Sutherland's law: dynamic viscosity of air as a function of temperature
+ * (eq. 3.12). The constant/exponential atmospheres above hold eta fixed at
+ * the ISA sea-level reference; this is exercised by the ISA troposphere
+ * atmosphere (P4.01), where T actually varies with altitude.
+ */
+export function sutherlandViscosity(T: number): number {
+  return (
+    SUTHERLAND.etaRef *
+    (T / SUTHERLAND.Tref) ** 1.5 *
+    ((SUTHERLAND.Tref + SUTHERLAND.S) / (T + SUTHERLAND.S))
+  );
+}
+
+/**
  * Isothermal exponential-atmosphere approximation, rho(y) = rho0*e^(-y/H)
  * (§3.4). T/p/eta/c are held at ISA sea-level values — the full lapse-rate
  * troposphere model with consistent T(y)/p(y) is P4.01; this is the simpler
