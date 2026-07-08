@@ -4,6 +4,7 @@ import {
   ConstantAtmosphere,
   Environment,
   ExponentialAtmosphere,
+  LogProfileWind,
   UniformGravity,
   UniformWind,
   ZeroWind,
@@ -79,6 +80,44 @@ describe("UniformWind", () => {
       expect(out.wx).toBe(5);
       expect(out.wy).toBe(-2);
     }
+  });
+});
+
+describe("LogProfileWind", () => {
+  const KAPPA = 0.41;
+
+  it("w(y_r*(e-1))*kappa/u* = 1", () => {
+    const uStar = 2.5;
+    const yR = 0.01;
+    const wind = new LogProfileWind(uStar, yR);
+    const out = new EnvSample();
+    wind.sample(0, 0, yR * (Math.E - 1), out);
+    expect((out.wx * KAPPA) / uStar).toBeCloseTo(1, 12);
+  });
+
+  it("is finite (zero) at y=0", () => {
+    const wind = new LogProfileWind(3, 0.01);
+    const out = new EnvSample();
+    wind.sample(0, 0, 0, out);
+    expect(out.wx).toBe(0);
+    expect(out.wy).toBe(0);
+  });
+
+  it("stays finite for y < 0 via the ground clamp", () => {
+    const wind = new LogProfileWind(3, 0.01);
+    const out = new EnvSample();
+    wind.sample(0, 0, -5, out);
+    expect(Number.isFinite(out.wx)).toBe(true);
+    expect(out.wx).toBe(0); // clamped to y=0
+  });
+
+  it("increases with height (positive shear)", () => {
+    const wind = new LogProfileWind(3, 0.01);
+    const outLow = new EnvSample();
+    const outHigh = new EnvSample();
+    wind.sample(0, 0, 1, outLow);
+    wind.sample(0, 0, 10, outHigh);
+    expect(outHigh.wx).toBeGreaterThan(outLow.wx);
   });
 });
 

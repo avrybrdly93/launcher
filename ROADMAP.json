@@ -530,8 +530,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "w(y_r\u00b7(e\u22121))\u00b7\u03ba/u* = 1 check; w finite at y=0",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added LogProfileWind to environment.ts: w_x(y) = (u*/kappa)*ln((y+y_r)/y_r), kappa=0.41, w_y=0. y is clamped to >=0 before the log so a projectile at/below ground never produces NaN/-Infinity; at the clamp boundary y=0 the argument is exactly 1, giving w_x(0)=0 (finite, not singular). environment.test.ts checks the w(y_r*(e-1))*kappa/u*==1 identity, finiteness at y=0 and y<0, and monotonic increase with height."
     },
     {
       "id": "P1.31",

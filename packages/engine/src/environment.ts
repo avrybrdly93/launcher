@@ -102,6 +102,31 @@ export class UniformWind implements WindModel {
   }
 }
 
+const VON_KARMAN = 0.41;
+
+/**
+ * Logarithmic boundary-layer wind profile (eq. 3.13): horizontal wind sheared
+ * by height, w_x(y) = (u_star / kappa) . ln((y+y_r)/y_r). y is clamped to
+ * >= 0 before the log so a projectile momentarily at/just-below ground
+ * (numerical overshoot at the terrain event) never produces a
+ * NaN/-Infinity from ln(non-positive) — at y=0 the clamp makes the
+ * argument exactly 1, so w_x(0) = 0 rather than singular.
+ */
+export class LogProfileWind implements WindModel {
+  constructor(
+    private readonly frictionVelocity: number,
+    private readonly roughnessLength = 0.01,
+  ) {}
+
+  sample(_t: number, _x: number, y: number, out: EnvSample): void {
+    const clampedY = Math.max(y, 0);
+    out.wx =
+      (this.frictionVelocity / VON_KARMAN) *
+      Math.log((clampedY + this.roughnessLength) / this.roughnessLength);
+    out.wy = 0;
+  }
+}
+
 /**
  * Composes an Atmosphere + GravityModel + WindModel into the single
  * `Environment` the engine exports (§2.2 module table). `sample` is called
