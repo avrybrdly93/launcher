@@ -453,8 +453,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "matches P1.22 analytic where available",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added fd-jacobian.ts: createFiniteDifferenceJacobian(model) returns a central-difference Jacobian closure for any Model, with per-component step h_j = relativeStep*max(1,|y_j|) (relativeStep defaults to eps^(1/3)). Buffers preallocated once per model so repeat calls are alloc-free. fd-jacobian.test.ts checks it matches gravityQuadraticDragJacobian (P1.22) to <1e-7 at the same 10 states, plus a trivial scalar-decay sanity check and a repeat-call smoke test."
     },
     {
       "id": "P1.24",
