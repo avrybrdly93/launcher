@@ -464,8 +464,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "drag-off: dE/dt from powers \u2261 0 to 1e-13",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added energy.ts: mechanicalEnergy(y,mass,g) = KE+mgy; composeEnergyPower sums ForceModel.energyPower across a force list (scalar analogue of composeForces); mechanicalEnergyRate(y,out,mass,g) gives dE/dt via the exact rhs-derived chain rule. Wired an 'energy' InvariantSpec onto createPlanarProjectileModel's returned Model. energy.test.ts verifies the algebraic identity dE/dt == sum of non-gravity forces' power (gravity's own power exactly cancels the mgy term), and confirms dE/dt |<1e-13 with aero off and with Magnus-only-in-still-air, plus dE/dt<=0 with drag on."
     },
     {
       "id": "P1.25",
