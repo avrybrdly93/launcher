@@ -475,8 +475,8 @@
       "estMinutes": 30,
       "difficulty": "E",
       "validation": "assets validate; each has provenance string",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added projectile-assets.ts: ProjectileSpecSchema (zod, discriminated dragCoefficient union covering ConstantCd/TabulatedReynoldsCd) plus PROJECTILE_ASSETS with all 7 required assets (smooth-sphere, golf-ball, soccer-ball, baseball, table-tennis-ball, cannonball, shot-put), each with mass/radius from public rules/handbook figures and a provenance string citing its source. projectileParamsFromSpec bridges a spec to the existing ProjectileParams/DragCoefficientModel types."
     },
     {
       "id": "P1.26",
