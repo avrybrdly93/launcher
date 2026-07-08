@@ -475,8 +475,8 @@
       "estMinutes": 30,
       "difficulty": "E",
       "validation": "assets validate; each has provenance string",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "projectile-assets.ts: ProjectileSpecSchema (zod) with discriminated-union drag/lift coefficient specs (plain data, no class instances, so assets stay JSON-serializable) + tauOmega left optional/unused until P4.07's spin-decay model. PROJECTILE_ASSETS has all 7 §3.9 entries, each with a provenance citation; createProjectileParamsFromSpec resolves a spec into runtime ProjectileParams. Sport-specific Cd/CL *tables* (vs. the ConstantCd/smooth-sphere-curve used here) are P4.05, not in scope yet."
     },
     {
       "id": "P1.26",
@@ -486,8 +486,8 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "corrupt fixture rejected with useful error",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "loadProjectileAsset (projectile-assets.ts) wraps the existing parseWithSchema/SchemaValidationError (from P1.01's schema.ts) around ProjectileSpecSchema. Verified: all 7 built-in assets round-trip unchanged; a fixture missing `mass`, one with a negative radius, and one with an unknown dragCoefficient.kind discriminant are each rejected with a SchemaValidationError whose message names the offending field."
     },
     {
       "id": "P1.27",
