@@ -93,4 +93,23 @@ describe("createPlanarProjectileModel", () => {
       expect(out[3]).toBeCloseTo(expectedVy, 12);
     }
   });
+
+  it("declares ground (falling, terminal) and apex (falling, non-terminal) event specs", () => {
+    const model = createPlanarProjectileModel([new GravityForce()]);
+    expect(model.events).toHaveLength(2);
+
+    const ground = model.events!.find((e) => e.name === "ground")!;
+    expect(ground.direction).toBe("falling");
+    expect(ground.terminal).toBe(true);
+    expect(ground.g(0, new Float64Array([0, 3, 0, 0]))).toBe(3);
+    expect(ground.g(0, new Float64Array([0, 0, 0, 0]))).toBe(0);
+    expect(ground.g(0, new Float64Array([0, -2, 0, 0]))).toBe(-2);
+
+    const apex = model.events!.find((e) => e.name === "apex")!;
+    expect(apex.direction).toBe("falling");
+    expect(apex.terminal).toBe(false);
+    expect(apex.g(0, new Float64Array([0, 0, 5, 12]))).toBe(12);
+    expect(apex.g(0, new Float64Array([0, 0, 5, 0]))).toBe(0);
+    expect(apex.g(0, new Float64Array([0, 0, 5, -8]))).toBe(-8);
+  });
 });

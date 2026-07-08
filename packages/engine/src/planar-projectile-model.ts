@@ -1,8 +1,10 @@
 import type { EvalContext } from "./eval-context.js";
 import { createEnergyInvariant } from "./energy.js";
+import type { EventSpec } from "./model.js";
 import { composeForces, createForceRegistry, type ForceModel } from "./forces.js";
 import type { Model } from "./model.js";
 import type { ChannelMeta } from "./schema.js";
+import { createGroundEventSpec, FlatTerrain, type Terrain } from "./terrain.js";
 import { norm } from "./vec2.js";
 
 export const PLANAR_CHANNELS: readonly ChannelMeta[] = [
@@ -17,19 +19,35 @@ const Y = 1;
 const VX = 2;
 const VY = 3;
 
+/** Apex event: g(t,y) = v_y, its root the top of the arc. Non-terminal: the flight continues past it. */
+export function createApexEventSpec(): EventSpec {
+  return {
+    name: "apex",
+    direction: "falling",
+    terminal: false,
+    g(_t: number, y: Float64Array): number {
+      return y[VY]!;
+    },
+  };
+}
+
 /**
  * The workhorse planar projectile model (dim 4, eq. 3.17-3.18): wires
  * gravity/drag/Magnus/buoyancy force composition into a single rhs. This is
  * the first Model SolverKit will integrate — deliberately just a Model, with
  * no special status in the engine (§1.4).
  */
-export function createPlanarProjectileModel(forces: readonly ForceModel[]): Model {
+export function createPlanarProjectileModel(
+  forces: readonly ForceModel[],
+  terrain: Terrain = new FlatTerrain(),
+): Model {
   const registry = createForceRegistry(forces);
 
   return {
     dim: 4,
     channels: PLANAR_CHANNELS,
     invariants: [createEnergyInvariant()],
+    events: [createGroundEventSpec(terrain), createApexEventSpec()],
     rhs(t: number, y: Float64Array, out: Float64Array, ctx: EvalContext): void {
       const x = y[X]!;
       const yPos = y[Y]!;

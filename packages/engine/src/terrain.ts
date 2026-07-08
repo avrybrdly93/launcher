@@ -24,10 +24,16 @@ export class FunctionTerrain implements Terrain {
 const X = 0;
 const Y = 1;
 
-/** Ground-impact event: g(t,y) = y - h(x), its root the point of impact. */
+/**
+ * Ground-impact event: g(t,y) = y - h(x), its root the point of impact.
+ * Falling (the projectile crosses from above ground to below) and
+ * terminal (integration stops on impact).
+ */
 export function createGroundEventSpec(terrain: Terrain): EventSpec {
   return {
     name: "ground",
+    direction: "falling",
+    terminal: true,
     g(_t: number, y: Float64Array): number {
       return y[Y]! - terrain.height(y[X]!);
     },

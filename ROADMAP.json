@@ -640,8 +640,8 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "declared specs typecheck; unit eval of g at states",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Extended EventSpec (model.ts) with optional direction ('rising'|'falling'|'any') and terminal fields. terrain.ts's createGroundEventSpec now declares direction:'falling', terminal:true. Added createApexEventSpec() (planar-projectile-model.ts): g(t,y)=vy, direction:'falling', terminal:false. createPlanarProjectileModel now takes an optional Terrain (default FlatTerrain) and wires model.events=[ground, apex]. Tested both specs' direction/terminal flags and g-evaluation at several states."
     },
     {
       "id": "P1.41",
