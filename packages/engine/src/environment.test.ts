@@ -4,10 +4,20 @@ import {
   ConstantAtmosphere,
   Environment,
   ExponentialAtmosphere,
+  LogProfileWind,
+  SinusoidalGustWind,
   UniformGravity,
+  UniformWind,
   ZeroWind,
 } from "./environment.js";
-import { EARTH_RADIUS_M, G_STD, ISA, SUTHERLAND, sutherlandViscosity } from "./units.js";
+import {
+  EARTH_RADIUS_M,
+  G_STD,
+  ISA,
+  SUTHERLAND,
+  VON_KARMAN,
+  sutherlandViscosity,
+} from "./units.js";
 
 describe("ConstantAtmosphere", () => {
   it("returns ISA sea-level density everywhere", () => {
@@ -65,6 +75,72 @@ describe("sutherlandViscosity (P1.28)", () => {
   it("increases with temperature (viscosity of gases rises with T)", () => {
     expect(sutherlandViscosity(350)).toBeGreaterThan(sutherlandViscosity(288.15));
     expect(sutherlandViscosity(200)).toBeLessThan(sutherlandViscosity(288.15));
+  });
+});
+
+describe("UniformWind (P1.29)", () => {
+  it("is constant everywhere (all t, x, y)", () => {
+    const wind = new UniformWind(5, -2);
+    const out = new EnvSample();
+    for (const [t, x, y] of [
+      [0, 0, 0],
+      [10, 100, 50],
+      [-5, -1000, 2000],
+    ]) {
+      wind.sample(t!, x!, y!, out);
+      expect(out.wx).toBe(5);
+      expect(out.wy).toBe(-2);
+    }
+  });
+});
+
+describe("LogProfileWind (P1.30)", () => {
+  it("w(y_r*(e-1))*kappa/u* = 1", () => {
+    const uStar = 0.5;
+    const yr = 0.01;
+    const wind = new LogProfileWind(uStar, yr);
+    const out = new EnvSample();
+    wind.sample(0, 0, yr * (Math.E - 1), out);
+    expect((out.wx * VON_KARMAN) / uStar).toBeCloseTo(1, 12);
+  });
+
+  it("is finite (0) at y = 0 and stays finite below ground (guard)", () => {
+    const wind = new LogProfileWind(0.5, 0.01);
+    const out = new EnvSample();
+
+    wind.sample(0, 0, 0, out);
+    expect(out.wx).toBe(0);
+    expect(Number.isFinite(out.wx)).toBe(true);
+
+    wind.sample(0, 0, -100, out);
+    expect(out.wx).toBe(0);
+    expect(Number.isFinite(out.wx)).toBe(true);
+  });
+
+  it("increases with height (shear profile)", () => {
+    const wind = new LogProfileWind(0.5, 0.01);
+    const outLow = new EnvSample();
+    const outHigh = new EnvSample();
+    wind.sample(0, 0, 1, outLow);
+    wind.sample(0, 0, 10, outHigh);
+    expect(outHigh.wx).toBeGreaterThan(outLow.wx);
+  });
+});
+
+describe("SinusoidalGustWind (P1.31)", () => {
+  it("matches wbar + A*sin(Omega*t + phi) at sampled t", () => {
+    const mean = 3;
+    const amplitude = 2;
+    const omega = 1.5;
+    const phase = 0.4;
+    const wind = new SinusoidalGustWind(mean, amplitude, omega, phase);
+    const out = new EnvSample();
+
+    for (const t of [0, 0.5, 1, 3.7, 10]) {
+      wind.sample(t, 0, 0, out);
+      expect(out.wx).toBeCloseTo(mean + amplitude * Math.sin(omega * t + phase), 14);
+      expect(out.wy).toBe(0);
+    }
   });
 });
 

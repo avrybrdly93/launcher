@@ -1,5 +1,5 @@
 import { EnvSample } from "./env-sample.js";
-import { EARTH_RADIUS_M, G_STD, ISA, sutherlandViscosity } from "./units.js";
+import { EARTH_RADIUS_M, G_STD, ISA, VON_KARMAN, sutherlandViscosity } from "./units.js";
 
 /** Fills the thermodynamic fields of an EnvSample (rho, T, p, eta, c) at a point (§3.4). */
 export interface Atmosphere {
@@ -76,6 +76,58 @@ export class ZeroWind implements WindModel {
   sample(_t: number, _x: number, _y: number, out: EnvSample): void {
     out.wx = 0;
     out.wy = 0;
+  }
+}
+
+/** Uniform steady wind (§3.5 case 1): w = (wx, wy) everywhere, independent of t, x, y. */
+export class UniformWind implements WindModel {
+  constructor(
+    private readonly wx: number,
+    private readonly wy: number = 0,
+  ) {}
+
+  sample(_t: number, _x: number, _y: number, out: EnvSample): void {
+    out.wx = this.wx;
+    out.wy = this.wy;
+  }
+}
+
+/**
+ * Logarithmic boundary-layer wind profile (§3.5 case 2, eq. 3.13): horizontal
+ * wind sheared by height, w_x(y) = (u_star / kappa) * ln((y+y_r)/y_r). The
+ * profile is mathematically undefined for y <= -y_r (log of a non-positive argument);
+ * height is clamped to 0 before evaluating so a query at or below ground
+ * (e.g. a transient Newton iterate) returns a finite w_x(0) = 0 rather than
+ * NaN/-Infinity.
+ */
+export class LogProfileWind implements WindModel {
+  constructor(
+    private readonly frictionVelocity: number,
+    private readonly roughnessLength: number = 0.01, // m, grass (§3.5)
+  ) {}
+
+  sample(_t: number, _x: number, y: number, out: EnvSample): void {
+    const clampedY = Math.max(y, 0);
+    out.wx =
+      (this.frictionVelocity / VON_KARMAN) *
+      Math.log((clampedY + this.roughnessLength) / this.roughnessLength);
+    out.wy = 0;
+  }
+}
+
+/** Sinusoidal gust (§3.5 case 3): w_x(t) = wbar + A*sin(Omega*t + phi), smooth by construction. */
+export class SinusoidalGustWind implements WindModel {
+  constructor(
+    private readonly mean: number,
+    private readonly amplitude: number,
+    private readonly angularFrequency: number,
+    private readonly phase = 0,
+    private readonly wy = 0,
+  ) {}
+
+  sample(t: number, _x: number, _y: number, out: EnvSample): void {
+    out.wx = this.mean + this.amplitude * Math.sin(this.angularFrequency * t + this.phase);
+    out.wy = this.wy;
   }
 }
 

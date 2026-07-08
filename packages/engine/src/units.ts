@@ -20,6 +20,9 @@ export const SUTHERLAND = {
 
 export const EARTH_RADIUS_M = 6.371e6;
 
+/** Von Kármán constant, log-profile wind (§3.5, eq. 3.13). */
+export const VON_KARMAN = 0.41;
+
 /** Sutherland's law (§3.4, eq. 3.12): eta(T) = etaRef*(T/Tref)^1.5*(Tref+S)/(T+S). */
 export function sutherlandViscosity(temperatureK: number): number {
   const { etaRef, Tref, S } = SUTHERLAND;
