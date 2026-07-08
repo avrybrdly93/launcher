@@ -563,8 +563,8 @@
       "estMinutes": 30,
       "difficulty": "M",
       "validation": "reproduces linear field exactly; clamp documented+tested",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added GriddedWindField to wind.ts: bilinear interpolation over a rectilinear WindGrid (binary-search interval lookup, row-major wx/wy). Out-of-domain queries clamp the lookup position to the nearest edge (documented policy, not extrapolation). Tested exact reproduction of an affine field (wx=2+3x-y, wy=-1+x+4y) at grid points and interior points, plus three clamp cases (below both bounds, above both bounds, clamped in x only)."
     },
     {
       "id": "P1.34",

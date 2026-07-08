@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { EnvSample } from "./env-sample.js";
-import { GaussianVortexWind, LogProfileWind, SinusoidalGustWind, UniformWind } from "./wind.js";
+import {
+  GaussianVortexWind,
+  GriddedWindField,
+  LogProfileWind,
+  SinusoidalGustWind,
+  UniformWind,
+  type WindGrid,
+} from "./wind.js";
 
 describe("UniformWind", () => {
   it("is constant everywhere: position, height, and time do not matter", () => {
@@ -141,5 +148,60 @@ describe("GaussianVortexWind", () => {
       const radialDot = out.wx * x + out.wy * y;
       expect(Math.abs(radialDot)).toBeLessThan(1e-12);
     }
+  });
+});
+
+describe("GriddedWindField", () => {
+  // wx(x,y) = 2 + 3x - y; wy(x,y) = -1 + x + 4y -- both affine, so a bilinear
+  // interpolant reproduces them exactly everywhere inside the domain.
+  const xs = [0, 1, 3, 4];
+  const ys = [-2, 0, 2];
+  const linearWx = (x: number, y: number) => 2 + 3 * x - y;
+  const linearWy = (x: number, y: number) => -1 + x + 4 * y;
+  const grid: WindGrid = {
+    xs,
+    ys,
+    wx: ys.flatMap((y) => xs.map((x) => linearWx(x, y))),
+    wy: ys.flatMap((y) => xs.map((x) => linearWy(x, y))),
+  };
+
+  it("reproduces a linear field exactly at grid points and in between", () => {
+    const wind = new GriddedWindField(grid);
+    const out = new EnvSample();
+
+    for (const [x, y] of [
+      [0, -2],
+      [4, 2],
+      [1, 0],
+      [2.3, 1.1],
+      [0.5, -1.5],
+      [3.9, 1.9],
+    ] as const) {
+      wind.sample(0, x, y, out);
+      expect(out.wx).toBeCloseTo(linearWx(x, y), 12);
+      expect(out.wy).toBeCloseTo(linearWy(x, y), 12);
+    }
+  });
+
+  it("clamps out-of-domain queries to the nearest edge value", () => {
+    const wind = new GriddedWindField(grid);
+    const out = new EnvSample();
+    const atCorner = new EnvSample();
+
+    wind.sample(0, xs[0]!, ys[0]!, atCorner);
+    wind.sample(0, -100, -100, out);
+    expect(out.wx).toBe(atCorner.wx);
+    expect(out.wy).toBe(atCorner.wy);
+
+    wind.sample(0, xs[xs.length - 1]!, ys[ys.length - 1]!, atCorner);
+    wind.sample(0, 1000, 1000, out);
+    expect(out.wx).toBe(atCorner.wx);
+    expect(out.wy).toBe(atCorner.wy);
+
+    // Clamped in x only, interpolated normally in y.
+    wind.sample(0, -50, 1, out);
+    wind.sample(0, xs[0]!, 1, atCorner);
+    expect(out.wx).toBe(atCorner.wx);
+    expect(out.wy).toBe(atCorner.wy);
   });
 });
