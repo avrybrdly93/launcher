@@ -464,8 +464,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "drag-off: dE/dt from powers \u2261 0 to 1e-13",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added energy.ts: mechanicalEnergy(y,ctx)=KE+mgy; aeroEnergyPower sums energyPower over all non-gravity forces (gravity's work is already embedded in the mgy term); energyDerivativeFromRhs computes dE/dt via chain rule from rhs accelerations as a cross-check; createEnergyInvariant() wires an InvariantSpec named 'energy' onto createPlanarProjectileModel. energy.test.ts covers all three of S3.8's exact checks: drag-off dE/dt=0 to 1e-13, Magnus-only conservation (F_M perp v), and drag-on monotone non-increasing energy, each cross-checked between the two independent dE/dt formulas."
     },
     {
       "id": "P1.25",
