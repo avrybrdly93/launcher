@@ -128,6 +128,63 @@ export class LogProfileWind implements WindModel {
 }
 
 /**
+ * Sinusoidal gust wind (§3.5 case 3): w_x(t) = wbar + A*sin(Omega*t + phi),
+ * smooth by construction (infinitely differentiable in t) so solver
+ * convergence studies stay clean even with gusting enabled. w_y = 0.
+ */
+export class SinusoidalGustWind implements WindModel {
+  constructor(
+    private readonly meanWind: number,
+    private readonly amplitude: number,
+    private readonly angularFrequency: number,
+    private readonly phase = 0,
+  ) {}
+
+  sample(t: number, _x: number, _y: number, out: EnvSample): void {
+    out.wx = this.meanWind + this.amplitude * Math.sin(this.angularFrequency * t + this.phase);
+    out.wy = 0;
+  }
+}
+
+const VORTEX_CORE_EPS = 1e-12;
+
+/**
+ * Gaussian-core (Lamb-Oseen) vortex wind field (§3.5 case 3): a smooth,
+ * infinitely-differentiable analytic gust structure with tangential speed
+ *
+ *   v_theta(r) = (Gamma / (2*pi*r)) * (1 - exp(-r^2/r_c^2))
+ *
+ * around the center (x0, y0), circulation Gamma, and core radius r_c. The
+ * (1 - exp(...)) factor removes the 1/r singularity at the center (v_theta
+ * -> 0 linearly as r -> 0) and the circulation on any ring of radius r
+ * approaches Gamma once r >> r_c (exactly Gamma*(1-exp(-r^2/r_c^2))).
+ */
+export class GaussianVortexWind implements WindModel {
+  constructor(
+    private readonly x0: number,
+    private readonly y0: number,
+    private readonly circulation: number,
+    private readonly coreRadius: number,
+  ) {}
+
+  sample(_t: number, x: number, y: number, out: EnvSample): void {
+    const dx = x - this.x0;
+    const dy = y - this.y0;
+    const r = Math.hypot(dx, dy);
+    if (r < VORTEX_CORE_EPS) {
+      out.wx = 0;
+      out.wy = 0;
+      return;
+    }
+    const vTheta =
+      (this.circulation / (2 * Math.PI * r)) *
+      (1 - Math.exp(-(r * r) / (this.coreRadius * this.coreRadius)));
+    out.wx = (-vTheta * dy) / r;
+    out.wy = (vTheta * dx) / r;
+  }
+}
+
+/**
  * Composes an Atmosphere + GravityModel + WindModel into the single
  * `Environment` the engine exports (§2.2 module table). `sample` is called
  * exactly once per rhs evaluation (§2.4a); internally it delegates to the

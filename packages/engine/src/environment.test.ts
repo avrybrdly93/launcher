@@ -4,7 +4,9 @@ import {
   ConstantAtmosphere,
   Environment,
   ExponentialAtmosphere,
+  GaussianVortexWind,
   LogProfileWind,
+  SinusoidalGustWind,
   UniformGravity,
   UniformWind,
   ZeroWind,
@@ -118,6 +120,69 @@ describe("LogProfileWind", () => {
     wind.sample(0, 0, 1, outLow);
     wind.sample(0, 0, 10, outHigh);
     expect(outHigh.wx).toBeGreaterThan(outLow.wx);
+  });
+});
+
+describe("SinusoidalGustWind", () => {
+  it("matches wbar + A*sin(Omega*t + phi) at sampled t", () => {
+    const wbar = 4;
+    const A = 2.5;
+    const Omega = 0.7;
+    const phi = 0.3;
+    const wind = new SinusoidalGustWind(wbar, A, Omega, phi);
+    const out = new EnvSample();
+    for (const t of [0, 1, 2.5, 10, 100]) {
+      wind.sample(t, 0, 0, out);
+      expect(out.wx).toBeCloseTo(wbar + A * Math.sin(Omega * t + phi), 12);
+      expect(out.wy).toBe(0);
+    }
+  });
+});
+
+describe("GaussianVortexWind", () => {
+  it("circulation integral on a ring >> core radius matches Gamma to 1% (numeric quadrature)", () => {
+    const gamma = 10;
+    const coreRadius = 1;
+    const wind = new GaussianVortexWind(0, 0, gamma, coreRadius);
+    const R = 5 * coreRadius;
+    const n = 10000;
+    let circulation = 0;
+    const out = new EnvSample();
+    for (let i = 0; i < n; i++) {
+      const theta = (2 * Math.PI * i) / n;
+      const x = R * Math.cos(theta);
+      const y = R * Math.sin(theta);
+      wind.sample(0, x, y, out);
+      // dl for a CCW ring parametrized by theta: R*dtheta*(-sin(theta), cos(theta))
+      const dTheta = (2 * Math.PI) / n;
+      const dlx = -R * Math.sin(theta) * dTheta;
+      const dly = R * Math.cos(theta) * dTheta;
+      circulation += out.wx * dlx + out.wy * dly;
+    }
+    expect(Math.abs(circulation - gamma) / gamma).toBeLessThan(0.01);
+  });
+
+  it("vanishes smoothly (no NaN) at the vortex center", () => {
+    const wind = new GaussianVortexWind(3, -2, 10, 1);
+    const out = new EnvSample();
+    wind.sample(0, 3, -2, out);
+    expect(out.wx).toBe(0);
+    expect(out.wy).toBe(0);
+  });
+
+  it("tangential speed vanishes as r -> 0 and approaches Gamma/(2*pi*r) for r >> core", () => {
+    const gamma = 10;
+    const coreRadius = 0.5;
+    const wind = new GaussianVortexWind(0, 0, gamma, coreRadius);
+    const out = new EnvSample();
+    wind.sample(0, 0.001, 0, out);
+    const speedNearCenter = Math.hypot(out.wx, out.wy);
+    expect(speedNearCenter).toBeLessThan(0.1);
+
+    const rFar = 10 * coreRadius;
+    wind.sample(0, rFar, 0, out);
+    const speedFar = Math.hypot(out.wx, out.wy);
+    expect(speedFar).toBeCloseTo(gamma / (2 * Math.PI * rFar), 6);
   });
 });
 

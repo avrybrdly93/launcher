@@ -541,8 +541,8 @@
       "estMinutes": 10,
       "difficulty": "E",
       "validation": "matches formula at sampled t",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added SinusoidalGustWind to environment.ts: w_x(t) = wbar + A*sin(Omega*t+phi), w_y=0. environment.test.ts checks the formula at 5 sampled t values to 1e-12."
     },
     {
       "id": "P1.32",
@@ -552,8 +552,8 @@
       "estMinutes": 25,
       "difficulty": "M",
       "validation": "circulation integral on ring \u2248 \u0393 to 1% (numeric quadrature test)",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added GaussianVortexWind to environment.ts: the Lamb-Oseen vortex v_theta(r) = (Gamma/(2*pi*r))*(1-exp(-r^2/r_c^2)), smooth at the center (guarded, no 1/r singularity). environment.test.ts numerically integrates the circulation on a ring of radius 5*r_c with a 10000-point trapezoid sum, matching Gamma to <1%; also checks near-center vanishing and the r>>core asymptote Gamma/(2*pi*r)."
     },
     {
       "id": "P1.33",
