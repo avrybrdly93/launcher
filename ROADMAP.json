@@ -442,8 +442,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "matches central finite differences to 1e-7 at 10 states",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added jacobian.ts: gravityQuadraticDragJacobian(t,y,ctx,out) as a standalone utility (not yet wired to Model.jacobian, which lacks a ctx parameter needed for env/params access - deferred to whichever later task actually consumes it, e.g. P2.38). Scoped to gravity+quadratic-drag: assumes rho/g/wind are position/time-independent (true of every Atmosphere/GravityModel/WindModel registered so far) and treats the drag coefficient as evaluated-not-differentiated at the local Re/Mach (exact for ConstantCd). Guards the removable u->0 singularity by returning the exact zero limit. jacobian.test.ts validates against central FD of the two-force model.rhs to 1e-7 at the same 10 fixture states used for the P1.20 hand-expanded-RHS test, plus a symmetry check (drag block is the Hessian of a scalar potential) and a v_rel=0 guard check."
     },
     {
       "id": "P1.23",
