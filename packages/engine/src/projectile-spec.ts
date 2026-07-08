@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { Schema } from "./schema.js";
+import { loadAssets } from "./asset-loader.js";
 import { ConstantCd } from "./drag-coefficient.js";
 import { createSphericalProjectileParams, type ProjectileParams } from "./projectile-params.js";
 
@@ -42,8 +43,10 @@ export function projectileParamsFromSpec(spec: ProjectileSpec): ProjectileParams
  * The initial projectile asset library (§3.9): smooth sphere, golf, soccer,
  * baseball, table-tennis, cannonball, shot put. Every value below is a
  * published rule/reference figure, not a fit to this platform's behavior.
+ * Passed through `loadAssets` so a corrupted entry fails at import/build
+ * time (P1.26) instead of shipping.
  */
-export const PROJECTILE_ASSETS: readonly ProjectileSpec[] = [
+const RAW_PROJECTILE_ASSETS: readonly unknown[] = [
   {
     id: "smooth-sphere",
     label: "Smooth sphere (reference)",
@@ -108,3 +111,9 @@ export const PROJECTILE_ASSETS: readonly ProjectileSpec[] = [
       "World Athletics rule: men's shot mass 7.26 kg (16 lb), diameter 110-130 mm (radius ~0.06 m). Smooth-sphere Cd=0.47.",
   },
 ];
+
+export const PROJECTILE_ASSETS: readonly ProjectileSpec[] = loadAssets(
+  ProjectileSpecSchema,
+  RAW_PROJECTILE_ASSETS,
+  "projectile-spec.ts built-in assets",
+);

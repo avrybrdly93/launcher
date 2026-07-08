@@ -486,8 +486,8 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "corrupt fixture rejected with useful error",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added asset-loader.ts:loadAssets(schema, rawAssets, sourceLabel), a generic validator for a raw asset array that aggregates every failing entry's zod issues into one SchemaValidationError naming the asset id (or index) and the offending field/reason per line, instead of failing lazily on first use. Wired into projectile-spec.ts: PROJECTILE_ASSETS is now the result of loadAssets(ProjectileSpecSchema, RAW_PROJECTILE_ASSETS, ...), so a corrupted built-in asset would fail at module-import/build time. asset-loader.test.ts validates a well-formed list, rejects a corrupt fixture (negative mass + empty provenance) with an error naming the bad asset's id and both broken fields while excluding the good entry, and checks that PROJECTILE_ASSETS itself already passed through the loader."
     },
     {
       "id": "P1.27",

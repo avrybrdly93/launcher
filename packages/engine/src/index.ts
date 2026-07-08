@@ -16,3 +16,4 @@ export * from "./jacobian.js";
 export * from "./finite-difference-jacobian.js";
 export * from "./energy.js";
 export * from "./projectile-spec.js";
+export * from "./asset-loader.js";
