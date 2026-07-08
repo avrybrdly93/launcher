@@ -1,4 +1,5 @@
 import type { EvalContext } from "./eval-context.js";
+import type { Model } from "./model.js";
 
 const X = 0;
 const Y = 1;
@@ -64,4 +65,62 @@ export function gravityQuadraticDragJacobian(
   out[VX * DIM + VY] = daxDvy;
   out[VY * DIM + VX] = dayDvx;
   out[VY * DIM + VY] = dayDvy;
+}
+
+/**
+ * Reused buffers for `finiteDifferenceJacobian` (one per model dimension),
+ * so the fallback stays allocation-free on repeated calls (ADR-004) — the
+ * same pattern as EvalContext.
+ */
+export class FiniteDifferenceJacobianScratch {
+  readonly yPerturbed: Float64Array;
+  readonly outPlus: Float64Array;
+  readonly outMinus: Float64Array;
+
+  constructor(dim: number) {
+    this.yPerturbed = new Float64Array(dim);
+    this.outPlus = new Float64Array(dim);
+    this.outMinus = new Float64Array(dim);
+  }
+}
+
+/** Relative step size for the central difference, scaled per-component by max(1, |y_i|). */
+const FD_STEP_RELATIVE = 1e-6;
+
+/**
+ * Generic central-difference Jacobian for any `Model` (P1.23), used as the
+ * fallback when a model has no analytic `jacobian` (e.g. once Magnus or a
+ * Re-dependent C_d model is in play). Steps are scaled per-component by
+ * max(1, |y_i|) rather than a single fixed h, so position channels (O(1-100)
+ * m) and velocity channels get comparably-conditioned steps. Matches
+ * `gravityQuadraticDragJacobian` (P1.22) wherever that analytic form applies.
+ */
+export function finiteDifferenceJacobian(
+  model: Model,
+  t: number,
+  y: Float64Array,
+  ctx: EvalContext,
+  out: Float64Array,
+  scratch: FiniteDifferenceJacobianScratch,
+): void {
+  const dim = model.dim;
+  const { yPerturbed, outPlus, outMinus } = scratch;
+  yPerturbed.set(y);
+
+  for (let col = 0; col < dim; col++) {
+    const original = y[col]!;
+    const h = FD_STEP_RELATIVE * Math.max(1, Math.abs(original));
+
+    yPerturbed[col] = original + h;
+    model.rhs(t, yPerturbed, outPlus, ctx);
+
+    yPerturbed[col] = original - h;
+    model.rhs(t, yPerturbed, outMinus, ctx);
+
+    yPerturbed[col] = original;
+
+    for (let row = 0; row < dim; row++) {
+      out[row * dim + col] = (outPlus[row]! - outMinus[row]!) / (2 * h);
+    }
+  }
 }

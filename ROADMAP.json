@@ -453,8 +453,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "matches P1.22 analytic where available",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "finiteDifferenceJacobian in jacobian.ts: central differences, per-component step scaled by max(1,|y_i|), takes any Model via model.rhs. FiniteDifferenceJacobianScratch holds reused buffers (yPerturbed/outPlus/outMinus) so it stays allocation-free like EvalContext. Verified against gravityQuadraticDragJacobian (P1.22) at 10 states to 1e-7, and against a Model-agnostic decay-model sanity check."
     },
     {
       "id": "P1.24",
