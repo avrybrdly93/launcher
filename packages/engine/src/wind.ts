@@ -37,3 +37,22 @@ export class LogProfileWind implements WindModel {
     out.wy = 0;
   }
 }
+
+/**
+ * Sinusoidal gust (§3.5 case 3): w_x(t) = mean + amplitude*sin(omega*t +
+ * phase). Smooth by construction (C-infinity in t), so solver convergence
+ * studies against it remain clean.
+ */
+export class SinusoidalGustWind implements WindModel {
+  constructor(
+    private readonly mean: number,
+    private readonly amplitude: number,
+    private readonly omega: number,
+    private readonly phase = 0,
+  ) {}
+
+  sample(t: number, _x: number, _y: number, out: EnvSample): void {
+    out.wx = this.mean + this.amplitude * Math.sin(this.omega * t + this.phase);
+    out.wy = 0;
+  }
+}

@@ -541,8 +541,8 @@
       "estMinutes": 10,
       "difficulty": "E",
       "validation": "matches formula at sampled t",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added SinusoidalGustWind to wind.ts: w_x(t) = mean + amplitude*sin(omega*t+phase). Tested against the closed-form formula at 6 sampled t (including negative and large t) to 1e-14, plus a default-phase check."
     },
     {
       "id": "P1.32",

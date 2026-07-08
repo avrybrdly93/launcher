@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { EnvSample } from "./env-sample.js";
-import { LogProfileWind, UniformWind } from "./wind.js";
+import { LogProfileWind, SinusoidalGustWind, UniformWind } from "./wind.js";
 
 describe("UniformWind", () => {
   it("is constant everywhere: position, height, and time do not matter", () => {
@@ -57,5 +57,30 @@ describe("LogProfileWind", () => {
       expect(out.wx).toBeGreaterThan(previous);
       previous = out.wx;
     }
+  });
+});
+
+describe("SinusoidalGustWind", () => {
+  it("matches mean + amplitude*sin(omega*t + phase) at sampled t", () => {
+    const mean = 4;
+    const amplitude = 1.5;
+    const omega = 2.3;
+    const phase = 0.7;
+    const wind = new SinusoidalGustWind(mean, amplitude, omega, phase);
+    const out = new EnvSample();
+
+    for (const t of [0, 0.1, 1, 3.7, -2.2, 100]) {
+      wind.sample(t, 0, 0, out);
+      const expected = mean + amplitude * Math.sin(omega * t + phase);
+      expect(out.wx).toBeCloseTo(expected, 14);
+      expect(out.wy).toBe(0);
+    }
+  });
+
+  it("defaults phase to 0", () => {
+    const wind = new SinusoidalGustWind(0, 1, 1);
+    const out = new EnvSample();
+    wind.sample(0, 0, 0, out);
+    expect(out.wx).toBeCloseTo(0, 14);
   });
 });
