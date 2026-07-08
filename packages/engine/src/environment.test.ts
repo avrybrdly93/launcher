@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { EnvSample } from "./env-sample.js";
-import { ConstantAtmosphere, Environment, UniformGravity, ZeroWind } from "./environment.js";
-import { EARTH_RADIUS_M, G_STD, ISA } from "./units.js";
+import {
+  ConstantAtmosphere,
+  Environment,
+  ExponentialAtmosphere,
+  UniformGravity,
+  ZeroWind,
+} from "./environment.js";
+import { EARTH_RADIUS_M, G_STD, ISA, SUTHERLAND, sutherlandViscosity } from "./units.js";
 
 describe("ConstantAtmosphere", () => {
   it("returns ISA sea-level density everywhere", () => {
@@ -11,6 +17,54 @@ describe("ConstantAtmosphere", () => {
       atm.sample(0, y, out);
       expect(out.rho).toBe(ISA.rho0);
     }
+  });
+});
+
+describe("ExponentialAtmosphere (P1.27)", () => {
+  it("rho(H) = rho0/e to 1e-15", () => {
+    const atm = new ExponentialAtmosphere();
+    const out = new EnvSample();
+    atm.sample(0, ISA.scaleHeight, out);
+    expect(out.rho).toBeCloseTo(ISA.rho0 / Math.E, 15);
+  });
+
+  it("rho(0) = rho0 and decays monotonically with altitude", () => {
+    const atm = new ExponentialAtmosphere();
+    const out = new EnvSample();
+    atm.sample(0, 0, out);
+    expect(out.rho).toBe(ISA.rho0);
+
+    let previous = out.rho;
+    for (const y of [1000, 5000, 10000, 20000]) {
+      atm.sample(0, y, out);
+      expect(out.rho).toBeLessThan(previous);
+      previous = out.rho;
+    }
+  });
+
+  it("stays isothermal at ISA sea-level T, with p/rho consistent (ideal gas)", () => {
+    const atm = new ExponentialAtmosphere();
+    const out = new EnvSample();
+    atm.sample(0, 3000, out);
+    expect(out.T).toBe(ISA.T0);
+    expect(out.p / out.rho).toBeCloseTo(ISA.Rs * ISA.T0, 6);
+    expect(out.eta).toBeCloseTo(SUTHERLAND.etaRef, 15);
+  });
+});
+
+describe("sutherlandViscosity (P1.28)", () => {
+  it("eta(288.15K) = 1.789e-5 to within 1%", () => {
+    const eta = sutherlandViscosity(288.15);
+    expect(Math.abs(eta - 1.789e-5) / 1.789e-5).toBeLessThan(0.01);
+  });
+
+  it("equals etaRef exactly at Tref (ratio and (Tref+S)/(Tref+S) both 1)", () => {
+    expect(sutherlandViscosity(SUTHERLAND.Tref)).toBeCloseTo(SUTHERLAND.etaRef, 15);
+  });
+
+  it("increases with temperature (viscosity of gases rises with T)", () => {
+    expect(sutherlandViscosity(350)).toBeGreaterThan(sutherlandViscosity(288.15));
+    expect(sutherlandViscosity(200)).toBeLessThan(sutherlandViscosity(288.15));
   });
 });
 

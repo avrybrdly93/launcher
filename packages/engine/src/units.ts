@@ -20,6 +20,12 @@ export const SUTHERLAND = {
 
 export const EARTH_RADIUS_M = 6.371e6;
 
+/** Sutherland's law (§3.4, eq. 3.12): eta(T) = etaRef*(T/Tref)^1.5*(Tref+S)/(T+S). */
+export function sutherlandViscosity(temperatureK: number): number {
+  const { etaRef, Tref, S } = SUTHERLAND;
+  return etaRef * Math.pow(temperatureK / Tref, 1.5) * ((Tref + S) / (temperatureK + S));
+}
+
 export function degToRad(deg: number): number {
   return (deg * Math.PI) / 180;
 }
