@@ -464,8 +464,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "drag-off: dE/dt from powers \u2261 0 to 1e-13",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "energy.ts: mechanicalEnergy(t,y,ctx)=(1/2)m|v|^2+mgy; two InvariantSpecs wired onto createPlanarProjectileModel's model.invariants: 'mechanical-energy' (E itself) and 'energy-balance-residual' (R_E=dE/dt-F_aero.v, an algebraic identity from a single rhs call, exactly 0 for any force set since gravity's energyPower cancels the potential term). Model.invariants is readonly so the residual invariant is built from the standalone rhs closure, not model.rhs, avoiding a self-reference/TDZ issue. Verified drag-off to 1e-13 and, more broadly, drag+Magnus+buoyancy+wind to 1e-9."
     },
     {
       "id": "P1.25",
