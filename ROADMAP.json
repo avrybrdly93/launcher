@@ -442,8 +442,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "matches central finite differences to 1e-7 at 10 states",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added jacobian.ts: gravityQuadraticDragJacobian(t,y,ctx,out) computing the analytic 4x4 dF/dy for gravity+quadratic-drag-only forcing, assuming env (g, rho, wind) and Cd are locally state-independent (true for ConstantAtmosphere/UniformGravity-non-altitude/ZeroWind/ConstantCd). Zero-alloc, reuses ctx buffers. jacobian.test.ts validates against a central-difference Jacobian of the full model.rhs at 10 states to <1e-7, plus a kinematic-block exactness check and a u=0 kink finiteness check. Not wired into Model.jacobian since that interface's signature (t,y,out) omits ctx/EvalContext, which this force set needs (env, params) -- left for a later task (likely alongside P2.38) to reconcile."
     },
     {
       "id": "P1.23",
