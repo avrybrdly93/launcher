@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { G_STD, ISA } from "./units.js";
-import { computeCharacteristicScales } from "./characteristic-scales.js";
+import { G_STD, ISA, SUTHERLAND } from "./units.js";
+import {
+  computeAssetCharacteristicScales,
+  computeCharacteristicScales,
+} from "./characteristic-scales.js";
+import { PROJECTILE_ASSETS } from "./projectile-assets.js";
 
 describe("computeCharacteristicScales", () => {
   it("v_T for a skydiver-like preset falls in 50-60 m/s", () => {
@@ -75,5 +79,20 @@ describe("computeCharacteristicScales", () => {
     });
     const expected = (v0 * v0 * Math.sin(theta) ** 2) / (2 * G_STD);
     expect(scales.apexEstimate).toBeCloseTo(expected, 12);
+  });
+});
+
+describe("computeAssetCharacteristicScales (nondimensional groups as scenario metadata)", () => {
+  it("Pi(shot put) < 0.1 < Pi(table-tennis ball)", () => {
+    const environment = { rho: ISA.rho0, g: G_STD, eta: SUTHERLAND.etaRef };
+    const shotPut = PROJECTILE_ASSETS.find((a) => a.id === "shot-put")!;
+    const tableTennisBall = PROJECTILE_ASSETS.find((a) => a.id === "table-tennis-ball")!;
+
+    const shotPutScales = computeAssetCharacteristicScales(shotPut, environment, 14);
+    const ttBallScales = computeAssetCharacteristicScales(tableTennisBall, environment, 10);
+
+    expect(shotPutScales.pi).toBeLessThan(0.1);
+    expect(ttBallScales.pi).toBeGreaterThan(0.1);
+    expect(shotPutScales.pi).toBeLessThan(ttBallScales.pi);
   });
 });

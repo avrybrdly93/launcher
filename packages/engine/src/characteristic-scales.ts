@@ -1,3 +1,5 @@
+import { projectileParamsFromSpec, type ProjectileSpec } from "./projectile-assets.js";
+
 /**
  * Characteristic scales (§3.3, §3.8) used by validation and the UI's
  * "how big are the effects" readout: terminal velocity, the drag
@@ -32,4 +34,32 @@ export function computeCharacteristicScales(params: {
   const apexEstimate = (v0 * v0 * sinTheta * sinTheta) / (2 * g);
 
   return { terminalVelocity, dragTimescale, pi, apexEstimate };
+}
+
+/**
+ * Characteristic scales for a `ProjectileSpec` asset (§3.9), exposed as
+ * scenario metadata (the nondimensional groups the UI/preset library
+ * organize by, rather than raw parameters). Cd is evaluated at the given
+ * launch speed `v0` (not resolved self-consistently at v_T), a reasonable
+ * simplification for a single-number characteristic-scales readout.
+ */
+export function computeAssetCharacteristicScales(
+  spec: ProjectileSpec,
+  environment: { readonly rho: number; readonly g: number; readonly eta: number },
+  v0: number,
+  launchAngleRad = 0,
+): CharacteristicScales {
+  const params = projectileParamsFromSpec(spec);
+  const re = (environment.rho * v0 * (2 * params.radius)) / environment.eta;
+  const cd = params.dragCoefficient.cd(re, 0);
+
+  return computeCharacteristicScales({
+    mass: params.mass,
+    area: params.area,
+    cd,
+    rho: environment.rho,
+    g: environment.g,
+    v0,
+    launchAngleRad,
+  });
 }

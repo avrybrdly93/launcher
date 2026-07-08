@@ -618,8 +618,8 @@
       "estMinutes": 10,
       "difficulty": "E",
       "validation": "\u03a0(shot put) < 0.1 < \u03a0(TT ball)",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added computeAssetCharacteristicScales(spec, environment, v0, angle) to characteristic-scales.ts, bridging a ProjectileSpec (P1.25) to computeCharacteristicScales (P1.37) -- derives mass/area from the spec and evaluates Cd at the given v0. Tested Pi(shot-put @ 14 m/s) < 0.1 < Pi(table-tennis-ball @ 10 m/s) using the real asset library."
     },
     {
       "id": "P1.39",
