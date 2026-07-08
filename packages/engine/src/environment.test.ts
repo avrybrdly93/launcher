@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { EnvSample } from "./env-sample.js";
-import { ConstantAtmosphere, Environment, UniformGravity, ZeroWind } from "./environment.js";
+import {
+  ConstantAtmosphere,
+  Environment,
+  ExponentialAtmosphere,
+  UniformGravity,
+  ZeroWind,
+} from "./environment.js";
 import { EARTH_RADIUS_M, G_STD, ISA } from "./units.js";
 
 describe("ConstantAtmosphere", () => {
@@ -10,6 +16,34 @@ describe("ConstantAtmosphere", () => {
     for (const y of [0, 100, 5000, -10]) {
       atm.sample(0, y, out);
       expect(out.rho).toBe(ISA.rho0);
+    }
+  });
+});
+
+describe("ExponentialAtmosphere", () => {
+  it("rho(0) = rho0 exactly", () => {
+    const atm = new ExponentialAtmosphere();
+    const out = new EnvSample();
+    atm.sample(0, 0, out);
+    expect(out.rho).toBe(ISA.rho0);
+  });
+
+  it("rho(H) = rho0/e to 1e-15", () => {
+    const atm = new ExponentialAtmosphere();
+    const out = new EnvSample();
+    atm.sample(0, ISA.scaleHeight, out);
+    const relError = Math.abs(out.rho - ISA.rho0 / Math.E) / (ISA.rho0 / Math.E);
+    expect(relError).toBeLessThan(1e-15);
+  });
+
+  it("density decreases monotonically with altitude", () => {
+    const atm = new ExponentialAtmosphere();
+    const out = new EnvSample();
+    let previous = Infinity;
+    for (const y of [0, 1000, 5000, 10000, 20000]) {
+      atm.sample(0, y, out);
+      expect(out.rho).toBeLessThan(previous);
+      previous = out.rho;
     }
   });
 });

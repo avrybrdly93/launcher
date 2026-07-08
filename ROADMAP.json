@@ -497,8 +497,8 @@
       "estMinutes": 10,
       "difficulty": "E",
       "validation": "\u03c1(H)=\u03c1\u2080/e to 1e-15",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added ExponentialAtmosphere to environment.ts: rho(y)=rho0*e^(-y/H) using the existing ISA.scaleHeight (8500m) constant; T/p/eta/c held at ISA sea-level values (the full lapse-rate troposphere with consistent T(y)/p(y) is P4.01). environment.test.ts checks rho(0)=rho0 exactly, rho(H)=rho0/e to 1e-15, and monotonic density decrease with altitude."
     },
     {
       "id": "P1.28",

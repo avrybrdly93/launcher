@@ -1,5 +1,5 @@
 import { EnvSample } from "./env-sample.js";
-import { EARTH_RADIUS_M, G_STD, ISA } from "./units.js";
+import { EARTH_RADIUS_M, G_STD, ISA, SUTHERLAND } from "./units.js";
 
 /** Fills the thermodynamic fields of an EnvSample (rho, T, p, eta, c) at a point (§3.4). */
 export interface Atmosphere {
@@ -26,6 +26,29 @@ export class ConstantAtmosphere implements Atmosphere {
     out.p = ISA.p0;
     out.eta = 1.789e-5;
     out.c = Math.sqrt(ConstantAtmosphere.GAMMA * ISA.Rs * ISA.T0);
+  }
+}
+
+/**
+ * Isothermal exponential-atmosphere approximation, rho(y) = rho0*e^(-y/H)
+ * (§3.4). T/p/eta/c are held at ISA sea-level values — the full lapse-rate
+ * troposphere model with consistent T(y)/p(y) is P4.01; this is the simpler
+ * density-only falloff used for altitude-sensitive scenarios in the interim.
+ */
+export class ExponentialAtmosphere implements Atmosphere {
+  private static readonly GAMMA = 1.4;
+
+  constructor(
+    private readonly rho0: number = ISA.rho0,
+    private readonly scaleHeight: number = ISA.scaleHeight,
+  ) {}
+
+  sample(_x: number, y: number, out: EnvSample): void {
+    out.rho = this.rho0 * Math.exp(-y / this.scaleHeight);
+    out.T = ISA.T0;
+    out.p = ISA.p0;
+    out.eta = SUTHERLAND.etaRef;
+    out.c = Math.sqrt(ExponentialAtmosphere.GAMMA * ISA.Rs * ISA.T0);
   }
 }
 
