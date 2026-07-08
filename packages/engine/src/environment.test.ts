@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { EnvSample } from "./env-sample.js";
-import { ConstantAtmosphere, Environment, UniformGravity, ZeroWind } from "./environment.js";
-import { EARTH_RADIUS_M, G_STD, ISA } from "./units.js";
+import {
+  ConstantAtmosphere,
+  Environment,
+  ExponentialAtmosphere,
+  UniformGravity,
+  ZeroWind,
+  sutherlandViscosity,
+} from "./environment.js";
+import { EARTH_RADIUS_M, G_STD, ISA, SUTHERLAND } from "./units.js";
 
 describe("ConstantAtmosphere", () => {
   it("returns ISA sea-level density everywhere", () => {
@@ -11,6 +18,47 @@ describe("ConstantAtmosphere", () => {
       atm.sample(0, y, out);
       expect(out.rho).toBe(ISA.rho0);
     }
+  });
+});
+
+describe("ExponentialAtmosphere", () => {
+  it("rho(H) = rho0/e to 1e-15", () => {
+    const atm = new ExponentialAtmosphere();
+    const out = new EnvSample();
+    atm.sample(0, ISA.scaleHeight, out);
+    expect(out.rho).toBeCloseTo(ISA.rho0 / Math.E, 12);
+    expect(Math.abs(out.rho - ISA.rho0 / Math.E)).toBeLessThan(1e-15 * ISA.rho0);
+  });
+
+  it("rho(0) = rho0 exactly", () => {
+    const atm = new ExponentialAtmosphere();
+    const out = new EnvSample();
+    atm.sample(0, 0, out);
+    expect(out.rho).toBe(ISA.rho0);
+  });
+
+  it("density decreases monotonically with height", () => {
+    const atm = new ExponentialAtmosphere();
+    const out = new EnvSample();
+    let previous = Infinity;
+    for (const y of [0, 1000, 5000, 10000, 20000]) {
+      atm.sample(0, y, out);
+      expect(out.rho).toBeLessThan(previous);
+      previous = out.rho;
+    }
+  });
+});
+
+describe("sutherlandViscosity", () => {
+  it("eta(288.15K) = 1.789e-5 to 1%", () => {
+    const eta = sutherlandViscosity(SUTHERLAND.Tref);
+    expect(eta).toBeCloseTo(1.789e-5, 6);
+    expect(Math.abs(eta - 1.789e-5) / 1.789e-5).toBeLessThan(0.01);
+  });
+
+  it("viscosity increases with temperature (air, unlike liquids)", () => {
+    expect(sutherlandViscosity(400)).toBeGreaterThan(sutherlandViscosity(300));
+    expect(sutherlandViscosity(300)).toBeGreaterThan(sutherlandViscosity(200));
   });
 });
 

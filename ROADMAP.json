@@ -497,8 +497,8 @@
       "estMinutes": 10,
       "difficulty": "E",
       "validation": "\u03c1(H)=\u03c1\u2080/e to 1e-15",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added ExponentialAtmosphere to environment.ts: rho(y)=rho0*e^(-y/H) using ISA.scaleHeight; T/p/eta/c held at ISA sea-level (isothermal approximation) since the lapse-rate troposphere is a separate later model (P4.01). Tested rho(H)=rho0/e to 1e-15, rho(0)=rho0 exactly, and monotonic decrease with height."
     },
     {
       "id": "P1.28",
@@ -508,8 +508,8 @@
       "estMinutes": 10,
       "difficulty": "E",
       "validation": "\u03b7(288.15K)=1.789e\u22125\u00b11%",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added sutherlandViscosity(T) to environment.ts implementing eq (3.12) from the existing SUTHERLAND constants. Tested eta(288.15K) matches 1.789e-5 to 1%, and that viscosity increases with T (as expected for a gas, unlike liquids)."
     },
     {
       "id": "P1.29",
