@@ -1,5 +1,5 @@
 import { EnvSample } from "./env-sample.js";
-import { EARTH_RADIUS_M, G_STD, ISA } from "./units.js";
+import { EARTH_RADIUS_M, G_STD, ISA, SUTHERLAND } from "./units.js";
 
 /** Fills the thermodynamic fields of an EnvSample (rho, T, p, eta, c) at a point (§3.4). */
 export interface Atmosphere {
@@ -29,6 +29,41 @@ export class ConstantAtmosphere implements Atmosphere {
   }
 }
 
+/**
+ * Sutherland's law (eq. 3.12): dynamic viscosity as a function of absolute
+ * temperature, calibrated against ISA sea level (T=288.15K -> eta=1.789e-5 Pa*s).
+ */
+export function sutherlandViscosity(temperatureK: number): number {
+  const { etaRef, Tref, S } = SUTHERLAND;
+  return etaRef * (temperatureK / Tref) ** 1.5 * ((Tref + S) / (temperatureK + S));
+}
+
+/**
+ * Isothermal exponential atmosphere (§3.4): rho(y) = rho0*e^(-y/H). Since the
+ * model is isothermal, T (and therefore eta, c) stay at their ISA sea-level
+ * values everywhere; only rho and p (which share rho's exponential via the
+ * ideal-gas law at constant T) vary with altitude.
+ */
+export class ExponentialAtmosphere implements Atmosphere {
+  private static readonly GAMMA = 1.4;
+
+  constructor(
+    private readonly rho0 = ISA.rho0,
+    private readonly p0 = ISA.p0,
+    private readonly scaleHeight = ISA.scaleHeight,
+    private readonly T0 = ISA.T0,
+  ) {}
+
+  sample(_x: number, y: number, out: EnvSample): void {
+    const factor = Math.exp(-y / this.scaleHeight);
+    out.rho = this.rho0 * factor;
+    out.p = this.p0 * factor;
+    out.T = this.T0;
+    out.eta = sutherlandViscosity(this.T0);
+    out.c = Math.sqrt(ExponentialAtmosphere.GAMMA * ISA.Rs * this.T0);
+  }
+}
+
 /** Uniform gravity, optionally with the altitude correction (3.3) behind a flag. */
 export class UniformGravity implements GravityModel {
   constructor(
@@ -51,6 +86,19 @@ export class ZeroWind implements WindModel {
   sample(_t: number, _x: number, _y: number, out: EnvSample): void {
     out.wx = 0;
     out.wy = 0;
+  }
+}
+
+/** Uniform steady wind (§3.5 case 1): w = (wx, wy), constant in space and time. */
+export class UniformWind implements WindModel {
+  constructor(
+    private readonly wx = 0,
+    private readonly wy = 0,
+  ) {}
+
+  sample(_t: number, _x: number, _y: number, out: EnvSample): void {
+    out.wx = this.wx;
+    out.wy = this.wy;
   }
 }
 

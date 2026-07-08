@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { EnvSample } from "./env-sample.js";
-import { ConstantAtmosphere, Environment, UniformGravity, ZeroWind } from "./environment.js";
-import { EARTH_RADIUS_M, G_STD, ISA } from "./units.js";
+import {
+  ConstantAtmosphere,
+  Environment,
+  ExponentialAtmosphere,
+  UniformGravity,
+  UniformWind,
+  ZeroWind,
+  sutherlandViscosity,
+} from "./environment.js";
+import { EARTH_RADIUS_M, G_STD, ISA, SUTHERLAND } from "./units.js";
 
 describe("ConstantAtmosphere", () => {
   it("returns ISA sea-level density everywhere", () => {
@@ -10,6 +18,66 @@ describe("ConstantAtmosphere", () => {
     for (const y of [0, 100, 5000, -10]) {
       atm.sample(0, y, out);
       expect(out.rho).toBe(ISA.rho0);
+    }
+  });
+});
+
+describe("ExponentialAtmosphere", () => {
+  it("rho(H) = rho0/e to 1e-15", () => {
+    const atm = new ExponentialAtmosphere();
+    const out = new EnvSample();
+    atm.sample(0, ISA.scaleHeight, out);
+    expect(out.rho).toBeCloseTo(ISA.rho0 / Math.E, 15);
+  });
+
+  it("rho(0) = rho0 exactly", () => {
+    const atm = new ExponentialAtmosphere();
+    const out = new EnvSample();
+    atm.sample(0, 0, out);
+    expect(out.rho).toBe(ISA.rho0);
+  });
+
+  it("p follows the same exponential as rho (isothermal ideal gas)", () => {
+    const atm = new ExponentialAtmosphere();
+    const out = new EnvSample();
+    atm.sample(0, 3000, out);
+    expect(out.p / ISA.p0).toBeCloseTo(out.rho / ISA.rho0, 15);
+  });
+
+  it("is isothermal: T constant with altitude", () => {
+    const atm = new ExponentialAtmosphere();
+    const out = new EnvSample();
+    atm.sample(0, 0, out);
+    const T0 = out.T;
+    atm.sample(0, 5000, out);
+    expect(out.T).toBe(T0);
+  });
+});
+
+describe("sutherlandViscosity", () => {
+  it("eta(288.15K) = 1.789e-5 to within 1%", () => {
+    const eta = sutherlandViscosity(SUTHERLAND.Tref);
+    expect(eta).toBeCloseTo(1.789e-5, 0);
+    expect(Math.abs(eta - 1.789e-5) / 1.789e-5).toBeLessThan(0.01);
+  });
+
+  it("increases with temperature", () => {
+    expect(sutherlandViscosity(350)).toBeGreaterThan(sutherlandViscosity(250));
+  });
+});
+
+describe("UniformWind", () => {
+  it("returns the same (wx, wy) everywhere regardless of t, x, y", () => {
+    const wind = new UniformWind(5, -2);
+    const out = new EnvSample();
+    for (const [t, x, y] of [
+      [0, 0, 0],
+      [10, 100, -50],
+      [1000, -1000, 1000],
+    ]) {
+      wind.sample(t!, x!, y!, out);
+      expect(out.wx).toBe(5);
+      expect(out.wy).toBe(-2);
     }
   });
 });
