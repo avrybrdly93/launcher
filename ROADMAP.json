@@ -475,8 +475,8 @@
       "estMinutes": 30,
       "difficulty": "E",
       "validation": "assets validate; each has provenance string",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added projectile-spec.ts: ProjectileSpecSchema (zod: id/label/mass/radius/dragCoefficient/provenance, all plain-data/serializable) and PROJECTILE_ASSETS with the 7 required presets (smooth sphere, golf, soccer, baseball, table-tennis, cannonball, shot put), each with a citation-bearing provenance string sourced from the relevant rulebook or standard smooth-sphere Cd references; dragCoefficient is a constant Cd for now (sport-specific Re-dependent tables land in P4.05). Added projectileParamsFromSpec to convert a spec into the runtime ProjectileParams the engine's forces already consume. projectile-spec.test.ts validates all 7 assets parse with non-empty provenance, checks the asset id set, rejects a corrupt asset, and checks the spec-to-ProjectileParams conversion."
     },
     {
       "id": "P1.26",

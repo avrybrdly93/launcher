@@ -15,3 +15,4 @@ export * from "./planar-projectile-model.js";
 export * from "./jacobian.js";
 export * from "./finite-difference-jacobian.js";
 export * from "./energy.js";
+export * from "./projectile-spec.js";
