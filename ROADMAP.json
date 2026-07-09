@@ -486,8 +486,8 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "corrupt fixture rejected with useful error",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added projectile-loader.ts: loadProjectileSpec(data) validates against ProjectileSpecSchema (throwing SchemaValidationError with a per-field message via the existing parseWithSchema/schema.ts machinery from P1.01) and resolves the spec's serializable dragModel/liftModel into concrete DragCoefficientModel/LiftCoefficientModel instances, producing ProjectileParams. projectile-loader.test.ts loads all 7 P1.25 assets successfully, resolves a tabulated-reynolds dragModel to TabulatedReynoldsCd, and confirms a corrupt fixture (negative mass + missing provenance) and an unrecognized dragModel kind are both rejected with SchemaValidationError carrying per-field issue messages."
     },
     {
       "id": "P1.27",
