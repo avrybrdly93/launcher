@@ -1,42 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { createEvalContext, type EvalContext } from "./eval-context.js";
+import { createEvalContext } from "./eval-context.js";
 import { ConstantAtmosphere, Environment, UniformGravity, ZeroWind } from "./environment.js";
 import { ConstantCd } from "./drag-coefficient.js";
 import { createSphericalProjectileParams } from "./projectile-params.js";
 import { GravityForce, QuadraticDragForce } from "./forces.js";
 import { createPlanarProjectileModel } from "./planar-projectile-model.js";
 import { gravityQuadraticDragJacobian } from "./jacobian.js";
-import type { Model } from "./model.js";
-
-/** Central finite-difference df_i/dy_j, scaled steps, for comparison against the analytic Jacobian. */
-function fdJacobian(
-  model: Model,
-  t: number,
-  y: Float64Array,
-  ctx: EvalContext,
-  h = 1e-6,
-): Float64Array {
-  const n = model.dim;
-  const jac = new Float64Array(n * n);
-  const yPlus = new Float64Array(y);
-  const yMinus = new Float64Array(y);
-  const fPlus = new Float64Array(n);
-  const fMinus = new Float64Array(n);
-
-  for (let j = 0; j < n; j++) {
-    yPlus.set(y);
-    yMinus.set(y);
-    const step = h * Math.max(1, Math.abs(y[j]!));
-    yPlus[j]! += step;
-    yMinus[j]! -= step;
-    model.rhs(t, yPlus, fPlus, ctx);
-    model.rhs(t, yMinus, fMinus, ctx);
-    for (let i = 0; i < n; i++) {
-      jac[i * n + j] = (fPlus[i]! - fMinus[i]!) / (2 * step);
-    }
-  }
-  return jac;
-}
+import { createFiniteDifferenceJacobian } from "./finite-difference-jacobian.js";
 
 describe("gravityQuadraticDragJacobian", () => {
   const mass = 0.145;
@@ -61,6 +31,7 @@ describe("gravityQuadraticDragJacobian", () => {
   ];
 
   it("matches central finite differences to 1e-7 at 10 random states", () => {
+    const fdJacobian = createFiniteDifferenceJacobian(model);
     for (const state of states) {
       const y = new Float64Array(state);
       const ctx = createEvalContext(env, params);
@@ -68,7 +39,8 @@ describe("gravityQuadraticDragJacobian", () => {
       gravityQuadraticDragJacobian(0, y, analytic, ctx);
 
       const fdCtx = createEvalContext(env, params);
-      const fd = fdJacobian(model, 0, y, fdCtx);
+      const fd = new Float64Array(16);
+      fdJacobian(0, y, fd, fdCtx);
 
       for (let i = 0; i < 16; i++) {
         expect(Math.abs(analytic[i]! - fd[i]!)).toBeLessThan(1e-7);

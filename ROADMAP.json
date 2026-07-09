@@ -453,8 +453,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "matches P1.22 analytic where available",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added finite-difference-jacobian.ts: createFiniteDifferenceJacobian(model, h) returns a closure over preallocated scratch buffers computing a generic central-FD Jacobian (row-major, same out[i*n+j] convention as P1.22) for any Model, steps scaled by max(1,|y_j|). finite-difference-jacobian.test.ts checks it against a hand-derived linear model, against the P1.22 analytic Jacobian (gravity+quadratic-drag) to <1e-7, and that it stays finite with Magnus enabled (where no analytic Jacobian exists). jacobian.test.ts's inline FD helper was replaced with this shared implementation."
     },
     {
       "id": "P1.24",
