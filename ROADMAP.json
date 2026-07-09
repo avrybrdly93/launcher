@@ -497,8 +497,8 @@
       "estMinutes": 10,
       "difficulty": "E",
       "validation": "\u03c1(H)=\u03c1\u2080/e to 1e-15",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added ExponentialAtmosphere to environment.ts: rho(y)=rho0*e^(-y/H) with H defaulting to ISA.scaleHeight (~8.5km, already predefined in units.ts). Isothermal per \u00a73.4: T holds at ISA.T0, p follows the same exponential factor as rho via the ideal-gas relation (p=rho*Rs*T at constant T), eta/c hold their ConstantAtmosphere sea-level values since they depend only on T. environment.test.ts adds 5 cases: rho(0)=rho0 exact, rho(H)=rho0/e to 1e-15 (the stated criterion), monotonic decay with constant T, p/p0 matching rho/rho0 to 1e-15, and a custom scale-height override."
     },
     {
       "id": "P1.28",

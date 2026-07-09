@@ -29,6 +29,29 @@ export class ConstantAtmosphere implements Atmosphere {
   }
 }
 
+/**
+ * Isothermal exponential atmosphere (§3.4): rho(y) = rho0 * e^(-y/H), scale
+ * height H = Rs*T/g ~ 8.5 km (ISA.scaleHeight). Since the model is
+ * isothermal, T stays at the sea-level reference and p follows the same
+ * exponential factor as rho via the ideal gas law (p = rho*Rs*T); eta and c
+ * depend only on T, so they hold their ConstantAtmosphere sea-level values.
+ * The full lapse-rate troposphere model (3.11) is Phase 4.
+ */
+export class ExponentialAtmosphere implements Atmosphere {
+  private static readonly GAMMA = 1.4;
+
+  constructor(private readonly scaleHeight: number = ISA.scaleHeight) {}
+
+  sample(_x: number, y: number, out: EnvSample): void {
+    const factor = Math.exp(-y / this.scaleHeight);
+    out.rho = ISA.rho0 * factor;
+    out.T = ISA.T0;
+    out.p = ISA.p0 * factor;
+    out.eta = 1.789e-5;
+    out.c = Math.sqrt(ExponentialAtmosphere.GAMMA * ISA.Rs * ISA.T0);
+  }
+}
+
 /** Uniform gravity, optionally with the altitude correction (3.3) behind a flag. */
 export class UniformGravity implements GravityModel {
   constructor(
