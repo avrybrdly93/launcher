@@ -1,5 +1,5 @@
 import { SMOOTH_SPHERE_CD_TABLE } from "./drag-coefficient.js";
-import type { ProjectileSpec } from "./projectile-spec.js";
+import { loadProjectileAssets } from "./asset-loader.js";
 
 const SATURATING_LIFT = { type: "saturating", maxCl: 0.6, slope: 1.6 } as const;
 const SMOOTH_SPHERE_DRAG = {
@@ -9,16 +9,19 @@ const SMOOTH_SPHERE_DRAG = {
 } as const;
 
 /**
- * §3.9 initial projectile database. Every numeric datum's source is in
- * `provenance`; masses/radii are official/standard-reference values, drag
- * coefficients are representative for each body's typical flight-speed
- * Reynolds range (§3.3). Smooth, uncoated spheres (generic sphere,
- * cannonball, shot put) use the tabulated Re-dependent Cd from P1.12 to
- * show the drag crisis; textured/seamed sport balls use a single
- * operating-range constant per the blueprint's "sport-specific tables"
- * simplification for this task.
+ * Raw §3.9 initial projectile database — deliberately untyped (not declared
+ * `ProjectileSpec[]`) so `loadProjectileAssets` below performs genuine
+ * runtime/build-time schema validation (P1.26) rather than relying solely
+ * on TS structural typing, which wouldn't catch e.g. a negative mass or a
+ * duplicate id. Every numeric datum's source is in `provenance`;
+ * masses/radii are official/standard-reference values, drag coefficients
+ * are representative for each body's typical flight-speed Reynolds range
+ * (§3.3). Smooth, uncoated spheres (generic sphere, cannonball, shot put)
+ * use the tabulated Re-dependent Cd from P1.12 to show the drag crisis;
+ * textured/seamed sport balls use a single operating-range constant per the
+ * blueprint's "sport-specific tables" simplification for this task.
  */
-export const PROJECTILE_ASSETS: readonly ProjectileSpec[] = [
+const RAW_PROJECTILE_ASSETS: readonly unknown[] = [
   {
     id: "smooth-sphere",
     name: "Smooth sphere",
@@ -95,3 +98,11 @@ export const PROJECTILE_ASSETS: readonly ProjectileSpec[] = [
       "World Athletics men's shot: mass 7.260 kg, diameter 110-130 mm (radius taken at the 120 mm midpoint). Smooth metal sphere, so Cd(Re) drag-crisis curve as for the generic smooth sphere (§3.3 option 2).",
   },
 ];
+
+/**
+ * Validated §3.9 initial projectile database. Runs `RAW_PROJECTILE_ASSETS`
+ * through `loadProjectileAssets` at module-evaluation time (P1.26), so a
+ * corrupt asset here fails to import — the earliest a build-time check can
+ * catch it — instead of surfacing as a runtime crash somewhere in the UI.
+ */
+export const PROJECTILE_ASSETS = loadProjectileAssets(RAW_PROJECTILE_ASSETS);
