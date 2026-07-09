@@ -475,8 +475,8 @@
       "estMinutes": 30,
       "difficulty": "E",
       "validation": "assets validate; each has provenance string",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added projectile-spec.ts: ProjectileSpec zod schema (mass, radius, DragCoefficientSpec/LiftCoefficientSpec discriminated-union descriptors, optional spinDecayTau, mandatory provenance string), resolveDragCoefficient/resolveLiftCoefficient/projectileParamsFromSpec to turn a validated spec into engine ProjectileParams, and the 7-asset PROJECTILE_ASSETS library (sphere, golf, soccer, baseball, table-tennis, cannonball, shot-put) with real regulation mass/radius values and a provenance citation each. Cd values are constant baselines for this phase; sport Cd(Re)/CL(S) literature tables are P4.05. Tests: schema validates every asset; each provenance is non-empty; schema rejects non-positive mass / empty provenance; a resolved spec integrates through the real planarProjectileModel rhs."
     },
     {
       "id": "P1.26",
