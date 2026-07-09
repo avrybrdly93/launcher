@@ -442,8 +442,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "matches central finite differences to 1e-7 at 10 states",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Analytic Jacobian in planar-projectile-model.ts (gravityQuadraticDragJacobian), row-major df_i/dy_j, frozen rho/Cd/wind at the input state (exact for ConstantCd + non-altitude-dependent gravity), u=0 singularity resolved to its zero limit. Wired onto Model.jacobian only when the force list is exactly {gravity, drag-quadratic}. Extended Model.jacobian's signature with a ctx param (was missing env/params access needed by any real implementation). Test matches central FD to 1e-7 at 10 states incl. near-stagnation."
     },
     {
       "id": "P1.23",
