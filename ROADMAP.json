@@ -464,8 +464,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "drag-off: dE/dt from powers \u2261 0 to 1e-13",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added energy.ts: mechanicalEnergy (E=1/2 m|v|^2+mgy) wired as an InvariantSpec named 'energy' on createPlanarProjectileModel's invariants; nonGravitationalPower sums every force's energyPower except gravity's (its contribution is already folded into E's mgy term, so re-adding it would double-count); energyRateFromRhs computes dE/dt independently via the chain rule on rhs's acceleration output. energy.test.ts verifies drag-off (gravity alone) gives dE/dt \u2261 0 to 1e-13 via both routes, Magnus-only similarly conserves E (lift does no work), and drag-on in still air gives dE/dt <= 0 (dissipative) with the two routes agreeing to 1e-10."
     },
     {
       "id": "P1.25",
