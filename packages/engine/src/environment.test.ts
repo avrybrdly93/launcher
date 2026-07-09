@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { EnvSample } from "./env-sample.js";
-import { ConstantAtmosphere, Environment, UniformGravity, ZeroWind } from "./environment.js";
+import {
+  ConstantAtmosphere,
+  Environment,
+  ExponentialAtmosphere,
+  UniformGravity,
+  ZeroWind,
+} from "./environment.js";
 import { EARTH_RADIUS_M, G_STD, ISA } from "./units.js";
 
 describe("ConstantAtmosphere", () => {
@@ -10,6 +16,42 @@ describe("ConstantAtmosphere", () => {
     for (const y of [0, 100, 5000, -10]) {
       atm.sample(0, y, out);
       expect(out.rho).toBe(ISA.rho0);
+    }
+  });
+});
+
+describe("ExponentialAtmosphere", () => {
+  it("rho(0) = rho0 exactly", () => {
+    const atm = new ExponentialAtmosphere();
+    const out = new EnvSample();
+    atm.sample(0, 0, out);
+    expect(out.rho).toBe(ISA.rho0);
+  });
+
+  it("rho(H) = rho0/e to 1e-15", () => {
+    const atm = new ExponentialAtmosphere();
+    const out = new EnvSample();
+    atm.sample(0, ISA.scaleHeight, out);
+    expect(out.rho).toBeCloseTo(ISA.rho0 / Math.E, 15);
+  });
+
+  it("is isothermal: T constant across altitude", () => {
+    const atm = new ExponentialAtmosphere();
+    const out = new EnvSample();
+    atm.sample(0, 0, out);
+    const T0 = out.T;
+    atm.sample(0, 20000, out);
+    expect(out.T).toBe(T0);
+  });
+
+  it("density decreases monotonically with altitude", () => {
+    const atm = new ExponentialAtmosphere();
+    const out = new EnvSample();
+    let prevRho = Infinity;
+    for (const y of [0, 1000, 5000, 10000, 20000]) {
+      atm.sample(0, y, out);
+      expect(out.rho).toBeLessThan(prevRho);
+      prevRho = out.rho;
     }
   });
 });
