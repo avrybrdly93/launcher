@@ -475,8 +475,8 @@
       "estMinutes": 30,
       "difficulty": "E",
       "validation": "assets validate; each has provenance string",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added projectile-spec.ts (ProjectileSpecSchema: id/name/mass/radius/dragModel[constant|tabulated-reynolds]/liftModel?/spinDecayTau?/provenance, zod-validated) and projectile-assets.ts with the 7 §3.9 assets (smooth sphere, golf, soccer, baseball, TT ball, cannonball, shot put) using real/standard-reference mass+radius values and a provenance citation each; smooth spheres (generic/cannonball/shot-put) reuse P1.12's tabulated Cd(Re) drag-crisis curve, sport balls use a representative constant Cd. projectile-spec.test.ts covers schema accept/reject cases; projectile-assets.test.ts validates all 7 assets parse, have unique ids, non-trivial provenance, and physically plausible mass/radius."
     },
     {
       "id": "P1.26",
