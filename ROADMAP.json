@@ -530,8 +530,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "w(y_r\u00b7(e\u22121))\u00b7\u03ba/u* = 1 check; w finite at y=0",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added LogProfileWind(frictionVelocity, roughnessLength=0.01) implementing WindModel: wx(y) = (u*/kappa)*ln((y+y_r)/y_r), kappa=0.41. Guards y<=0 by clamping the height used in the log to >=0, so any below-ground y (transient near a ground-impact event) returns the finite y=0 value (w=0) instead of NaN/-Infinity from ln of a non-positive argument. environment.test.ts covers the stated w(y_r*(e-1))*kappa/u*=1 identity, finiteness at y=0 and for y<0 (incl. y=-y_r and y<<-y_r), monotonic increase with height, and wy=0."
     },
     {
       "id": "P1.31",
