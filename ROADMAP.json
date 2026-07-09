@@ -475,8 +475,8 @@
       "estMinutes": 30,
       "difficulty": "E",
       "validation": "assets validate; each has provenance string",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added projectile-spec.ts (zod projectileSpecSchema: id/name/massKg/radiusM/dragCoefficient/liftCoefficient?/spinDecayTauSeconds?/provenance, plus createProjectileParams() to materialize live DragCoefficientModel/LiftCoefficientModel instances) and projectile-assets.ts with the 7 required presets (smooth sphere, golf ball, soccer ball, baseball, table-tennis ball, cannonball 0.1m iron, shot put), each parsed through the schema at module load and carrying a citation-style provenance string (USGA/FIFA/MLB/ITTF/World Athletics rules + published Cd sources). projectile-assets.test.ts checks the full id set, schema validity + non-empty provenance for every asset, rejection of a corrupt (negative-mass) and a provenance-less asset, and that every asset materializes into usable ProjectileParams."
     },
     {
       "id": "P1.26",
