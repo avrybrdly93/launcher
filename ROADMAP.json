@@ -442,8 +442,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "matches central finite differences to 1e-7 at 10 states",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added jacobian.ts: gravityQuadraticDragJacobian(t,y,out,ctx), exact when rho/Cd/wind are state-independent at the sampled point (default ConstantAtmosphere+non-altitude UniformGravity+ZeroWind+ConstantCd env). Extended Model.jacobian's signature to take ctx (like rhs) since it needs the same environment/params; no existing code depended on the old ctx-less signature. createPlanarProjectileModel now auto-attaches this jacobian only when the registered forces are exactly {gravity, drag-quadratic}, leaving it undefined otherwise (e.g. Magnus present) for the P1.23 FD fallback. jacobian.test.ts validates against central differences (h=1e-5) at 10 nonzero-relative-velocity states to <1e-7, matching model.jacobian wiring, and confirms it's omitted when Magnus is registered."
     },
     {
       "id": "P1.23",
