@@ -3,6 +3,7 @@ export * from "./units.js";
 export * from "./random.js";
 export * from "./schema.js";
 export * from "./env-sample.js";
+export * from "./sutherland.js";
 export * from "./environment.js";
 export * from "./pchip.js";
 export * from "./drag-coefficient.js";

@@ -508,8 +508,8 @@
       "estMinutes": 10,
       "difficulty": "E",
       "validation": "\u03b7(288.15K)=1.789e\u22125\u00b11%",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added sutherland.ts: sutherlandViscosity(T, etaRef?, Tref?, S?) = etaRef*(T/Tref)^1.5*(Tref+S)/(T+S) per eq (3.12), defaults from units.ts SUTHERLAND constants. Wired into ExponentialAtmosphere.sample (replacing a hardcoded eta=etaRef) so eta is computed from the atmosphere's actual T0 rather than assumed equal to the reference temperature; ConstantAtmosphere's existing hardcoded eta left untouched (out of scope, T is always ISA.T0=Tref there anyway). sutherland.test.ts covers the eta(288.15K) validation criterion, exact equality at T=Tref, monotonic increase with T, and finiteness across 200-400K."
     },
     {
       "id": "P1.29",
