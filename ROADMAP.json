@@ -464,8 +464,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "drag-off: dE/dt from powers \u2261 0 to 1e-13",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added mechanicalEnergy (E = 0.5*m*|v|^2 + m*g*y) and an 'energy' InvariantSpec wired onto createPlanarProjectileModel's invariants. Added aeroEnergyPower in forces.ts, a composeForces-style aggregator that sums per-force energyPower (already implemented on every ForceModel) excluding gravity, since gravity's work is already captured by E's mgy term. Test: drag-off (gravity+Magnus) dE/dt from powers is 0 to 1e-13 at 10 states (the validation criterion) -- holds because Magnus power is F_M.v with F_M perp v_rel and wind=0. Also covers gravity-only (trivially 0) and drag-on-in-still-air (strictly negative, dissipative)."
     },
     {
       "id": "P1.25",

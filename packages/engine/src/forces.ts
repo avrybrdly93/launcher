@@ -144,3 +144,24 @@ export function composeForces(
     force.accumulate(t, y, ctx, outForce);
   }
 }
+
+/**
+ * Sums `energyPower` over every force in `forces` except gravity (eq. 3.19:
+ * $dE/dt = F_{aero}\cdot v$). Gravity is excluded because its work is
+ * already accounted for by the $mgy$ potential-energy term in
+ * `mechanicalEnergy` — including it here would double-count it. Forces
+ * without an `energyPower` (none currently registered) contribute 0.
+ */
+export function aeroEnergyPower(
+  forces: readonly ForceModel[],
+  t: number,
+  y: Float64Array,
+  ctx: EvalContext,
+): number {
+  let power = 0;
+  for (const force of forces) {
+    if (force.id === "gravity") continue;
+    power += force.energyPower ? force.energyPower(t, y, ctx) : 0;
+  }
+  return power;
+}

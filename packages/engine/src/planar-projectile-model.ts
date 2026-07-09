@@ -1,6 +1,6 @@
 import type { EvalContext } from "./eval-context.js";
 import { composeForces, createForceRegistry, type ForceModel } from "./forces.js";
-import type { Model } from "./model.js";
+import type { InvariantSpec, Model } from "./model.js";
 import type { ChannelMeta } from "./schema.js";
 import { norm } from "./vec2.js";
 
@@ -72,6 +72,27 @@ export function gravityQuadraticDragJacobian(
 }
 
 /**
+ * Mechanical energy $E = \tfrac12 m\lVert v\rVert^2 + mgy$ (eq. 3.19,
+ * preceding paragraph). Gravity's work is exactly the $mgy$ term here, which
+ * is why {@link aeroEnergyPower} in forces.ts excludes gravity when summing
+ * $dE/dt$ — including it would double-count it.
+ */
+function mechanicalEnergy(y: Float64Array, ctx: EvalContext): number {
+  const vx = y[VX]!;
+  const vy = y[VY]!;
+  return 0.5 * ctx.params.mass * (vx * vx + vy * vy) + ctx.params.mass * ctx.env.g * y[Y]!;
+}
+
+/** The model's energy invariant (eq. 3.19): $E(t,y)$, tracked as a diagnostic by the Recorder (§3.8). */
+const ENERGY_INVARIANT: InvariantSpec = {
+  name: "energy",
+  evaluate(t: number, y: Float64Array, ctx: EvalContext): number {
+    ctx.environment.sample(t, y[X]!, y[Y]!, ctx.env);
+    return mechanicalEnergy(y, ctx);
+  },
+};
+
+/**
  * The workhorse planar projectile model (dim 4, eq. 3.17-3.18): wires
  * gravity/drag/Magnus/buoyancy force composition into a single rhs. This is
  * the first Model SolverKit will integrate — deliberately just a Model, with
@@ -88,6 +109,7 @@ export function createPlanarProjectileModel(forces: readonly ForceModel[]): Mode
   return {
     dim: 4,
     channels: PLANAR_CHANNELS,
+    invariants: [ENERGY_INVARIANT],
     rhs(t: number, y: Float64Array, out: Float64Array, ctx: EvalContext): void {
       const x = y[X]!;
       const yPos = y[Y]!;

@@ -5,6 +5,7 @@ import { ConstantCd } from "./drag-coefficient.js";
 import { SaturatingLiftCoefficient } from "./lift-coefficient.js";
 import { createSphericalProjectileParams } from "./projectile-params.js";
 import {
+  aeroEnergyPower,
   BuoyancyForce,
   composeForces,
   createForceRegistry,
@@ -193,5 +194,48 @@ describe("createForceRegistry / composeForces", () => {
     composeForces(createForceRegistry([...forces].reverse()), 0, y, ctx, outB);
     expect(outA[0]).toBe(outB[0]);
     expect(outA[1]).toBe(outB[1]);
+  });
+});
+
+describe("aeroEnergyPower", () => {
+  it("excludes gravity's power (already accounted for by E's mgy term)", () => {
+    const { ctx, env } = makeContext();
+    const y = new Float64Array([0, 0, 12, -8]);
+    refreshDerived(ctx, env, 0, y);
+    const registry = createForceRegistry([new GravityForce()]);
+    expect(aeroEnergyPower(registry, 0, y, ctx)).toBe(0);
+  });
+
+  it("drag-off (gravity+Magnus): dE/dt from powers is 0 to 1e-13 at 10 random states", () => {
+    const { ctx, env } = makeContext({ spin: 180, withLift: true });
+    const registry = createForceRegistry([new GravityForce(), new MagnusForce()]);
+
+    // Deterministic pseudo-random states, none at the v_rel=0 kink.
+    const states: [number, number, number, number][] = [
+      [0, 0, 12.3, 4.1],
+      [10, 5, -8.2, 15.6],
+      [-3, 20, 25.0, -30.1],
+      [100, 10, -1.5, -1.5],
+      [0, 0, 40, 0],
+      [0, 0, 0, 40],
+      [5, 5, 5, 5],
+      [-10, -10, -20, 20],
+      [1, 1, 33.3, -12.7],
+      [2, -4, -0.3, 0.9],
+    ];
+
+    for (const [x, yPos, vx, vy] of states) {
+      const y = new Float64Array([x, yPos, vx, vy]);
+      refreshDerived(ctx, env, 0, y);
+      expect(Math.abs(aeroEnergyPower(registry, 0, y, ctx))).toBeLessThan(1e-13);
+    }
+  });
+
+  it("is strictly negative with quadratic drag on in still air (dissipative)", () => {
+    const { ctx, env } = makeContext();
+    const registry = createForceRegistry([new GravityForce(), new QuadraticDragForce()]);
+    const y = new Float64Array([0, 0, 20, 15]);
+    refreshDerived(ctx, env, 0, y);
+    expect(aeroEnergyPower(registry, 0, y, ctx)).toBeLessThan(0);
   });
 });
