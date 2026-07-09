@@ -464,8 +464,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "drag-off: dE/dt from powers \u2261 0 to 1e-13",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added energy.ts: mechanicalEnergy(y,ctx) = (1/2)m|v|^2+mgy, and createEnergyRateInvariant(aeroForces) building an InvariantSpec that sums energyPower over an explicit non-conservative ('aero': drag/Magnus) force subset per (3.19) -- gravity/buoyancy are excluded since their work is already folded into E's mgy potential term, so callers pass only the aero subset rather than the full registry. energy.test.ts checks E against a hand-computed state, drag-off (gravity+Magnus, still air) dE/dt = 0 to 1e-13 at 5 states, the trivial empty-aero-set case, and quadratic-drag-in-still-air dE/dt matching the closed form -0.5*rho*Cd*A*|v|^3 from \u00a73.8/3.19."
     },
     {
       "id": "P1.25",
