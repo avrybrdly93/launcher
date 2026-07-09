@@ -453,8 +453,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "matches P1.22 analytic where available",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added finite-difference-jacobian.ts: createFiniteDifferenceJacobian(model) returns a reusable central-difference df/dy evaluator (matching Model.jacobian's signature) with per-component scaled steps h_j=cbrt(eps)*max(|y_j|,1); also withFiniteDifferenceJacobianFallback(model) attaches it only when model.jacobian is undefined, leaving an existing analytic jacobian (P1.22) untouched. Scratch buffers are preallocated in the closure so repeated calls don't allocate. finite-difference-jacobian.test.ts confirms it matches the P1.22 analytic Jacobian to <1e-7 on the gravity+quadratic-drag model, produces finite values for a Magnus-bearing model P1.22 doesn't cover, and that the fallback wrapper is a no-op when an analytic jacobian already exists."
     },
     {
       "id": "P1.24",
