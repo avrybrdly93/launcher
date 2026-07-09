@@ -442,8 +442,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "matches central finite differences to 1e-7 at 10 states",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added jacobian.ts: gravityQuadraticDragJacobian(t,y,out,ctx) computes the analytic row-major 4x4 J=df/dy for gravity+quadratic-drag under the platform's default position/time-independent environment (ConstantAtmosphere, non-altitude UniformGravity, zero/uniform wind, ConstantCd) so rho/g/Cd/w carry no y-dependence and only d(accel)/d(velocity) is nonzero. jacobian.test.ts compares against a central-FD helper (scaled steps) at the same 10 states used by P1.20, plus zero-position-derivative and v_rel=0 finiteness checks."
     },
     {
       "id": "P1.23",
