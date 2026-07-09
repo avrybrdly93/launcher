@@ -9,36 +9,7 @@ import {
   createPlanarProjectileModel,
   gravityQuadraticDragJacobian,
 } from "./planar-projectile-model.js";
-import type { EvalContext } from "./eval-context.js";
-import type { Model } from "./model.js";
-
-/** Central-difference Jacobian, row-major out[dim*i+j] = df_i/dy_j, cbrt(eps)-scaled step. */
-function centralDifferenceJacobian(
-  model: Model,
-  t: number,
-  y: Float64Array,
-  ctx: EvalContext,
-): Float64Array {
-  const n = model.dim;
-  const jac = new Float64Array(n * n);
-  const yPerturbed = Float64Array.from(y);
-  const fPlus = new Float64Array(n);
-  const fMinus = new Float64Array(n);
-  const step = Math.cbrt(Number.EPSILON);
-
-  for (let j = 0; j < n; j++) {
-    const h = step * Math.max(1, Math.abs(y[j]!));
-    yPerturbed[j] = y[j]! + h;
-    model.rhs(t, yPerturbed, fPlus, ctx);
-    yPerturbed[j] = y[j]! - h;
-    model.rhs(t, yPerturbed, fMinus, ctx);
-    yPerturbed[j] = y[j]!;
-    for (let i = 0; i < n; i++) {
-      jac[n * i + j] = (fPlus[i]! - fMinus[i]!) / (2 * h);
-    }
-  }
-  return jac;
-}
+import { createFiniteDifferenceJacobianScratch, finiteDifferenceJacobian } from "./jacobian.js";
 
 describe("createPlanarProjectileModel", () => {
   it("declares dim=4 with the expected channels", () => {
@@ -169,11 +140,13 @@ describe("gravityQuadraticDragJacobian", () => {
     ];
 
     expect(model.jacobian).toBeDefined();
+    const scratch = createFiniteDifferenceJacobianScratch(model.dim);
     for (const [x, yPos, vx, vy] of states) {
       const y = new Float64Array([x, yPos, vx, vy]);
       const analytic = new Float64Array(16);
       model.jacobian!(0, y, analytic, ctx);
-      const fd = centralDifferenceJacobian(model, 0, y, ctx);
+      const fd = new Float64Array(16);
+      finiteDifferenceJacobian(model, 0, y, fd, ctx, scratch);
 
       for (let k = 0; k < 16; k++) {
         expect(analytic[k]).toBeCloseTo(fd[k]!, 7);

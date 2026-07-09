@@ -453,8 +453,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "matches P1.22 analytic where available",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Generic finite-difference Jacobian fallback in jacobian.ts (finiteDifferenceJacobian), central differences with per-component scaled step h_j = cbrt(eps)*max(1,|y_j|), caller-owned scratch buffers (createFiniteDifferenceJacobianScratch) so repeated calls allocate nothing. Refactored planar-projectile-model.test.ts's P1.22 test to reuse it instead of a duplicate hand-rolled FD helper. Tests: matches P1.22's analytic Jacobian to 1e-7 at 10 states; recovers the exact linear kinematic rows for a composition (Magnus included) with no analytic jacobian; scratch buffers are not reallocated across calls."
     },
     {
       "id": "P1.24",
