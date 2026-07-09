@@ -442,8 +442,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "matches central finite differences to 1e-7 at 10 states",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added jacobian.ts: gravityQuadraticDragJacobian (row-major df_i/dy_j) + createGravityQuadraticDragJacobian factory binding it to a Model.jacobian-shaped closure. Exact for the default env stack (position-independent rho/g/wind) and ConstantCd; Re-dependent Cd models and spatially-varying gravity/atmosphere/wind need the FD fallback (P1.23). jacobian.test.ts validates vs. central FD to 1e-7 at the 10 states from planar-projectile-model.test.ts, in still air and with a uniform crosswind, plus zero-speed/symmetry/no-position-dependence checks."
     },
     {
       "id": "P1.23",
