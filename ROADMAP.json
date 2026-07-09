@@ -464,8 +464,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "drag-off: dE/dt from powers \u2261 0 to 1e-13",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added energy.ts: mechanicalEnergy(t,y,ctx)=0.5m|v|^2+mgy wired as createPlanarProjectileModel's 'energy' InvariantSpec (always attached, independent of registered forces), and aeroPower(forces,t,y,ctx) summing every non-gravity force's energyPower -- gravity is excluded because mechanicalEnergy already folds its work into the mgy term, so d(mechanicalEnergy)/dt = aeroPower exactly (eq 3.19). energy.test.ts confirms: (1) mechanicalEnergy matches the closed form; (2) it's wired as model.invariants[0]; (3) drag-off (gravity+Magnus only, still air) aeroPower is 0 to <1e-13 at 5 states, since Magnus is exactly perpendicular to v_rel=v there; (4) with drag+Magnus+gravity all on, aeroPower matches the independently-computed analytic dE/dt=m*v.a+m*g*vy from rhs's own acceleration output at 10 random states to 1e-10, validating the energyPower wiring is self-consistent with rhs, not just individually zero."
     },
     {
       "id": "P1.25",
