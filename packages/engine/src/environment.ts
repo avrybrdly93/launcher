@@ -142,6 +142,44 @@ export class SinusoidalGustWind implements WindModel {
   }
 }
 
+/** Squared-radius threshold below which the vortex velocity is evaluated via its r->0 Taylor limit. */
+const GAUSSIAN_VORTEX_R2_EPS = 1e-12;
+
+/**
+ * Gaussian (Lamb-Oseen) vortex analytic wind field (§3.5 case 3): a
+ * rotating flow centered at (x0, y0) with tangential speed
+ * v_theta(r) = (Gamma / (2*pi*r)) * (1 - exp(-r^2 / rc^2)), circulation
+ * Gamma, and core radius rc. Unlike an ideal point vortex, v_theta -> 0
+ * smoothly as r -> 0 (no singularity), so the field is safe to sample at
+ * the vortex center.
+ */
+export class GaussianVortexWind implements WindModel {
+  constructor(
+    private readonly x0: number,
+    private readonly y0: number,
+    private readonly circulation: number,
+    private readonly coreRadius: number,
+  ) {}
+
+  sample(_t: number, x: number, y: number, out: EnvSample): void {
+    const dx = x - this.x0;
+    const dy = y - this.y0;
+    const r2 = dx * dx + dy * dy;
+    const rc2 = this.coreRadius * this.coreRadius;
+
+    // factor = v_theta(r)/r = (Gamma/(2*pi*r^2))*(1-exp(-r^2/rc^2)); its
+    // r->0 limit is Gamma/(2*pi*rc^2) (first-order Taylor of the exp term),
+    // computed directly below to avoid the literal 0/0 IEEE result at r=0.
+    const factor =
+      r2 < GAUSSIAN_VORTEX_R2_EPS
+        ? this.circulation / (2 * Math.PI * rc2)
+        : (this.circulation / (2 * Math.PI * r2)) * (1 - Math.exp(-r2 / rc2));
+
+    out.wx = -factor * dy;
+    out.wy = factor * dx;
+  }
+}
+
 /**
  * Composes an Atmosphere + GravityModel + WindModel into the single
  * `Environment` the engine exports (§2.2 module table). `sample` is called

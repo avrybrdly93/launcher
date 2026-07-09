@@ -4,6 +4,7 @@ import {
   ConstantAtmosphere,
   Environment,
   ExponentialAtmosphere,
+  GaussianVortexWind,
   LogProfileWind,
   SinusoidalGustWind,
   UniformGravity,
@@ -175,6 +176,57 @@ describe("SinusoidalGustWind", () => {
     const out = new EnvSample();
     wind.sample(0, 0, 0, out);
     expect(out.wx).toBeCloseTo(0, 14); // sin(0) = 0
+  });
+});
+
+describe("GaussianVortexWind", () => {
+  it("circulation integral on a ring (R >> rc) matches Gamma to 1% (numeric quadrature)", () => {
+    const gamma = 10;
+    const rc = 1;
+    const R = 6 * rc; // exp(-(R/rc)^2) ~ 2e-16, negligible core-deficit
+    const wind = new GaussianVortexWind(0, 0, gamma, rc);
+    const out = new EnvSample();
+
+    const n = 2000;
+    let circulation = 0;
+    for (let i = 0; i < n; i++) {
+      const theta = (2 * Math.PI * i) / n;
+      const dTheta = (2 * Math.PI) / n;
+      const x = R * Math.cos(theta);
+      const y = R * Math.sin(theta);
+      wind.sample(0, x, y, out);
+      // dl = R*dTheta * tangential unit vector (-sin(theta), cos(theta));
+      // circulation = integral of w . dl around the ring (midpoint rule).
+      const dlx = -R * Math.sin(theta) * dTheta;
+      const dly = R * Math.cos(theta) * dTheta;
+      circulation += out.wx * dlx + out.wy * dly;
+    }
+
+    expect(Math.abs(circulation - gamma) / gamma).toBeLessThan(0.01);
+  });
+
+  it("is finite (zero) at the vortex center", () => {
+    const wind = new GaussianVortexWind(5, -3, 10, 1);
+    const out = new EnvSample();
+    wind.sample(0, 5, -3, out);
+    expect(Number.isFinite(out.wx)).toBe(true);
+    expect(Number.isFinite(out.wy)).toBe(true);
+    expect(out.wx).toBeCloseTo(0, 15);
+    expect(out.wy).toBeCloseTo(0, 15);
+  });
+
+  it("velocity is purely tangential (w . r_hat = 0 away from center)", () => {
+    const wind = new GaussianVortexWind(0, 0, 10, 1);
+    const out = new EnvSample();
+    for (const [x, y] of [
+      [2, 0],
+      [0, 3],
+      [-1, 1],
+      [4, -2],
+    ] as const) {
+      wind.sample(0, x, y, out);
+      expect(out.wx * x + out.wy * y).toBeCloseTo(0, 10);
+    }
   });
 });
 

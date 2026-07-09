@@ -552,8 +552,8 @@
       "estMinutes": 25,
       "difficulty": "M",
       "validation": "circulation integral on ring \u2248 \u0393 to 1% (numeric quadrature test)",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added GaussianVortexWind(x0,y0,circulation,coreRadius) implementing WindModel: Lamb-Oseen vortex v_theta(r) = (Gamma/(2*pi*r))*(1-exp(-r^2/rc^2)), converted to Cartesian via a factor=v_theta/r computed directly (with an explicit r^2<1e-12 branch using the r->0 Taylor limit Gamma/(2*pi*rc^2)) to avoid a literal 0/0 at the vortex center. environment.test.ts numerically integrates w.dl around a ring at R=6*rc (2000-point midpoint quadrature) and checks the result matches Gamma to <1% (the stated criterion), plus finiteness at the center and that velocity is purely tangential (w . r_hat = 0) at several points."
     },
     {
       "id": "P1.33",
