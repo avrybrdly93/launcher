@@ -486,8 +486,8 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "corrupt fixture rejected with useful error",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added asset-loader.ts: generic loadAssets(schema, rawAssets, assetKind) validates a batch of raw records at module-load (build) time, throwing AssetLoadError (wrapping the underlying SchemaValidationError as .cause) with a message naming the asset kind, its index, its id if present, and the schema issue. projectile-assets.ts (P1.25) now goes through this loader instead of a bare parseWithSchema map. asset-loader.test.ts covers: valid fixtures pass through unchanged; a corrupt fixture (negative weight) is rejected with an error message containing the asset kind, index, id, and bad field name; an id-less corrupt fixture is still identified by index; non-schema errors propagate unchanged."
     },
     {
       "id": "P1.27",

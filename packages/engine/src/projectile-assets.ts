@@ -1,4 +1,4 @@
-import { parseWithSchema } from "./schema.js";
+import { loadAssets } from "./asset-loader.js";
 import { projectileSpecSchema, type ProjectileSpec } from "./projectile-spec.js";
 
 /**
@@ -75,6 +75,8 @@ const RAW_ASSETS: readonly ProjectileSpec[] = [
   },
 ];
 
-export const PROJECTILE_ASSETS: readonly ProjectileSpec[] = RAW_ASSETS.map((asset) =>
-  parseWithSchema(projectileSpecSchema, asset),
+export const PROJECTILE_ASSETS: readonly ProjectileSpec[] = loadAssets(
+  projectileSpecSchema,
+  RAW_ASSETS,
+  "projectile asset",
 );
