@@ -5,6 +5,7 @@ import {
   Environment,
   ExponentialAtmosphere,
   LogProfileWind,
+  SinusoidalGustWind,
   UniformGravity,
   UniformWind,
   ZeroWind,
@@ -149,6 +150,31 @@ describe("LogProfileWind", () => {
     const out = new EnvSample();
     wind.sample(0, 0, 5, out);
     expect(out.wy).toBe(0);
+  });
+});
+
+describe("SinusoidalGustWind", () => {
+  it("matches wBar + A*sin(omega*t + phase) at sampled t", () => {
+    const wBar = 3;
+    const amplitude = 2;
+    const omega = 0.5;
+    const phase = 0.7;
+    const wind = new SinusoidalGustWind(wBar, amplitude, omega, phase);
+    const out = new EnvSample();
+
+    for (const t of [0, 1, 2.5, 10, -3]) {
+      wind.sample(t, 0, 0, out);
+      const expected = wBar + amplitude * Math.sin(omega * t + phase);
+      expect(out.wx).toBeCloseTo(expected, 14);
+      expect(out.wy).toBe(0);
+    }
+  });
+
+  it("defaults phase to 0", () => {
+    const wind = new SinusoidalGustWind(0, 5, 1);
+    const out = new EnvSample();
+    wind.sample(0, 0, 0, out);
+    expect(out.wx).toBeCloseTo(0, 14); // sin(0) = 0
   });
 });
 
