@@ -104,6 +104,29 @@ export class UniformWind implements WindModel {
 }
 
 /**
+ * Logarithmic boundary-layer wind profile (eq. 3.13): horizontal wind
+ * sheared by height, wx(y) = (uStar/kappa) * ln((y+yr)/yr). y is clamped to
+ * >= 0 before evaluation — below the surface the log argument would go to zero
+ * or negative, which is both unphysical and undefined; this guard keeps the
+ * profile finite (equal to its y=0 value) for any y <= 0.
+ */
+export class LogProfileWind implements WindModel {
+  private static readonly KAPPA = 0.41; // von Karman constant
+
+  constructor(
+    private readonly frictionVelocity: number, // u*, m/s
+    private readonly roughnessLength: number = 0.01, // y_r, m (grass, §3.5)
+  ) {}
+
+  sample(_t: number, _x: number, y: number, out: EnvSample): void {
+    const yGuarded = Math.max(y, 0);
+    const ratio = (yGuarded + this.roughnessLength) / this.roughnessLength;
+    out.wx = (this.frictionVelocity / LogProfileWind.KAPPA) * Math.log(ratio);
+    out.wy = 0;
+  }
+}
+
+/**
  * Composes an Atmosphere + GravityModel + WindModel into the single
  * `Environment` the engine exports (§2.2 module table). `sample` is called
  * exactly once per rhs evaluation (§2.4a); internally it delegates to the

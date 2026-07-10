@@ -530,8 +530,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "w(y_r\u00b7(e\u22121))\u00b7\u03ba/u* = 1 check; w finite at y=0",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added LogProfileWind to environment.ts: wx(y)=(uStar/kappa)*ln((y+yr)/yr) per eq 3.13, wy=0. y is clamped to >=0 before evaluation (the y<=0 guard) so the log argument never reaches 0 or negative \u2014 below the surface the profile just holds its y=0 value instead of going to -Infinity/NaN. environment.test.ts verifies w(yr*(e-1))*kappa/uStar=1 to 1e-12, w finite (=0) at y=0 and for y<0 down to -100, and monotonic increase with height."
     },
     {
       "id": "P1.31",
