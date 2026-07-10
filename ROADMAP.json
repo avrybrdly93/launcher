@@ -453,8 +453,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "matches P1.22 analytic where available",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added finite-difference-jacobian.ts: generic central-difference Jacobian for any Model (dim+rhs), per-component scaled step h_j=sqrt(eps)*max(1,|y_j|), row-major df/dy matching Model.jacobian's convention. Optional scratch buffers (createFiniteDifferenceJacobianScratch) keep repeated calls allocation-free for a future Newton hot path (P2.38). finite-difference-jacobian.test.ts: matches P1.22's analytic jacobian to 1e-6 at the same 10 states, exercises the no-analytic-jacobian fallback path (gravity+drag+Magnus), verifies scratch-buffer reuse, and a generic dim-1 sanity case."
     },
     {
       "id": "P1.24",
