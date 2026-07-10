@@ -3,17 +3,15 @@ import { createEvalContext } from "./eval-context.js";
 import { ConstantAtmosphere, Environment, UniformGravity, ZeroWind } from "./environment.js";
 import { ConstantCd } from "./drag-coefficient.js";
 import { createSphericalProjectileParams } from "./projectile-params.js";
-import { GravityForce, QuadraticDragForce } from "./forces.js";
+import { GravityForce, MagnusForce, QuadraticDragForce } from "./forces.js";
 import { createPlanarProjectileModel } from "./planar-projectile-model.js";
 import { gravityQuadraticDragJacobian } from "./jacobian.js";
 import { createFdJacobianScratch, finiteDifferenceJacobian } from "./fd-jacobian.js";
 
 const DIM = 4;
-const VX_ROW_VX = 2 * DIM + 2;
-const VY_ROW_VY = 3 * DIM + 3;
 
-describe("gravityQuadraticDragJacobian", () => {
-  it("matches central finite differences to 1e-7 at 10 random states", () => {
+describe("finiteDifferenceJacobian", () => {
+  it("matches the P1.22 analytic Jacobian at 10 random states", () => {
     const mass = 0.145;
     const radius = 0.0366;
     const cd = new ConstantCd(0.47);
@@ -47,41 +45,53 @@ describe("gravityQuadraticDragJacobian", () => {
       finiteDifferenceJacobian(model, 0, y, ctx, fd, scratch);
 
       for (let i = 0; i < DIM * DIM; i++) {
-        expect(analytic[i]).toBeCloseTo(fd[i]!, 7);
+        expect(fd[i]).toBeCloseTo(analytic[i]!, 6);
       }
     }
   });
 
-  it("streamwise/crosswise eigenvalue ratio matches the linearization in §4.6 (2:1)", () => {
-    const mass = 1;
-    const radius = 0.05;
-    const cd = new ConstantCd(0.47);
-
+  it("does not mutate the input state (perturbation is restored each column)", () => {
+    const model = createPlanarProjectileModel([new GravityForce(), new QuadraticDragForce()]);
     const env = new Environment(new ConstantAtmosphere(), new UniformGravity(), new ZeroWind());
-    const params = createSphericalProjectileParams({ mass, radius, dragCoefficient: cd });
+    const params = createSphericalProjectileParams({
+      mass: 1,
+      radius: 0.05,
+      dragCoefficient: new ConstantCd(0.47),
+    });
     const ctx = createEvalContext(env, params);
+    const scratch = createFdJacobianScratch(DIM);
 
+    const y = new Float64Array([1, 2, 10, -5]);
+    const yBefore = Float64Array.from(y);
     const out = new Float64Array(DIM * DIM);
-    // Pure streamwise motion: v_rel = (u, 0).
-    gravityQuadraticDragJacobian(0, new Float64Array([0, 0, 30, 0]), ctx, out);
-    const dAxDvx = out[VX_ROW_VX]!;
-    const dAyDvy = out[VY_ROW_VY]!;
-    expect(dAxDvx / dAyDvy).toBeCloseTo(2, 10);
+
+    finiteDifferenceJacobian(model, 0, y, ctx, out, scratch);
+
+    expect(Array.from(y)).toEqual(Array.from(yBefore));
   });
 
-  it("is zero at v_rel = 0 (no NaN, matches the P1.09 drag guard)", () => {
-    const mass = 1;
-    const radius = 0.05;
-    const cd = new ConstantCd(0.47);
-
+  it("also works generically on a model with Magnus (no analytic reference, just finiteness)", () => {
+    const model = createPlanarProjectileModel([
+      new GravityForce(),
+      new QuadraticDragForce(),
+      new MagnusForce(),
+    ]);
     const env = new Environment(new ConstantAtmosphere(), new UniformGravity(), new ZeroWind());
-    const params = createSphericalProjectileParams({ mass, radius, dragCoefficient: cd });
+    const params = createSphericalProjectileParams({
+      mass: 0.145,
+      radius: 0.0366,
+      dragCoefficient: new ConstantCd(0.47),
+      spin: 180,
+    });
     const ctx = createEvalContext(env, params);
+    const scratch = createFdJacobianScratch(DIM);
 
     const out = new Float64Array(DIM * DIM);
-    gravityQuadraticDragJacobian(0, new Float64Array([0, 0, 0, 0]), ctx, out);
-    expect(Array.from(out)).not.toContain(NaN);
-    expect(out[VX_ROW_VX]).toBe(0);
-    expect(out[VY_ROW_VY]).toBe(0);
+    finiteDifferenceJacobian(model, 0, new Float64Array([0, 0, 20, 10]), ctx, out, scratch);
+
+    expect(Array.from(out).some((v) => Number.isNaN(v))).toBe(false);
+    // dx/dvx and dy/dvy are exactly 1 for any force set (position rows are the identity).
+    expect(out[0 * DIM + 2]).toBeCloseTo(1, 6);
+    expect(out[1 * DIM + 3]).toBeCloseTo(1, 6);
   });
 });

@@ -453,8 +453,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "matches P1.22 analytic where available",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added fd-jacobian.ts: finiteDifferenceJacobian takes any Model (not just gravity+quad-drag) and central-differences its rhs with a per-component scaled step h_j = cbrt(eps)*max(|y_j|,1), using caller-supplied scratch buffers (createFdJacobianScratch) so it stays allocation-free for reuse in Newton iterations (P2.38). fd-jacobian.test.ts checks it matches gravityQuadraticDragJacobian at the same 10 states from P1.22, that it doesn't mutate the input state, and that it stays finite on a model with Magnus (no analytic reference there, just a sanity check). jacobian.test.ts's local FD helper was replaced with this shared implementation."
     },
     {
       "id": "P1.24",
