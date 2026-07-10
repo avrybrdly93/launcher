@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { EnvSample } from "./env-sample.js";
-import { ConstantAtmosphere, Environment, UniformGravity, ZeroWind } from "./environment.js";
+import {
+  ConstantAtmosphere,
+  Environment,
+  ExponentialAtmosphere,
+  UniformGravity,
+  ZeroWind,
+} from "./environment.js";
 import { EARTH_RADIUS_M, G_STD, ISA, SUTHERLAND, sutherlandViscosity } from "./units.js";
 
 describe("ConstantAtmosphere", () => {
@@ -30,6 +36,52 @@ describe("sutherlandViscosity (eq. 3.12)", () => {
     const etaHot = sutherlandViscosity(400);
     expect(etaCold).toBeLessThan(etaWarm);
     expect(etaWarm).toBeLessThan(etaHot);
+  });
+});
+
+describe("ExponentialAtmosphere (§3.4)", () => {
+  it("rho(H) = rho0/e to 1e-15", () => {
+    const atm = new ExponentialAtmosphere();
+    const out = new EnvSample();
+    atm.sample(0, ISA.scaleHeight, out);
+    expect(Math.abs(out.rho - ISA.rho0 / Math.E) / (ISA.rho0 / Math.E)).toBeLessThan(1e-15);
+  });
+
+  it("rho(0) = rho0 exactly", () => {
+    const atm = new ExponentialAtmosphere();
+    const out = new EnvSample();
+    atm.sample(0, 0, out);
+    expect(out.rho).toBe(ISA.rho0);
+  });
+
+  it("density decreases monotonically with altitude", () => {
+    const atm = new ExponentialAtmosphere();
+    const out = new EnvSample();
+    let previous = Infinity;
+    for (const y of [0, 1000, 5000, 8500, 20000]) {
+      atm.sample(0, y, out);
+      expect(out.rho).toBeLessThan(previous);
+      previous = out.rho;
+    }
+  });
+
+  it("is isothermal: T, eta, c are constant with altitude", () => {
+    const atm = new ExponentialAtmosphere();
+    const outLow = new EnvSample();
+    const outHigh = new EnvSample();
+    atm.sample(0, 0, outLow);
+    atm.sample(0, 15000, outHigh);
+    expect(outHigh.T).toBe(outLow.T);
+    expect(outHigh.eta).toBe(outLow.eta);
+    expect(outHigh.c).toBe(outLow.c);
+    expect(outLow.T).toBe(ISA.T0);
+  });
+
+  it("p tracks rho via the ideal gas law at fixed T", () => {
+    const atm = new ExponentialAtmosphere();
+    const out = new EnvSample();
+    atm.sample(0, 3000, out);
+    expect(out.p / out.rho).toBeCloseTo(ISA.Rs * ISA.T0, 8);
   });
 });
 
