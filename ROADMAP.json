@@ -519,8 +519,8 @@
       "estMinutes": 10,
       "difficulty": "E",
       "validation": "w constant everywhere",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "The WindModel interface (sample(t,x,y,out): void) already existed in environment.ts and fills the role of the blueprint's WindField; added UniformWind, a slider-controlled constant w=(wx,wy) implementation (§3.5 case 1), alongside the existing ZeroWind. environment.test.ts verifies w is identical across widely varying t/x/y and that wy defaults to 0."
     },
     {
       "id": "P1.30",
