@@ -486,8 +486,8 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "corrupt fixture rejected with useful error",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added asset-loader.ts: loadAssets(schema, rawAssets, source) validates every record and throws AssetLoadError naming the source label, index, and the record's id (or '<no id>') plus the underlying zod issues on the first failure -- more useful than a bare SchemaValidationError once a list has more than one entry. PROJECTILE_ASSETS (P1.25) now loads through this instead of a plain .map(parseProjectileSpec). asset-loader.test.ts covers the happy path, a corrupt fixture (negative mass) producing an error that names source/index/id, and the no-id fallback."
     },
     {
       "id": "P1.27",

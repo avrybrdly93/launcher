@@ -1,10 +1,12 @@
-import { parseProjectileSpec, type ProjectileSpec } from "./projectile-spec.js";
+import { loadAssets } from "./asset-loader.js";
+import { projectileSpecSchema, type ProjectileSpec } from "./projectile-spec.js";
 
 /**
  * Initial projectile data assets (§3.9): smooth sphere, golf, soccer,
  * baseball, table-tennis, cannonball, shot put. Every numeric datum carries
- * a provenance citation. Parsed through the schema at module load, so a
- * malformed asset fails immediately rather than at first use.
+ * a provenance citation. Loaded through `loadAssets` at module load, so a
+ * malformed asset fails immediately (with a useful, asset-identifying
+ * error) rather than at first use.
  */
 const RAW_PROJECTILE_ASSETS: readonly unknown[] = [
   {
@@ -73,5 +75,8 @@ const RAW_PROJECTILE_ASSETS: readonly unknown[] = [
   },
 ];
 
-export const PROJECTILE_ASSETS: readonly ProjectileSpec[] =
-  RAW_PROJECTILE_ASSETS.map(parseProjectileSpec);
+export const PROJECTILE_ASSETS: readonly ProjectileSpec[] = loadAssets(
+  projectileSpecSchema,
+  RAW_PROJECTILE_ASSETS,
+  "projectile-assets",
+);
