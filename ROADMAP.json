@@ -442,8 +442,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "matches central finite differences to 1e-7 at 10 states",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added jacobian.ts: gravityQuadraticDragJacobian derives d(accel)/d(velocity) in closed form (only nonzero block, since every implemented Atmosphere/WindField is spatially uniform and Cd is treated as ConstantCd); gravity and Magnus contribute nothing. jacobian.test.ts validates against a central finite-difference Jacobian at 10 random states (1e-7), checks the streamwise:crosswise eigenvalue ratio is exactly 2:1 per the §4.6 linearization, and checks the v_rel=0 guard returns finite zeros. Does not yet handle a Reynolds-dependent Cd (would need dCd/dRe) or position-dependent wind/atmosphere - left to the P1.23 FD fallback."
     },
     {
       "id": "P1.23",
