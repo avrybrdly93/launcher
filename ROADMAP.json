@@ -464,8 +464,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "drag-off: dE/dt from powers \u2261 0 to 1e-13",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "energy.ts: mechanicalEnergy(t,y,ctx) = 0.5*m*|v|^2+m*g*y, aeroEnergyPower sums energyPower over every non-gravity force (= F_aero.v of eq 3.19, since gravity's power exactly cancels the -mgy term). createMechanicalEnergyInvariant wired into createPlanarProjectileModel's Model.invariants. energy.test.ts: drag-off aeroEnergyPower is 0 to 1e-13; E is conserved to 1e-13 relative along an analytic free-fall trajectory; aeroEnergyPower matches sum(F_i.v) directly with drag+Magnus on; drag-on-in-still-air power is non-positive."
     },
     {
       "id": "P1.25",
