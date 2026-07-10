@@ -475,8 +475,8 @@
       "estMinutes": 30,
       "difficulty": "E",
       "validation": "assets validate; each has provenance string",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added projectile-spec.ts (zod schema: id/name/mass/radius/dragCoefficient-spec/optional liftCoefficient-spec/optional spinDecayTau/provenance, a discriminated-union drag-coefficient spec so assets stay plain serializable data rather than engine class instances, plus projectileParamsFromSpec to convert into engine-ready ProjectileParams) and projectile-assets.ts (the 7 initial assets: smooth-sphere, golf-ball, soccer-ball, baseball, table-tennis-ball, cannonball, shot-put, each with a real regulation mass/radius and a provenance citation, parsed through the schema at module load so a malformed asset fails at import time). projectile-assets.test.ts checks all 7 ids validate, every asset has a provenance string, mass/radius are physically sane, every asset converts to usable ProjectileParams, and corrupt fixtures (missing provenance, negative mass) are rejected. The dedicated asset-loader-with-useful-error-message task (P1.26) is separate and still todo."
     },
     {
       "id": "P1.26",
