@@ -1,5 +1,17 @@
 import { EnvSample } from "./env-sample.js";
-import { EARTH_RADIUS_M, G_STD, ISA } from "./units.js";
+import { EARTH_RADIUS_M, G_STD, ISA, SUTHERLAND } from "./units.js";
+
+/**
+ * Sutherland's law: dynamic viscosity as a function of temperature (eq. 3.12).
+ * At T = SUTHERLAND.Tref this reduces exactly to SUTHERLAND.etaRef.
+ */
+export function sutherlandViscosity(T: number): number {
+  return (
+    SUTHERLAND.etaRef *
+    (T / SUTHERLAND.Tref) ** 1.5 *
+    ((SUTHERLAND.Tref + SUTHERLAND.S) / (T + SUTHERLAND.S))
+  );
+}
 
 /** Fills the thermodynamic fields of an EnvSample (rho, T, p, eta, c) at a point (§3.4). */
 export interface Atmosphere {
@@ -24,7 +36,7 @@ export class ConstantAtmosphere implements Atmosphere {
     out.rho = ISA.rho0;
     out.T = ISA.T0;
     out.p = ISA.p0;
-    out.eta = 1.789e-5;
+    out.eta = sutherlandViscosity(ISA.T0);
     out.c = Math.sqrt(ConstantAtmosphere.GAMMA * ISA.Rs * ISA.T0);
   }
 }
@@ -48,7 +60,7 @@ export class ExponentialAtmosphere implements Atmosphere {
     out.rho = this.rho0 * factor;
     out.T = ISA.T0;
     out.p = ISA.p0 * factor;
-    out.eta = 1.789e-5;
+    out.eta = sutherlandViscosity(ISA.T0);
     out.c = Math.sqrt(ExponentialAtmosphere.GAMMA * ISA.Rs * ISA.T0);
   }
 }

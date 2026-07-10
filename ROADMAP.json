@@ -508,8 +508,8 @@
       "estMinutes": 10,
       "difficulty": "E",
       "validation": "\u03b7(288.15K)=1.789e\u22125\u00b11%",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added sutherlandViscosity(T) to environment.ts implementing eq. 3.12 from the existing SUTHERLAND constants; reduces exactly to etaRef at T=Tref. Wired into both ConstantAtmosphere and ExponentialAtmosphere (replacing the previously hardcoded 1.789e-5 literal) \u2014 since both are isothermal at T0=Tref=288.15K, this is bit-identical to the prior behavior. Tests verify eta(288.15K)=1.789e-5 to well within 1%, exact equality at T=Tref, and monotonic increase with T."
     },
     {
       "id": "P1.29",

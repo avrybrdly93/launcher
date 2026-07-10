@@ -4,10 +4,28 @@ import {
   ConstantAtmosphere,
   Environment,
   ExponentialAtmosphere,
+  sutherlandViscosity,
   UniformGravity,
   ZeroWind,
 } from "./environment.js";
-import { EARTH_RADIUS_M, G_STD, ISA } from "./units.js";
+import { EARTH_RADIUS_M, G_STD, ISA, SUTHERLAND } from "./units.js";
+
+describe("sutherlandViscosity", () => {
+  it("eta(288.15 K) = 1.789e-5 to within 1%", () => {
+    expect(sutherlandViscosity(288.15)).toBeCloseTo(1.789e-5, 7);
+    expect(Math.abs(sutherlandViscosity(288.15) - 1.789e-5) / 1.789e-5).toBeLessThan(0.01);
+  });
+
+  it("reduces exactly to etaRef at T = Tref", () => {
+    expect(sutherlandViscosity(SUTHERLAND.Tref)).toBe(SUTHERLAND.etaRef);
+  });
+
+  it("increases with temperature (viscosity of gases rises with T)", () => {
+    const etaCold = sutherlandViscosity(250);
+    const etaHot = sutherlandViscosity(350);
+    expect(etaHot).toBeGreaterThan(etaCold);
+  });
+});
 
 describe("ConstantAtmosphere", () => {
   it("returns ISA sea-level density everywhere", () => {
