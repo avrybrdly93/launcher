@@ -442,8 +442,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "matches central finite differences to 1e-7 at 10 states",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "createGravityQuadraticDragJacobian in packages/engine/src/jacobian.ts; exact for uniform environment (constant g/atmosphere/wind) with the drag block zeroed at the v_rel=0 removable singularity. jacobian.test.ts checks max abs error ~8.8e-10 vs central FD across 10 states, well under the 1e-7 bound."
     },
     {
       "id": "P1.23",
