@@ -486,8 +486,8 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "corrupt fixture rejected with useful error",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "loadProjectileAssets in projectile-spec.ts validates a raw/unknown array against ProjectileSpecSchema, collecting every failing entry (not just the first) into one SchemaValidationError naming each asset id/index and the failing field. projectile-assets.ts routes its literal data through an untyped RAW_PROJECTILE_ASSETS array and this loader, so a corrupted entry fails at import/build time even if it would still typecheck (e.g. a negative number). projectile-loader.test.ts covers: valid fixture accepted, negative mass / missing provenance / unknown dragModel kind rejected with useful messages, multiple bad entries all reported, and index-based labeling when no id is present."
     },
     {
       "id": "P1.27",

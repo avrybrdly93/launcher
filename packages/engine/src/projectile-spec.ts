@@ -2,6 +2,7 @@ import { z } from "zod";
 import { ConstantCd, TabulatedReynoldsCd, type DragCoefficientModel } from "./drag-coefficient.js";
 import { SaturatingLiftCoefficient, type LiftCoefficientModel } from "./lift-coefficient.js";
 import { createSphericalProjectileParams, type ProjectileParams } from "./projectile-params.js";
+import { SchemaValidationError } from "./schema.js";
 
 /** Serializable description of a `DragCoefficientModel` (§3.3). */
 export const DragModelSpecSchema = z.discriminatedUnion("kind", [
@@ -59,4 +60,42 @@ export function resolveProjectileParams(spec: ProjectileSpec, spin?: number): Pr
     liftCoefficient: spec.liftModel ? resolveLiftModel(spec.liftModel) : undefined,
     spin,
   });
+}
+
+/**
+ * The asset loader (§3.9): validates a raw (untyped — e.g. parsed JSON)
+ * array of projectile records against `ProjectileSpecSchema`, run at
+ * build/import time so a corrupt asset fails loudly there instead of
+ * surfacing as a silent NaN somewhere downstream in a simulation. Every
+ * invalid entry is collected into one error (not just the first) so a
+ * single fix-and-rerun catches everything.
+ */
+export function loadProjectileAssets(raw: readonly unknown[]): readonly ProjectileSpec[] {
+  const specs: ProjectileSpec[] = [];
+  const failures: string[] = [];
+
+  raw.forEach((entry, index) => {
+    const result = ProjectileSpecSchema.safeParse(entry);
+    if (result.success) {
+      specs.push(result.data);
+      return;
+    }
+    const label =
+      entry !== null && typeof entry === "object" && "id" in entry
+        ? String((entry as { id: unknown }).id)
+        : `index ${index}`;
+    const detail = result.error.issues
+      .map((issue) => `${issue.path.join(".") || "(root)"}: ${issue.message}`)
+      .join("; ");
+    failures.push(`asset "${label}" (index ${index}): ${detail}`);
+  });
+
+  if (failures.length > 0) {
+    throw new SchemaValidationError(
+      `Invalid projectile asset(s) — ${failures.length} of ${raw.length} failed validation: ${failures.join(" | ")}`,
+      [],
+    );
+  }
+
+  return specs;
 }

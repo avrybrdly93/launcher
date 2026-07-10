@@ -1,12 +1,18 @@
-import type { ProjectileSpec } from "./projectile-spec.js";
+import { loadProjectileAssets } from "./projectile-spec.js";
 
 /**
  * Initial projectile data assets (§3.9): smooth sphere, golf ball, soccer
  * ball, baseball, table-tennis ball, cannonball (0.1 m iron), shot put.
  * "Custom" (the eighth entry §3.9 mentions) is a UI concept — an empty
  * user-editable slot — not a data asset, so it has no entry here.
+ *
+ * Deliberately untyped (`unknown[]`, not `ProjectileSpec[]`): it is routed
+ * through `loadProjectileAssets` below rather than trusted as already
+ * well-formed, so a typo that still happens to typecheck (e.g. a negative
+ * mass) is still caught at import/build time (P1.26), the same gate a
+ * real JSON-file-sourced asset would go through.
  */
-export const PROJECTILE_ASSETS: readonly ProjectileSpec[] = [
+const RAW_PROJECTILE_ASSETS: readonly unknown[] = [
   {
     id: "smooth-sphere",
     name: "Smooth Sphere (reference)",
@@ -95,3 +101,6 @@ export const PROJECTILE_ASSETS: readonly ProjectileSpec[] = [
       "regime at typical release speeds); the platform's canonical low-Pi exhibit (§3.9).",
   },
 ];
+
+/** Validated at import time — a corrupt entry above fails the build/test run immediately. */
+export const PROJECTILE_ASSETS = loadProjectileAssets(RAW_PROJECTILE_ASSETS);
