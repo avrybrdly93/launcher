@@ -6,12 +6,28 @@ import { SaturatingLiftCoefficient } from "./lift-coefficient.js";
 import { createSphericalProjectileParams } from "./projectile-params.js";
 import { GravityForce, MagnusForce, QuadraticDragForce } from "./forces.js";
 import { createPlanarProjectileModel } from "./planar-projectile-model.js";
+import { mechanicalEnergy } from "./energy.js";
 
 describe("createPlanarProjectileModel", () => {
   it("declares dim=4 with the expected channels", () => {
     const model = createPlanarProjectileModel([new GravityForce()]);
     expect(model.dim).toBe(4);
     expect(model.channels.map((c) => c.name)).toEqual(["x", "y", "vx", "vy"]);
+  });
+
+  it("exposes an energy invariant matching mechanicalEnergy (P1.24 wiring)", () => {
+    const model = createPlanarProjectileModel([new GravityForce()]);
+    const env = new Environment(new ConstantAtmosphere(), new UniformGravity());
+    const params = createSphericalProjectileParams({
+      mass: 1,
+      radius: 0.05,
+      dragCoefficient: new ConstantCd(0),
+    });
+    const ctx = createEvalContext(env, params);
+    const y = new Float64Array([0, 100, 20, 0]);
+
+    expect(model.invariants?.map((inv) => inv.name)).toEqual(["energy"]);
+    expect(model.invariants?.[0]?.evaluate(0, y, ctx)).toBeCloseTo(mechanicalEnergy(0, y, ctx), 12);
   });
 
   it("under gravity alone, acceleration is exactly (0, -g)", () => {

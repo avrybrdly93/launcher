@@ -464,8 +464,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "drag-off: dE/dt from powers \u2261 0 to 1e-13",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added energy.ts: mechanicalEnergy computes E=(1/2)m|v|^2+mgy (samples env itself so it's callable standalone); aeroEnergyPower sums every registered force's energyPower except gravity (whose power is already folded into E's potential term and cancels exactly) per eq. 3.19. createEnergyInvariant() wires this into Model.invariants, wired into createPlanarProjectileModel. energy.test.ts checks: E matches hand-computation; with only gravity registered aeroEnergyPower is exactly 0 (not just approximately) at 10 states, satisfying the 'drag-off' criterion as a hard identity; drag-alone-in-still-air power is <=0 (monotone dissipation, \u00a73.8 (iii)); Magnus-alone-in-still-air power ~=0 to 1e-10 (F_M perp v, \u00a73.8 (ii)). planar-projectile-model.test.ts adds a wiring check that model.invariants exposes 'energy' matching mechanicalEnergy. The full work-integral residual R_E(t) with step-order-matched quadrature is P2.37 (needs a stepper); this task covers the engine-level E(y)/energyPower primitives only."
     },
     {
       "id": "P1.25",

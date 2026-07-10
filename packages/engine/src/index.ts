@@ -14,3 +14,4 @@ export * from "./model.js";
 export * from "./planar-projectile-model.js";
 export * from "./jacobian.js";
 export * from "./fd-jacobian.js";
+export * from "./energy.js";
