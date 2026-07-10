@@ -475,8 +475,8 @@
       "estMinutes": 30,
       "difficulty": "E",
       "validation": "assets validate; each has provenance string",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "projectile-spec.ts: zod ProjectileSpecSchema (m, R, dragModel, liftModel?, spinDecayTau?, provenance) + resolveProjectileParams bridging to runtime ProjectileParams. projectile-assets.ts: PROJECTILE_ASSETS with the 7 data assets from §3.9 ('custom' is a UI concept, not a data asset). projectile-assets.test.ts validates all 7 against the schema, checks non-empty provenance, and smoke-tests rhs finiteness through resolveProjectileParams. Asset-loader build-time validation (fs-based, corrupt-fixture rejection) is P1.26."
     },
     {
       "id": "P1.26",
