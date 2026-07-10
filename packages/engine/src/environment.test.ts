@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { EnvSample } from "./env-sample.js";
-import { ConstantAtmosphere, Environment, UniformGravity, ZeroWind } from "./environment.js";
+import {
+  ConstantAtmosphere,
+  Environment,
+  ExponentialAtmosphere,
+  UniformGravity,
+  ZeroWind,
+} from "./environment.js";
 import { EARTH_RADIUS_M, G_STD, ISA } from "./units.js";
 
 describe("ConstantAtmosphere", () => {
@@ -11,6 +17,45 @@ describe("ConstantAtmosphere", () => {
       atm.sample(0, y, out);
       expect(out.rho).toBe(ISA.rho0);
     }
+  });
+});
+
+describe("ExponentialAtmosphere", () => {
+  it("rho(0) = rho0 exactly", () => {
+    const atm = new ExponentialAtmosphere();
+    const out = new EnvSample();
+    atm.sample(0, 0, out);
+    expect(out.rho).toBe(ISA.rho0);
+  });
+
+  it("rho(H) = rho0/e to 1e-15", () => {
+    const atm = new ExponentialAtmosphere();
+    const out = new EnvSample();
+    atm.sample(0, ISA.scaleHeight, out);
+    expect(out.rho).toBeCloseTo(ISA.rho0 / Math.E, 15);
+  });
+
+  it("density decreases monotonically with altitude and matches the exponential formula", () => {
+    const atm = new ExponentialAtmosphere();
+    const out = new EnvSample();
+    let previous = Infinity;
+    for (const y of [0, 1000, 5000, 8500, 20000]) {
+      atm.sample(0, y, out);
+      expect(out.rho).toBeLessThan(previous);
+      expect(out.rho).toBeCloseTo(ISA.rho0 * Math.exp(-y / ISA.scaleHeight), 15);
+      previous = out.rho;
+    }
+  });
+
+  it("holds temperature, viscosity, and sound speed at ISA sea-level values (isothermal)", () => {
+    const atm = new ExponentialAtmosphere();
+    const outLow = new EnvSample();
+    const outHigh = new EnvSample();
+    atm.sample(0, 0, outLow);
+    atm.sample(0, 10000, outHigh);
+    expect(outHigh.T).toBe(outLow.T);
+    expect(outHigh.eta).toBe(outLow.eta);
+    expect(outHigh.c).toBe(outLow.c);
   });
 });
 
