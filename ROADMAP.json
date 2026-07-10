@@ -475,8 +475,8 @@
       "estMinutes": 30,
       "difficulty": "E",
       "validation": "assets validate; each has provenance string",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added projectile-spec.ts: ProjectileSpecSchema (zod) recording m, R, constant Cd, optional saturating-lift + spin-decay tau, and a required provenance citation string; toProjectileParams() bridges a spec into the live ConstantCd/SaturatingLiftCoefficient instances createSphericalProjectileParams needs. PROJECTILE_ASSETS ships all 7 requested assets (smooth sphere, golf, soccer, baseball, table-tennis, cannonball, shot put) with real spec-derived mass/radius and cited Cd values. projectile-spec.test.ts validates every asset against the schema, checks provenance length, checks the ProjectileParams conversion, and confirms a corrupt/incomplete fixture is rejected with a useful SchemaValidationError message (full asset-loader error-surfacing is P1.26)."
     },
     {
       "id": "P1.26",
