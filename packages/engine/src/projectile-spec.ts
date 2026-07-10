@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { loadAssetArray } from "./asset-loader.js";
 import { ConstantCd } from "./drag-coefficient.js";
 import { SaturatingLiftCoefficient } from "./lift-coefficient.js";
 import { createSphericalProjectileParams, type ProjectileParams } from "./projectile-params.js";
@@ -34,8 +35,13 @@ export function toProjectileParams(spec: ProjectileSpec): ProjectileParams {
   });
 }
 
-/** Initial projectile data assets (§3.9): smooth sphere, golf, soccer, baseball, TT ball, cannonball, shot put. */
-export const PROJECTILE_ASSETS: readonly ProjectileSpec[] = [
+/**
+ * Raw asset fixtures, deliberately untyped (`unknown[]`) — this simulates
+ * data loaded from an external source (JSON asset file) and forces it
+ * through the same `loadAssetArray` validation path a real loader would use,
+ * rather than trusting the TS type system alone (P1.26).
+ */
+const PROJECTILE_ASSET_FIXTURES: readonly unknown[] = [
   {
     id: "smooth-sphere",
     name: "Smooth sphere",
@@ -121,3 +127,10 @@ export const PROJECTILE_ASSETS: readonly ProjectileSpec[] = [
       "canonical low-Pi, drag-irrelevant regime example, §3.8).",
   },
 ];
+
+/** Initial projectile data assets (§3.9): smooth sphere, golf, soccer, baseball, TT ball, cannonball, shot put. */
+export const PROJECTILE_ASSETS: readonly ProjectileSpec[] = loadAssetArray(
+  ProjectileSpecSchema,
+  PROJECTILE_ASSET_FIXTURES,
+  "ProjectileSpec",
+);

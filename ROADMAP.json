@@ -486,8 +486,8 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "corrupt fixture rejected with useful error",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added asset-loader.ts: loadAssetArray(schema, raw, kind) validates each raw (unknown[]) entry via parseWithSchema and re-throws SchemaValidationError annotated with 'Kind[index] (id=...)' so a corrupt entry is identifiable at a glance. projectile-spec.ts's PROJECTILE_ASSETS now flows through loadAssetArray from an untyped PROJECTILE_ASSET_FIXTURES array (simulating externally-sourced/JSON asset data) rather than being trusted via the TS type system alone, so a corrupted literal fails at module-import (build) time. asset-loader.test.ts covers the happy path, a corrupt-fixture rejection with index+id+field in the message, and the id='?' fallback when the corrupt entry itself lacks an id."
     },
     {
       "id": "P1.27",

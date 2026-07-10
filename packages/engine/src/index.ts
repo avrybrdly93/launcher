@@ -5,6 +5,7 @@ export * from "./schema.js";
 export * from "./env-sample.js";
 export * from "./environment.js";
 export * from "./pchip.js";
+export * from "./asset-loader.js";
 export * from "./drag-coefficient.js";
 export * from "./lift-coefficient.js";
 export * from "./projectile-params.js";
