@@ -11,7 +11,12 @@ const DIM = 4;
 const VX = 2;
 const VY = 3;
 
-/** Central-difference Jacobian of `model.rhs`, one column (state component) at a time. */
+/**
+ * Central-difference Jacobian of `model.rhs`, tuned with a tighter,
+ * relative-only step than the generic P1.23 fallback (`fd-jacobian.ts`)
+ * uses, so this test can hold the analytic Jacobian to the tight 1e-7 bound
+ * the P1.22 validation criterion calls for.
+ */
 function fdJacobian(
   model: ReturnType<typeof createPlanarProjectileModel>,
   ctx: ReturnType<typeof createEvalContext>,
