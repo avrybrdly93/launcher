@@ -464,8 +464,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "drag-off: dE/dt from powers \u2261 0 to 1e-13",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added energy.ts: mechanicalEnergy (E=0.5*m|v|^2+m*g*y, self-sampling ctx.env so it's safe to call standalone), aeroPower (sums every registered force's energyPower EXCEPT gravity, since gravity's F.v is already captured by the m*g*y potential term \u2014 double-counting it would break eq 3.19), and createEnergyInvariant wired into createPlanarProjectileModel.invariants unconditionally. energy.test.ts verifies the eq-3.19 power sum is ~0 to 1e-13 at 10 states when drag is off, that E is conserved to 1e-9 relative over a real 500-step RK4 gravity-only trajectory, and that aeroPower correctly picks up quadratic drag's own (nonzero) power once registered."
     },
     {
       "id": "P1.25",
