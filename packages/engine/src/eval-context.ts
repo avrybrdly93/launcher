@@ -1,6 +1,6 @@
 import { EnvSample } from "./env-sample.js";
 import type { Environment } from "./environment.js";
-import type { MutVec2 } from "./vec2.js";
+import { norm, type MutVec2 } from "./vec2.js";
 import type { ProjectileParams } from "./projectile-params.js";
 
 /**
@@ -37,4 +37,27 @@ export function createEvalContext(environment: Environment, params: ProjectilePa
     mach: 0,
     forceAccum: [0, 0],
   };
+}
+
+/**
+ * Samples the environment at (t, x, y) and refreshes vRel/speedRel/re/mach
+ * from (vx, vy) — the shared preamble every rhs-adjacent evaluation (the
+ * planar-projectile rhs itself, and anything else that needs a force's
+ * `accumulate`/`energyPower` at an arbitrary state, e.g. the energy-invariant
+ * "from powers" check of P1.24) needs before touching `ctx`.
+ */
+export function refreshEvalContext(
+  t: number,
+  x: number,
+  y: number,
+  vx: number,
+  vy: number,
+  ctx: EvalContext,
+): void {
+  ctx.environment.sample(t, x, y, ctx.env);
+  ctx.vRel[0] = vx - ctx.env.wx;
+  ctx.vRel[1] = vy - ctx.env.wy;
+  ctx.speedRel = norm(ctx.vRel);
+  ctx.re = (ctx.env.rho * ctx.speedRel * (2 * ctx.params.radius)) / ctx.env.eta;
+  ctx.mach = ctx.env.c > 0 ? ctx.speedRel / ctx.env.c : 0;
 }
