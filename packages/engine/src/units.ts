@@ -18,6 +18,18 @@ export const SUTHERLAND = {
   S: 110.4, // K
 } as const;
 
+/** Ratio of specific heats for dry air, used for the ideal-gas speed of sound c = sqrt(gamma*Rs*T). */
+export const AIR_GAMMA = 1.4;
+
+/** Sutherland's law: dynamic viscosity of air as a function of temperature (§3.4, eq. 3.12). */
+export function sutherlandViscosity(T: number): number {
+  return (
+    SUTHERLAND.etaRef *
+    Math.pow(T / SUTHERLAND.Tref, 1.5) *
+    ((SUTHERLAND.Tref + SUTHERLAND.S) / (T + SUTHERLAND.S))
+  );
+}
+
 export const EARTH_RADIUS_M = 6.371e6;
 
 export function degToRad(deg: number): number {

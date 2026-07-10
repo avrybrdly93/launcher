@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { EnvSample } from "./env-sample.js";
 import { ConstantAtmosphere, Environment, UniformGravity, ZeroWind } from "./environment.js";
-import { EARTH_RADIUS_M, G_STD, ISA } from "./units.js";
+import { EARTH_RADIUS_M, G_STD, ISA, SUTHERLAND, sutherlandViscosity } from "./units.js";
 
 describe("ConstantAtmosphere", () => {
   it("returns ISA sea-level density everywhere", () => {
@@ -11,6 +11,25 @@ describe("ConstantAtmosphere", () => {
       atm.sample(0, y, out);
       expect(out.rho).toBe(ISA.rho0);
     }
+  });
+});
+
+describe("sutherlandViscosity (eq. 3.12)", () => {
+  it("matches the ISA sea-level reference to within 1%", () => {
+    const eta = sutherlandViscosity(288.15);
+    expect(Math.abs(eta - SUTHERLAND.etaRef) / SUTHERLAND.etaRef).toBeLessThan(0.01);
+  });
+
+  it("is exactly etaRef at T = Tref", () => {
+    expect(sutherlandViscosity(SUTHERLAND.Tref)).toBe(SUTHERLAND.etaRef);
+  });
+
+  it("increases monotonically with temperature (gas viscosity, unlike liquids)", () => {
+    const etaCold = sutherlandViscosity(250);
+    const etaWarm = sutherlandViscosity(300);
+    const etaHot = sutherlandViscosity(400);
+    expect(etaCold).toBeLessThan(etaWarm);
+    expect(etaWarm).toBeLessThan(etaHot);
   });
 });
 

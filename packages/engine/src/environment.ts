@@ -1,5 +1,5 @@
 import { EnvSample } from "./env-sample.js";
-import { EARTH_RADIUS_M, G_STD, ISA } from "./units.js";
+import { AIR_GAMMA, EARTH_RADIUS_M, G_STD, ISA } from "./units.js";
 
 /** Fills the thermodynamic fields of an EnvSample (rho, T, p, eta, c) at a point (§3.4). */
 export interface Atmosphere {
@@ -18,14 +18,12 @@ export interface WindModel {
 
 /** ISA sea-level atmosphere, uniform with altitude (§3.4 default). */
 export class ConstantAtmosphere implements Atmosphere {
-  private static readonly GAMMA = 1.4;
-
   sample(_x: number, _y: number, out: EnvSample): void {
     out.rho = ISA.rho0;
     out.T = ISA.T0;
     out.p = ISA.p0;
     out.eta = 1.789e-5;
-    out.c = Math.sqrt(ConstantAtmosphere.GAMMA * ISA.Rs * ISA.T0);
+    out.c = Math.sqrt(AIR_GAMMA * ISA.Rs * ISA.T0);
   }
 }
 

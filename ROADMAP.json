@@ -497,7 +497,7 @@
       "estMinutes": 10,
       "difficulty": "E",
       "validation": "\u03c1(H)=\u03c1\u2080/e to 1e-15",
-      "status": "todo",
+      "status": "done",
       "notes": ""
     },
     {
@@ -508,7 +508,7 @@
       "estMinutes": 10,
       "difficulty": "E",
       "validation": "\u03b7(288.15K)=1.789e\u22125\u00b11%",
-      "status": "todo",
+      "status": "done",
       "notes": ""
     },
     {
