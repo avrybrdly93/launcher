@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { parseArrayWithSchema } from "./schema.js";
 
 /**
  * Serializable description of a `DragCoefficientModel` (§3.3): data, not a
@@ -41,12 +42,28 @@ export const ProjectileSpecSchema = z.object({
 export type ProjectileSpec = z.infer<typeof ProjectileSpecSchema>;
 
 /**
+ * Validates a raw (e.g. JSON-sourced or user-supplied "custom" projectile)
+ * list against `ProjectileSpecSchema`, one entry at a time, so a corrupt
+ * fixture is reported against the specific asset it belongs to — the asset
+ * loader of §3.9/P1.26. `PROJECTILE_ASSETS` below is threaded through this
+ * at module load, so a corrupt built-in fixture fails the moment anything
+ * imports it, before it ever reaches a build or a running app.
+ */
+export function loadProjectileAssets(raw: readonly unknown[]): readonly ProjectileSpec[] {
+  return parseArrayWithSchema(ProjectileSpecSchema, raw, (item) =>
+    typeof item === "object" && item !== null && "id" in item
+      ? String((item as { id: unknown }).id)
+      : "(missing id)",
+  );
+}
+
+/**
  * Initial projectile asset library (§3.9): smooth sphere, golf, soccer,
  * baseball, table-tennis, cannonball, shot put. Values are drawn from the
  * cited rulebooks/references; where a rule gives a range, the spec uses the
  * range's midpoint.
  */
-export const PROJECTILE_ASSETS: readonly ProjectileSpec[] = [
+const RAW_PROJECTILE_ASSETS: readonly ProjectileSpec[] = [
   {
     id: "smooth-sphere",
     name: "Smooth sphere (reference)",
@@ -117,3 +134,6 @@ export const PROJECTILE_ASSETS: readonly ProjectileSpec[] = [
       "World Athletics Rule 188 (men's shot): mass 7.260 kg, diameter 110-130 mm (midpoint 120 mm used). Cd~0.47 smooth-sphere approximation; drag is negligible at shot-put release speeds and mass (low-Pi regime).",
   },
 ];
+
+export const PROJECTILE_ASSETS: readonly ProjectileSpec[] =
+  loadProjectileAssets(RAW_PROJECTILE_ASSETS);

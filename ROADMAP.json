@@ -486,7 +486,7 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "corrupt fixture rejected with useful error",
-      "status": "todo",
+      "status": "done",
       "notes": ""
     },
     {
