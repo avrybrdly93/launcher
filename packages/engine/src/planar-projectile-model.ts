@@ -1,5 +1,6 @@
 import type { EvalContext } from "./eval-context.js";
 import { composeForces, createForceRegistry, type ForceModel } from "./forces.js";
+import { analyticJacobianGravityQuadraticDrag } from "./jacobian.js";
 import type { Model } from "./model.js";
 import type { ChannelMeta } from "./schema.js";
 import { norm } from "./vec2.js";
@@ -24,6 +25,12 @@ const VY = 3;
  */
 export function createPlanarProjectileModel(forces: readonly ForceModel[]): Model {
   const registry = createForceRegistry(forces);
+  // Analytic Jacobian (P1.22) covers exactly {gravity, quadratic drag} — no Magnus,
+  // no linear drag, no buoyancy. Outside that force set, callers needing a
+  // Jacobian fall back to finite differences (P1.23).
+  const forceIds = new Set(registry.map((f) => f.id));
+  const hasAnalyticJacobian =
+    forceIds.size === 2 && forceIds.has("gravity") && forceIds.has("drag-quadratic");
 
   return {
     dim: 4,
@@ -49,5 +56,6 @@ export function createPlanarProjectileModel(forces: readonly ForceModel[]): Mode
       out[VX] = ctx.forceAccum[0] / ctx.params.mass;
       out[VY] = ctx.forceAccum[1] / ctx.params.mass;
     },
+    ...(hasAnalyticJacobian ? { jacobian: analyticJacobianGravityQuadraticDrag } : {}),
   };
 }

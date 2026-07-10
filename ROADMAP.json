@@ -442,8 +442,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "matches central finite differences to 1e-7 at 10 states",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added jacobian.ts: analyticJacobianGravityQuadraticDrag, row-major J=df/dy, treating Cd/rho/wind as locally frozen (exact for ConstantCd, matches §4.6's -kd*u*{1,1/2} streamwise/crosswise eigenvalue ratio). Extended Model.jacobian to take ctx (matching rhs's signature; the blueprint's type sketch is explicitly abbreviated). Wired into createPlanarProjectileModel.jacobian only when the force set is exactly {gravity, drag-quadratic}; undefined (FD fallback, P1.23) otherwise. jacobian.test.ts verifies match to central FD (h scaled per-component) to 1e-7 at 10 states plus the eigenvalue-ratio and zero-velocity-limit checks."
     },
     {
       "id": "P1.23",
