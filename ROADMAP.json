@@ -475,8 +475,8 @@
       "estMinutes": 30,
       "difficulty": "E",
       "validation": "assets validate; each has provenance string",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "engine/src/projectile-spec.ts: ProjectileSpecSchema (zod) with per-numeric-datum {value, citation} (ProvenancedNumberSchema) plus a top-level provenance string; dragCoefficient is a discriminated union (constant | tabulated-reynolds). PROJECTILE_ASSETS has the 7 listed assets (sphere/golf/soccer/baseball/table-tennis/cannonball/shot-put); 'custom' from the blueprint list is UI-authored (P3.20), not a fixed asset, so omitted here. validateProjectileAssets() parses via parseWithSchema. Cd values/citations are typical literature figures, not measured -- flagged as such in each citation. Asset loader (file-based, build-time) is P1.26, not yet done."
     },
     {
       "id": "P1.26",
