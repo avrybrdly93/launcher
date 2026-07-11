@@ -475,8 +475,8 @@
       "estMinutes": 30,
       "difficulty": "E",
       "validation": "assets validate; each has provenance string",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added packages/engine/src/projectile-spec.ts: ProjectileSpecSchema (zod) covering mass/radius/dragCoefficient (discriminated union: constant | tabulated-reynolds)/optional liftCoefficient+spinDecayTau/mandatory provenance citation, plus the 7 built-in PROJECTILE_ASSETS (smooth sphere, golf, soccer, baseball, table-tennis, cannonball, shot put) with regulation-spec mass/radius and literature-cited Cd values, each parsed through the schema at module load so a malformed asset fails immediately. Detailed sport Cd/Cl tables are deferred to P4.05; these assets use simple constant-Cd models matching what the engine models today."
     },
     {
       "id": "P1.26",
