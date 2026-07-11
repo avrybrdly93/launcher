@@ -5,7 +5,11 @@ import { ConstantCd } from "./drag-coefficient.js";
 import { SaturatingLiftCoefficient } from "./lift-coefficient.js";
 import { createSphericalProjectileParams } from "./projectile-params.js";
 import { GravityForce, MagnusForce, QuadraticDragForce } from "./forces.js";
-import { createPlanarProjectileModel } from "./planar-projectile-model.js";
+import {
+  createPlanarProjectileModel,
+  mechanicalEnergy,
+  nonGravityPower,
+} from "./planar-projectile-model.js";
 import type { Model } from "./model.js";
 
 describe("createPlanarProjectileModel", () => {
@@ -171,5 +175,109 @@ describe("createPlanarProjectileModel analytic jacobian (P1.22)", () => {
       new MagnusForce(),
     ]);
     expect(model.jacobian).toBeUndefined();
+  });
+});
+
+describe("energy invariant / power wiring (P1.24, eq 3.19)", () => {
+  it("declares an 'energy' invariant", () => {
+    const model = createPlanarProjectileModel([new GravityForce()]);
+    expect(model.invariants?.map((inv) => inv.name)).toEqual(["energy"]);
+  });
+
+  it("drag-off: dE/dt from powers is identically 0 to 1e-13 (P1.24 validation)", () => {
+    const forces = [new GravityForce(), new QuadraticDragForce()];
+    const env = new Environment(new ConstantAtmosphere(), new UniformGravity(), new ZeroWind());
+    const params = createSphericalProjectileParams({
+      mass: 0.145,
+      radius: 0.0366,
+      dragCoefficient: new ConstantCd(0), // drag off
+    });
+    const ctx = createEvalContext(env, params);
+
+    for (const [x, yPos, vx, vy] of [
+      [0, 0, 12.3, 4.1],
+      [10, 5, -8.2, 15.6],
+      [0, 0, 0, 0],
+      [-3, 20, 25.0, -30.1],
+      [5, 5, 5, 5],
+    ] as const) {
+      const y = new Float64Array([x, yPos, vx, vy]);
+      expect(Math.abs(nonGravityPower(forces, 0, y, ctx))).toBeLessThan(1e-13);
+    }
+  });
+
+  it("under gravity alone, E(y) is conserved to 1e-13 along the closed-form parabola", () => {
+    const model = createPlanarProjectileModel([new GravityForce()]);
+    const env = new Environment(new ConstantAtmosphere(), new UniformGravity());
+    const params = createSphericalProjectileParams({
+      mass: 0.145,
+      radius: 0.0366,
+      dragCoefficient: new ConstantCd(0),
+    });
+    const ctx = createEvalContext(env, params);
+    const g = 9.80665;
+
+    const x0 = 0;
+    const y0 = 50;
+    const vx0 = 20;
+    const vy0 = 15;
+    const y = new Float64Array([x0, y0, vx0, vy0]);
+    const e0 = mechanicalEnergy(0, y, ctx);
+
+    for (const t of [0, 0.1, 0.5, 1, 1.5, 2, 2.7]) {
+      y[0] = x0 + vx0 * t;
+      y[1] = y0 + vy0 * t - 0.5 * g * t * t;
+      y[2] = vx0;
+      y[3] = vy0 - g * t;
+      // sanity: the rhs must agree with the closed-form derivative it's tested against
+      const out = new Float64Array(4);
+      model.rhs(t, y, out, ctx);
+      expect(out[3]).toBeCloseTo(-g, 12);
+
+      expect(mechanicalEnergy(t, y, ctx)).toBeCloseTo(e0, 11);
+    }
+  });
+
+  it("Magnus alone (no drag) does no work: dE/dt from powers is ~0", () => {
+    const forces = [new GravityForce(), new MagnusForce()];
+    const env = new Environment(new ConstantAtmosphere(), new UniformGravity(), new ZeroWind());
+    const params = createSphericalProjectileParams({
+      mass: 0.145,
+      radius: 0.0366,
+      dragCoefficient: new ConstantCd(0),
+      liftCoefficient: new SaturatingLiftCoefficient(),
+      spin: 180,
+    });
+    const ctx = createEvalContext(env, params);
+
+    for (const [x, yPos, vx, vy] of [
+      [0, 0, 12.3, 4.1],
+      [10, 5, -8.2, 15.6],
+      [-3, 20, 25.0, -30.1],
+    ] as const) {
+      const y = new Float64Array([x, yPos, vx, vy]);
+      expect(Math.abs(nonGravityPower(forces, 0, y, ctx))).toBeLessThan(1e-10);
+    }
+  });
+
+  it("drag on in still air: dE/dt from powers is strictly non-positive", () => {
+    const forces = [new GravityForce(), new QuadraticDragForce()];
+    const env = new Environment(new ConstantAtmosphere(), new UniformGravity(), new ZeroWind());
+    const params = createSphericalProjectileParams({
+      mass: 0.145,
+      radius: 0.0366,
+      dragCoefficient: new ConstantCd(0.47),
+    });
+    const ctx = createEvalContext(env, params);
+
+    for (const [x, yPos, vx, vy] of [
+      [0, 0, 12.3, 4.1],
+      [10, 5, -8.2, 15.6],
+      [-3, 20, 25.0, -30.1],
+      [5, 5, 5, 5],
+    ] as const) {
+      const y = new Float64Array([x, yPos, vx, vy]);
+      expect(nonGravityPower(forces, 0, y, ctx)).toBeLessThanOrEqual(0);
+    }
   });
 });

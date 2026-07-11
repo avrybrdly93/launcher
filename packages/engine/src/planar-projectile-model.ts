@@ -6,9 +6,12 @@ import {
   hasAnalyticJacobianV,
   type ForceModel,
 } from "./forces.js";
-import type { Model } from "./model.js";
+import type { InvariantSpec, Model } from "./model.js";
 import type { ChannelMeta } from "./schema.js";
 import { norm, type MutMat2 } from "./vec2.js";
+
+/** id of GravityForce (forces.ts) — see `nonGravityPower` for why it's singled out. */
+const GRAVITY_FORCE_ID = "gravity";
 
 export const PLANAR_CHANNELS: readonly ChannelMeta[] = [
   { name: "x", unit: "m" },
@@ -32,6 +35,38 @@ function refreshDerived(t: number, y: Float64Array, ctx: EvalContext): void {
   ctx.mach = ctx.env.c > 0 ? ctx.speedRel / ctx.env.c : 0;
 }
 
+/** Mechanical energy E = 0.5*m*|v|^2 + m*g*y (eq. 3.19); PE term only accounts for gravity. */
+export function mechanicalEnergy(t: number, y: Float64Array, ctx: EvalContext): number {
+  refreshDerived(t, y, ctx);
+  const vx = y[VX]!;
+  const vy = y[VY]!;
+  return 0.5 * ctx.params.mass * (vx * vx + vy * vy) + ctx.params.mass * ctx.env.g * y[Y]!;
+}
+
+/**
+ * Sum of `energyPower` over every registered force *except* gravity (eq.
+ * 3.19). Gravity's own power (-m*g*vy) is already accounted for by E's m*g*y
+ * potential term — its contributions to dKE/dt and dPE/dt cancel exactly
+ * along any trajectory — so this is the quantity dE/dt is actually predicted
+ * to equal: with all aero/buoyancy forces off, it's identically zero even
+ * under gravity alone (P1.24 validation), and with drag on in still air it's
+ * the (non-positive) dissipation rate.
+ */
+export function nonGravityPower(
+  forces: readonly ForceModel[],
+  t: number,
+  y: Float64Array,
+  ctx: EvalContext,
+): number {
+  refreshDerived(t, y, ctx);
+  let power = 0;
+  for (const force of forces) {
+    if (force.id === GRAVITY_FORCE_ID || !force.energyPower) continue;
+    power += force.energyPower(t, y, ctx);
+  }
+  return power;
+}
+
 /**
  * The workhorse planar projectile model (dim 4, eq. 3.17-3.18): wires
  * gravity/drag/Magnus/buoyancy force composition into a single rhs. This is
@@ -41,9 +76,17 @@ function refreshDerived(t: number, y: Float64Array, ctx: EvalContext): void {
 export function createPlanarProjectileModel(forces: readonly ForceModel[]): Model {
   const registry = createForceRegistry(forces);
 
+  const energyInvariant: InvariantSpec = {
+    name: "energy",
+    evaluate(t, y, ctx) {
+      return mechanicalEnergy(t, y, ctx);
+    },
+  };
+
   const model: Model = {
     dim: 4,
     channels: PLANAR_CHANNELS,
+    invariants: [energyInvariant],
     rhs(t: number, y: Float64Array, out: Float64Array, ctx: EvalContext): void {
       refreshDerived(t, y, ctx);
       composeForces(registry, t, y, ctx, ctx.forceAccum);

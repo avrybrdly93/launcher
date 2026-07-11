@@ -464,8 +464,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "drag-off: dE/dt from powers \u2261 0 to 1e-13",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added mechanicalEnergy(t,y,ctx) = 0.5*m*|v|^2+m*g*y and nonGravityPower(forces,t,y,ctx) (sums every force's energyPower except gravity's, since gravity's KE/PE contributions cancel exactly and are already folded into E's mgy term) to planar-projectile-model.ts; wired an 'energy' InvariantSpec onto the model. Tests cover the exact P1.24 criterion (drag off => power residual < 1e-13), plus the other two eq-3.19 checks (Magnus-only conserves E; drag-on-in-still-air is monotone non-increasing) and a closed-form-parabola energy-conservation check."
     },
     {
       "id": "P1.25",
