@@ -3,7 +3,7 @@ import { SchemaValidationError } from "./schema.js";
 import {
   PROJECTILE_ASSETS,
   ProjectileSpecSchema,
-  validateProjectileAssets,
+  loadProjectileAssets,
 } from "./projectile-spec.js";
 
 describe("PROJECTILE_ASSETS", () => {
@@ -14,9 +14,11 @@ describe("PROJECTILE_ASSETS", () => {
     );
   });
 
-  it("validates every asset against the schema", () => {
-    const validated = validateProjectileAssets();
-    expect(validated).toHaveLength(PROJECTILE_ASSETS.length);
+  it("is already validated eagerly at module-load time (P1.26: build-time validation)", () => {
+    // PROJECTILE_ASSETS is the *output* of loadProjectileAssets, computed at
+    // import time -- re-loading it here should be a pure no-op round trip.
+    const reloaded = loadProjectileAssets(PROJECTILE_ASSETS);
+    expect(reloaded).toEqual(PROJECTILE_ASSETS);
   });
 
   it("gives every asset a non-empty provenance string", () => {
@@ -55,7 +57,7 @@ describe("ProjectileSpecSchema", () => {
       provenance: "test",
     };
     expect(() => ProjectileSpecSchema.parse(corrupt)).toThrow();
-    expect(() => validateProjectileAssets([corrupt])).toThrow(SchemaValidationError);
+    expect(() => loadProjectileAssets([corrupt])).toThrow(SchemaValidationError);
   });
 
   it("rejects an unknown drag-coefficient kind", () => {
@@ -67,7 +69,7 @@ describe("ProjectileSpecSchema", () => {
       dragCoefficient: { kind: "quadratic-fit" },
       provenance: "test",
     };
-    expect(() => validateProjectileAssets([corrupt])).toThrow(SchemaValidationError);
+    expect(() => loadProjectileAssets([corrupt])).toThrow(SchemaValidationError);
   });
 
   it("rejects an empty provenance string", () => {
@@ -79,6 +81,29 @@ describe("ProjectileSpecSchema", () => {
       dragCoefficient: { kind: "tabulated-reynolds", citation: "test" },
       provenance: "",
     };
-    expect(() => validateProjectileAssets([corrupt])).toThrow(SchemaValidationError);
+    expect(() => loadProjectileAssets([corrupt])).toThrow(SchemaValidationError);
+  });
+
+  it("reports a useful, multi-issue error message pointing at every corrupt field", () => {
+    const corruptFixture = {
+      id: "bad",
+      name: "Bad asset",
+      mass: { value: 1 }, // missing citation
+      radius: { value: 0.05, citation: "test" },
+      dragCoefficient: { kind: "constant", cd: { value: "not-a-number", citation: "test" } },
+      provenance: "test",
+    };
+
+    expect(() => loadProjectileAssets([corruptFixture])).toThrow(SchemaValidationError);
+    try {
+      loadProjectileAssets([corruptFixture]);
+      expect.fail("expected loadProjectileAssets to throw");
+    } catch (err) {
+      expect(err).toBeInstanceOf(SchemaValidationError);
+      const message = (err as InstanceType<typeof SchemaValidationError>).message;
+      // Useful == points at the actual broken fields, not just "invalid".
+      expect(message).toContain("mass.citation");
+      expect(message).toContain("dragCoefficient.cd.value");
+    }
   });
 });

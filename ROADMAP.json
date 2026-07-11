@@ -486,8 +486,8 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "corrupt fixture rejected with useful error",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "projectile-spec.ts: split raw (untyped) RAW_PROJECTILE_ASSETS fixture data from loadProjectileAssets() (renamed from validateProjectileAssets), and PROJECTILE_ASSETS is now computed eagerly via loadProjectileAssets(RAW_PROJECTILE_ASSETS) at module-import time -- a corrupt fixture fails at load/build time, not lazily. Added a multi-issue corrupt-fixture test asserting SchemaValidationError's message names every broken field path (mass.citation, dragCoefficient.cd.value)."
     },
     {
       "id": "P1.27",

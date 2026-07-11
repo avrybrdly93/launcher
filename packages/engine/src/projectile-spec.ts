@@ -52,8 +52,13 @@ const SMOOTH_SPHERE_CD: DragCoefficientSpec = {
  * ball, baseball, table-tennis ball, cannonball (0.1 m iron), shot put.
  * "custom" from the blueprint's asset list is a UI-authored spec (P3.20),
  * not a fixed asset with real-world provenance, so it is not enumerated here.
+ *
+ * Left untyped (`unknown[]`) and unexported: this is the *raw* fixture data,
+ * the thing an asset-authoring mistake would actually corrupt. It only
+ * becomes the trusted `ProjectileSpec[]` below by passing through
+ * `loadProjectileAssets`.
  */
-export const PROJECTILE_ASSETS: readonly ProjectileSpec[] = [
+const RAW_PROJECTILE_ASSETS: readonly unknown[] = [
   {
     id: "sphere",
     name: "Smooth sphere (reference)",
@@ -172,11 +177,20 @@ export const PROJECTILE_ASSETS: readonly ProjectileSpec[] = [
   },
 ];
 
-/** Parses+validates every asset against `ProjectileSpecSchema`; throws a `SchemaValidationError` on the first failure. */
-export function validateProjectileAssets(
-  assets: readonly unknown[] = PROJECTILE_ASSETS,
-): readonly ProjectileSpec[] {
+/**
+ * Asset loader (P1.26): parses+validates every raw asset against
+ * `ProjectileSpecSchema`, throwing a `SchemaValidationError` (field path +
+ * reason per issue, all issues in one message) on the first corrupt entry.
+ * `PROJECTILE_ASSETS` below calls this eagerly at module-load time, so a
+ * corrupt fixture fails the build immediately rather than surfacing as a
+ * runtime crash deep inside a simulation.
+ */
+export function loadProjectileAssets(assets: readonly unknown[]): readonly ProjectileSpec[] {
   return assets.map((asset) =>
     parseWithSchema(ProjectileSpecSchema as Schema<ProjectileSpec>, asset),
   );
 }
+
+/** The validated initial projectile asset library (§3.9) -- schema-checked at import time. */
+export const PROJECTILE_ASSETS: readonly ProjectileSpec[] =
+  loadProjectileAssets(RAW_PROJECTILE_ASSETS);
