@@ -464,8 +464,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "drag-off: dE/dt from powers \u2261 0 to 1e-13",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "engine/src/energy.ts: mechanicalEnergy(t,y,ctx)=0.5*m|v|^2+mgy wired as createPlanarProjectileModel's invariants[0] (name 'energy'); aeroPower(forces,t,y,ctx) sums per-force energyPower excluding gravity (already folded into E's mgy term) per eq 3.19. Validated: gravity+Magnus (drag off), ZeroWind -> aeroPower \u2261 0 to 1e-13 at 6 states (F_M perp v); gravity-only -> 0 exactly; drag-on sanity check is negative (dissipative)."
     },
     {
       "id": "P1.25",
