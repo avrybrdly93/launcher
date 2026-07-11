@@ -1,5 +1,5 @@
 import type { EvalContext } from "./eval-context.js";
-import type { MutVec2 } from "./vec2.js";
+import type { MutMat2, MutVec2 } from "./vec2.js";
 
 /**
  * One term of the force composition (3.2). `accumulate` *adds* into
@@ -11,6 +11,17 @@ export interface ForceModel {
   accumulate(t: number, y: Float64Array, ctx: EvalContext, outForce: MutVec2): void;
   /** Instantaneous power this force delivers, F.v using the true velocity (eq. 3.19). */
   energyPower?(t: number, y: Float64Array, ctx: EvalContext): number;
+  /**
+   * Analytic ∂(Fx,Fy)/∂(vx,vy), *added* into `outJvv` like `accumulate` adds
+   * into `outForce` (P1.22). Only implemented where the force's coefficients
+   * are constant in state — e.g. gravity under a non-altitude-dependent
+   * GravityModel, quadratic drag under a Cd model that doesn't depend on
+   * Re/Mach. A force that can't provide this exactly (Magnus, tabulated
+   * Cd(Re)) simply omits it; `createPlanarProjectileModel` only attaches an
+   * analytic `Model.jacobian` when every registered force implements it,
+   * falling back to finite differences otherwise (P1.23).
+   */
+  jacobianV?(t: number, y: Float64Array, ctx: EvalContext, outJvv: MutMat2): void;
 }
 
 const VX = 2;
@@ -26,6 +37,11 @@ export class GravityForce implements ForceModel {
 
   energyPower(_t: number, y: Float64Array, ctx: EvalContext): number {
     return -ctx.params.mass * ctx.env.g * y[VY]!;
+  }
+
+  /** F_g doesn't depend on v at all, so ∂F_g/∂v = 0 — nothing to accumulate. */
+  jacobianV(_t: number, _y: Float64Array, _ctx: EvalContext, _outJvv: MutMat2): void {
+    // no-op: zero contribution
   }
 }
 
@@ -50,6 +66,8 @@ export class LinearDragForce implements ForceModel {
  * At v_rel = 0 this evaluates to exactly zero — no division, so no NaN guard
  * is needed beyond ensuring the Cd model itself stays finite at Re=0 (P1.09).
  */
+const QUADRATIC_DRAG_JACOBIAN_SPEED_EPS = 1e-12;
+
 export class QuadraticDragForce implements ForceModel {
   readonly id = "drag-quadratic";
 
@@ -64,6 +82,31 @@ export class QuadraticDragForce implements ForceModel {
     const cd = ctx.params.dragCoefficient.cd(ctx.re, ctx.mach);
     const k = 0.5 * ctx.env.rho * cd * ctx.params.area * ctx.speedRel;
     return -k * (ctx.vRel[0] * y[VX]! + ctx.vRel[1] * y[VY]!);
+  }
+
+  /**
+   * F = -k*u*u_vec (u = |vRel|, k = 0.5*rho*Cd*A held constant in state, i.e.
+   * this is exact for a Cd model that doesn't depend on Re/Mach). Writing
+   * ux, uy for vRel's components:
+   *   dFx/dvx = -k*(u + ux^2/u),  dFx/dvy = dFy/dvx = -k*ux*uy/u,  dFy/dvy = -k*(u + uy^2/u)
+   * As u -> 0 this whole matrix -> 0 (F = -k*u*u_vec is O(u^2), so it's
+   * differentiable at u=0 with zero Jacobian even though it's not C^2 there
+   * per §3.8) — guarded explicitly since the formula above is a 0/0 there.
+   */
+  jacobianV(_t: number, _y: Float64Array, ctx: EvalContext, outJvv: MutMat2): void {
+    const u = ctx.speedRel;
+    if (u < QUADRATIC_DRAG_JACOBIAN_SPEED_EPS) return;
+
+    const cd = ctx.params.dragCoefficient.cd(ctx.re, ctx.mach);
+    const k = 0.5 * ctx.env.rho * cd * ctx.params.area;
+    const ux = ctx.vRel[0];
+    const uy = ctx.vRel[1];
+    const cross = -k * ((ux * uy) / u);
+
+    outJvv[0] += -k * (u + (ux * ux) / u);
+    outJvv[1] += cross;
+    outJvv[2] += cross;
+    outJvv[3] += -k * (u + (uy * uy) / u);
   }
 }
 
@@ -142,5 +185,32 @@ export function composeForces(
   outForce[1] = 0;
   for (const force of forces) {
     force.accumulate(t, y, ctx, outForce);
+  }
+}
+
+/** True only when every force in `forces` implements `jacobianV` (P1.22/P1.23). */
+export function hasAnalyticJacobianV(forces: readonly ForceModel[]): boolean {
+  return forces.every((force) => typeof force.jacobianV === "function");
+}
+
+/**
+ * Zeroes `outJvv` then accumulates every force's `jacobianV` in registry
+ * order (§2.4a fixed ordering, same as composeForces). Caller must have
+ * checked `hasAnalyticJacobianV` first — this doesn't guard for missing
+ * `jacobianV` since it's only meant to run once availability is known.
+ */
+export function composeJacobianV(
+  forces: readonly ForceModel[],
+  t: number,
+  y: Float64Array,
+  ctx: EvalContext,
+  outJvv: MutMat2,
+): void {
+  outJvv[0] = 0;
+  outJvv[1] = 0;
+  outJvv[2] = 0;
+  outJvv[3] = 0;
+  for (const force of forces) {
+    force.jacobianV!(t, y, ctx, outJvv);
   }
 }

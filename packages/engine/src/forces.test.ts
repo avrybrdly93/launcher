@@ -7,8 +7,10 @@ import { createSphericalProjectileParams } from "./projectile-params.js";
 import {
   BuoyancyForce,
   composeForces,
+  composeJacobianV,
   createForceRegistry,
   GravityForce,
+  hasAnalyticJacobianV,
   LinearDragForce,
   MagnusForce,
   QuadraticDragForce,
@@ -98,6 +100,65 @@ describe("QuadraticDragForce", () => {
     expect(Number.isFinite(out[1])).toBe(true);
     expect(out[0]).toBe(0);
     expect(out[1]).toBe(0);
+  });
+
+  it("jacobianV matches a direct-perturbation finite difference of accumulate (P1.22)", () => {
+    const { ctx, env } = makeContext();
+    const force = new QuadraticDragForce();
+    const h = 1e-6;
+
+    for (const [vx, vy] of [
+      [10, 0],
+      [0, -20],
+      [7, 7],
+      [-15, 3],
+      [3, -4],
+    ] as const) {
+      const y = new Float64Array([0, 0, vx, vy]);
+      refreshDerived(ctx, env, 0, y);
+      const jvv: [number, number, number, number] = [0, 0, 0, 0];
+      force.jacobianV!(0, y, ctx, jvv);
+
+      const fd: number[] = [];
+      for (const j of [2, 3] as const) {
+        const yPlus = Float64Array.from(y);
+        const yMinus = Float64Array.from(y);
+        yPlus[j] = yPlus[j]! + h;
+        yMinus[j] = yMinus[j]! - h;
+        refreshDerived(ctx, env, 0, yPlus);
+        const fPlus: [number, number] = [0, 0];
+        force.accumulate(0, yPlus, ctx, fPlus);
+        refreshDerived(ctx, env, 0, yMinus);
+        const fMinus: [number, number] = [0, 0];
+        force.accumulate(0, yMinus, ctx, fMinus);
+        fd.push((fPlus[0] - fMinus[0]) / (2 * h), (fPlus[1] - fMinus[1]) / (2 * h));
+      }
+      // fd = [dFx/dvx, dFy/dvx, dFx/dvy, dFy/dvy]; jvv = [dFx/dvx, dFx/dvy, dFy/dvx, dFy/dvy]
+      expect(jvv[0]).toBeCloseTo(fd[0]!, 7);
+      expect(jvv[2]).toBeCloseTo(fd[1]!, 7);
+      expect(jvv[1]).toBeCloseTo(fd[2]!, 7);
+      expect(jvv[3]).toBeCloseTo(fd[3]!, 7);
+    }
+  });
+
+  it("jacobianV is exactly zero when v_rel = 0, matching the true limit (P1.22)", () => {
+    const { ctx, env } = makeContext();
+    const y = new Float64Array([0, 0, 0, 0]);
+    refreshDerived(ctx, env, 0, y);
+    const jvv: [number, number, number, number] = [0, 0, 0, 0];
+    new QuadraticDragForce().jacobianV!(0, y, ctx, jvv);
+    expect(jvv).toEqual([0, 0, 0, 0]);
+  });
+});
+
+describe("GravityForce.jacobianV", () => {
+  it("contributes exactly zero (F_g doesn't depend on v)", () => {
+    const { ctx, env } = makeContext();
+    const y = new Float64Array([0, 0, 12, -7]);
+    refreshDerived(ctx, env, 0, y);
+    const jvv: [number, number, number, number] = [1, 2, 3, 4];
+    new GravityForce().jacobianV!(0, y, ctx, jvv);
+    expect(jvv).toEqual([1, 2, 3, 4]); // accumulate-style: adds nothing
   });
 });
 
@@ -193,5 +254,29 @@ describe("createForceRegistry / composeForces", () => {
     composeForces(createForceRegistry([...forces].reverse()), 0, y, ctx, outB);
     expect(outA[0]).toBe(outB[0]);
     expect(outA[1]).toBe(outB[1]);
+  });
+});
+
+describe("hasAnalyticJacobianV / composeJacobianV", () => {
+  it("is true only when every force implements jacobianV", () => {
+    expect(hasAnalyticJacobianV([new GravityForce(), new QuadraticDragForce()])).toBe(true);
+    expect(hasAnalyticJacobianV([new GravityForce(), new MagnusForce()])).toBe(false);
+    expect(hasAnalyticJacobianV([new GravityForce(), new LinearDragForce()])).toBe(false);
+  });
+
+  it("sums per-force jacobianV contributions into a zeroed accumulator", () => {
+    const { ctx, env } = makeContext();
+    const y = new Float64Array([0, 0, 10, -6]);
+    refreshDerived(ctx, env, 0, y);
+    const registry = createForceRegistry([new GravityForce(), new QuadraticDragForce()]);
+
+    const combined: [number, number, number, number] = [999, 999, 999, 999];
+    composeJacobianV(registry, 0, y, ctx, combined);
+
+    const dragOnly: [number, number, number, number] = [0, 0, 0, 0];
+    new QuadraticDragForce().jacobianV!(0, y, ctx, dragOnly);
+
+    // gravity contributes zero, so the composed result equals drag alone.
+    expect(combined).toEqual(dragOnly);
   });
 });

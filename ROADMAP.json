@@ -442,8 +442,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "matches central finite differences to 1e-7 at 10 states",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added ForceModel.jacobianV (analytic d(Fx,Fy)/d(vx,vy)) implemented on GravityForce (zero) and QuadraticDragForce (exact for constant-Cd, u=0 guarded to its true zero limit); createPlanarProjectileModel attaches Model.jacobian only when every registered force implements jacobianV (composable analytic/FD split for P1.23). Validated in planar-projectile-model.test.ts against central FD to 1e-7 at 10 states."
     },
     {
       "id": "P1.23",

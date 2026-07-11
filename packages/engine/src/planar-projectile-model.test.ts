@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { createEvalContext } from "./eval-context.js";
+import { createEvalContext, type EvalContext } from "./eval-context.js";
 import { ConstantAtmosphere, Environment, UniformGravity, ZeroWind } from "./environment.js";
 import { ConstantCd } from "./drag-coefficient.js";
 import { SaturatingLiftCoefficient } from "./lift-coefficient.js";
 import { createSphericalProjectileParams } from "./projectile-params.js";
 import { GravityForce, MagnusForce, QuadraticDragForce } from "./forces.js";
 import { createPlanarProjectileModel } from "./planar-projectile-model.js";
+import type { Model } from "./model.js";
 
 describe("createPlanarProjectileModel", () => {
   it("declares dim=4 with the expected channels", () => {
@@ -92,5 +93,83 @@ describe("createPlanarProjectileModel", () => {
       expect(out[2]).toBeCloseTo(expectedVx, 12);
       expect(out[3]).toBeCloseTo(expectedVy, 12);
     }
+  });
+});
+
+/** Central finite-difference J = ∂f/∂y, row-major (out[i*n+j] = ∂f_i/∂y_j). */
+function centralDiffJacobian(
+  model: Model,
+  t: number,
+  y: Float64Array,
+  ctx: EvalContext,
+  h: number,
+): Float64Array {
+  const n = model.dim;
+  const jac = new Float64Array(n * n);
+  const yPerturbed = Float64Array.from(y);
+  const fPlus = new Float64Array(n);
+  const fMinus = new Float64Array(n);
+
+  for (let j = 0; j < n; j++) {
+    yPerturbed[j] = y[j]! + h;
+    model.rhs(t, yPerturbed, fPlus, ctx);
+    yPerturbed[j] = y[j]! - h;
+    model.rhs(t, yPerturbed, fMinus, ctx);
+    yPerturbed[j] = y[j]!;
+
+    for (let i = 0; i < n; i++) {
+      jac[i * n + j] = (fPlus[i]! - fMinus[i]!) / (2 * h);
+    }
+  }
+  return jac;
+}
+
+describe("createPlanarProjectileModel analytic jacobian (P1.22)", () => {
+  it("matches central finite differences to 1e-7 at 10 states (gravity + quadratic drag, no Magnus)", () => {
+    const model = createPlanarProjectileModel([new GravityForce(), new QuadraticDragForce()]);
+    expect(model.jacobian).toBeTypeOf("function");
+
+    const env = new Environment(new ConstantAtmosphere(), new UniformGravity(), new ZeroWind());
+    const params = createSphericalProjectileParams({
+      mass: 0.145,
+      radius: 0.0366,
+      dragCoefficient: new ConstantCd(0.47),
+    });
+    const ctx = createEvalContext(env, params);
+
+    // Deterministic states spanning direction/quadrant/magnitude, kept clear of
+    // the |v_rel| -> 0 kink so the FD reference itself stays well-conditioned.
+    const states: [number, number, number, number][] = [
+      [0, 0, 12.3, 4.1],
+      [10, 5, -8.2, 15.6],
+      [-3, 20, 25.0, -30.1],
+      [100, 10, -1.5, -1.5],
+      [0, 0, 40, 0],
+      [0, 0, 0, 40],
+      [5, 5, 5, 5],
+      [-10, -10, -20, 20],
+      [1, 1, 33.3, -12.7],
+      [2, -2, 3, 3],
+    ];
+
+    for (const [x, yPos, vx, vy] of states) {
+      const y = new Float64Array([x, yPos, vx, vy]);
+      const analytic = new Float64Array(16);
+      model.jacobian!(0, y, analytic, ctx);
+      const fd = centralDiffJacobian(model, 0, y, ctx, 1e-5);
+
+      for (let k = 0; k < 16; k++) {
+        expect(analytic[k]).toBeCloseTo(fd[k]!, 7);
+      }
+    }
+  });
+
+  it("leaves jacobian undefined when a registered force has no analytic one (e.g. Magnus)", () => {
+    const model = createPlanarProjectileModel([
+      new GravityForce(),
+      new QuadraticDragForce(),
+      new MagnusForce(),
+    ]);
+    expect(model.jacobian).toBeUndefined();
   });
 });

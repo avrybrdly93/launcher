@@ -5,6 +5,9 @@
 export type Vec2 = readonly [x: number, y: number];
 export type MutVec2 = [x: number, y: number];
 
+/** Row-major 2x2 matrix [a, b, c, d] = [[a, b], [c, d]], used for ∂(Fx,Fy)/∂(vx,vy). */
+export type MutMat2 = [a: number, b: number, c: number, d: number];
+
 export function add(a: Vec2, b: Vec2, out: MutVec2): MutVec2 {
   out[0] = a[0] + b[0];
   out[1] = a[1] + b[1];
