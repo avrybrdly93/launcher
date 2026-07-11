@@ -11,6 +11,14 @@ export interface ForceModel {
   accumulate(t: number, y: Float64Array, ctx: EvalContext, outForce: MutVec2): void;
   /** Instantaneous power this force delivers, F.v using the true velocity (eq. 3.19). */
   energyPower?(t: number, y: Float64Array, ctx: EvalContext): number;
+  /**
+   * Analytic ∂F/∂y, row-major 2x4: [dFx/dx, dFx/dy, dFx/dvx, dFx/dvy,
+   * dFy/dx, dFy/dy, dFy/dvx, dFy/dvy]. *Adds* into `outJ`, mirroring
+   * `accumulate`'s additive contract, so composePlanarJacobian (P1.22) can
+   * sum contributions from every force in the registry. Optional: a force
+   * that omits this makes the composed model fall back to FD (P1.23).
+   */
+  jacobian?(t: number, y: Float64Array, ctx: EvalContext, outJ: Float64Array): void;
 }
 
 const VX = 2;
@@ -26,6 +34,11 @@ export class GravityForce implements ForceModel {
 
   energyPower(_t: number, y: Float64Array, ctx: EvalContext): number {
     return -ctx.params.mass * ctx.env.g * y[VY]!;
+  }
+
+  /** dF/dy = 0: constant force under the uniform (non-altitude-dependent) gravity model (§3.2). */
+  jacobian(_t: number, _y: Float64Array, _ctx: EvalContext, _outJ: Float64Array): void {
+    // no contribution
   }
 }
 
@@ -65,9 +78,41 @@ export class QuadraticDragForce implements ForceModel {
     const k = 0.5 * ctx.env.rho * cd * ctx.params.area * ctx.speedRel;
     return -k * (ctx.vRel[0] * y[VX]! + ctx.vRel[1] * y[VY]!);
   }
+
+  /**
+   * ∂F/∂y for F = -k*|u|*u, u = v_rel, k = 0.5*rho*Cd*A (P1.22). Two
+   * assumptions keep this exact rather than approximate: Cd is treated as
+   * frozen at its currently-evaluated value (exact for ConstantCd; a small
+   * approximation for Re/Mach-dependent Cd models), and the wind field is
+   * treated as locally uniform in space, so d(v_rel)/d(x,y) = 0 and
+   * d(v_rel)/d(vx,vy) = I (exact for ZeroWind/uniform wind; an
+   * approximation under a spatially-sheared WindModel). Both assumptions
+   * hold exactly for the platform's default environment (§3.4, §3.5).
+   *
+   * With g(u) = |u|*u, dg_i/du_j = u_i*u_j/|u| + |u|*delta_ij (homogeneous
+   * degree 2, so the gradient is exactly zero at u = 0 despite the |u|*u
+   * kink there — matching the P1.21-style zero-allocation, C1-not-C2
+   * boundary noted in §3.8).
+   */
+  jacobian(_t: number, _y: Float64Array, ctx: EvalContext, outJ: Float64Array): void {
+    const speed = ctx.speedRel;
+    if (speed < QUADRATIC_DRAG_SPEED_EPS) return; // zero gradient at v_rel = 0
+
+    const cd = ctx.params.dragCoefficient.cd(ctx.re, ctx.mach);
+    const k = 0.5 * ctx.env.rho * cd * ctx.params.area;
+    const ux = ctx.vRel[0];
+    const uy = ctx.vRel[1];
+    const invSpeed = 1 / speed;
+
+    outJ[2] = outJ[2]! - k * (ux * ux * invSpeed + speed); // dFx/dvx
+    outJ[3] = outJ[3]! - k * (ux * uy * invSpeed); // dFx/dvy
+    outJ[6] = outJ[6]! - k * (uy * ux * invSpeed); // dFy/dvx
+    outJ[7] = outJ[7]! - k * (uy * uy * invSpeed + speed); // dFy/dvy
+  }
 }
 
 const MAGNUS_SPEED_EPS = 1e-9;
+const QUADRATIC_DRAG_SPEED_EPS = 1e-9;
 
 /**
  * Magnus lift force (eq. 3.15, 2D-specialized form). Spin is a constant

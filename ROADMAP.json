@@ -442,8 +442,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "matches central finite differences to 1e-7 at 10 states",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Analytic Jacobian implemented as ForceModel.jacobian (additive, force-space) on GravityForce (no-op: constant force) and QuadraticDragForce; composed by createPlanarProjectileModel into Model.jacobian only when every registered force provides one (undefined otherwise, e.g. once MagnusForce is added, deferring to the P1.23 FD fallback). Assumes locally-uniform wind/atmosphere and a frozen Cd (exact for ConstantCd + ZeroWind/uniform wind + ConstantAtmosphere, the platform default). Model.jacobian signature extended to take ctx (needed for mass/rho/Cd/vRel), matching rhs. Verified against central finite differences (h=1e-6 scaled step) to 1e-7 at 10 states in planar-projectile-model.test.ts. Also fixed a pre-existing pnpm -r test bug: vitest.config.ts include glob resolved against cwd, which broke under pnpm -r (each package script runs with cwd=that package dir); pinned test.root to the config file location."
     },
     {
       "id": "P1.23",

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createEvalContext } from "./eval-context.js";
+import { createEvalContext, type EvalContext } from "./eval-context.js";
 import { ConstantAtmosphere, Environment, UniformGravity, ZeroWind } from "./environment.js";
 import { ConstantCd } from "./drag-coefficient.js";
 import { SaturatingLiftCoefficient } from "./lift-coefficient.js";
@@ -91,6 +91,89 @@ describe("createPlanarProjectileModel", () => {
       expect(out[1]).toBeCloseTo(vy, 14);
       expect(out[2]).toBeCloseTo(expectedVx, 12);
       expect(out[3]).toBeCloseTo(expectedVy, 12);
+    }
+  });
+});
+
+/** Central-difference J = df/dy, scaled step per component (P1.23-style fallback, used here as an oracle). */
+function centralDifferenceJacobian(
+  model: { rhs(t: number, y: Float64Array, out: Float64Array, ctx: EvalContext): void },
+  t: number,
+  y: Float64Array,
+  ctx: EvalContext,
+): Float64Array {
+  const dim = y.length;
+  const J = new Float64Array(dim * dim);
+  const yPerturbed = Float64Array.from(y);
+  const fPlus = new Float64Array(dim);
+  const fMinus = new Float64Array(dim);
+
+  for (let j = 0; j < dim; j++) {
+    const h = 1e-6 * Math.max(1, Math.abs(y[j]!));
+    yPerturbed[j] = y[j]! + h;
+    model.rhs(t, yPerturbed, fPlus, ctx);
+    yPerturbed[j] = y[j]! - h;
+    model.rhs(t, yPerturbed, fMinus, ctx);
+    yPerturbed[j] = y[j]!;
+
+    for (let i = 0; i < dim; i++) {
+      J[i * dim + j] = (fPlus[i]! - fMinus[i]!) / (2 * h);
+    }
+  }
+  return J;
+}
+
+describe("analytic Jacobian (P1.22)", () => {
+  it("is exposed for gravity+quadratic-drag (no Magnus) but not once Magnus is added", () => {
+    const gravityQuadDrag = createPlanarProjectileModel([
+      new GravityForce(),
+      new QuadraticDragForce(),
+    ]);
+    expect(typeof gravityQuadDrag.jacobian).toBe("function");
+
+    const withMagnus = createPlanarProjectileModel([
+      new GravityForce(),
+      new QuadraticDragForce(),
+      new MagnusForce(),
+    ]);
+    expect(withMagnus.jacobian).toBeUndefined();
+  });
+
+  it("matches central finite differences to 1e-7 at 10 states", () => {
+    const mass = 0.145;
+    const radius = 0.0366;
+    const model = createPlanarProjectileModel([new GravityForce(), new QuadraticDragForce()]);
+    const env = new Environment(new ConstantAtmosphere(), new UniformGravity(), new ZeroWind());
+    const params = createSphericalProjectileParams({
+      mass,
+      radius,
+      dragCoefficient: new ConstantCd(0.47),
+    });
+    const ctx = createEvalContext(env, params);
+
+    const states: [number, number, number, number][] = [
+      [0, 0, 12.3, 4.1],
+      [10, 5, -8.2, 15.6],
+      [-3, 20, 25.0, -30.1],
+      [0, 0.5, 3.5, -2.0],
+      [100, 10, -1.5, -1.5],
+      [0, 0, 40, 0],
+      [0, 0, 0, 40],
+      [5, 5, 5, 5],
+      [-10, -10, -20, 20],
+      [1, 1, 33.3, -12.7],
+    ];
+
+    expect(model.jacobian).toBeDefined();
+    for (const state of states) {
+      const y = new Float64Array(state);
+      const analytic = new Float64Array(16);
+      model.jacobian!(0, y, analytic, ctx);
+      const fd = centralDifferenceJacobian(model, 0, y, ctx);
+
+      for (let k = 0; k < 16; k++) {
+        expect(Math.abs(analytic[k]! - fd[k]!)).toBeLessThan(1e-7);
+      }
     }
   });
 });
