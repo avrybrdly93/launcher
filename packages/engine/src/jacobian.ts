@@ -1,4 +1,5 @@
 import type { EvalContext } from "./eval-context.js";
+import type { Model } from "./model.js";
 
 const X = 0;
 const Y = 1;
@@ -66,4 +67,68 @@ export function supportsGravityQuadraticDragJacobian(forceIds: readonly string[]
     forceIds.includes("drag-quadratic") &&
     forceIds.every((id) => ZERO_JACOBIAN_FORCE_IDS.has(id) || id === "drag-quadratic")
   );
+}
+
+/** Relative step, dimensionless. Central differences have O(h^2) truncation error and
+ * O(eps/h) roundoff error; (3*eps)^(1/3) balances the two (§4.1). */
+const DEFAULT_RELATIVE_STEP = 1e-5;
+/**
+ * Floor on the *scale* used to size the step (`h_j = relativeStep * max(stepFloor, |y_j|)`),
+ * not on the step itself — keeps the absolute step from collapsing toward zero (and roundoff
+ * from dominating) when a state component is itself near zero.
+ */
+const DEFAULT_STEP_FLOOR = 1;
+
+/**
+ * Generic central-difference Jacobian (P1.23), the fallback for any Model
+ * whose rhs has no analytic `jacobian` (e.g. Magnus present, or a
+ * Re/Mach-dependent Cd — cases the P1.22 closed form doesn't cover). Steps
+ * are scaled per component, `h_j = relativeStep * max(stepFloor, |y_j|)`,
+ * so it stays well-conditioned across the platform's very different state
+ * magnitudes (positions in meters vs. velocities in tens of m/s).
+ */
+export function finiteDifferenceJacobian(
+  model: Pick<Model, "dim" | "rhs">,
+  t: number,
+  y: Float64Array,
+  ctx: EvalContext,
+  out: Float64Array,
+  relativeStep = DEFAULT_RELATIVE_STEP,
+  stepFloor = DEFAULT_STEP_FLOOR,
+): void {
+  const dim = model.dim;
+  const yPerturbed = new Float64Array(y);
+  const fPlus = new Float64Array(dim);
+  const fMinus = new Float64Array(dim);
+
+  for (let j = 0; j < dim; j++) {
+    const original = y[j]!;
+    const step = relativeStep * Math.max(stepFloor, Math.abs(original));
+
+    yPerturbed[j] = original + step;
+    model.rhs(t, yPerturbed, fPlus, ctx);
+    yPerturbed[j] = original - step;
+    model.rhs(t, yPerturbed, fMinus, ctx);
+    yPerturbed[j] = original;
+
+    const inv2h = 1 / (2 * step);
+    for (let i = 0; i < dim; i++) {
+      out[i * dim + j] = (fPlus[i]! - fMinus[i]!) * inv2h;
+    }
+  }
+}
+
+/** Evaluates the analytic Jacobian if the model declares one, else falls back to P1.23's FD. */
+export function modelJacobian(
+  model: Model,
+  t: number,
+  y: Float64Array,
+  ctx: EvalContext,
+  out: Float64Array,
+): void {
+  if (model.jacobian) {
+    model.jacobian(t, y, out, ctx);
+  } else {
+    finiteDifferenceJacobian(model, t, y, ctx, out);
+  }
 }

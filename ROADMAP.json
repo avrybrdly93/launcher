@@ -453,8 +453,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "matches P1.22 analytic where available",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Generic central-difference finiteDifferenceJacobian in packages/engine/src/jacobian.ts, scaled step h_j = relativeStep*max(stepFloor, |y_j|); plus a modelJacobian(model,...) dispatcher used by future steppers (analytic if model.jacobian is set, else FD). Tested against P1.22 analytic jacobian at 10 states (matches to its own default step) and exercised standalone on the Magnus model where no analytic form exists yet."
     },
     {
       "id": "P1.24",
