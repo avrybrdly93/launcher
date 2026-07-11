@@ -464,8 +464,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "drag-off: dE/dt from powers \u2261 0 to 1e-13",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "mechanicalEnergy(t,y,ctx) = 0.5*m|v|^2+mgy and nonGravitationalPower(forces,...) (sum of per-force energyPower excluding gravity, whose own kinetic power exactly cancels d(mgy)/dt) in packages/engine/src/energy.ts; wired as an InvariantSpec on createPlanarProjectileModel. Refactored the shared env/vRel/speedRel/re/mach setup out of rhs into eval-context.ts refreshEvalContext, reused by energy.ts, since energyPower reads those scratch fields the same way accumulate does and was going stale when called outside an rhs pass. Tested: drag-off dE/dt-from-powers and chain-rule dE/dt both 0 to 1e-13; drag+Magnus and +buoyancy cases match chain-rule dE/dt to 1e-10; drag alone dissipates; Magnus alone does no work; zero-alloc rhs test (P1.21) still green after the refactor."
     },
     {
       "id": "P1.25",
