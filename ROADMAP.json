@@ -486,8 +486,8 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "corrupt fixture rejected with useful error",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added packages/engine/src/asset-loader.ts: loadProjectileSpec(sourceName, data) and loadProjectileSpecFromJsonText(sourceName, jsonText), both validating against P1.25's ProjectileSpecSchema and wrapping JSON-syntax/schema failures into an AssetLoadError carrying sourceName plus a field-level message (e.g. 'Invalid projectile asset \"broken-ball.json\": provenance: Required'). One-directional dependency on projectile-spec.ts (no cycle); PROJECTILE_ASSETS itself is left validating via plain parseWithSchema at module load, since this loader targets external/untrusted fixture data rather than the built-in TS-defined assets. Tests cover a corrupt fixture (missing provenance), negative mass, unrecognized dragCoefficient kind, and malformed JSON text, each asserting the error message is useful and source-labeled."
     },
     {
       "id": "P1.27",
