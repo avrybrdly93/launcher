@@ -508,8 +508,8 @@
       "estMinutes": 10,
       "difficulty": "E",
       "validation": "\u03b7(288.15K)=1.789e\u22125\u00b11%",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "sutherlandViscosity(T) in units.ts: eta(T)=etaRef*(T/Tref)^1.5*(Tref+S)/(T+S) using existing SUTHERLAND constants. Not yet wired into an Atmosphere impl (ConstantAtmosphere/ExponentialAtmosphere still hardcode eta=1.789e-5); a temperature-varying atmosphere (ISA troposphere, Phase 4 per blueprint) would call this. Tested: exact etaRef at T=Tref, monotone increase with T, hand-computed value at 350K."
     },
     {
       "id": "P1.29",
