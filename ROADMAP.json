@@ -442,8 +442,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "matches central finite differences to 1e-7 at 10 states",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "gravityQuadraticDragJacobian in engine/src/jacobian.ts; treats rho/Cd/wind as locally frozen (no dCd/dRe chain rule, exact for ConstantAtmosphere+ConstantCd+uniform wind, the tested setup). Not yet wired to Model.jacobian (that interface has no ctx param, so wiring needs a model-level closure decision) -- standalone function validated directly against central FD of the full rhs at 10 states, tol 1e-7."
     },
     {
       "id": "P1.23",
