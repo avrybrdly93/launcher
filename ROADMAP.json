@@ -475,8 +475,8 @@
       "estMinutes": 30,
       "difficulty": "E",
       "validation": "assets validate; each has provenance string",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "projectileSpecSchema (zod) in packages/engine/src/projectile-spec.ts: id/name/mass/radius/dragCoefficient(constant|tabulated-reynolds-smooth-sphere)/provenance, plus resolveProjectileSpec -> runtime ProjectileParams. Seven data assets in projectile-assets.ts (smooth sphere, golf ball, soccer ball, baseball, table-tennis ball, cannonball 0.1m iron, shot put), each parsed through the schema at module load and carrying a provenance citation string. Lift-coefficient/spin data intentionally deferred to Phase 4 (P4.05-P4.08) per the blueprint roadmap split. Tested schema accept/reject cases and that every asset resolves to usable ProjectileParams."
     },
     {
       "id": "P1.26",
