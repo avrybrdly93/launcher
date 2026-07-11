@@ -24,7 +24,7 @@ export interface Model {
   rhs(t: number, y: Float64Array, out: Float64Array, ctx: EvalContext): void;
   readonly invariants?: readonly InvariantSpec[];
   readonly events?: readonly EventSpec[];
-  jacobian?(t: number, y: Float64Array, out: Float64Array): void;
+  jacobian?(t: number, y: Float64Array, out: Float64Array, ctx: EvalContext): void;
   /** Index sets (q, p) for symplectic/Verlet steppers requiring second-order mechanical structure. */
   readonly partitions?: { readonly q: readonly number[]; readonly p: readonly number[] };
 }

@@ -442,8 +442,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "matches central finite differences to 1e-7 at 10 states",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Analytic jacobian in packages/engine/src/jacobian.ts, wired onto createPlanarProjectileModel when the force registry is exactly {gravity, buoyancy}* + drag-quadratic (buoyancy has the same zero-derivative shape as gravity). Model.jacobian interface extended with a ctx param (mirrors rhs) since env/params are needed to evaluate. Validated against central FD to 1e-7 at 10 states (jacobian.test.ts) plus the exact-zero kink at v_rel=0 and the Magnus fallback-to-undefined case."
     },
     {
       "id": "P1.23",
