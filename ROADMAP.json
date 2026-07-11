@@ -453,8 +453,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "matches P1.22 analytic where available",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added FiniteDifferenceJacobian (packages/engine/src/finite-difference-jacobian.ts): central differences with per-component scaled step h_j = eps^(1/3)*max(|y_j|,typicalScale), preallocated scratch buffers. evaluateJacobian(model,...) prefers model.jacobian (P1.22 analytic) when present, else falls back to FD, so callers get the composable analytic/FD split for free. Validated against the P1.22 analytic jacobian at the same 10 states (matches to 1e-6) plus a Magnus-included model (no analytic jacobian available) to confirm the fallback still produces a finite, correct-in-the-kinematic-rows result."
     },
     {
       "id": "P1.24",
