@@ -453,8 +453,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "matches P1.22 analytic where available",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "createFiniteDifferenceJacobian in engine/src/fd-jacobian.ts: central differences with per-component scaled steps h_j=cbrt(eps)*max(1,|y_j|); returns a closure matching Model.jacobian's (t,y,out) signature exactly (scratch preallocated once). Tested against gravityQuadraticDragJacobian (P1.22) at the same 10 states, matches to 1e-7."
     },
     {
       "id": "P1.24",
