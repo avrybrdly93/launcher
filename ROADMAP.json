@@ -486,8 +486,8 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "corrupt fixture rejected with useful error",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Generic loadAssets(schema, rawAssets, sourceLabel) in packages/engine/src/asset-loader.ts wraps parseWithSchema/SchemaValidationError into an AssetLoadError naming the source, offending entry id/position, and underlying zod issue; thrown at module-eval time since projectile-assets.ts now loads PROJECTILE_ASSETS through it. Tested a corrupt fixture (negative weight) producing a message containing source label + id/position + field name, plus the id-less/position-only and non-schema-error-passthrough cases."
     },
     {
       "id": "P1.27",

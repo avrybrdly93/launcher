@@ -1,4 +1,5 @@
-import { parseProjectileSpec, type ProjectileSpec } from "./projectile-spec.js";
+import { loadAssets } from "./asset-loader.js";
+import { projectileSpecSchema, type ProjectileSpec } from "./projectile-spec.js";
 
 /**
  * Initial projectile data assets (§3.9): smooth sphere, golf ball, soccer
@@ -88,8 +89,11 @@ const RAW_PROJECTILE_ASSETS: readonly ProjectileSpec[] = [
   },
 ];
 
-export const PROJECTILE_ASSETS: readonly ProjectileSpec[] =
-  RAW_PROJECTILE_ASSETS.map(parseProjectileSpec);
+export const PROJECTILE_ASSETS: readonly ProjectileSpec[] = loadAssets(
+  projectileSpecSchema,
+  RAW_PROJECTILE_ASSETS,
+  "projectile-assets",
+);
 
 export const PROJECTILE_ASSETS_BY_ID: ReadonlyMap<string, ProjectileSpec> = new Map(
   PROJECTILE_ASSETS.map((spec) => [spec.id, spec]),
