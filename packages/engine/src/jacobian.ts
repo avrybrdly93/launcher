@@ -1,4 +1,5 @@
 import type { EvalContext } from "./eval-context.js";
+import type { Model } from "./model.js";
 import { norm } from "./vec2.js";
 
 const X = 0;
@@ -66,5 +67,66 @@ export function gravityQuadraticDragJacobian(
     out[DIM * VX + VY] = dVxDvy;
     out[DIM * VY + VX] = dVxDvy;
     out[DIM * VY + VY] = dVyDvy;
+  }
+}
+
+/** Optimal relative step for a central difference of an O(1)-scale smooth function. */
+const FD_STEP = Math.cbrt(Number.EPSILON);
+
+/** Caller-owned scratch for {@link finiteDifferenceJacobian} so repeated calls (e.g. inside a Newton iteration) stay allocation-free. */
+export interface FiniteDifferenceJacobianScratch {
+  readonly yPerturbed: Float64Array;
+  readonly outPlus: Float64Array;
+  readonly outMinus: Float64Array;
+}
+
+export function createFiniteDifferenceJacobianScratch(
+  dim: number,
+): FiniteDifferenceJacobianScratch {
+  return {
+    yPerturbed: new Float64Array(dim),
+    outPlus: new Float64Array(dim),
+    outMinus: new Float64Array(dim),
+  };
+}
+
+/**
+ * Generic central-difference Jacobian J = ∂f/∂y for any `Model`, used as the
+ * fallback when a model has no analytic `jacobian` (P1.23) — e.g. for models
+ * with position-dependent environments (wind shear, altitude gravity) that
+ * {@link gravityQuadraticDragJacobian} deliberately doesn't cover, or with
+ * Magnus enabled. Each column `j` uses its own scaled step
+ * `h_j = FD_STEP * max(1, |y_j|)`, the standard scaling that keeps the step
+ * meaningful for both small and large state components. `out` is row-major
+ * `dim×dim` (`out[dim*i+j] = df_i/dy_j`).
+ */
+export function finiteDifferenceJacobian(
+  model: Model,
+  t: number,
+  y: Float64Array,
+  ctx: EvalContext,
+  out: Float64Array,
+  scratch: FiniteDifferenceJacobianScratch,
+): void {
+  const dim = model.dim;
+  const { yPerturbed, outPlus, outMinus } = scratch;
+  yPerturbed.set(y);
+
+  for (let j = 0; j < dim; j++) {
+    const yj = y[j]!;
+    const h = FD_STEP * Math.max(1, Math.abs(yj));
+
+    yPerturbed[j] = yj + h;
+    model.rhs(t, yPerturbed, outPlus, ctx);
+
+    yPerturbed[j] = yj - h;
+    model.rhs(t, yPerturbed, outMinus, ctx);
+
+    yPerturbed[j] = yj;
+
+    const invTwoH = 1 / (2 * h);
+    for (let i = 0; i < dim; i++) {
+      out[dim * i + j] = (outPlus[i]! - outMinus[i]!) * invTwoH;
+    }
   }
 }

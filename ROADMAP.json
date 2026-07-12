@@ -453,8 +453,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "matches P1.22 analytic where available",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added finiteDifferenceJacobian in jacobian.ts: central difference of any Model.rhs with per-column scaled step h_j=cbrt(eps)*max(1,|y_j|), caller-owned scratch (createFiniteDifferenceJacobianScratch) so repeated Newton-iteration calls stay allocation-free. jacobian.test.ts checks it against gravityQuadraticDragJacobian at the same 10 states (P1.22 validation), plus an exact-linear-model (ẏ=A*y) case to verify generic correctness independent of the projectile model."
     },
     {
       "id": "P1.24",

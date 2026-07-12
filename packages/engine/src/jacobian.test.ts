@@ -5,7 +5,12 @@ import { ConstantCd } from "./drag-coefficient.js";
 import { createSphericalProjectileParams } from "./projectile-params.js";
 import { GravityForce, QuadraticDragForce } from "./forces.js";
 import { createPlanarProjectileModel } from "./planar-projectile-model.js";
-import { gravityQuadraticDragJacobian } from "./jacobian.js";
+import type { Model } from "./model.js";
+import {
+  createFiniteDifferenceJacobianScratch,
+  finiteDifferenceJacobian,
+  gravityQuadraticDragJacobian,
+} from "./jacobian.js";
 
 const DIM = 4;
 
@@ -139,5 +144,67 @@ describe("gravityQuadraticDragJacobian", () => {
     expect(out[DIM * 2 + 3]).toBe(0);
     expect(out[DIM * 3 + 2]).toBe(0);
     expect(out[DIM * 3 + 3]).toBe(0);
+  });
+});
+
+describe("finiteDifferenceJacobian", () => {
+  it("matches the P1.22 analytic Jacobian where available, at the same 10 states", () => {
+    const mass = 0.145;
+    const radius = 0.0366;
+    const model = createPlanarProjectileModel([new GravityForce(), new QuadraticDragForce()]);
+    const env = new Environment(new ConstantAtmosphere(), new UniformGravity(), new ZeroWind());
+    const params = createSphericalProjectileParams({
+      mass,
+      radius,
+      dragCoefficient: new ConstantCd(0.47),
+    });
+    const ctx = createEvalContext(env, params);
+    const scratch = createFiniteDifferenceJacobianScratch(DIM);
+
+    for (const state of STATES) {
+      const y = new Float64Array(state);
+      const analytic = new Float64Array(DIM * DIM);
+      gravityQuadraticDragJacobian(0, y, ctx, analytic);
+
+      const fd = new Float64Array(DIM * DIM);
+      finiteDifferenceJacobian(model, 0, y, ctx, fd, scratch);
+
+      for (let idx = 0; idx < DIM * DIM; idx++) {
+        expect(fd[idx]).toBeCloseTo(analytic[idx]!, 5); // ~1e-5, generic step is looser than the tuned 1e-6 above
+      }
+    }
+  });
+
+  it("reproduces a known-exact Jacobian for a linear model (A*y)", () => {
+    // ẏ = A*y has Jacobian ≡ A everywhere, an exact reference independent of
+    // the projectile model — exercises finiteDifferenceJacobian generically.
+    const A = [
+      [2, -1],
+      [0.5, 3],
+    ];
+    const model: Model = {
+      dim: 2,
+      channels: [
+        { name: "a", unit: "1" },
+        { name: "b", unit: "1" },
+      ],
+      rhs(_t, y, out) {
+        out[0] = A[0]![0]! * y[0]! + A[0]![1]! * y[1]!;
+        out[1] = A[1]![0]! * y[0]! + A[1]![1]! * y[1]!;
+      },
+    };
+    const ctx = createEvalContext(
+      new Environment(new ConstantAtmosphere(), new UniformGravity(), new ZeroWind()),
+      createSphericalProjectileParams({ mass: 1, radius: 1, dragCoefficient: new ConstantCd(0) }),
+    );
+    const scratch = createFiniteDifferenceJacobianScratch(2);
+    const out = new Float64Array(4);
+
+    finiteDifferenceJacobian(model, 0, new Float64Array([3.7, -2.1]), ctx, out, scratch);
+
+    expect(out[0]).toBeCloseTo(A[0]![0]!, 6);
+    expect(out[1]).toBeCloseTo(A[0]![1]!, 6);
+    expect(out[2]).toBeCloseTo(A[1]![0]!, 6);
+    expect(out[3]).toBeCloseTo(A[1]![1]!, 6);
   });
 });
