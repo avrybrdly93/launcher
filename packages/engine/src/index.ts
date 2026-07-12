@@ -13,3 +13,4 @@ export * from "./forces.js";
 export * from "./model.js";
 export * from "./planar-projectile-model.js";
 export * from "./jacobian.js";
+export * from "./finite-difference-jacobian.js";

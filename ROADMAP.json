@@ -453,7 +453,7 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "matches P1.22 analytic where available",
-      "status": "todo",
+      "status": "done",
       "notes": ""
     },
     {
