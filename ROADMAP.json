@@ -453,8 +453,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "matches P1.22 analytic where available",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added createFiniteDifferenceJacobian in jacobian.ts: dim-agnostic central-difference Jacobian of any Model.rhs, scratch buffers preallocated once at construction (reused across calls), per-component step h_j = cbrt(machine-eps)*max(1,|y_j|) balancing truncation vs rounding error. jacobian.test.ts verifies it matches the P1.22 analytic gravityQuadraticDragJacobian to 1e-6 at the same 10 states."
     },
     {
       "id": "P1.24",

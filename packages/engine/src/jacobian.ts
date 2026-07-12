@@ -54,3 +54,46 @@ export function gravityQuadraticDragJacobian(
   out[VY * DIM + VX] = (-kd * (ux * uy)) / u;
   out[VY * DIM + VY] = (-kd * (uy * uy)) / u - kd * u;
 }
+
+/** Central-difference Jacobian of a `Model.rhs`, dim*dim row-major, reused across calls. */
+export type FiniteDifferenceJacobianFn = (
+  t: number,
+  y: Float64Array,
+  ctx: EvalContext,
+  out: Float64Array,
+) => void;
+
+const CBRT_MACHINE_EPS = Math.cbrt(Number.EPSILON);
+
+/**
+ * Generic finite-difference Jacobian fallback for any Model.rhs (P1.23),
+ * for use where no analytic `jacobian` (P1.22-style) is available. Central
+ * differences with per-component scaled step h_j = eps^(1/3)*max(1,|y_j|):
+ * that step size balances O(h^2) truncation error against O(eps/h) rounding
+ * error, the standard choice for central-difference Jacobians. Scratch
+ * buffers are allocated once at construction and reused on every call.
+ */
+export function createFiniteDifferenceJacobian(
+  rhs: (t: number, y: Float64Array, out: Float64Array, ctx: EvalContext) => void,
+  dim: number,
+): FiniteDifferenceJacobianFn {
+  const yPerturbed = new Float64Array(dim);
+  const fPlus = new Float64Array(dim);
+  const fMinus = new Float64Array(dim);
+
+  return (t: number, y: Float64Array, ctx: EvalContext, out: Float64Array): void => {
+    yPerturbed.set(y);
+    for (let j = 0; j < dim; j++) {
+      const yj = y[j]!;
+      const h = CBRT_MACHINE_EPS * Math.max(1, Math.abs(yj));
+      yPerturbed[j] = yj + h;
+      rhs(t, yPerturbed, fPlus, ctx);
+      yPerturbed[j] = yj - h;
+      rhs(t, yPerturbed, fMinus, ctx);
+      yPerturbed[j] = yj;
+      for (let i = 0; i < dim; i++) {
+        out[i * dim + j] = (fPlus[i]! - fMinus[i]!) / (2 * h);
+      }
+    }
+  };
+}
