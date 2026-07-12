@@ -475,7 +475,7 @@
       "estMinutes": 30,
       "difficulty": "E",
       "validation": "assets validate; each has provenance string",
-      "status": "todo",
+      "status": "done",
       "notes": ""
     },
     {
