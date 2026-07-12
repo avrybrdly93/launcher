@@ -464,8 +464,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "drag-off: dE/dt from powers \u2261 0 to 1e-13",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added energy.ts: mechanicalEnergy (E=1/2 m|v|^2+mgy), composeEnergyPower (sums per-force energyPower, mirrors composeForces), energyDerivativeFromPowers (dE/dt = composeEnergyPower + mg*vy, which cancels GravityForce's own -mg*vy contribution exactly whenever gravity is registered), and createEnergyInvariant wired into createPlanarProjectileModel's Model.invariants. Extracted the rhs env/vRel/Re/Mach priming step shared by rhs and the energy diagnostics into a new leaf module planar-state.ts (avoids a planar-projectile-model.ts <-> energy.ts import cycle); rhs behavior is unchanged (existing P1.20 test still passes) and the P1.21 zero-allocation audit still passes after the refactor. energy.test.ts covers: E(y) hand-computed match, the invariants-array wiring, the drag-off dE/dt=0 criterion at 8 states, and drag-on-in-still-air dE/dt matching the analytic -1/2 rho Cd A |v|^3 dissipation (eq. 3.19 case iii) as an extra cross-check."
     },
     {
       "id": "P1.25",
