@@ -1,6 +1,8 @@
 import { EnvSample } from "./env-sample.js";
 import { EARTH_RADIUS_M, G_STD, ISA, SUTHERLAND } from "./units.js";
 
+const AIR_GAMMA = 1.4;
+
 /** Sutherland's law: dynamic viscosity of air as a function of temperature (§3.4, eq. 3.12). */
 export function sutherlandViscosity(temperatureK: number): number {
   return (
@@ -27,14 +29,33 @@ export interface WindModel {
 
 /** ISA sea-level atmosphere, uniform with altitude (§3.4 default). */
 export class ConstantAtmosphere implements Atmosphere {
-  private static readonly GAMMA = 1.4;
-
   sample(_x: number, _y: number, out: EnvSample): void {
     out.rho = ISA.rho0;
     out.T = ISA.T0;
     out.p = ISA.p0;
     out.eta = 1.789e-5;
-    out.c = Math.sqrt(ConstantAtmosphere.GAMMA * ISA.Rs * ISA.T0);
+    out.c = Math.sqrt(AIR_GAMMA * ISA.Rs * ISA.T0);
+  }
+}
+
+/**
+ * Isothermal exponential atmosphere: rho(y) = rho0 * e^(-y/H) (§3.4). Held
+ * isothermal (T, and therefore eta and c, constant with altitude) — the
+ * ISA troposphere's linear lapse rate is a Phase-4 refinement.
+ */
+export class IsothermalExponentialAtmosphere implements Atmosphere {
+  constructor(
+    private readonly rho0: number = ISA.rho0,
+    private readonly scaleHeight: number = ISA.scaleHeight,
+    private readonly temperatureK: number = ISA.T0,
+  ) {}
+
+  sample(_x: number, y: number, out: EnvSample): void {
+    out.rho = this.rho0 * Math.exp(-y / this.scaleHeight);
+    out.T = this.temperatureK;
+    out.p = out.rho * ISA.Rs * this.temperatureK;
+    out.eta = sutherlandViscosity(this.temperatureK);
+    out.c = Math.sqrt(AIR_GAMMA * ISA.Rs * this.temperatureK);
   }
 }
 

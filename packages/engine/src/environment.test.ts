@@ -3,6 +3,7 @@ import { EnvSample } from "./env-sample.js";
 import {
   ConstantAtmosphere,
   Environment,
+  IsothermalExponentialAtmosphere,
   UniformGravity,
   ZeroWind,
   sutherlandViscosity,
@@ -17,6 +18,41 @@ describe("ConstantAtmosphere", () => {
       atm.sample(0, y, out);
       expect(out.rho).toBe(ISA.rho0);
     }
+  });
+});
+
+describe("IsothermalExponentialAtmosphere", () => {
+  it("rho(H) = rho0/e to 1e-15", () => {
+    const atm = new IsothermalExponentialAtmosphere();
+    const out = new EnvSample();
+    atm.sample(0, ISA.scaleHeight, out);
+    expect(out.rho).toBeCloseTo(ISA.rho0 / Math.E, 15);
+  });
+
+  it("rho(0) = rho0 exactly and decays monotonically with altitude", () => {
+    const atm = new IsothermalExponentialAtmosphere();
+    const outAt0 = new EnvSample();
+    atm.sample(0, 0, outAt0);
+    expect(outAt0.rho).toBe(ISA.rho0);
+
+    let previous = outAt0.rho;
+    for (const y of [1000, 5000, 10000, 20000]) {
+      const out = new EnvSample();
+      atm.sample(0, y, out);
+      expect(out.rho).toBeLessThan(previous);
+      previous = out.rho;
+    }
+  });
+
+  it("holds T (and therefore eta, c) constant with altitude", () => {
+    const atm = new IsothermalExponentialAtmosphere();
+    const outAt0 = new EnvSample();
+    const outAt5000 = new EnvSample();
+    atm.sample(0, 0, outAt0);
+    atm.sample(0, 5000, outAt5000);
+    expect(outAt5000.T).toBe(outAt0.T);
+    expect(outAt5000.eta).toBe(outAt0.eta);
+    expect(outAt5000.c).toBe(outAt0.c);
   });
 });
 
