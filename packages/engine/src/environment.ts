@@ -1,5 +1,14 @@
 import { EnvSample } from "./env-sample.js";
-import { EARTH_RADIUS_M, G_STD, ISA } from "./units.js";
+import { EARTH_RADIUS_M, G_STD, ISA, SUTHERLAND } from "./units.js";
+
+/** Sutherland's law: dynamic viscosity of air as a function of temperature (§3.4, eq. 3.12). */
+export function sutherlandViscosity(temperatureK: number): number {
+  return (
+    SUTHERLAND.etaRef *
+    (temperatureK / SUTHERLAND.Tref) ** 1.5 *
+    ((SUTHERLAND.Tref + SUTHERLAND.S) / (temperatureK + SUTHERLAND.S))
+  );
+}
 
 /** Fills the thermodynamic fields of an EnvSample (rho, T, p, eta, c) at a point (§3.4). */
 export interface Atmosphere {
