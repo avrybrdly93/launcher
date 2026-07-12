@@ -1,6 +1,7 @@
 import type { EvalContext } from "./eval-context.js";
+import { mechanicalEnergy } from "./energy.js";
 import { composeForces, createForceRegistry, type ForceModel } from "./forces.js";
-import type { Model } from "./model.js";
+import type { InvariantSpec, Model } from "./model.js";
 import type { ChannelMeta } from "./schema.js";
 import { norm } from "./vec2.js";
 
@@ -22,12 +23,17 @@ const VY = 3;
  * the first Model SolverKit will integrate — deliberately just a Model, with
  * no special status in the engine (§1.4).
  */
+const INVARIANTS: readonly InvariantSpec[] = [
+  { name: "mechanicalEnergy", evaluate: mechanicalEnergy },
+];
+
 export function createPlanarProjectileModel(forces: readonly ForceModel[]): Model {
   const registry = createForceRegistry(forces);
 
   return {
     dim: 4,
     channels: PLANAR_CHANNELS,
+    invariants: INVARIANTS,
     rhs(t: number, y: Float64Array, out: Float64Array, ctx: EvalContext): void {
       const x = y[X]!;
       const yPos = y[Y]!;

@@ -464,7 +464,7 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "drag-off: dE/dt from powers \u2261 0 to 1e-13",
-      "status": "todo",
+      "status": "done",
       "notes": ""
     },
     {
