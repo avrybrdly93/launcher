@@ -475,8 +475,8 @@
       "estMinutes": 30,
       "difficulty": "E",
       "validation": "assets validate; each has provenance string",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added projectile-spec.ts (zod ProjectileSpecSchema: id/name/mass/radius/dragCoefficient/liftCoefficient?/spinDecayTau?/provenance, declarative so it's JSON-serializable — dragCoefficient/liftCoefficient are plain {kind,...} data, not live model instances; an asset loader in P1.26 will resolve them into ProjectileParams) and projectile-assets.ts (PROJECTILE_ASSETS: sphere, golf, soccer, baseball, table-tennis, cannonball, shot-put, each with a rule-book or explicit-reference provenance citation; all use the constant smooth-sphere Cd=0.47 for now per scope — sport-specific Cd curves are P4.05). mass/radius for soccer and baseball match the values already used as test fixtures elsewhere in the package (forces.test.ts, jacobian.test.ts) for consistency. projectile-assets.test.ts checks the full id list, independent schema re-validation, non-empty provenance, unique ids, and 3 corrupt-fixture rejection cases (negative mass, missing provenance, unknown dragCoefficient kind) anticipating P1.26's loader test."
     },
     {
       "id": "P1.26",
