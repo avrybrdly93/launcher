@@ -530,7 +530,7 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "w(y_r\u00b7(e\u22121))\u00b7\u03ba/u* = 1 check; w finite at y=0",
-      "status": "todo",
+      "status": "done",
       "notes": ""
     },
     {

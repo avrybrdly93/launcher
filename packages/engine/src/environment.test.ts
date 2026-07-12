@@ -4,6 +4,7 @@ import {
   ConstantAtmosphere,
   Environment,
   IsothermalExponentialAtmosphere,
+  LogProfileWind,
   UniformGravity,
   UniformWind,
   ZeroWind,
@@ -94,6 +95,44 @@ describe("UniformWind", () => {
     wind.sample(0, 0, 0, out);
     expect(out.wx).toBe(0);
     expect(out.wy).toBe(0);
+  });
+});
+
+describe("LogProfileWind", () => {
+  const frictionVelocity = 0.5;
+  const roughnessLength = 0.01;
+
+  it("w(y_r*(e-1)) * kappa / u* = 1", () => {
+    const wind = new LogProfileWind(frictionVelocity, roughnessLength);
+    const out = new EnvSample();
+    const y = roughnessLength * (Math.E - 1);
+    wind.sample(0, 0, y, out);
+    expect((out.wx * 0.41) / frictionVelocity).toBeCloseTo(1, 12);
+  });
+
+  it("is finite (and zero) at y = 0", () => {
+    const wind = new LogProfileWind(frictionVelocity, roughnessLength);
+    const out = new EnvSample();
+    wind.sample(0, 0, 0, out);
+    expect(Number.isFinite(out.wx)).toBe(true);
+    expect(out.wx).toBe(0);
+  });
+
+  it("stays finite for y < 0 (clamped to the ground value)", () => {
+    const wind = new LogProfileWind(frictionVelocity, roughnessLength);
+    const out = new EnvSample();
+    wind.sample(0, 0, -100, out);
+    expect(Number.isFinite(out.wx)).toBe(true);
+    expect(out.wx).toBe(0);
+  });
+
+  it("increases with height above the roughness length", () => {
+    const wind = new LogProfileWind(frictionVelocity, roughnessLength);
+    const outLow = new EnvSample();
+    const outHigh = new EnvSample();
+    wind.sample(0, 0, 1, outLow);
+    wind.sample(0, 0, 10, outHigh);
+    expect(outHigh.wx).toBeGreaterThan(outLow.wx);
   });
 });
 
