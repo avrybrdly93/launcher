@@ -1,6 +1,9 @@
 import type { EvalContext } from "./eval-context.js";
+import type { Environment } from "./environment.js";
 import { composeForces, createForceRegistry, type ForceModel } from "./forces.js";
+import { createGravityQuadraticDragJacobian } from "./jacobian.js";
 import type { Model } from "./model.js";
+import type { ProjectileParams } from "./projectile-params.js";
 import type { ChannelMeta } from "./schema.js";
 import { norm } from "./vec2.js";
 
@@ -16,16 +19,30 @@ const Y = 1;
 const VX = 2;
 const VY = 3;
 
+/** True iff `forces` is exactly {gravity, quadratic drag} — the sole combination P1.22's analytic Jacobian covers. */
+function isGravityQuadraticDragOnly(forces: readonly ForceModel[]): boolean {
+  if (forces.length !== 2) return false;
+  const ids = new Set(forces.map((f) => f.id));
+  return ids.has("gravity") && ids.has("drag-quadratic");
+}
+
 /**
  * The workhorse planar projectile model (dim 4, eq. 3.17-3.18): wires
  * gravity/drag/Magnus/buoyancy force composition into a single rhs. This is
  * the first Model SolverKit will integrate — deliberately just a Model, with
  * no special status in the engine (§1.4).
+ *
+ * When `forces` is exactly {gravity, quadratic drag} and `jacobianEnv` is
+ * supplied, the returned Model carries the analytic Jacobian of P1.22;
+ * otherwise `jacobian` is omitted and callers fall back to FD (P1.23).
  */
-export function createPlanarProjectileModel(forces: readonly ForceModel[]): Model {
+export function createPlanarProjectileModel(
+  forces: readonly ForceModel[],
+  jacobianEnv?: { readonly params: ProjectileParams; readonly environment: Environment },
+): Model {
   const registry = createForceRegistry(forces);
 
-  return {
+  const model: Model = {
     dim: 4,
     channels: PLANAR_CHANNELS,
     rhs(t: number, y: Float64Array, out: Float64Array, ctx: EvalContext): void {
@@ -50,4 +67,12 @@ export function createPlanarProjectileModel(forces: readonly ForceModel[]): Mode
       out[VY] = ctx.forceAccum[1] / ctx.params.mass;
     },
   };
+
+  if (jacobianEnv && isGravityQuadraticDragOnly(forces)) {
+    return {
+      ...model,
+      jacobian: createGravityQuadraticDragJacobian(jacobianEnv.params, jacobianEnv.environment),
+    };
+  }
+  return model;
 }

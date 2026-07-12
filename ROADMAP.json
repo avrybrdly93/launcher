@@ -442,8 +442,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "matches central finite differences to 1e-7 at 10 states",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Implemented createGravityQuadraticDragJacobian (packages/engine/src/jacobian.ts), wired onto createPlanarProjectileModel only when the force set is exactly {gravity, drag-quadratic}. Exact under the default constant-rho/Cd/g/wind assumptions; TabulatedReynoldsCd or spatially-varying environments must use the FD fallback (P1.23)."
     },
     {
       "id": "P1.23",
