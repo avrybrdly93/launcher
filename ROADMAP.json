@@ -475,8 +475,8 @@
       "estMinutes": 30,
       "difficulty": "E",
       "validation": "assets validate; each has provenance string",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added packages/engine/src/projectile-spec.ts: zod ProjectileSpecSchema (mass, radius, dragCoefficient/liftCoefficient descriptors, optional spinDecayTau metadata, required provenance string) plus the 7 initial assets (smooth-sphere, golf-ball, soccer-ball, baseball, table-tennis-ball, cannonball, shot-put) with literature-cited mass/radius/Cd. Resolving a spec into a live ProjectileParams (model instances) and file-based fixture loading are left to P1.26."
     },
     {
       "id": "P1.26",
