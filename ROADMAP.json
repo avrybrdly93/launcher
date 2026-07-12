@@ -453,8 +453,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "matches P1.22 analytic where available",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Implemented createFiniteDifferenceJacobian (packages/engine/src/fd-jacobian.ts): central differences with per-component step h_i = eps^(1/3) * max(|y_i|,1), same row-major df/dy convention as P1.22. Matches the P1.22 analytic Jacobian to 1e-4 on gravity+quadratic-drag; verified finite/well-defined for a Magnus-inclusive model that has no analytic Jacobian."
     },
     {
       "id": "P1.24",
