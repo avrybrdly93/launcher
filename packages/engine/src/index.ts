@@ -17,3 +17,4 @@ export * from "./jacobian.js";
 export * from "./energy.js";
 export * from "./projectile-spec.js";
 export * from "./projectile-assets.js";
+export * from "./projectile-loader.js";

@@ -486,8 +486,8 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "corrupt fixture rejected with useful error",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added projectile-loader.ts: loadProjectileSpec (parseProjectileSpec passthrough), resolveProjectileParams (maps a validated spec's declarative dragCoefficient/liftCoefficient onto ConstantCd/SaturatingLiftCoefficient instances -> live ProjectileParams), and loadProjectileParams (the two composed). The same parseProjectileSpec call already runs at module-eval time for every PROJECTILE_ASSETS entry (P1.25), so a corrupt built-in asset fails at import/build time, not silently at runtime. projectile-loader.test.ts round-trips every built-in asset through JSON (simulating a build-time fixture read) into ProjectileParams and checks mass/radius/area/Cd/lift-tuning, plus rejects a negative-radius fixture with a field-level SchemaValidationError message and a non-numeric-mass fixture (this task's validation criterion)."
     },
     {
       "id": "P1.27",
