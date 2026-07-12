@@ -442,8 +442,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "matches central finite differences to 1e-7 at 10 states",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added gravityQuadraticDragJacobian in jacobian.ts: differentiates through u=|v_rel| (the state-dependent factor) but freezes rho/Cd/wind at their sampled values (exact for ConstantCd + uniform atmosphere + ZeroWind, the tested scenario; frozen-coefficient approx otherwise, matching Newton-Jacobian practice). jacobian.test.ts verifies match to FD to 1e-7 at 10 states plus a v_rel=0 guard case. Not yet wired into Model.jacobian (that field's signature omits EvalContext, so wiring is left to whichever task actually needs it, e.g. P2.38)."
     },
     {
       "id": "P1.23",
