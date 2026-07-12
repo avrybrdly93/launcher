@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { EnvSample } from "./env-sample.js";
-import { ConstantAtmosphere, Environment, UniformGravity, ZeroWind } from "./environment.js";
+import {
+  ConstantAtmosphere,
+  Environment,
+  ExponentialAtmosphere,
+  UniformGravity,
+  ZeroWind,
+} from "./environment.js";
 import { EARTH_RADIUS_M, G_STD, ISA } from "./units.js";
 
 describe("ConstantAtmosphere", () => {
@@ -11,6 +17,47 @@ describe("ConstantAtmosphere", () => {
       atm.sample(0, y, out);
       expect(out.rho).toBe(ISA.rho0);
     }
+  });
+});
+
+describe("ExponentialAtmosphere", () => {
+  it("matches rho(0) = rho0 exactly", () => {
+    const atm = new ExponentialAtmosphere();
+    const out = new EnvSample();
+    atm.sample(0, 0, out);
+    expect(out.rho).toBe(ISA.rho0);
+  });
+
+  it("matches rho(H) = rho0/e to 1e-15 (P1.27 validation criterion)", () => {
+    const atm = new ExponentialAtmosphere();
+    const out = new EnvSample();
+    atm.sample(0, ISA.scaleHeight, out);
+    expect(out.rho).toBeCloseTo(ISA.rho0 / Math.E, 15);
+  });
+
+  it("decays monotonically with altitude and matches the closed-form formula at several heights", () => {
+    const atm = new ExponentialAtmosphere();
+    const out = new EnvSample();
+    let previous = Infinity;
+    for (const y of [0, 1000, 5000, 8500, 20000, 50000]) {
+      atm.sample(0, y, out);
+      expect(out.rho).toBeCloseTo(ISA.rho0 * Math.exp(-y / ISA.scaleHeight), 15);
+      expect(out.rho).toBeLessThan(previous);
+      previous = out.rho;
+    }
+  });
+
+  it("holds T, eta, c constant (isothermal) while p follows the same exponential as rho", () => {
+    const atm = new ExponentialAtmosphere();
+    const outLow = new EnvSample();
+    const outHigh = new EnvSample();
+    atm.sample(0, 0, outLow);
+    atm.sample(0, 10000, outHigh);
+
+    expect(outHigh.T).toBe(outLow.T);
+    expect(outHigh.eta).toBe(outLow.eta);
+    expect(outHigh.c).toBe(outLow.c);
+    expect(outHigh.p / outLow.p).toBeCloseTo(outHigh.rho / outLow.rho, 15);
   });
 });
 
