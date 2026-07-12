@@ -508,8 +508,8 @@
       "estMinutes": 10,
       "difficulty": "E",
       "validation": "\u03b7(288.15K)=1.789e\u22125\u00b11%",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added sutherlandViscosity(T) in units.ts using the existing SUTHERLAND constants (etaRef/Tref/S) \u2014 reduces exactly to etaRef at T=Tref by construction. Wired it into both ConstantAtmosphere and ExponentialAtmosphere's eta field, replacing the hardcoded 1.789e-5 literal (bit-identical at their default T=ISA.T0, so no behavior change there; ExponentialAtmosphere now correctly follows Sutherland's law if constructed with a non-default T). units.test.ts checks eta(288.15K) within 1% of etaRef (this task's criterion) plus exactness at T=Tref, agreement with the classic 1.716e-5 Pa*s at 273.15K reference point within 1% (cross-checks the codebase's ISA-anchored SUTHERLAND constants against the standard textbook anchor), and monotonic increase with T over 200-400K."
     },
     {
       "id": "P1.29",

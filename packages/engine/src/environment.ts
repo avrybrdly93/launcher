@@ -1,5 +1,5 @@
 import { EnvSample } from "./env-sample.js";
-import { EARTH_RADIUS_M, G_STD, ISA } from "./units.js";
+import { EARTH_RADIUS_M, G_STD, ISA, sutherlandViscosity } from "./units.js";
 
 /** Fills the thermodynamic fields of an EnvSample (rho, T, p, eta, c) at a point (§3.4). */
 export interface Atmosphere {
@@ -24,7 +24,7 @@ export class ConstantAtmosphere implements Atmosphere {
     out.rho = ISA.rho0;
     out.T = ISA.T0;
     out.p = ISA.p0;
-    out.eta = 1.789e-5;
+    out.eta = sutherlandViscosity(ISA.T0);
     out.c = Math.sqrt(ConstantAtmosphere.GAMMA * ISA.Rs * ISA.T0);
   }
 }
@@ -51,7 +51,7 @@ export class ExponentialAtmosphere implements Atmosphere {
     out.rho = this.rho0 * decay;
     out.T = this.T;
     out.p = ISA.p0 * decay;
-    out.eta = 1.789e-5;
+    out.eta = sutherlandViscosity(this.T);
     out.c = Math.sqrt(ExponentialAtmosphere.GAMMA * ISA.Rs * this.T);
   }
 }
