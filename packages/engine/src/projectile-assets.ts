@@ -1,5 +1,5 @@
-import { parseWithSchema } from "./schema.js";
-import { ProjectileSpecSchema, type ProjectileSpec } from "./projectile-spec.js";
+import { loadProjectileAssets } from "./projectile-asset-loader.js";
+import type { ProjectileSpec } from "./projectile-spec.js";
 
 /**
  * The Phase-1 projectile data assets (§3.9): sphere, golf, soccer, baseball,
@@ -76,7 +76,6 @@ const RAW_PROJECTILE_ASSETS: readonly ProjectileSpec[] = [
   },
 ];
 
-/** Schema-validated at module load, standing in for P1.26's build-time asset loader. */
-export const PROJECTILE_ASSETS: readonly ProjectileSpec[] = RAW_PROJECTILE_ASSETS.map((asset) =>
-  parseWithSchema(ProjectileSpecSchema, asset),
-);
+/** Schema-validated at module load via `loadProjectileAssets` (P1.26). */
+export const PROJECTILE_ASSETS: readonly ProjectileSpec[] =
+  loadProjectileAssets(RAW_PROJECTILE_ASSETS);
