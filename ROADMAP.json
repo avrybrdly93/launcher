@@ -464,8 +464,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "drag-off: dE/dt from powers \u2261 0 to 1e-13",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added packages/engine/src/energy.ts: mechanicalEnergy (E=0.5m|v|^2+mgy), composeEnergyPower (generic sum of every force's F.v), and energyRate = composeEnergyPower + m*g*vy (chain rule dE/dt; gravity's own energyPower cancels the mgvy term). Wired createMechanicalEnergyInvariant() onto createPlanarProjectileModel's invariants array. Verified drag-off energyRate == 0 to 1e-13 at 10 states, and with drag on energyRate equals exactly the drag force's own power (gravity cancels, non-increasing in still air)."
     },
     {
       "id": "P1.25",
