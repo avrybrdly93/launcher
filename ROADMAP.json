@@ -464,8 +464,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "drag-off: dE/dt from powers \u2261 0 to 1e-13",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added energy.ts: mechanicalEnergy(t,y,ctx) = (1/2)m|v|^2+mgy wired as ENERGY_INVARIANT onto createPlanarProjectileModel's invariants field, and energyRateFromPowers(forces,t,y,ctx) summing every registered force's energyPower plus the independently-computed potential-energy rate m*g*vy \u2014 the +mgvy term exactly cancels a registered GravityForce's own energyPower, reconstructing eq 3.19's F_aero.v without hardcoding which force is 'gravity'. energy.test.ts covers all three \u00a73.8 cases: aero-off \u21920 to 1e-13, Magnus-only \u21920 to 1e-13, drag-on-in-still-air \u2264 0, plus a cross-check against dE/dt computed via the rhs's own acceleration (chain rule)."
     },
     {
       "id": "P1.25",
