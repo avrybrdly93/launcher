@@ -519,7 +519,7 @@
       "estMinutes": 10,
       "difficulty": "E",
       "validation": "w constant everywhere",
-      "status": "todo",
+      "status": "done",
       "notes": ""
     },
     {

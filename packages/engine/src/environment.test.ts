@@ -5,6 +5,7 @@ import {
   Environment,
   IsothermalExponentialAtmosphere,
   UniformGravity,
+  UniformWind,
   ZeroWind,
   sutherlandViscosity,
 } from "./environment.js";
@@ -69,6 +70,30 @@ describe("sutherlandViscosity", () => {
 
   it("increases with temperature (air viscosity rises with T)", () => {
     expect(sutherlandViscosity(350)).toBeGreaterThan(sutherlandViscosity(250));
+  });
+});
+
+describe("UniformWind", () => {
+  it("is constant everywhere (t, x, y)", () => {
+    const wind = new UniformWind(5, -2);
+    const out = new EnvSample();
+    for (const [t, x, y] of [
+      [0, 0, 0],
+      [10, 100, -50],
+      [-5, 1e6, 1e6],
+    ]) {
+      wind.sample(t!, x!, y!, out);
+      expect(out.wx).toBe(5);
+      expect(out.wy).toBe(-2);
+    }
+  });
+
+  it("defaults to zero wind", () => {
+    const wind = new UniformWind();
+    const out = new EnvSample();
+    wind.sample(0, 0, 0, out);
+    expect(out.wx).toBe(0);
+    expect(out.wy).toBe(0);
   });
 });
 
