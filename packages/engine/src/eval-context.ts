@@ -1,6 +1,6 @@
 import { EnvSample } from "./env-sample.js";
 import type { Environment } from "./environment.js";
-import type { MutVec2 } from "./vec2.js";
+import { norm, type MutVec2 } from "./vec2.js";
 import type { ProjectileParams } from "./projectile-params.js";
 
 /**
@@ -37,4 +37,27 @@ export function createEvalContext(environment: Environment, params: ProjectilePa
     mach: 0,
     forceAccum: [0, 0],
   };
+}
+
+/**
+ * Refreshes `env`/`vRel`/`speedRel`/`re`/`mach` from state (x, y, vx, vy) at
+ * time t — the same derived quantities `Model.rhs` recomputes on every call
+ * (§3.7), factored out so any other consumer that needs them pre-populated
+ * (e.g. per-force `energyPower`, P1.24) can refresh them identically without
+ * duplicating the formulas.
+ */
+export function refreshDerivedQuantities(
+  t: number,
+  x: number,
+  y: number,
+  vx: number,
+  vy: number,
+  ctx: EvalContext,
+): void {
+  ctx.environment.sample(t, x, y, ctx.env);
+  ctx.vRel[0] = vx - ctx.env.wx;
+  ctx.vRel[1] = vy - ctx.env.wy;
+  ctx.speedRel = norm(ctx.vRel);
+  ctx.re = (ctx.env.rho * ctx.speedRel * (2 * ctx.params.radius)) / ctx.env.eta;
+  ctx.mach = ctx.env.c > 0 ? ctx.speedRel / ctx.env.c : 0;
 }

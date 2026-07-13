@@ -464,8 +464,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "drag-off: dE/dt from powers \u2261 0 to 1e-13",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "energy.ts: mechanicalEnergy E=1/2 m|v|^2+mgy wired as createPlanarProjectileModel.invariants[0]; composeEnergyPower sums per-force energyPower (id-sorted, matches P1.17 determinism); energyRateFromPowers reconstructs dE/dt per eq 3.19 (gravity power cancels d(mgy)/dt, leaving F_aero.v). Refactored rhs to share refreshDerivedQuantities (eval-context.ts) instead of duplicating the env/vRel/speedRel/re/mach block. Validated: drag-off dE/dt<1e-13 at 10 states, Magnus-only ~0, drag-on-still-air matches closed form and is monotone non-increasing, buoyancy-only case shown to correctly NOT cancel (documents the eq 3.19 scope: only gravity's own PE term is baked into E)."
     },
     {
       "id": "P1.25",
