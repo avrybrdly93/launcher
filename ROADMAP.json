@@ -453,8 +453,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "matches P1.22 analytic where available",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "finiteDifferenceJacobian: generic central-difference fallback for any Model, step scaled by eps^(1/3)*max(1,|y_j|) (correct central-diff step, not sqrt(eps)). Matches P1.22 analytic to 1e-6 on gravity+quadratic-drag; also exercised on a Magnus+buoyancy model with no analytic Jacobian."
     },
     {
       "id": "P1.24",

@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import { createEvalContext } from "./eval-context.js";
 import { ConstantAtmosphere, Environment, UniformGravity, ZeroWind } from "./environment.js";
 import { ConstantCd } from "./drag-coefficient.js";
+import { SaturatingLiftCoefficient } from "./lift-coefficient.js";
 import { createSphericalProjectileParams } from "./projectile-params.js";
 import { BuoyancyForce, GravityForce, MagnusForce, QuadraticDragForce } from "./forces.js";
 import { createPlanarProjectileModel } from "./planar-projectile-model.js";
+import { finiteDifferenceJacobian } from "./jacobian.js";
 import type { Model } from "./model.js";
 import type { EvalContext } from "./eval-context.js";
 
@@ -119,5 +121,70 @@ describe("gravityQuadraticDragJacobian", () => {
     // Kinematic block (dx/dt=vx, dy/dt=vy) is unaffected by the drag singularity.
     expect(out[0 * 4 + 2]).toBe(1);
     expect(out[1 * 4 + 3]).toBe(1);
+  });
+});
+
+describe("finiteDifferenceJacobian", () => {
+  it("matches the P1.22 analytic Jacobian where available", () => {
+    const model = createPlanarProjectileModel([new GravityForce(), new QuadraticDragForce()]);
+    const env = new Environment(new ConstantAtmosphere(), new UniformGravity(), new ZeroWind());
+    const params = createSphericalProjectileParams({
+      mass: 0.145,
+      radius: 0.0366,
+      dragCoefficient: new ConstantCd(0.47),
+    });
+    const ctx = createEvalContext(env, params);
+
+    const states: [number, number, number, number][] = [
+      [0, 0, 12.3, 4.1],
+      [10, 5, -8.2, 15.6],
+      [-3, 20, 25.0, -30.1],
+      [100, 10, -1.5, -1.5],
+      [-10, -10, -20, 20],
+    ];
+
+    for (const state of states) {
+      const y = new Float64Array(state);
+      const analytic = new Float64Array(16);
+      model.jacobian!(0, y, analytic, ctx);
+      const fd = new Float64Array(16);
+      finiteDifferenceJacobian(model, 0, y, fd, ctx);
+
+      for (let idx = 0; idx < 16; idx++) {
+        expect(fd[idx]).toBeCloseTo(analytic[idx]!, 6);
+      }
+    }
+  });
+
+  it("falls back correctly for a force composition with no analytic Jacobian (Magnus + buoyancy)", () => {
+    const model = createPlanarProjectileModel([
+      new GravityForce(),
+      new QuadraticDragForce(),
+      new MagnusForce(),
+      new BuoyancyForce(),
+    ]);
+    expect(model.jacobian).toBeUndefined();
+
+    const env = new Environment(new ConstantAtmosphere(), new UniformGravity(), new ZeroWind());
+    const params = createSphericalProjectileParams({
+      mass: 0.145,
+      radius: 0.0366,
+      dragCoefficient: new ConstantCd(0.47),
+      liftCoefficient: new SaturatingLiftCoefficient(),
+      spin: 180,
+    });
+    const ctx = createEvalContext(env, params);
+
+    const y = new Float64Array([0, 10, 25, -8]);
+    const fd = new Float64Array(16);
+    finiteDifferenceJacobian(model, 0, y, fd, ctx);
+    const oracle = centralDifferenceJacobian(model, 0, y, ctx);
+
+    // Kinematic identity rows hold for any force composition.
+    expect(fd[0 * 4 + 2]).toBeCloseTo(1, 9);
+    expect(fd[1 * 4 + 3]).toBeCloseTo(1, 9);
+    for (let idx = 0; idx < 16; idx++) {
+      expect(fd[idx]).toBeCloseTo(oracle[idx]!, 6);
+    }
   });
 });

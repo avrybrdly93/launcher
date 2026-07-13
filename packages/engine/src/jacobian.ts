@@ -1,4 +1,5 @@
 import type { EvalContext } from "./eval-context.js";
+import type { Model } from "./model.js";
 
 const X = 0;
 const Y = 1;
@@ -49,4 +50,54 @@ export function gravityQuadraticDragJacobian(
   out[VX * DIM + VY] = (-k * ux * uy) / u;
   out[VY * DIM + VX] = (-k * ux * uy) / u;
   out[VY * DIM + VY] = -k * (u + (uy * uy) / u);
+}
+
+/**
+ * eps^(1/3), the standard central-difference step scale: it balances the
+ * O(h^2) Taylor truncation error against the O(eps/h) subtractive-
+ * cancellation rounding error from computing f(y+h)-f(y-h). sqrt(eps) is
+ * the *forward*-difference optimum and is too small (noisier) here.
+ */
+const FD_STEP_SCALE = Math.cbrt(Number.EPSILON);
+
+/**
+ * Generic central-difference ∂f/∂y for any Model (P1.23), row-major in
+ * `out` (dim*dim). Steps are scaled by state magnitude,
+ * `h_j = FD_STEP_SCALE * max(1, |y_j|)`, rather than a fixed absolute step,
+ * so components at very different scales (e.g. position in meters vs. a
+ * near-zero velocity) each get an appropriately sized perturbation.
+ *
+ * This is the fallback for any force composition an analytic Jacobian (e.g.
+ * gravityQuadraticDragJacobian, P1.22) doesn't cover — Magnus, buoyancy,
+ * linear drag, or any DragCoefficientModel whose Cd genuinely varies with
+ * state. It allocates three dim-length scratch buffers per call; unlike
+ * Model.rhs this is not a hot path (ADR-004 zero-allocation guarantee
+ * applies to rhs, not to Jacobian evaluation), so that's acceptable.
+ */
+export function finiteDifferenceJacobian(
+  model: Model,
+  t: number,
+  y: Float64Array,
+  out: Float64Array,
+  ctx: EvalContext,
+): void {
+  const n = model.dim;
+  const yPerturbed = Float64Array.from(y);
+  const fPlus = new Float64Array(n);
+  const fMinus = new Float64Array(n);
+
+  for (let j = 0; j < n; j++) {
+    const orig = y[j]!;
+    const h = FD_STEP_SCALE * Math.max(1, Math.abs(orig));
+
+    yPerturbed[j] = orig + h;
+    model.rhs(t, yPerturbed, fPlus, ctx);
+    yPerturbed[j] = orig - h;
+    model.rhs(t, yPerturbed, fMinus, ctx);
+    yPerturbed[j] = orig;
+
+    for (let i = 0; i < n; i++) {
+      out[i * n + j] = (fPlus[i]! - fMinus[i]!) / (2 * h);
+    }
+  }
 }
