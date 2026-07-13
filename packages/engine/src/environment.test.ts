@@ -5,6 +5,7 @@ import {
   Environment,
   IsothermalExponentialAtmosphere,
   UniformGravity,
+  UniformWind,
   ZeroWind,
 } from "./environment.js";
 import { EARTH_RADIUS_M, G_STD, ISA } from "./units.js";
@@ -78,6 +79,31 @@ describe("UniformGravity", () => {
     gravity.sample(0, 100, outAt100);
     const expectedRatio = (EARTH_RADIUS_M / (EARTH_RADIUS_M + 100)) ** 2;
     expect(outAt100.g / outAt0.g).toBeCloseTo(expectedRatio, 12);
+  });
+});
+
+describe("UniformWind", () => {
+  it("returns w = (wx, wy) constant everywhere (any t, x, y)", () => {
+    const wind = new UniformWind(5, -2);
+    const out = new EnvSample();
+    for (const [t, x, y] of [
+      [0, 0, 0],
+      [10, 100, -50],
+      [-3, 1e6, -1e6],
+      [1000, 0.001, 0.001],
+    ]) {
+      wind.sample(t!, x!, y!, out);
+      expect(out.wx).toBe(5);
+      expect(out.wy).toBe(-2);
+    }
+  });
+
+  it("defaults to zero wind", () => {
+    const wind = new UniformWind();
+    const out = new EnvSample();
+    wind.sample(0, 0, 0, out);
+    expect(out.wx).toBe(0);
+    expect(out.wy).toBe(0);
   });
 });
 
