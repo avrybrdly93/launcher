@@ -29,6 +29,29 @@ export class ConstantAtmosphere implements Atmosphere {
   }
 }
 
+/**
+ * Isothermal exponential atmosphere ρ(y) = ρ₀e^(−y/H) (§3.4, eq. between
+ * 3.10-3.11, P1.27). Temperature, viscosity and speed of sound stay at
+ * their ISA sea-level values since the model is isothermal by construction
+ * — only density (and, via the ideal gas law, pressure) vary with height.
+ */
+export class ExponentialAtmosphere implements Atmosphere {
+  private static readonly GAMMA = 1.4;
+
+  constructor(
+    private readonly rho0 = ISA.rho0,
+    private readonly scaleHeight = ISA.scaleHeight,
+  ) {}
+
+  sample(_x: number, y: number, out: EnvSample): void {
+    out.rho = this.rho0 * Math.exp(-y / this.scaleHeight);
+    out.T = ISA.T0;
+    out.eta = 1.789e-5;
+    out.c = Math.sqrt(ExponentialAtmosphere.GAMMA * ISA.Rs * ISA.T0);
+    out.p = out.rho * ISA.Rs * ISA.T0;
+  }
+}
+
 /** Uniform gravity, optionally with the altitude correction (3.3) behind a flag. */
 export class UniformGravity implements GravityModel {
   constructor(

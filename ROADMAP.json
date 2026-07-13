@@ -497,8 +497,8 @@
       "estMinutes": 10,
       "difficulty": "E",
       "validation": "\u03c1(H)=\u03c1\u2080/e to 1e-15",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "ExponentialAtmosphere in environment.ts: isothermal rho(y)=rho0*exp(-y/H), T/eta/c held at ISA sea-level constants, p=rho*Rs*T for ideal-gas consistency. Validated: rho(H)=rho0/e to 1e-15, rho(0)=rho0, monotone decay, isothermal T/c constant with height, ideal-gas consistency."
     },
     {
       "id": "P1.28",
