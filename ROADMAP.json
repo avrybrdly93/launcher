@@ -475,8 +475,8 @@
       "estMinutes": 30,
       "difficulty": "E",
       "validation": "assets validate; each has provenance string",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added projectile-spec.ts (zod ProjectileSpecSchema: mass/radius as {value,citation}, discriminated-union DragModelSpec/LiftModelSpec, top-level provenance) and projectile-assets.ts with the 7 catalog projectiles (smooth sphere, golf, soccer, baseball, table-tennis, 0.1m iron cannonball, shot put), each sourced from its sport governing-body spec (USGA/R&A, FIFA, MLB, ITTF, World Athletics) or standard textbook Cd values, every numeric datum carrying its own citation. Verified all 7 validate against the schema, ids are unique, and every asset has a non-empty provenance string."
     },
     {
       "id": "P1.26",
