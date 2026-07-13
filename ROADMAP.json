@@ -442,8 +442,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "matches central finite differences to 1e-7 at 10 states",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added engine/jacobian.ts: createGravityQuadraticDragJacobian returns df/dy (row-major 4x4) for the gravity+quadratic-drag force pair only (Cd and environment assumed state-independent); wired into createPlanarProjectileModel's optional jacobian field when forces are exactly {gravity, drag-quadratic}, undefined otherwise (e.g. Magnus present) so callers fall back to FD (P1.23). Model.jacobian signature extended to take ctx, matching rhs. jacobian.test.ts verifies vs central FD (h=1e-6) to <1e-7 abs diff at 10 states, plus the v_rel=0 removable-singularity and Magnus-fallback cases."
     },
     {
       "id": "P1.23",

@@ -353,7 +353,7 @@ interface Model {
   rhs(t: number, y: Float64Array, out: Float64Array, ctx: EvalContext): void;
   invariants?: InvariantSpec[];               // e.g. energy, when defined
   events?: EventSpec[];                       // g(t,y)=0 crossings: ground, apex
-  jacobian?(t, y, out): void;                 // optional analytic J = ∂f/∂y
+  jacobian?(t, y, out, ctx): void;             // optional analytic J = ∂f/∂y
   partitions?: { q: number[]; p: number[] };  // index sets for symplectic methods
 }
 ```
