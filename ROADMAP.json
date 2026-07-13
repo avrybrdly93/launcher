@@ -464,8 +464,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "drag-off: dE/dt from powers \u2261 0 to 1e-13",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added mechanicalEnergy(y,ctx)=0.5*m|v|^2+mgy and aeroEnergyPower(forces,t,y,ctx) (sums every ForceModel.energyPower except gravity, whose work is already captured by the mgy term) in energy.ts. Wired onto createPlanarProjectileModel as two invariants (\"energy\", \"energyPowerAero\"), both self-refreshing ctx so evaluate(t,y,ctx) is correct independent of call order. Verified all three blueprint \u00a73.8 cases: drag-off dE/dt==0 to 1e-13 (validation criterion), Magnus-only dE/dt~0 (perpendicular force), drag-on-in-still-air dE/dt<=0 (monotone dissipation)."
     },
     {
       "id": "P1.25",

@@ -1,4 +1,5 @@
 import type { EvalContext } from "./eval-context.js";
+import { aeroEnergyPower, mechanicalEnergy } from "./energy.js";
 import {
   composeForces,
   composeJacobian,
@@ -48,6 +49,25 @@ export function createPlanarProjectileModel(forces: readonly ForceModel[]): Mode
   const model: Model = {
     dim: DIM,
     channels: PLANAR_CHANNELS,
+    // Both self-refresh ctx (env sample, vRel, speedRel, re, mach) rather than
+    // relying on a prior rhs() call, so evaluate(t, y, ctx) is correct for
+    // any (t, y) independent of call order.
+    invariants: [
+      {
+        name: "energy",
+        evaluate: (t, y, ctx) => {
+          refreshDerived(t, y, ctx);
+          return mechanicalEnergy(y, ctx);
+        },
+      },
+      {
+        name: "energyPowerAero",
+        evaluate: (t, y, ctx) => {
+          refreshDerived(t, y, ctx);
+          return aeroEnergyPower(registry, t, y, ctx);
+        },
+      },
+    ],
     rhs(t: number, y: Float64Array, out: Float64Array, ctx: EvalContext): void {
       const vx = y[VX]!;
       const vy = y[VY]!;
