@@ -464,8 +464,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "drag-off: dE/dt from powers \u2261 0 to 1e-13",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added energy-invariant.ts: createEnergyInvariant() (InvariantSpec: E=(1/2)m|v|^2+mgy, wired into createPlanarProjectileModel.invariants) and nonGravityPower(forces,t,y,ctx) summing per-force energyPower (already wired in P1.16-18) excluding gravity, which is the algebraic dE/dt of eq 3.19 (gravity work cancels exactly against E dPE/dt term). Verified: gravity-alone drag-off gives exactly 0; gravity+Magnus in still air gives 0 to <1e-13 (F_M perp v exactly); drag-on in still air gives strictly non-positive power (dissipative) at the same 10 states used throughout Phase 1."
     },
     {
       "id": "P1.25",

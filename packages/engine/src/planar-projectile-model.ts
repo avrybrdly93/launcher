@@ -1,4 +1,5 @@
 import type { EvalContext } from "./eval-context.js";
+import { createEnergyInvariant } from "./energy-invariant.js";
 import { composeForces, createForceRegistry, type ForceModel } from "./forces.js";
 import type { Model } from "./model.js";
 import type { ChannelMeta } from "./schema.js";
@@ -28,6 +29,7 @@ export function createPlanarProjectileModel(forces: readonly ForceModel[]): Mode
   return {
     dim: 4,
     channels: PLANAR_CHANNELS,
+    invariants: [createEnergyInvariant()],
     rhs(t: number, y: Float64Array, out: Float64Array, ctx: EvalContext): void {
       const x = y[X]!;
       const yPos = y[Y]!;
