@@ -453,8 +453,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "matches P1.22 analytic where available",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added engine/finite-difference-jacobian.ts: createFiniteDifferenceJacobian(model, typicalScale?) returns a Model[\"jacobian\"]-shaped closure computing df/dy by central differences with Dennis & Schnabel scaled steps h_j = sqrt(eps_machine)*max(|y_j|, typical_j, floor). Scratch buffers allocated once at construction, not per call. Works for any Model, not just gravity+quadratic-drag. finite-difference-jacobian.test.ts verifies it matches the P1.22 analytic Jacobian to <1e-6 at the same 10 states, cross-checks against an independent fixed-h central difference on a Magnus-including model (where no analytic jacobian exists), and checks typicalScale actually changes the step."
     },
     {
       "id": "P1.24",
