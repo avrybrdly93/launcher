@@ -486,8 +486,8 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "corrupt fixture rejected with useful error",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added projectile-asset-loader.ts: loadProjectileSpec(data) validates raw data against ProjectileSpecSchema via the existing parseWithSchema/SchemaValidationError infra. projectile-assets.ts now runs every shipped asset through the loader at module-evaluation time, so a corrupt hand-authored asset fails at import (build/test) time rather than shipping silently. Also tightened ProjectileSpecSchema.mass/radius/spinDecayTauSeconds to a new PositiveProvenancedNumberSchema (value must be >0). Verified: a well-formed spec round-trips; fixtures with a missing citation, negative mass, unknown dragModel.kind, or non-object input are all rejected with a SchemaValidationError carrying a path-qualified, human-readable message."
     },
     {
       "id": "P1.27",

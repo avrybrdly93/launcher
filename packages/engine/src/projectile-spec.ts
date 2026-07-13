@@ -7,6 +7,12 @@ export const ProvenancedNumberSchema = z.object({
 });
 export type ProvenancedNumber = z.infer<typeof ProvenancedNumberSchema>;
 
+/** Same as `ProvenancedNumberSchema` but for data that is physically never zero or negative (mass, radius, a decay timescale). */
+export const PositiveProvenancedNumberSchema = z.object({
+  value: z.number().positive(),
+  citation: z.string().min(1),
+});
+
 /** Which `DragCoefficientModel` (§3.3) a spec asks for, plus the data needed to build it. */
 export const DragModelSpecSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("constant"), cd: z.number().positive(), citation: z.string().min(1) }),
@@ -37,11 +43,11 @@ export type LiftModelSpec = z.infer<typeof LiftModelSpecSchema>;
 export const ProjectileSpecSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
-  mass: ProvenancedNumberSchema, // kg
-  radius: ProvenancedNumberSchema, // m
+  mass: PositiveProvenancedNumberSchema, // kg
+  radius: PositiveProvenancedNumberSchema, // m
   dragModel: DragModelSpecSchema,
   liftModel: LiftModelSpecSchema,
-  spinDecayTauSeconds: ProvenancedNumberSchema.optional(),
+  spinDecayTauSeconds: PositiveProvenancedNumberSchema.optional(),
   /** Top-level provenance note for the asset as a whole (sources, sport, edition). */
   provenance: z.string().min(1),
 });

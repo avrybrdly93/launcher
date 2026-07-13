@@ -1,3 +1,4 @@
+import { loadProjectileSpec } from "./projectile-asset-loader.js";
 import type { ProjectileSpec } from "./projectile-spec.js";
 
 /**
@@ -178,7 +179,12 @@ export const SHOT_PUT: ProjectileSpec = {
     "Regulation men's shot put; lowest-Pi worked example in the initial catalog (drag ~ negligible).",
 };
 
-/** The full initial catalog (§3.9); "custom" is a user-authored spec, not a shipped asset. */
+/**
+ * The full initial catalog (§3.9); "custom" is a user-authored spec, not a
+ * shipped asset. Every entry is re-validated through the asset loader (P1.26)
+ * at module-evaluation time, so a corrupt hand-authored asset above fails
+ * immediately rather than shipping silently.
+ */
 export const PROJECTILE_ASSETS: readonly ProjectileSpec[] = [
   SMOOTH_SPHERE,
   GOLF_BALL,
@@ -187,4 +193,4 @@ export const PROJECTILE_ASSETS: readonly ProjectileSpec[] = [
   TABLE_TENNIS_BALL,
   CANNONBALL,
   SHOT_PUT,
-];
+].map((asset) => loadProjectileSpec(asset));
