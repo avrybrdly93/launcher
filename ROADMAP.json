@@ -453,8 +453,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "matches P1.22 analytic where available",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added finite-difference-jacobian.ts: generic central-difference finiteDifferenceJacobian(model,t,y,ctx,out,scratch), row-major dim*dim matching P1.22 layout, scaled per-component step h_j=sqrt(eps)*max(|y_j|,1), scratch-buffer based (no per-call allocation). Verified it matches the P1.22 analytic gravity+quadratic-drag Jacobian to 1e-6 at the same 10 states, restores y exactly after perturbation, and stays NaN-free as a fallback for a Magnus-enabled model outside P1.22 scope."
     },
     {
       "id": "P1.24",
