@@ -442,8 +442,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "matches central finite differences to 1e-7 at 10 states",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added planar-projectile-jacobian.ts: gravityQuadraticDragJacobian(t,y,out,ctx), row-major dim*dim analytic J=df/dy for gravity+quadratic-drag (Magnus/buoyancy excluded by task scope; buoyancy contributes nothing to J regardless since it is constant in y). Freezes env (rho/g/wind) and Cd(Re,M) at the sampled point rather than differentiating their spatial/Re dependence -- exact for the default constant-atmosphere/non-altitude-gravity/zero-wind/ConstantCd config, documented approximation otherwise. Smoothly zeros the drag block as v_rel->0 (no NaN). Verified against central finite differences to 1e-7 at 10 states in planar-projectile-jacobian.test.ts."
     },
     {
       "id": "P1.23",
