@@ -486,8 +486,8 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "corrupt fixture rejected with useful error",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "loadProjectileAssets(raw) validates a keyed bundle of untyped fixture data via parseProjectileSpec, rethrowing SchemaValidationError prefixed with the offending asset key on failure. PROJECTILE_ASSETS is now RAW_PROJECTILE_ASSETS run through this loader at module load (build time), so validation is load-bearing rather than a redundant already-typed formality. Validated: corrupt fixtures (bad mass type, unknown dragCoefficient descriptor) rejected with an error naming the asset key; valid bundles load unchanged."
     },
     {
       "id": "P1.27",

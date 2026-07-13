@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { parseWithSchema } from "./schema.js";
+import { parseWithSchema, SchemaValidationError } from "./schema.js";
 
 /** Serializable descriptor for a `DragCoefficientModel` (§3.3), before materialization. */
 export const DragCoefficientSpecSchema = z.discriminatedUnion("type", [
@@ -46,12 +46,41 @@ export function parseProjectileSpec(data: unknown): ProjectileSpec {
 }
 
 /**
+ * Validates a keyed bundle of raw (untyped) fixture data into
+ * `ProjectileSpec`s, e.g. loaded from JSON asset files (P1.26). A corrupt
+ * fixture throws a `SchemaValidationError` naming the offending asset key
+ * alongside the underlying zod issues, rather than surfacing a bare
+ * "expected number, got string" with no indication of which asset broke —
+ * this is what makes the failure actionable at build time instead of
+ * surfacing as a mysterious runtime NaN deep in the physics.
+ */
+export function loadProjectileAssets(
+  raw: Readonly<Record<string, unknown>>,
+): Readonly<Record<string, ProjectileSpec>> {
+  const loaded: Record<string, ProjectileSpec> = {};
+  for (const [key, fixture] of Object.entries(raw)) {
+    try {
+      loaded[key] = parseProjectileSpec(fixture);
+    } catch (err) {
+      if (err instanceof SchemaValidationError) {
+        throw new SchemaValidationError(`Projectile asset "${key}": ${err.message}`, err.issues);
+      }
+      throw err;
+    }
+  }
+  return loaded;
+}
+
+/**
  * Initial projectile data assets (§3.9): smooth sphere, golf ball, soccer
  * ball, baseball, table-tennis ball, cannonball (0.1 m iron), shot put.
  * "Custom" is a runtime user-authored spec, not a static asset, and so has
- * no entry here.
+ * no entry here. Declared as raw `unknown` fixture data and validated
+ * through `loadProjectileAssets` below (P1.26) — the same path a real
+ * corrupt fixture would fail through — rather than pre-typed as
+ * `ProjectileSpec`, so this validation is load-bearing, not a formality.
  */
-export const PROJECTILE_ASSETS: Readonly<Record<string, ProjectileSpec>> = {
+const RAW_PROJECTILE_ASSETS: Readonly<Record<string, unknown>> = {
   sphere: {
     id: "sphere",
     name: "Smooth reference sphere",
@@ -122,3 +151,7 @@ export const PROJECTILE_ASSETS: Readonly<Record<string, ProjectileSpec>> = {
       "Mass/diameter: World Athletics Technical Rules, men's shot (7.26 kg, 110-130 mm diameter). Cd=0.47: standard subcritical smooth-sphere value (Munson et al.) — shot-put launch speeds keep Re well below the drag crisis.",
   },
 };
+
+/** `RAW_PROJECTILE_ASSETS`, validated once at module load ("build time"). */
+export const PROJECTILE_ASSETS: Readonly<Record<string, ProjectileSpec>> =
+  loadProjectileAssets(RAW_PROJECTILE_ASSETS);
