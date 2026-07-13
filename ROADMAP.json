@@ -475,8 +475,8 @@
       "estMinutes": 30,
       "difficulty": "E",
       "validation": "assets validate; each has provenance string",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added engine/projectile-spec.ts: ProjectileSpecSchema (zod) records (id, name, mass, radius, dragCoefficient descriptor, optional liftCoefficient descriptor, optional spinDecayTau, provenance); PROJECTILE_ASSETS ships the 7 initial assets (smooth sphere, golf ball, soccer ball, baseball, table-tennis ball, 0.1m iron cannonball, shot put) with representative regulation/reference values and a provenance citation each. createProjectileParamsFromSpec bridges a validated spec to runtime ProjectileParams (instantiating ConstantCd/TabulatedReynoldsCd/SaturatingLiftCoefficient). projectile-spec.test.ts validates every asset against the schema, checks unique ids and non-empty provenance, and checks schema rejection of missing-provenance/negative-mass data."
     },
     {
       "id": "P1.26",
