@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { EnvSample } from "./env-sample.js";
-import { ConstantAtmosphere, Environment, UniformGravity, ZeroWind } from "./environment.js";
+import {
+  ConstantAtmosphere,
+  Environment,
+  IsothermalExponentialAtmosphere,
+  UniformGravity,
+  ZeroWind,
+} from "./environment.js";
 import { EARTH_RADIUS_M, G_STD, ISA } from "./units.js";
 
 describe("ConstantAtmosphere", () => {
@@ -11,6 +17,46 @@ describe("ConstantAtmosphere", () => {
       atm.sample(0, y, out);
       expect(out.rho).toBe(ISA.rho0);
     }
+  });
+});
+
+describe("IsothermalExponentialAtmosphere", () => {
+  it("rho(0) = rho0 exactly", () => {
+    const atm = new IsothermalExponentialAtmosphere();
+    const out = new EnvSample();
+    atm.sample(0, 0, out);
+    expect(out.rho).toBe(ISA.rho0);
+  });
+
+  it("rho(H) = rho0/e to 1e-15", () => {
+    const atm = new IsothermalExponentialAtmosphere();
+    const out = new EnvSample();
+    atm.sample(0, ISA.scaleHeight, out);
+    expect(out.rho).toBeCloseTo(ISA.rho0 / Math.E, 15);
+  });
+
+  it("density decays monotonically with altitude and rises below sea level", () => {
+    const atm = new IsothermalExponentialAtmosphere();
+    const out = new EnvSample();
+    atm.sample(0, 1000, out);
+    const rhoAt1km = out.rho;
+    atm.sample(0, 10000, out);
+    const rhoAt10km = out.rho;
+    atm.sample(0, -1000, out);
+    const rhoAtMinus1km = out.rho;
+    expect(rhoAt10km).toBeLessThan(rhoAt1km);
+    expect(rhoAt1km).toBeLessThan(ISA.rho0);
+    expect(rhoAtMinus1km).toBeGreaterThan(ISA.rho0);
+  });
+
+  it("pressure falls off with the same exponential as density (isothermal ideal gas)", () => {
+    const atm = new IsothermalExponentialAtmosphere();
+    const out = new EnvSample();
+    atm.sample(0, 0, out);
+    const rho0 = out.rho;
+    const p0 = out.p;
+    atm.sample(0, ISA.scaleHeight, out);
+    expect(out.p / p0).toBeCloseTo(out.rho / rho0, 12);
   });
 });
 

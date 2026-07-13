@@ -497,8 +497,8 @@
       "estMinutes": 10,
       "difficulty": "E",
       "validation": "\u03c1(H)=\u03c1\u2080/e to 1e-15",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added IsothermalExponentialAtmosphere to environment.ts: rho(y)=rho0*e^(-y/H) (H=ISA.scaleHeight), p(y)=p0*e^(-y/H) via the same isothermal-ideal-gas falloff, T/eta/c held at sea-level values (linear-lapse ISA troposphere is the Phase-4 upgrade). Verified rho(H)=rho0/e to 1e-15, rho(0)=rho0 exactly, monotone falloff with altitude (and rise below sea level), and p/p0 == rho/rho0 to 1e-12."
     },
     {
       "id": "P1.28",
