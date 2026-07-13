@@ -486,8 +486,8 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "corrupt fixture rejected with useful error",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added loadProjectileAsset(data: unknown) in projectile-asset-loader.ts: validates against ProjectileSpecSchema via parseWithSchema (SchemaValidationError, field-path-annotated message) then instantiates concrete DragCoefficientModel/LiftCoefficientModel from the declarative spec (constant->ConstantCd, tabulated-reynolds->TabulatedReynoldsCd, saturating->SaturatingLiftCoefficient) and builds ProjectileParams. Verified all 7 PROJECTILE_ASSETS load successfully, and three corrupt fixtures (missing provenance, negative mass, unknown dragCoefficient.kind) are rejected with a useful field-referencing error message."
     },
     {
       "id": "P1.27",
