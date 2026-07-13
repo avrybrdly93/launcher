@@ -464,8 +464,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "drag-off: dE/dt from powers \u2261 0 to 1e-13",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added engine/energy.ts: mechanicalEnergy(y,ctx) = 0.5*m|v|^2 + mgy, and aeroPower(forces,t,y,ctx) summing every non-gravity force's energyPower (= dE/dt per eq 3.19, since gravity's power is already folded into the mgy term). createEnergyInvariant() wraps mechanicalEnergy as the model's \"energy\" InvariantSpec, now wired into createPlanarProjectileModel's invariants field. energy.test.ts verifies aeroPower is 0 to <1e-13 at 10 states with drag off (gravity+ideal-Magnus, still air, matching \u00a73.8's \"Magnus does no work\") and with gravity alone, non-positive with drag on in still air, and that the model's energy invariant matches mechanicalEnergy directly."
     },
     {
       "id": "P1.25",
