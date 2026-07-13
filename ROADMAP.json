@@ -475,8 +475,8 @@
       "estMinutes": 30,
       "difficulty": "E",
       "validation": "assets validate; each has provenance string",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "projectile-spec.ts: ProjectileSpecSchema (zod) with serializable DragCoefficientSpec/LiftCoefficientSpec descriptors (not live model instances, per ScenarioSpec serializability, section 2.3); PROJECTILE_ASSETS with sphere/golf/soccer/baseball/tableTennis/cannonball/shotPut, each with a citation-bearing provenance string. Materializing specs into ProjectileParams instances and build-time validation is P1.26."
     },
     {
       "id": "P1.26",
