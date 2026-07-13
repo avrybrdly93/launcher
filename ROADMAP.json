@@ -475,8 +475,8 @@
       "estMinutes": 30,
       "difficulty": "E",
       "validation": "assets validate; each has provenance string",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added ProjectileSpecSchema (zod, id/name/mass/radius/dragCoefficient/liftCoefficient/spin/provenance) in projectile-spec.ts, with dragCoefficient/liftCoefficient kept as declarative discriminated-union specs (constant|tabulated-reynolds, saturating) rather than class instances so the asset stays JSON-serializable -- concrete DragCoefficientModel/LiftCoefficientModel instantiation is left to the loader (P1.26). Seeded PROJECTILE_ASSETS with the 7 required presets (smooth sphere, golf, soccer, baseball, table-tennis, 0.1m iron cannonball, shot put), each mass/radius sourced from its governing rulebook (USGA/R&A, FIFA, MLB, ITTF, World Athletics) or physical derivation (cannonball from iron density), with a provenance citation on every asset."
     },
     {
       "id": "P1.26",
