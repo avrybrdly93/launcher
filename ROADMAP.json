@@ -442,8 +442,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "matches central finite differences to 1e-7 at 10 states",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Analytic ForceModel.jacobian on GravityForce (zero) and QuadraticDragForce (dF/dv closed form, Cd frozen at eval point); Model.jacobian composed only when every registered force supplies one (else undefined, falls back to P1.23 FD). Extended Model.jacobian signature to take ctx (needed for env/params access, matching rhs) \u2014 blueprint pseudocode elides it. Verified vs central FD to <1e-7 at 10 states."
     },
     {
       "id": "P1.23",

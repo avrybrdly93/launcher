@@ -99,6 +99,32 @@ describe("QuadraticDragForce", () => {
     expect(out[0]).toBe(0);
     expect(out[1]).toBe(0);
   });
+
+  it("jacobian: velocity block is symmetric and position/other rows are zero (P1.22)", () => {
+    const { ctx, env } = makeContext();
+    const y = new Float64Array([0, 0, 9, -12]);
+    refreshDerived(ctx, env, 0, y);
+    const outJ = new Float64Array(8);
+    new QuadraticDragForce().jacobian!(0, y, ctx, outJ);
+    // layout: [dFx/dx, dFx/dy, dFx/dvx, dFx/dvy, dFy/dx, dFy/dy, dFy/dvx, dFy/dvy]
+    expect(outJ[0]).toBe(0);
+    expect(outJ[1]).toBe(0);
+    expect(outJ[4]).toBe(0);
+    expect(outJ[5]).toBe(0);
+    expect(outJ[3]).toBeCloseTo(outJ[6]!, 15); // dFx/dvy == dFy/dvx
+  });
+
+  it("jacobian: all-zero at v_rel = 0 (no division by zero, P1.22)", () => {
+    const { ctx, env } = makeContext();
+    const y = new Float64Array([0, 0, 0, 0]);
+    refreshDerived(ctx, env, 0, y);
+    const outJ = new Float64Array(8);
+    new QuadraticDragForce().jacobian!(0, y, ctx, outJ);
+    for (const v of outJ) {
+      expect(Number.isFinite(v)).toBe(true);
+      expect(v).toBe(0);
+    }
+  });
 });
 
 describe("MagnusForce", () => {

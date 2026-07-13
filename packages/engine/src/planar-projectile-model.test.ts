@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { createEvalContext } from "./eval-context.js";
+import { createEvalContext, type EvalContext } from "./eval-context.js";
 import { ConstantAtmosphere, Environment, UniformGravity, ZeroWind } from "./environment.js";
 import { ConstantCd } from "./drag-coefficient.js";
 import { SaturatingLiftCoefficient } from "./lift-coefficient.js";
 import { createSphericalProjectileParams } from "./projectile-params.js";
 import { GravityForce, MagnusForce, QuadraticDragForce } from "./forces.js";
 import { createPlanarProjectileModel } from "./planar-projectile-model.js";
+import type { Model } from "./model.js";
 
 describe("createPlanarProjectileModel", () => {
   it("declares dim=4 with the expected channels", () => {
@@ -92,5 +93,105 @@ describe("createPlanarProjectileModel", () => {
       expect(out[2]).toBeCloseTo(expectedVx, 12);
       expect(out[3]).toBeCloseTo(expectedVy, 12);
     }
+  });
+});
+
+/** Central-difference J = ∂f/∂y, column by column, for cross-checking the analytic jacobian (P1.22). */
+function centralDifferenceJacobian(
+  model: Model,
+  t: number,
+  y: Float64Array,
+  ctx: EvalContext,
+  h = 1e-6,
+): Float64Array {
+  const dim = model.dim;
+  const J = new Float64Array(dim * dim);
+  const yPlus = Float64Array.from(y);
+  const yMinus = Float64Array.from(y);
+  const fPlus = new Float64Array(dim);
+  const fMinus = new Float64Array(dim);
+
+  for (let col = 0; col < dim; col++) {
+    yPlus.set(y);
+    yMinus.set(y);
+    yPlus[col] = yPlus[col]! + h;
+    yMinus[col] = yMinus[col]! - h;
+    model.rhs(t, yPlus, fPlus, ctx);
+    model.rhs(t, yMinus, fMinus, ctx);
+    for (let row = 0; row < dim; row++) {
+      J[row * dim + col] = (fPlus[row]! - fMinus[row]!) / (2 * h);
+    }
+  }
+  return J;
+}
+
+describe("createPlanarProjectileModel jacobian (P1.22)", () => {
+  it("is exposed (analytic) for gravity + quadratic drag with no Magnus", () => {
+    const model = createPlanarProjectileModel([new GravityForce(), new QuadraticDragForce()]);
+    expect(typeof model.jacobian).toBe("function");
+  });
+
+  it("is withheld when a force (Magnus) has no closed-form derivative", () => {
+    const model = createPlanarProjectileModel([
+      new GravityForce(),
+      new QuadraticDragForce(),
+      new MagnusForce(),
+    ]);
+    expect(model.jacobian).toBeUndefined();
+  });
+
+  it("matches central finite differences to 1e-7 at 10 states", () => {
+    const model = createPlanarProjectileModel([new GravityForce(), new QuadraticDragForce()]);
+    const env = new Environment(new ConstantAtmosphere(), new UniformGravity(), new ZeroWind());
+    const params = createSphericalProjectileParams({
+      mass: 0.145,
+      radius: 0.0366,
+      dragCoefficient: new ConstantCd(0.47),
+    });
+    const ctx = createEvalContext(env, params);
+
+    // 10 states spanning quadrants/magnitudes, all with |v_rel| well clear of
+    // the C^1-but-not-C^2 kink at v_rel=0 (§3.8) so central FD is well-behaved.
+    const states: [number, number, number, number][] = [
+      [0, 0, 12.3, 4.1],
+      [10, 5, -8.2, 15.6],
+      [-3, 20, 25.0, -30.1],
+      [0, 0.5, 2.0, -3.0],
+      [100, 10, -1.5, -1.5],
+      [0, 0, 40, 0],
+      [0, 0, 0, 40],
+      [5, 5, 5, 5],
+      [-10, -10, -20, 20],
+      [1, 1, 33.3, -12.7],
+    ];
+
+    for (const state of states) {
+      const y = new Float64Array(state);
+      const analytic = new Float64Array(16);
+      model.jacobian!(0, y, analytic, ctx);
+      const fd = centralDifferenceJacobian(model, 0, y, ctx);
+
+      for (let i = 0; i < 16; i++) {
+        expect(Math.abs(analytic[i]! - fd[i]!)).toBeLessThan(1e-7);
+      }
+    }
+  });
+
+  it("returns a finite, all-zero velocity block at v_rel = 0 (matches the C^1 zero-gradient kink, §3.8)", () => {
+    const model = createPlanarProjectileModel([new GravityForce(), new QuadraticDragForce()]);
+    const env = new Environment(new ConstantAtmosphere(), new UniformGravity(), new ZeroWind());
+    const params = createSphericalProjectileParams({
+      mass: 0.145,
+      radius: 0.0366,
+      dragCoefficient: new ConstantCd(0.47),
+    });
+    const ctx = createEvalContext(env, params);
+    const y = new Float64Array([0, 0, 0, 0]);
+    const out = new Float64Array(16);
+    model.jacobian!(0, y, out, ctx);
+
+    for (const v of out) expect(Number.isFinite(v)).toBe(true);
+    // rows 2,3 (dvx/dt, dvy/dt): only the trivial identity rows 0,1 are nonzero.
+    expect(Array.from(out.slice(8, 16))).toEqual([0, 0, 0, 0, 0, 0, 0, 0]);
   });
 });

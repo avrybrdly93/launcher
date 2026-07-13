@@ -24,7 +24,8 @@ export interface Model {
   rhs(t: number, y: Float64Array, out: Float64Array, ctx: EvalContext): void;
   readonly invariants?: readonly InvariantSpec[];
   readonly events?: readonly EventSpec[];
-  jacobian?(t: number, y: Float64Array, out: Float64Array): void;
+  /** Analytic J = ∂f/∂y, row-major dim×dim into `out`. Needs `ctx` (env/params) same as `rhs`; the blueprint's §3.7 pseudocode elides it. Present only when every composed force supplies a closed-form derivative (P1.22) — absent otherwise so callers fall back to FD (P1.23). */
+  jacobian?(t: number, y: Float64Array, out: Float64Array, ctx: EvalContext): void;
   /** Index sets (q, p) for symplectic/Verlet steppers requiring second-order mechanical structure. */
   readonly partitions?: { readonly q: readonly number[]; readonly p: readonly number[] };
 }
