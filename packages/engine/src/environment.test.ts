@@ -4,6 +4,7 @@ import {
   ConstantAtmosphere,
   Environment,
   IsothermalExponentialAtmosphere,
+  LogProfileWind,
   UniformGravity,
   UniformWind,
   ZeroWind,
@@ -104,6 +105,47 @@ describe("UniformWind", () => {
     wind.sample(0, 0, 0, out);
     expect(out.wx).toBe(0);
     expect(out.wy).toBe(0);
+  });
+});
+
+describe("LogProfileWind", () => {
+  const KAPPA = 0.41;
+
+  it("w(y_r*(e-1)) * kappa / u* = 1 (eq. 3.13 reference point)", () => {
+    const uStar = 0.5;
+    const yr = 0.01;
+    const wind = new LogProfileWind(uStar, yr);
+    const out = new EnvSample();
+    wind.sample(0, 0, yr * (Math.E - 1), out);
+    expect((out.wx * KAPPA) / uStar).toBeCloseTo(1, 12);
+  });
+
+  it("w is finite (and exactly 0) at y = 0", () => {
+    const wind = new LogProfileWind(0.5, 0.01);
+    const out = new EnvSample();
+    wind.sample(0, 0, 0, out);
+    expect(Number.isFinite(out.wx)).toBe(true);
+    expect(out.wx).toBe(0);
+  });
+
+  it("clamps y <= 0 to the surface value instead of producing NaN/-Infinity", () => {
+    const wind = new LogProfileWind(0.5, 0.01);
+    const out = new EnvSample();
+    for (const y of [-1, -100, -1e6]) {
+      wind.sample(0, 0, y, out);
+      expect(Number.isFinite(out.wx)).toBe(true);
+      expect(out.wx).toBe(0);
+    }
+  });
+
+  it("increases with height above the surface", () => {
+    const wind = new LogProfileWind(0.5, 0.01);
+    const out = new EnvSample();
+    wind.sample(0, 0, 1, out);
+    const wAt1m = out.wx;
+    wind.sample(0, 0, 10, out);
+    const wAt10m = out.wx;
+    expect(wAt10m).toBeGreaterThan(wAt1m);
   });
 });
 

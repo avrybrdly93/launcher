@@ -530,8 +530,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "w(y_r\u00b7(e\u22121))\u00b7\u03ba/u* = 1 check; w finite at y=0",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added LogProfileWind to environment.ts: w_x(y) = (u_star/kappa)*ln((y+y_r)/y_r) per eq 3.13 (kappa=0.41), wy=0 (horizontal shear only). Clamps y<=0 to the surface value (w=0) instead of evaluating ln of a non-positive argument. Verified w(y_r*(e-1))*kappa/u_star = 1 to 1e-12, w is finite and exactly 0 at y=0, stays finite (clamped) for y far below the surface, and increases monotonically with height."
     },
     {
       "id": "P1.31",
