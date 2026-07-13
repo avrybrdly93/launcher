@@ -122,6 +122,25 @@ export class LogProfileWind implements WindModel {
 }
 
 /**
+ * Sinusoidal gust: w_x(t) = mean + amplitude*sin(angularFrequency*t + phase)
+ * (§3.5 case 3), horizontal component only (wy = 0). Smooth by construction
+ * (C^infty in t) so integrator convergence studies over it stay clean.
+ */
+export class SinusoidalGustWind implements WindModel {
+  constructor(
+    private readonly mean: number,
+    private readonly amplitude: number,
+    private readonly angularFrequency: number,
+    private readonly phase: number = 0,
+  ) {}
+
+  sample(t: number, _x: number, _y: number, out: EnvSample): void {
+    out.wx = this.mean + this.amplitude * Math.sin(this.angularFrequency * t + this.phase);
+    out.wy = 0;
+  }
+}
+
+/**
  * Composes an Atmosphere + GravityModel + WindModel into the single
  * `Environment` the engine exports (§2.2 module table). `sample` is called
  * exactly once per rhs evaluation (§2.4a); internally it delegates to the
