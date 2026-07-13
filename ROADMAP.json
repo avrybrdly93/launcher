@@ -486,8 +486,8 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "corrupt fixture rejected with useful error",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added engine/asset-loader.ts: loadProjectileAssets(rawAssets) validates each entry against ProjectileSpecSchema individually and re-throws SchemaValidationError prefixed with the offending asset's id/index, so a single corrupt fixture in a catalog fails with a message naming which asset and why rather than a generic error. asset-loader.test.ts checks the real PROJECTILE_ASSETS catalog loads clean (the build-time validation case), a corrupt fixture (negative mass, missing provenance/dragCoefficient) is rejected with an error naming both its id and index, and an id-less corrupt fixture is labeled by index alone."
     },
     {
       "id": "P1.27",

@@ -9,6 +9,7 @@ export * from "./drag-coefficient.js";
 export * from "./lift-coefficient.js";
 export * from "./projectile-params.js";
 export * from "./projectile-spec.js";
+export * from "./asset-loader.js";
 export * from "./eval-context.js";
 export * from "./energy.js";
 export * from "./forces.js";
