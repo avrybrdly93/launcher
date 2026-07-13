@@ -453,8 +453,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "matches P1.22 analytic where available",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Generic finiteDifferenceJacobian(model, t, y, ctx, out, scratch?) using central differences with per-column scaled step h_i = cbrt(eps_mach)*max(|y_i|,1) (balances truncation vs cancellation error). Model-agnostic (only uses model.rhs), reusable scratch buffer for zero-alloc callers. Verified exact (to roundoff) on a linear test model and matching P1.22 analytic jacobian to <1e-6 across 6 states."
     },
     {
       "id": "P1.24",
