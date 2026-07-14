@@ -486,8 +486,8 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "corrupt fixture rejected with useful error",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added asset-loader.ts: loadProjectileAssets(raw) validates an array of raw fixtures against ProjectileSpecSchema, throwing SchemaValidationError naming the offending index/id/field, plus a duplicate-id check across the list. projectile-assets.ts now routes its literal array through the loader at module-eval time, so a typo'd asset fails at import ('build') time rather than surfacing as a silent NaN downstream. asset-loader.test.ts covers a valid load, non-array input, negative-mass/unknown-drag-model/missing-provenance corruption, duplicate ids, and that the real PROJECTILE_ASSETS export already passed the loader."
     },
     {
       "id": "P1.27",

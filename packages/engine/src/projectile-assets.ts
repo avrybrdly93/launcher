@@ -1,11 +1,13 @@
-import type { ProjectileSpec } from "./projectile-spec.js";
+import { loadProjectileAssets } from "./asset-loader.js";
 
 /**
  * Initial projectile data assets (§3.9): smooth sphere, golf ball, soccer
  * ball, baseball, table-tennis ball, cannonball, shot put. Every numeric
- * datum carries a citation in `provenance`.
+ * datum carries a citation in `provenance`. Routed through
+ * `loadProjectileAssets` so a typo here fails at import time with a useful
+ * per-asset error rather than silently shipping bad physics data.
  */
-export const PROJECTILE_ASSETS: readonly ProjectileSpec[] = [
+const RAW_PROJECTILE_ASSETS: readonly unknown[] = [
   {
     id: "smooth-sphere",
     name: "Smooth sphere (reference)",
@@ -74,3 +76,5 @@ export const PROJECTILE_ASSETS: readonly ProjectileSpec[] = [
       "World Athletics Technical Rules, TR32: men's shot mass 7.26 kg, diameter 110-130 mm. Cd modeled as the smooth-sphere subcritical default (0.47).",
   },
 ];
+
+export const PROJECTILE_ASSETS = loadProjectileAssets(RAW_PROJECTILE_ASSETS);
