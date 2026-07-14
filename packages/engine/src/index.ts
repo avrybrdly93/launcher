@@ -12,5 +12,6 @@ export * from "./eval-context.js";
 export * from "./forces.js";
 export * from "./jacobian.js";
 export * from "./finite-difference-jacobian.js";
+export * from "./energy.js";
 export * from "./model.js";
 export * from "./planar-projectile-model.js";

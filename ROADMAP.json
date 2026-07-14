@@ -464,8 +464,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "drag-off: dE/dt from powers \u2261 0 to 1e-13",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added energy.ts: mechanicalEnergy(y,ctx)=1/2 m|v|^2+mgy, aeroPower(forces,t,y,ctx) summing every force's energyPower except gravity (whose power is exactly the derivative of the mgy term, so excluding it makes aeroPower equal dE/dt per eq 3.19 for any force set, not just drag+Magnus), and createEnergyInvariant() wrapping mechanicalEnergy as a Model InvariantSpec, wired onto createPlanarProjectileModel's invariants array. energy.test.ts covers the drag-off gravity+Magnus-in-still-air case (|dE/dt|<1e-13), the trivial gravity-only case (exactly 0), the drag-on monotone-non-increasing case, and the invariant wiring."
     },
     {
       "id": "P1.25",
