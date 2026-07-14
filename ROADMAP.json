@@ -475,8 +475,8 @@
       "estMinutes": 30,
       "difficulty": "E",
       "validation": "assets validate; each has provenance string",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added projectile-spec.ts (zod projectileSpecSchema: id/name/mass/radius/dragModel/liftModel/spinDecayTauSeconds/provenance, with discriminated-union dragModelSpecSchema {constant|tabulated-reynolds} and liftModelSpecSchema {none|saturating}) and projectile-assets.ts (PROJECTILE_ASSETS: smoothSphere, golfBall, soccerBall, baseball, tableTennisBall, cannonball, shotPut -- representative rulebook/textbook values, each with a provenance citation naming its source). provenance is one string per asset (not per-datum as the blueprint's ideal states -- documented as a deliberate, honest scope reduction). Tests validate schema accept/reject cases and that every shipped asset parses with a non-empty provenance and a unique id."
     },
     {
       "id": "P1.26",
