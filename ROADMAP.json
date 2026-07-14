@@ -486,8 +486,8 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "corrupt fixture rejected with useful error",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "packages/engine/src/projectile-asset-loader.ts: loadProjectileAsset/loadProjectileAssets, the single choke point any ProjectileSpec (built-in or user-supplied) passes through, via parseWithSchema(ProjectileSpecSchema, ...). Verified: all 7 built-in assets load cleanly; corrupt fixtures (negative mass, missing provenance, unknown dragCoefficient.kind) each throw SchemaValidationError whose message names the offending field; a batch load fails on the first invalid entry."
     },
     {
       "id": "P1.27",
