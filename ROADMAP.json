@@ -442,8 +442,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "matches central finite differences to 1e-7 at 10 states",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added gravityQuadraticDragJacobian in jacobian.ts (row-major 4x4 out). Closed form assumes the sampled environment is locally frozen (exact for all current spatially-uniform Environment impls) and Cd is locally constant (exact for ConstantCd, the P1.08 scope); models needing Cd(Re) slope, spatially-varying environments, or Magnus/buoyancy are deferred to the P1.23 FD fallback. jacobian.test.ts covers the 10-state FD match (1e-7), a nonzero-uniform-wind variant, the kinematic identity block, and the v_rel=0 finite-zero guard."
     },
     {
       "id": "P1.23",
