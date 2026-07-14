@@ -1,4 +1,5 @@
 import { EnvSample } from "./env-sample.js";
+import { sutherlandViscosity } from "./sutherland-viscosity.js";
 import { EARTH_RADIUS_M, G_STD, ISA } from "./units.js";
 
 /** Fills the thermodynamic fields of an EnvSample (rho, T, p, eta, c) at a point (§3.4). */
@@ -26,6 +27,34 @@ export class ConstantAtmosphere implements Atmosphere {
     out.p = ISA.p0;
     out.eta = 1.789e-5;
     out.c = Math.sqrt(ConstantAtmosphere.GAMMA * ISA.Rs * ISA.T0);
+  }
+}
+
+/**
+ * Isothermal exponential atmosphere (§3.4): rho(y) = rho0*e^(-y/H), scale
+ * height H = Rs*T/g. Temperature is held fixed (isothermal), so p and eta
+ * follow from the ideal-gas law and Sutherland's law at that same T; only
+ * rho actually varies with altitude in this model.
+ */
+export class ExponentialAtmosphere implements Atmosphere {
+  private static readonly GAMMA = 1.4;
+  readonly scaleHeight: number;
+
+  constructor(
+    private readonly rho0: number = ISA.rho0,
+    private readonly T: number = ISA.T0,
+    scaleHeight?: number,
+  ) {
+    this.scaleHeight = scaleHeight ?? (ISA.Rs * T) / G_STD;
+  }
+
+  sample(_x: number, y: number, out: EnvSample): void {
+    const rho = this.rho0 * Math.exp(-y / this.scaleHeight);
+    out.rho = rho;
+    out.T = this.T;
+    out.p = rho * ISA.Rs * this.T;
+    out.eta = sutherlandViscosity(this.T);
+    out.c = Math.sqrt(ExponentialAtmosphere.GAMMA * ISA.Rs * this.T);
   }
 }
 

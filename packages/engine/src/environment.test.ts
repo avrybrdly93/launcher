@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { EnvSample } from "./env-sample.js";
-import { ConstantAtmosphere, Environment, UniformGravity, ZeroWind } from "./environment.js";
+import {
+  ConstantAtmosphere,
+  Environment,
+  ExponentialAtmosphere,
+  UniformGravity,
+  ZeroWind,
+} from "./environment.js";
 import { EARTH_RADIUS_M, G_STD, ISA } from "./units.js";
 
 describe("ConstantAtmosphere", () => {
@@ -11,6 +17,53 @@ describe("ConstantAtmosphere", () => {
       atm.sample(0, y, out);
       expect(out.rho).toBe(ISA.rho0);
     }
+  });
+});
+
+describe("ExponentialAtmosphere (P1.27, §3.4)", () => {
+  it("rho(H) = rho0/e to 1e-15", () => {
+    const atm = new ExponentialAtmosphere();
+    const out0 = new EnvSample();
+    const outH = new EnvSample();
+    atm.sample(0, 0, out0);
+    atm.sample(0, atm.scaleHeight, outH);
+    expect(outH.rho / out0.rho).toBeCloseTo(1 / Math.E, 15);
+  });
+
+  it("rho(0) = rho0", () => {
+    const atm = new ExponentialAtmosphere();
+    const out = new EnvSample();
+    atm.sample(0, 0, out);
+    expect(out.rho).toBe(ISA.rho0);
+  });
+
+  it("density decreases monotonically with altitude", () => {
+    const atm = new ExponentialAtmosphere();
+    const heights = [0, 1000, 5000, 8500, 20000];
+    const out = new EnvSample();
+    let prevRho = Infinity;
+    for (const y of heights) {
+      atm.sample(0, y, out);
+      expect(out.rho).toBeLessThan(prevRho);
+      prevRho = out.rho;
+    }
+  });
+
+  it("holds temperature fixed (isothermal) across altitude", () => {
+    const atm = new ExponentialAtmosphere();
+    const outLow = new EnvSample();
+    const outHigh = new EnvSample();
+    atm.sample(0, 0, outLow);
+    atm.sample(0, 10000, outHigh);
+    expect(outHigh.T).toBe(outLow.T);
+    expect(outHigh.eta).toBe(outLow.eta);
+    expect(outHigh.c).toBe(outLow.c);
+  });
+
+  it("derives scale height from Rs*T/g by default (~8.5km per §3.4)", () => {
+    const atm = new ExponentialAtmosphere();
+    expect(atm.scaleHeight).toBeCloseTo((ISA.Rs * ISA.T0) / G_STD, 9);
+    expect(atm.scaleHeight / 1000).toBeCloseTo(8.5, 0);
   });
 });
 

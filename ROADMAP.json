@@ -497,8 +497,8 @@
       "estMinutes": 10,
       "difficulty": "E",
       "validation": "\u03c1(H)=\u03c1\u2080/e to 1e-15",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "packages/engine/src/environment.ts: ExponentialAtmosphere (isothermal, rho(y)=rho0*e^(-y/H), H=Rs*T/g by default per \u00a73.4); T held fixed so p follows from the ideal-gas law and eta from Sutherland's law (P1.28) at that T. Verified rho(H)=rho0/e to 1e-15, rho(0)=rho0, monotone decrease with altitude, and T/eta/c constant across altitude."
     },
     {
       "id": "P1.28",
@@ -508,8 +508,8 @@
       "estMinutes": 10,
       "difficulty": "E",
       "validation": "\u03b7(288.15K)=1.789e\u22125\u00b11%",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "packages/engine/src/sutherland-viscosity.ts: sutherlandViscosity(T) = etaRef*(T/Tref)^1.5*(Tref+S)/(T+S) using the existing SUTHERLAND constants (units.ts). Reduces to etaRef exactly at T=Tref=288.15K (matches ConstantAtmosphere's hardcoded eta); reused by ExponentialAtmosphere (P1.27). Verified against the 1.789e-5 target to well within 1%, and monotone increase with T over the ISA range."
     },
     {
       "id": "P1.29",
