@@ -5,6 +5,10 @@ describe("ConstantCd", () => {
   it("returns 0.47 by default", () => {
     expect(new ConstantCd().cd(1e5, 0.1)).toBe(0.47);
   });
+
+  it("has zero Re-slope", () => {
+    expect(new ConstantCd().dcdDRe(1e5, 0.1)).toBe(0);
+  });
 });
 
 describe("TabulatedReynoldsCd", () => {
@@ -25,5 +29,13 @@ describe("TabulatedReynoldsCd", () => {
     const left = (model.cd(re0, 0) - model.cd(re0 - eps, 0)) / eps;
     const right = (model.cd(re0 + eps, 0) - model.cd(re0, 0)) / eps;
     expect(Math.abs(left - right)).toBeLessThan(1e-3);
+  });
+
+  it("dcdDRe matches a central finite difference to 1e-6 through the drag crisis", () => {
+    for (const re0 of [1e2, 1e3, 5e3, 5e4, 1.5e5, 2.5e5, 3.5e5, 5e5, 2e6]) {
+      const eps = re0 * 1e-5;
+      const fd = (model.cd(re0 + eps, 0) - model.cd(re0 - eps, 0)) / (2 * eps);
+      expect(model.dcdDRe(re0, 0)).toBeCloseTo(fd, 6);
+    }
   });
 });

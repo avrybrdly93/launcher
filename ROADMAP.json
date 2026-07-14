@@ -442,8 +442,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "matches central finite differences to 1e-7 at 10 states",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added gravityQuadraticDragJacobian in jacobian.ts: analytic J=df/dy for the drag-relaxation velocity block (x/y columns are exactly zero under the platform's default zero-spatial-gradient environment assumption -- constant atmosphere, non-altitude gravity, spatially uniform wind). Includes the dCd/dRe chain-rule term via a new optional DragCoefficientModel.dcdDRe hook (PchipInterpolator.derivative added for TabulatedReynoldsCd; ConstantCd returns 0), so it stays accurate through the tabulated drag-crisis region, not just for constant Cd. jacobian.test.ts validates against an independent central-FD oracle at 10 states each for ConstantCd and TabulatedReynoldsCd (h=1e-5, tol 1e-7), plus stagnation-point and zero-column checks."
     },
     {
       "id": "P1.23",
