@@ -1,5 +1,5 @@
 import { EnvSample } from "./env-sample.js";
-import { EARTH_RADIUS_M, G_STD, ISA } from "./units.js";
+import { EARTH_RADIUS_M, G_STD, ISA, SUTHERLAND } from "./units.js";
 
 /** Fills the thermodynamic fields of an EnvSample (rho, T, p, eta, c) at a point (§3.4). */
 export interface Atmosphere {
@@ -26,6 +26,34 @@ export class ConstantAtmosphere implements Atmosphere {
     out.p = ISA.p0;
     out.eta = 1.789e-5;
     out.c = Math.sqrt(ConstantAtmosphere.GAMMA * ISA.Rs * ISA.T0);
+  }
+}
+
+/**
+ * Isothermal exponential atmosphere: rho(y) = rho0*e^(-y/H) (eq. §3.4). T is
+ * constant by construction (isothermal), so eta (Sutherland's law at
+ * constant T) and the speed of sound c are constant too — only rho (and,
+ * consistently with the ideal-gas relation at fixed T, p) vary with altitude.
+ */
+export class ExponentialAtmosphere implements Atmosphere {
+  private static readonly GAMMA = 1.4;
+  private readonly c: number;
+
+  constructor(
+    private readonly rho0: number = ISA.rho0,
+    private readonly T0: number = ISA.T0,
+    private readonly scaleHeight: number = ISA.scaleHeight,
+  ) {
+    this.c = Math.sqrt(ExponentialAtmosphere.GAMMA * ISA.Rs * this.T0);
+  }
+
+  sample(_x: number, y: number, out: EnvSample): void {
+    const factor = Math.exp(-y / this.scaleHeight);
+    out.rho = this.rho0 * factor;
+    out.T = this.T0;
+    out.p = ISA.p0 * factor;
+    out.eta = SUTHERLAND.etaRef;
+    out.c = this.c;
   }
 }
 

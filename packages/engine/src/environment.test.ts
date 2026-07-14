@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { EnvSample } from "./env-sample.js";
-import { ConstantAtmosphere, Environment, UniformGravity, ZeroWind } from "./environment.js";
+import {
+  ConstantAtmosphere,
+  Environment,
+  ExponentialAtmosphere,
+  UniformGravity,
+  ZeroWind,
+} from "./environment.js";
 import { EARTH_RADIUS_M, G_STD, ISA } from "./units.js";
 
 describe("ConstantAtmosphere", () => {
@@ -11,6 +17,52 @@ describe("ConstantAtmosphere", () => {
       atm.sample(0, y, out);
       expect(out.rho).toBe(ISA.rho0);
     }
+  });
+});
+
+describe("ExponentialAtmosphere", () => {
+  it("rho(0) = rho0", () => {
+    const atm = new ExponentialAtmosphere();
+    const out = new EnvSample();
+    atm.sample(0, 0, out);
+    expect(out.rho).toBe(ISA.rho0);
+  });
+
+  it("rho(H) = rho0/e to 1e-15 (P1.27 validation criterion)", () => {
+    const atm = new ExponentialAtmosphere();
+    const out = new EnvSample();
+    atm.sample(0, ISA.scaleHeight, out);
+    expect(Math.abs(out.rho - ISA.rho0 / Math.E)).toBeLessThan(1e-15);
+  });
+
+  it("is strictly decreasing with altitude and symmetric in log-space", () => {
+    const atm = new ExponentialAtmosphere();
+    const low = new EnvSample();
+    const high = new EnvSample();
+    atm.sample(0, 1000, low);
+    atm.sample(0, 5000, high);
+    expect(high.rho).toBeLessThan(low.rho);
+    expect(Math.log(low.rho) - Math.log(high.rho)).toBeCloseTo((5000 - 1000) / ISA.scaleHeight, 12);
+  });
+
+  it("holds T, eta, and c constant (isothermal)", () => {
+    const atm = new ExponentialAtmosphere();
+    const low = new EnvSample();
+    const high = new EnvSample();
+    atm.sample(0, 0, low);
+    atm.sample(0, 10000, high);
+    expect(high.T).toBe(low.T);
+    expect(high.eta).toBe(low.eta);
+    expect(high.c).toBe(low.c);
+    expect(low.T).toBe(ISA.T0);
+  });
+
+  it("supports a custom rho0/T0/scale height", () => {
+    const atm = new ExponentialAtmosphere(2, 300, 1000);
+    const out = new EnvSample();
+    atm.sample(0, 1000, out);
+    expect(out.rho).toBeCloseTo(2 / Math.E, 14);
+    expect(out.T).toBe(300);
   });
 });
 

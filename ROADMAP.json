@@ -497,8 +497,8 @@
       "estMinutes": 10,
       "difficulty": "E",
       "validation": "\u03c1(H)=\u03c1\u2080/e to 1e-15",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added ExponentialAtmosphere to environment.ts: rho(y)=rho0*e^(-y/H) using the already-defined ISA.scaleHeight (8500 m); T held constant (isothermal by construction), so eta (SUTHERLAND.etaRef, consistent with Sutherland's law at constant T) and c are constant too, and p follows the same exponential factor (consistent with the ideal-gas relation at fixed T). Constructor accepts optional rho0/T0/scaleHeight overrides. environment.test.ts adds the exact rho(H)=rho0/e to 1e-15 check plus monotonicity, isothermal-field, and custom-parameter coverage."
     },
     {
       "id": "P1.28",
