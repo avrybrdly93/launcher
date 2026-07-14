@@ -453,8 +453,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "matches P1.22 analytic where available",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "packages/engine/src/finite-difference-jacobian.ts: createFiniteDifferenceJacobian(model, ctx) builds a reusable, allocation-free central-difference Model.jacobian for any Model, step h_j = eps^(1/3)*max(|y_j|,1) with denominator taken from the actual rounded displacement. Verified against P1.22's analytic jacobian to 1e-5 at 10 states, plus a Magnus-inclusive case P1.22 can't cover and a zero-allocation audit."
     },
     {
       "id": "P1.24",
