@@ -464,8 +464,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "drag-off: dE/dt from powers \u2261 0 to 1e-13",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added energy.ts: mechanicalEnergy(y,m,g)=E of eq 3.19 (KE + mgy only); createEnergyInvariant() wired into createPlanarProjectileModel's `invariants` field; nonGravityPower sums energyPower over every non-gravity force (the F_aero.v term, generalized to buoyancy/user forces too); energyRateFromForces computes dE/dt kinematically via v.F_total + m*g*vy using the same composeForces path as rhs, independent of any energyPower wiring. energy.test.ts proves the algebraic identity dE/dt_kinematic == nonGravityPower to 1e-13 both for the drag-off (gravity-only, both sides exactly 0) and full drag+Magnus+buoyancy cases, plus still-air monotone-dissipation and Magnus-does-no-work regime checks from \u00a73.19."
     },
     {
       "id": "P1.25",
