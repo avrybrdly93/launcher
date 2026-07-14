@@ -453,8 +453,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "matches P1.22 analytic where available",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added createFiniteDifferenceJacobian in finite-difference-jacobian.ts: central differences with per-component scaled step h=cbrt(eps)*max(1,|y_i|), buffers preallocated in closure so repeated compute() calls (e.g. future Newton iterations, P2.38) stay allocation-free. Works against any Model.rhs+EvalContext, not just the P1.22 special case. finite-difference-jacobian.test.ts checks agreement with gravityQuadraticDragJacobian at the 10 P1.22 states, finiteness on a model outside P1.22's scope (Magnus included), and stability across 1000 repeated calls on shared buffers."
     },
     {
       "id": "P1.24",
