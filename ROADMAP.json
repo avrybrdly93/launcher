@@ -486,8 +486,8 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "corrupt fixture rejected with useful error",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added asset-loader.ts: loadProjectileSpec(data: unknown) validates raw/JSON-sourced data against projectileSpecSchema, throwing SchemaValidationError with a per-field message; hydrateProjectileSpec(spec, spin?) converts a validated ProjectileSpec into the engine's ProjectileParams (constructs ConstantCd/TabulatedReynoldsCd and SaturatingLiftCoefficient/undefined from the spec's discriminated-union model fields). VALIDATED_PROJECTILE_ASSETS eagerly validates every shipped PROJECTILE_ASSETS entry at module-load time via loadProjectileAssets(), which is what makes a corrupt asset a build-time failure (any test/typecheck/build that imports the engine throws immediately). Tests include a deliberately corrupt fixture (wrong type, missing field, bad discriminant, empty provenance) asserting a SchemaValidationError whose message names every bad field, plus hydration-correctness checks for both drag-model variants."
     },
     {
       "id": "P1.27",
