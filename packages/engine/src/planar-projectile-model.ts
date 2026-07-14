@@ -1,5 +1,6 @@
 import type { EvalContext } from "./eval-context.js";
 import { composeForces, createForceRegistry, type ForceModel } from "./forces.js";
+import { gravityQuadraticDragJacobian, isGravityQuadraticDragOnly } from "./jacobian.js";
 import type { Model } from "./model.js";
 import type { ChannelMeta } from "./schema.js";
 import { norm } from "./vec2.js";
@@ -22,10 +23,21 @@ const VY = 3;
  * the first Model SolverKit will integrate — deliberately just a Model, with
  * no special status in the engine (§1.4).
  */
-export function createPlanarProjectileModel(forces: readonly ForceModel[]): Model {
+/**
+ * `jacobianCtx`, if supplied, is used to attach an analytic `jacobian` when
+ * `forces` is exactly gravity+quadratic-drag (P1.22) — the Model.jacobian
+ * signature carries no ctx of its own (§5.1), so the closure needs one bound
+ * at construction time. Any other force combination (Magnus, buoyancy,
+ * linear drag, ...) leaves `jacobian` undefined; SolverKit falls back to
+ * finite differences (P1.23).
+ */
+export function createPlanarProjectileModel(
+  forces: readonly ForceModel[],
+  jacobianCtx?: EvalContext,
+): Model {
   const registry = createForceRegistry(forces);
 
-  return {
+  const model: Model = {
     dim: 4,
     channels: PLANAR_CHANNELS,
     rhs(t: number, y: Float64Array, out: Float64Array, ctx: EvalContext): void {
@@ -50,4 +62,15 @@ export function createPlanarProjectileModel(forces: readonly ForceModel[]): Mode
       out[VY] = ctx.forceAccum[1] / ctx.params.mass;
     },
   };
+
+  if (jacobianCtx && isGravityQuadraticDragOnly(registry)) {
+    return {
+      ...model,
+      jacobian(t: number, y: Float64Array, out: Float64Array): void {
+        gravityQuadraticDragJacobian(t, y, out, jacobianCtx);
+      },
+    };
+  }
+
+  return model;
 }

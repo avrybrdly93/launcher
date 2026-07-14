@@ -442,8 +442,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "matches central finite differences to 1e-7 at 10 states",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "packages/engine/src/jacobian.ts: gravityQuadraticDragJacobian, valid for spatially-uniform environment + Re/Mach-independent Cd (the default scenario config); createPlanarProjectileModel attaches it as Model.jacobian only when the force registry is exactly {gravity, drag-quadratic}. Verified against central FD to 1e-7 at 10 states plus edge/eigenvalue-structure checks in jacobian.test.ts."
     },
     {
       "id": "P1.23",
