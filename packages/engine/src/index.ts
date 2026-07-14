@@ -8,6 +8,7 @@ export * from "./pchip.js";
 export * from "./drag-coefficient.js";
 export * from "./lift-coefficient.js";
 export * from "./projectile-params.js";
+export * from "./energy-invariant.js";
 export * from "./eval-context.js";
 export * from "./finite-difference-jacobian.js";
 export * from "./forces.js";

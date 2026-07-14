@@ -1,3 +1,4 @@
+import { createEnergyInvariant } from "./energy-invariant.js";
 import type { EvalContext } from "./eval-context.js";
 import { composeForces, createForceRegistry, type ForceModel } from "./forces.js";
 import { gravityQuadraticDragJacobian, isGravityQuadraticDragOnly } from "./jacobian.js";
@@ -40,6 +41,7 @@ export function createPlanarProjectileModel(
   const model: Model = {
     dim: 4,
     channels: PLANAR_CHANNELS,
+    invariants: [createEnergyInvariant()],
     rhs(t: number, y: Float64Array, out: Float64Array, ctx: EvalContext): void {
       const x = y[X]!;
       const yPos = y[Y]!;

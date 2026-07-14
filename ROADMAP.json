@@ -464,8 +464,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "drag-off: dE/dt from powers \u2261 0 to 1e-13",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "packages/engine/src/energy-invariant.ts: createEnergyInvariant() (E=(1/2)m|v|^2+mgy, wired onto createPlanarProjectileModel's Model.invariants) and energyRateFromPowers(forces,t,y,ctx), which sums each force's energyPower plus the potential-energy rate mg*vy so dE/dt reduces to eq. 3.19 (F_aero.v only, since gravity's power cancels mg*vy exactly). Verified: drag-off dE/dt=0 to 1e-13 at 10 states, drag-on-in-still-air dE/dt<=0, Magnus-only dE/dt=0 (F_M perp v_rel)."
     },
     {
       "id": "P1.25",
