@@ -453,8 +453,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "matches P1.22 analytic where available",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added finiteDifferenceJacobian in jacobian.ts: central differences on any Model.rhs with Dennis-Schnabel-scaled per-component step h_j = sqrt(eps)*max(|y_j|,1). Zero-allocation when a reusable FiniteDifferenceJacobianScratch is supplied (created via createFiniteDifferenceJacobianScratch); allocates its own scratch once per call otherwise. jacobian.test.ts verifies it matches the P1.22 analytic gravityQuadraticDragJacobian at 10 states for both ConstantCd and the tabulated drag-crisis region, is exact for a pure-gravity model, and gives identical results with/without a reused scratch buffer."
     },
     {
       "id": "P1.24",

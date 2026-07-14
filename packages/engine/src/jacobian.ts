@@ -1,4 +1,5 @@
 import type { EvalContext } from "./eval-context.js";
+import type { Model } from "./model.js";
 import { norm } from "./vec2.js";
 
 const X = 0;
@@ -80,4 +81,71 @@ export function gravityQuadraticDragJacobian(
   outJ[rowVx + VY] = -(dkDs * ux * uy) / s;
   outJ[rowVy + VX] = -(dkDs * uy * ux) / s;
   outJ[rowVy + VY] = -k - (dkDs * uy * uy) / s;
+}
+
+/** Reused scratch buffers for `finiteDifferenceJacobian`, sized to a model's state dimension. */
+export interface FiniteDifferenceJacobianScratch {
+  readonly yPerturbed: Float64Array;
+  readonly fPlus: Float64Array;
+  readonly fMinus: Float64Array;
+}
+
+export function createFiniteDifferenceJacobianScratch(
+  dim: number,
+): FiniteDifferenceJacobianScratch {
+  return {
+    yPerturbed: new Float64Array(dim),
+    fPlus: new Float64Array(dim),
+    fMinus: new Float64Array(dim),
+  };
+}
+
+/** sqrt(machine epsilon): the classical central-difference step-scale (Dennis & Schnabel). */
+const FD_STEP_SCALE = Math.sqrt(Number.EPSILON);
+
+/**
+ * Generic central-difference Jacobian J = ∂f/∂y (row-major `dim×dim`) for
+ * *any* `Model.rhs`, used where no analytic Jacobian is available and as the
+ * ground truth an analytic Jacobian (e.g. P1.22) is checked against (P1.23).
+ *
+ * Each state component gets its own **scaled** step
+ * `h_j = sqrt(eps) * max(|y_j|, 1)`: a component near zero still gets an
+ * O(1) step rather than one so small central differencing is pure rounding
+ * noise, while a large component's step grows with its magnitude so the
+ * relative perturbation — and thus the truncation/roundoff trade-off —
+ * stays consistent across wildly different state scales (position in
+ * meters vs. velocity in m/s).
+ *
+ * Zero-allocation when `scratch` is supplied (reuse one
+ * `FiniteDifferenceJacobianScratch` across repeated calls, e.g. Newton
+ * iterations in an implicit stepper); omitting it allocates scratch once
+ * per call, which is fine for occasional (non-hot-path) use.
+ */
+export function finiteDifferenceJacobian(
+  model: Model,
+  t: number,
+  y: Float64Array,
+  outJ: Float64Array,
+  ctx: EvalContext,
+  scratch: FiniteDifferenceJacobianScratch = createFiniteDifferenceJacobianScratch(model.dim),
+): void {
+  const n = model.dim;
+  const { yPerturbed, fPlus, fMinus } = scratch;
+  yPerturbed.set(y);
+
+  for (let j = 0; j < n; j++) {
+    const yj = y[j]!;
+    const h = FD_STEP_SCALE * Math.max(Math.abs(yj), 1);
+
+    yPerturbed[j] = yj + h;
+    model.rhs(t, yPerturbed, fPlus, ctx);
+    yPerturbed[j] = yj - h;
+    model.rhs(t, yPerturbed, fMinus, ctx);
+    yPerturbed[j] = yj;
+
+    const inv2h = 1 / (2 * h);
+    for (let i = 0; i < n; i++) {
+      outJ[i * n + j] = (fPlus[i]! - fMinus[i]!) * inv2h;
+    }
+  }
 }
