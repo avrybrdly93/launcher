@@ -475,8 +475,8 @@
       "estMinutes": 30,
       "difficulty": "E",
       "validation": "assets validate; each has provenance string",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "packages/engine/src/projectile-spec.ts: ProjectileSpecSchema (zod) with discriminated-union DragCoefficientSpec (constant | tabulated-reynolds) and optional LiftCoefficientSpec, mirroring §3.9's (m,R,Cd-model,CL-model,tau_omega,provenance) tuple. packages/engine/src/projectile-assets.ts: the 7 initial assets (smooth-sphere, golf-ball, soccer-ball, baseball, table-tennis-ball, cannonball, shot-put) each with a cited provenance string. Verified: all 7 parse against the schema, all carry non-empty provenance, ids unique; schema unit tests cover accept/reject cases (bad mass, missing provenance, unknown Cd kind)."
     },
     {
       "id": "P1.26",
