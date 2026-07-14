@@ -508,8 +508,8 @@
       "estMinutes": 10,
       "difficulty": "E",
       "validation": "\u03b7(288.15K)=1.789e\u22125\u00b11%",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added sutherlandViscosity(T) to units.ts using the existing SUTHERLAND constants (etaRef, Tref=288.15K, S=110.4K). units.test.ts covers the eta(288.15K) within-1% criterion, the exact eta(Tref)=etaRef collapse, monotonic increase over 200-400K, and a published eta(300K)~1.846e-5 reference check. Not yet wired into an Atmosphere impl -- that's the Phase-4 ISA-troposphere lapse-rate model (\u00a73.4 eq 3.11), out of this task's scope."
     },
     {
       "id": "P1.29",
