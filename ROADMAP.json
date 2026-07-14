@@ -475,8 +475,8 @@
       "estMinutes": 30,
       "difficulty": "E",
       "validation": "assets validate; each has provenance string",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added projectile-spec.ts (ProjectileSpecSchema: id/name/mass/radius/dragModel(constant|tabulated-smooth-sphere)/liftModel(saturating)?/spinDecayTau?/provenance, zod-validated, + resolveProjectileSpec() realizing a spec into runtime ProjectileParams) and projectile-assets.ts (the 7 §3.9 assets: smooth-sphere, golf-ball, soccer-ball, baseball, table-tennis-ball, cannonball, shot-put, each with a real-world citation in provenance). projectile-spec.test.ts covers schema parse/reject cases + resolve(); projectile-assets.test.ts validates every asset against the schema, checks non-empty provenance, unique ids, and physically sane resolved params."
     },
     {
       "id": "P1.26",
