@@ -442,8 +442,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "matches central finite differences to 1e-7 at 10 states",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added jacobian.ts: gravityQuadraticDragJacobian(t,y,out,ctx) returns the row-major 4x4 df/dy for gravity+quadratic-drag (no Magnus), analytic in v (kd*(u+u_i^2/u) terms) with the u->0 kink guarded to 0 like the rhs itself. Scope note: treats Cd as locally constant (exact for ConstantCd; P1.23 FD fallback covers Cd(Re)) and assumes position/time-independent environment fields (default ConstantAtmosphere + non-altitude UniformGravity + uniform/zero wind), matching the task's title scope. jacobian.test.ts compares against a central-difference Jacobian of the model rhs at 10 states to 1e-7, plus a v_rel=0 finiteness check."
     },
     {
       "id": "P1.23",
