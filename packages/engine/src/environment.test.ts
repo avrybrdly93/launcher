@@ -5,6 +5,7 @@ import {
   Environment,
   ExponentialAtmosphere,
   LogProfileWind,
+  SinusoidalGustWind,
   UniformGravity,
   UniformWind,
   ZeroWind,
@@ -132,6 +133,39 @@ describe("LogProfileWind (eq. 3.13)", () => {
     wind.sample(0, 0, 1, low);
     wind.sample(0, 0, 10, high);
     expect(high.wx).toBeGreaterThan(low.wx);
+  });
+});
+
+describe("SinusoidalGustWind", () => {
+  it("matches wx(t) = mean + amplitude*sin(omega*t + phase) at sampled t (P1.31 validation criterion)", () => {
+    const mean = 3;
+    const amplitude = 2;
+    const omega = 1.7;
+    const phase = 0.4;
+    const wind = new SinusoidalGustWind(mean, amplitude, omega, phase);
+    const out = new EnvSample();
+    for (const t of [0, 0.5, 1.3, -2.1, 10]) {
+      wind.sample(t, 0, 0, out);
+      const expected = mean + amplitude * Math.sin(omega * t + phase);
+      expect(out.wx).toBeCloseTo(expected, 14);
+      expect(out.wy).toBe(0);
+    }
+  });
+
+  it("defaults phase to 0", () => {
+    const wind = new SinusoidalGustWind(0, 1, Math.PI / 2);
+    const out = new EnvSample();
+    wind.sample(1, 0, 0, out);
+    expect(out.wx).toBeCloseTo(Math.sin(Math.PI / 2), 14);
+  });
+
+  it("is independent of position", () => {
+    const wind = new SinusoidalGustWind(1, 1, 1, 0);
+    const outA = new EnvSample();
+    const outB = new EnvSample();
+    wind.sample(2, 0, 0, outA);
+    wind.sample(2, 500, -500, outB);
+    expect(outB.wx).toBe(outA.wx);
   });
 });
 
