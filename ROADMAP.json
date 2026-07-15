@@ -453,8 +453,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "matches P1.22 analytic where available",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Implemented finiteDifferenceJacobian + createFiniteDifferenceJacobian in packages/engine/src/jacobian.ts: dim-generic central-difference Jacobian for any Model, magnitude-scaled per-component step (h*max(1,|y_j|)), caller-owned scratch buffers for zero-alloc reuse. Verified against P1.22 analytic Jacobian to 1e-6 at the same 10 states, plus a generic 2-state decay model sanity check (jacobian.test.ts)."
     },
     {
       "id": "P1.24",

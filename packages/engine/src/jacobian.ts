@@ -1,4 +1,5 @@
 import type { EvalContext } from "./eval-context.js";
+import type { Model } from "./model.js";
 
 const X = 0;
 const Y = 1;
@@ -82,4 +83,77 @@ export function createGravityQuadraticDragJacobian(
   ctx: EvalContext,
 ): (t: number, y: Float64Array, out: Float64Array) => void {
   return (t, y, out) => gravityQuadraticDragJacobian(t, y, ctx, out);
+}
+
+/**
+ * Default relative step for `finiteDifferenceJacobian`'s central differences.
+ * Balances truncation error (O(h^2)) against floating-point cancellation
+ * (O(eps/h)); the optimal central-difference step is O(eps^(1/3)) ~ 6e-6 for
+ * double precision, so 1e-6 sits comfortably in the flat part of that curve.
+ */
+const DEFAULT_FD_STEP = 1e-6;
+
+/**
+ * Generic central-difference Jacobian (P1.23), the fallback for any `Model`
+ * that has no analytic `jacobian` (or as an independent check on one that
+ * does, per P1.22's validation criterion). Each state component gets its
+ * own step, scaled by that component's magnitude (`h * max(1, |y_j|)`) so
+ * near-zero and large components are both perturbed sensibly.
+ *
+ * `out` must hold `dim*dim` entries, row-major (`out[i*dim + j] = ∂f_i/∂y_j`).
+ * `scratchY`/`scratchFPlus`/`scratchFMinus` are caller-owned `dim`-length
+ * buffers reused across calls to keep this allocation-free (ADR-004);
+ * `createFiniteDifferenceJacobian` allocates and closes over them for the
+ * common case of repeated calls against one model.
+ */
+export function finiteDifferenceJacobian(
+  model: Model,
+  t: number,
+  y: Float64Array,
+  ctx: EvalContext,
+  out: Float64Array,
+  scratchY: Float64Array,
+  scratchFPlus: Float64Array,
+  scratchFMinus: Float64Array,
+  h = DEFAULT_FD_STEP,
+): void {
+  const dim = model.dim;
+  scratchY.set(y);
+
+  for (let j = 0; j < dim; j++) {
+    const yj = y[j]!;
+    const step = h * Math.max(1, Math.abs(yj));
+
+    scratchY[j] = yj + step;
+    model.rhs(t, scratchY, scratchFPlus, ctx);
+
+    scratchY[j] = yj - step;
+    model.rhs(t, scratchY, scratchFMinus, ctx);
+
+    scratchY[j] = yj;
+
+    const invTwoStep = 1 / (2 * step);
+    for (let i = 0; i < dim; i++) {
+      out[i * dim + j] = (scratchFPlus[i]! - scratchFMinus[i]!) * invTwoStep;
+    }
+  }
+}
+
+/**
+ * Binds `finiteDifferenceJacobian` to a fixed `model`/`ctx` pair and
+ * preallocated scratch buffers, matching `Model.jacobian`'s `(t, y, out)`
+ * shape (§3.7) for direct assignment as a fallback when no analytic
+ * Jacobian is available.
+ */
+export function createFiniteDifferenceJacobian(
+  model: Model,
+  ctx: EvalContext,
+  h = DEFAULT_FD_STEP,
+): (t: number, y: Float64Array, out: Float64Array) => void {
+  const scratchY = new Float64Array(model.dim);
+  const scratchFPlus = new Float64Array(model.dim);
+  const scratchFMinus = new Float64Array(model.dim);
+
+  return (t, y, out) =>
+    finiteDifferenceJacobian(model, t, y, ctx, out, scratchY, scratchFPlus, scratchFMinus, h);
 }

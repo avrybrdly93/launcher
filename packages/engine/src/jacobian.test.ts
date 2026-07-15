@@ -5,7 +5,13 @@ import { ConstantCd, TabulatedReynoldsCd } from "./drag-coefficient.js";
 import { createSphericalProjectileParams } from "./projectile-params.js";
 import { GravityForce, QuadraticDragForce } from "./forces.js";
 import { createPlanarProjectileModel } from "./planar-projectile-model.js";
-import { createGravityQuadraticDragJacobian, gravityQuadraticDragJacobian } from "./jacobian.js";
+import type { Model } from "./model.js";
+import {
+  createFiniteDifferenceJacobian,
+  createGravityQuadraticDragJacobian,
+  finiteDifferenceJacobian,
+  gravityQuadraticDragJacobian,
+} from "./jacobian.js";
 
 const STATES: [number, number, number, number][] = [
   [0, 0, 12.3, 4.1],
@@ -155,5 +161,75 @@ describe("gravityQuadraticDragJacobian", () => {
 
     const diff = Math.abs(analytic[2 * 4 + 2]! - fd[2 * 4 + 2]!);
     expect(diff).toBeGreaterThan(1e-6);
+  });
+});
+
+describe("finiteDifferenceJacobian", () => {
+  const mass = 0.145;
+  const radius = 0.0366;
+  const model = createPlanarProjectileModel([new GravityForce(), new QuadraticDragForce()]);
+  const env = new Environment(new ConstantAtmosphere(), new UniformGravity(), new ZeroWind());
+  const params = createSphericalProjectileParams({
+    mass,
+    radius,
+    dragCoefficient: new ConstantCd(0.47),
+  });
+  const ctx = createEvalContext(env, params);
+
+  it("matches the P1.22 analytic Jacobian where available", () => {
+    const boundFd = createFiniteDifferenceJacobian(model, ctx);
+
+    for (const state of STATES) {
+      const y = new Float64Array(state);
+      const analytic = new Float64Array(16);
+      const fd = new Float64Array(16);
+      gravityQuadraticDragJacobian(0, y, ctx, analytic);
+      boundFd(0, y, fd);
+
+      for (let k = 0; k < 16; k++) {
+        expect(fd[k]!).toBeCloseTo(analytic[k]!, 6);
+      }
+    }
+  });
+
+  it("does not mutate the caller's state vector", () => {
+    const y = new Float64Array([10, 5, -8.2, 15.6]);
+    const original = Float64Array.from(y);
+    const out = new Float64Array(16);
+    finiteDifferenceJacobian(
+      model,
+      0,
+      y,
+      ctx,
+      out,
+      new Float64Array(4),
+      new Float64Array(4),
+      new Float64Array(4),
+    );
+    expect(Array.from(y)).toEqual(Array.from(original));
+  });
+
+  it("works on an arbitrary generic Model (dy/dt = -k*y decay, dim 2)", () => {
+    const k = [0.3, 2.5];
+    const decayModel: Model = {
+      dim: 2,
+      channels: [
+        { name: "a", unit: "1" },
+        { name: "b", unit: "1" },
+      ],
+      rhs(_t, y, out) {
+        out[0] = -k[0]! * y[0]!;
+        out[1] = -k[1]! * y[1]!;
+      },
+    };
+    const boundFd = createFiniteDifferenceJacobian(decayModel, ctx);
+    const out = new Float64Array(4);
+    boundFd(0, new Float64Array([2, -3]), out);
+
+    // Diagonal: -k_i; off-diagonal: 0 (decoupled system).
+    expect(out[0 * 2 + 0]).toBeCloseTo(-k[0]!, 6);
+    expect(out[0 * 2 + 1]).toBeCloseTo(0, 6);
+    expect(out[1 * 2 + 0]).toBeCloseTo(0, 6);
+    expect(out[1 * 2 + 1]).toBeCloseTo(-k[1]!, 6);
   });
 });
