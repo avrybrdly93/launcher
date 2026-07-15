@@ -79,6 +79,19 @@ export class ZeroWind implements WindModel {
   }
 }
 
+/** Uniform steady wind, slider-controlled: w = (wx, wy) constant everywhere (§3.5 case 1). */
+export class UniformWind implements WindModel {
+  constructor(
+    private readonly wx: number,
+    private readonly wy: number = 0,
+  ) {}
+
+  sample(_t: number, _x: number, _y: number, out: EnvSample): void {
+    out.wx = this.wx;
+    out.wy = this.wy;
+  }
+}
+
 /**
  * Composes an Atmosphere + GravityModel + WindModel into the single
  * `Environment` the engine exports (§2.2 module table). `sample` is called

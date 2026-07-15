@@ -519,8 +519,8 @@
       "estMinutes": 10,
       "difficulty": "E",
       "validation": "w constant everywhere",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added UniformWind to environment.ts implementing the existing WindModel interface: constant (wx,wy) everywhere (\u00a73.5 case 1). Verified constant across sampled (t,x,y), and default wy=0 (environment.test.ts)."
     },
     {
       "id": "P1.30",
