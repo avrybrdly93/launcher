@@ -442,8 +442,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "matches central finite differences to 1e-7 at 10 states",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Standalone gravityQuadraticDragJacobian(t,y,ctx,out) in engine/src/jacobian.ts (row-major 4x4, not wired to Model.jacobian since that interface omits ctx and this formula is only exact for gravity+quadratic-drag alone). rho/Cd/wind frozen at the eval point when differentiating -- exact under ConstantAtmosphere+ConstantCd+position-independent wind (the Phase-1 default), frozen-coefficient approximation otherwise. Guards u=v_rel->0 to an exact zero gradient (C1 kink, no NaN)."
     },
     {
       "id": "P1.23",
