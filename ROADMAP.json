@@ -486,8 +486,8 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "corrupt fixture rejected with useful error",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "schema.ts gains loadJsonAsset(schema, json): parses a JSON-string fixture and validates it against a zod Schema, wrapping a JSON.parse SyntaxError in the same SchemaValidationError type schema violations use (rather than leaking a bare SyntaxError). Tested generically in schema.test.ts and against the real ProjectileSpecSchema in projectile-assets.test.ts: truncated JSON, a wrong-typed field (mass as a string), and a missing required field (provenance) are each rejected with a SchemaValidationError whose message names the offending field/reason."
     },
     {
       "id": "P1.27",

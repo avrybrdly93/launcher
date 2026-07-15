@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SchemaValidationError, parseWithSchema } from "./schema.js";
+import { loadJsonAsset, SchemaValidationError, parseWithSchema } from "./schema.js";
 import {
   createProjectileParamsFromSpec,
   PROJECTILE_ASSETS,
@@ -91,5 +91,56 @@ describe("ProjectileSpecSchema (P1.25 asset-loader validation)", () => {
       provenance: "test fixture",
     };
     expect(() => parseWithSchema(ProjectileSpecSchema, invalid)).toThrow(SchemaValidationError);
+  });
+});
+
+describe("loadJsonAsset(ProjectileSpecSchema, ...) (P1.26 build-time asset loading)", () => {
+  it("loads a well-formed serialized projectile fixture", () => {
+    const json = JSON.stringify(PROJECTILE_ASSETS[0]);
+    expect(loadJsonAsset(ProjectileSpecSchema, json)).toEqual(PROJECTILE_ASSETS[0]);
+  });
+
+  it("rejects a syntactically corrupt fixture with a useful error", () => {
+    const corrupt = '{ "name": "broken", "mass": 1, '; // truncated JSON
+    try {
+      loadJsonAsset(ProjectileSpecSchema, corrupt);
+      expect.unreachable();
+    } catch (err) {
+      expect(err).toBeInstanceOf(SchemaValidationError);
+      expect((err as SchemaValidationError).message).toMatch(/not valid JSON/);
+    }
+  });
+
+  it("rejects a well-formed but schema-invalid fixture, naming the offending field", () => {
+    const corrupt = JSON.stringify({
+      name: "broken-fixture",
+      mass: "heavy", // should be a number
+      radius: 0.05,
+      dragCoefficient: { kind: "constant", cd: 0.47 },
+      provenance: "test fixture",
+    });
+    try {
+      loadJsonAsset(ProjectileSpecSchema, corrupt);
+      expect.unreachable();
+    } catch (err) {
+      expect(err).toBeInstanceOf(SchemaValidationError);
+      expect((err as SchemaValidationError).message).toMatch(/mass/);
+    }
+  });
+
+  it("rejects a fixture missing its provenance citation", () => {
+    const corrupt = JSON.stringify({
+      name: "broken-fixture",
+      mass: 1,
+      radius: 0.05,
+      dragCoefficient: { kind: "constant", cd: 0.47 },
+    });
+    try {
+      loadJsonAsset(ProjectileSpecSchema, corrupt);
+      expect.unreachable();
+    } catch (err) {
+      expect(err).toBeInstanceOf(SchemaValidationError);
+      expect((err as SchemaValidationError).message).toMatch(/provenance/);
+    }
   });
 });

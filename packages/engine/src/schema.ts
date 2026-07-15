@@ -38,3 +38,23 @@ export function parseWithSchema<T>(schema: Schema<T>, data: unknown): T {
   }
   return result.data;
 }
+
+/**
+ * Parses a serialized (JSON-string) asset fixture against `schema` (P1.26) —
+ * the loader §3.9 refers to when it says "the asset loader validates schemas
+ * (zod) at build time." Malformed JSON and schema violations both surface as
+ * a `SchemaValidationError` with a field-level, human-readable message,
+ * rather than a bare `SyntaxError` or a generic zod dump.
+ */
+export function loadJsonAsset<T>(schema: Schema<T>, json: string): T {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(json);
+  } catch (err) {
+    throw new SchemaValidationError(
+      `Asset fixture is not valid JSON: ${(err as Error).message}`,
+      [],
+    );
+  }
+  return parseWithSchema(schema, raw);
+}
