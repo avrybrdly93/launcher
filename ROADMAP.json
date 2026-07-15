@@ -453,8 +453,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "matches P1.22 analytic where available",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "finiteDifferenceJacobian(model,t,y,ctx,out,scratch) in engine/src/fd-jacobian.ts: generic central-difference Jacobian for any Model, Dennis-Schnabel scaled step h_j=cbrt(eps)*max(|y_j|,1). Caller-owned FdJacobianScratch keeps it allocation-free across repeated calls (verified, same harness as P1.21). Matches gravityQuadraticDragJacobian to 1e-6 at the same 10 states used in P1.22."
     },
     {
       "id": "P1.24",
