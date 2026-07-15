@@ -464,8 +464,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "drag-off: dE/dt from powers \u2261 0 to 1e-13",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "engine/src/energy.ts: mechanicalEnergy(t,y,ctx)=0.5*m|v|^2+mgy and ENERGY_INVARIANT (InvariantSpec, name='energy') wrap it for Model.invariants. aeroPower(forces,t,y,ctx) sums energyPower() over a caller-supplied non-gravity force subset per eq 3.19 (gravity's power is already folded into E's potential term -- summing it too would double-count, tested explicitly). Verified all three \u00a73.8 checks: all-aero-off and Cd=0 give exactly 0, Magnus-only in still air gives 0 to 1e-13 (the task's literal validation criterion), drag-on-in-still-air is monotone non-positive."
     },
     {
       "id": "P1.25",
