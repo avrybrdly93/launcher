@@ -453,8 +453,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "matches P1.22 analytic where available",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "createFiniteDifferenceJacobian(model) in finite-difference-jacobian.ts: central differences with a per-component scaled step (relativeStep=cbrt(machine eps) * max(|y_j|, absoluteFloor=1)), scratch buffers preallocated at construction so repeated calls (Newton iterations) don't allocate. Works for any Model, not just the planar projectile. Matches P1.22's analytic gravity+quadratic-drag jacobian to ~1e-7 at the same 10 states; also exercised as the fallback for a Magnus-inclusive model (where Model.jacobian is undefined) and against a trivial dy/dt=-y model."
     },
     {
       "id": "P1.24",
