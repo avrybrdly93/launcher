@@ -442,8 +442,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "matches central finite differences to 1e-7 at 10 states",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added jacobian.ts: createGravityQuadraticDragJacobian(environment, params) returns a (t,y,out)=>void closing over env/params, row-major out[row*4+col]. Exact (not approximate) when rho/Cd/wind are state-independent at the sampled point (ConstantAtmosphere, non-altitude UniformGravity, ConstantCd, Zero/uniform wind) -- the drag block is -k*(u*I + outer(u_rel,u_rel)/u), zero at u=0 (C1 kink per Sec. 3.8). jacobian.test.ts validates against a central-FD oracle (scaled step h=1e-6*max(1,|y_j|)) at 10 states away from the u=0 kink, all diffs < 1e-7."
     },
     {
       "id": "P1.23",
