@@ -20,6 +20,15 @@ export const SUTHERLAND = {
 
 export const EARTH_RADIUS_M = 6.371e6;
 
+/** Dynamic viscosity via Sutherland's law (§3.4, eq. 3.12). */
+export function sutherlandViscosity(T: number): number {
+  return (
+    SUTHERLAND.etaRef *
+    Math.pow(T / SUTHERLAND.Tref, 1.5) *
+    ((SUTHERLAND.Tref + SUTHERLAND.S) / (T + SUTHERLAND.S))
+  );
+}
+
 export function degToRad(deg: number): number {
   return (deg * Math.PI) / 180;
 }
