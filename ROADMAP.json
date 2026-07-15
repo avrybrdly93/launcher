@@ -453,8 +453,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "matches P1.22 analytic where available",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added finite-difference-jacobian.ts: createFiniteDifferenceJacobian(model, ctx, options?) is generic over any Model (calls model.rhs, not projectile-specific), central-difference with per-component step h_j = max(minStep, relativeStep*|y_j|), default relativeStep = cbrt(machine epsilon) (~6.06e-6), default minStep = 1e-8. Scratch buffers (yPerturbed/fPlus/fMinus) are captured once by the closure so repeated calls (e.g. per Newton iteration in the future backward-Euler solver, P2.38) stay allocation-free. finite-difference-jacobian.test.ts checks it against the P1.22 analytic Jacobian on the gravity+quadratic-drag model at the same 10 states plus a magnitude-mismatched state (position ~500 vs velocity ~0.02) to exercise the scaled-step behavior; all diffs < 1e-6."
     },
     {
       "id": "P1.24",
