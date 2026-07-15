@@ -475,8 +475,8 @@
       "estMinutes": 30,
       "difficulty": "E",
       "validation": "assets validate; each has provenance string",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "engine/src/projectile-spec.ts: zod ProjectileSpecSchema (mass, radius, drag/lift-coefficient specs, optional spinDecayTau placeholder for future spin-decay wiring, provenance) plus PROJECTILE_ASSETS with all 7 roster entries (smooth-sphere, golf-ball, soccer-ball, baseball, table-tennis-ball, cannonball, shot-put) each carrying a citation string. resolveProjectileSpec() bridges an asset to runtime ProjectileParams via the existing DragCoefficientModel/LiftCoefficientModel classes. soccer-ball reuses the exact mass/radius/Cd from the P1.16 buoyancy fixture; cannonball uses TabulatedReynoldsCd to exercise the drag-crisis model. Build-time-validation loader with corrupt-fixture rejection is P1.26, not yet done."
     },
     {
       "id": "P1.26",
