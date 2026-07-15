@@ -1,5 +1,14 @@
 import { EnvSample } from "./env-sample.js";
-import { EARTH_RADIUS_M, G_STD, ISA } from "./units.js";
+import { EARTH_RADIUS_M, G_STD, ISA, SUTHERLAND } from "./units.js";
+
+/** Sutherland's law: eta(T) = etaRef * (T/Tref)^1.5 * (Tref+S)/(T+S) (§3.4, eq. 3.12). */
+export function sutherlandViscosity(T: number): number {
+  return (
+    SUTHERLAND.etaRef *
+    Math.pow(T / SUTHERLAND.Tref, 1.5) *
+    ((SUTHERLAND.Tref + SUTHERLAND.S) / (T + SUTHERLAND.S))
+  );
+}
 
 /** Fills the thermodynamic fields of an EnvSample (rho, T, p, eta, c) at a point (§3.4). */
 export interface Atmosphere {
@@ -29,6 +38,30 @@ export class ConstantAtmosphere implements Atmosphere {
   }
 }
 
+/**
+ * Isothermal exponential atmosphere: rho(y) = rho0 * e^(-y/H) (§3.4).
+ * Temperature is held at the isothermal reference T0, so pressure follows
+ * the same exponential (ideal gas law at constant T: p = rho*Rs*T) and
+ * viscosity is Sutherland's law evaluated at that constant T.
+ */
+export class ExponentialAtmosphere implements Atmosphere {
+  private static readonly GAMMA = 1.4;
+
+  constructor(
+    private readonly rho0: number = ISA.rho0,
+    private readonly scaleHeight: number = ISA.scaleHeight,
+  ) {}
+
+  sample(_x: number, y: number, out: EnvSample): void {
+    const decay = Math.exp(-y / this.scaleHeight);
+    out.rho = this.rho0 * decay;
+    out.T = ISA.T0;
+    out.p = ISA.p0 * decay;
+    out.eta = sutherlandViscosity(out.T);
+    out.c = Math.sqrt(ExponentialAtmosphere.GAMMA * ISA.Rs * ISA.T0);
+  }
+}
+
 /** Uniform gravity, optionally with the altitude correction (3.3) behind a flag. */
 export class UniformGravity implements GravityModel {
   constructor(
@@ -51,6 +84,19 @@ export class ZeroWind implements WindModel {
   sample(_t: number, _x: number, _y: number, out: EnvSample): void {
     out.wx = 0;
     out.wy = 0;
+  }
+}
+
+/** Uniform steady wind, slider-controlled per §3.5 case 1: w = (wx, wy) constant in time and space. */
+export class UniformSteadyWind implements WindModel {
+  constructor(
+    private readonly wx: number,
+    private readonly wy: number = 0,
+  ) {}
+
+  sample(_t: number, _x: number, _y: number, out: EnvSample): void {
+    out.wx = this.wx;
+    out.wy = this.wy;
   }
 }
 

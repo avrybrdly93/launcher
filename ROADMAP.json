@@ -497,8 +497,8 @@
       "estMinutes": 10,
       "difficulty": "E",
       "validation": "\u03c1(H)=\u03c1\u2080/e to 1e-15",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "ExponentialAtmosphere added to engine/src/environment.ts (Atmosphere impl), rho0/scaleHeight defaulting to ISA.rho0/ISA.scaleHeight (8500m, already in units.ts). Isothermal: T held at ISA.T0, p follows the same exponential via ideal-gas-law consistency, eta derived from the new sutherlandViscosity(T) (P1.28)."
     },
     {
       "id": "P1.28",
@@ -508,8 +508,8 @@
       "estMinutes": 10,
       "difficulty": "E",
       "validation": "\u03b7(288.15K)=1.789e\u22125\u00b11%",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "sutherlandViscosity(T) added to engine/src/environment.ts using the existing SUTHERLAND reference constants (units.ts). Wired into ExponentialAtmosphere.sample (P1.27) rather than left orphaned. eta(Tref) reproduces etaRef exactly by construction; eta(288.15K) matches 1.789e-5 well inside 1%."
     },
     {
       "id": "P1.29",
@@ -519,8 +519,8 @@
       "estMinutes": 10,
       "difficulty": "E",
       "validation": "w constant everywhere",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "The blueprint's `WindField` interface was already implemented as `WindModel` in engine/src/environment.ts (earlier task), with ZeroWind as the w=0 special case. This task adds UniformSteadyWind(wx, wy=0), the general nonzero-constant wind (§3.5 case 1), verified constant across varied (t,x,y)."
     },
     {
       "id": "P1.30",
