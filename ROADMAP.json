@@ -486,8 +486,8 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "corrupt fixture rejected with useful error",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "engine/src/projectile-spec.ts: loadProjectileSpec(data: unknown) is the generic loader (parseWithSchema over ProjectileSpecSchema), and a top-level `PROJECTILE_ASSETS.forEach(loadProjectileSpec)` runs at module load so a malformed built-in asset throws SchemaValidationError immediately on import (build-time, in this repo's toolchain sense: any test/build/dev-server import fails loudly). Covered corrupt fixtures: missing required field, negative mass, empty provenance, unrecognized drag-coefficient discriminant, wrong-typed field (string mass, not coerced), and non-object input (null/array/primitive) -- each asserts SchemaValidationError with the offending field named in the message."
     },
     {
       "id": "P1.27",

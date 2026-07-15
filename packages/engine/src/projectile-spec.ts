@@ -65,6 +65,17 @@ function resolveLiftCoefficient(spec: LiftCoefficientSpec): LiftCoefficientModel
   return new SaturatingLiftCoefficient(spec.maxCl, spec.slope);
 }
 
+/**
+ * The asset loader (P1.26): validates arbitrary input -- a parsed JSON
+ * fixture, a hand-authored literal, anything from outside the type system --
+ * against `ProjectileSpecSchema`, throwing `SchemaValidationError` (with the
+ * offending field path and reason) on anything malformed rather than letting
+ * a bad asset surface later as a silent physics bug.
+ */
+export function loadProjectileSpec(data: unknown): ProjectileSpec {
+  return parseWithSchema(ProjectileSpecSchema, data);
+}
+
 /** Resolves a schema-validated `ProjectileSpec` asset into the runtime `ProjectileParams` the engine consumes. */
 export function resolveProjectileSpec(spec: ProjectileSpec): ProjectileParams {
   return createSphericalProjectileParams({
@@ -151,7 +162,13 @@ export const PROJECTILE_ASSETS: readonly ProjectileSpec[] = [
   },
 ] as const;
 
+// Build-time validation (P1.26): run the loader over every built-in asset as
+// soon as this module is imported, so a malformed roster entry fails loudly
+// wherever the engine is first loaded (tests, dev server, app build) instead
+// of surfacing later as a silent physics bug.
+PROJECTILE_ASSETS.forEach(loadProjectileSpec);
+
 /** Validates every entry in `PROJECTILE_ASSETS` and returns them typed; throws `SchemaValidationError` on the first invalid asset. */
 export function validateProjectileAssets(): readonly ProjectileSpec[] {
-  return PROJECTILE_ASSETS.map((asset) => parseWithSchema(ProjectileSpecSchema, asset));
+  return PROJECTILE_ASSETS.map(loadProjectileSpec);
 }

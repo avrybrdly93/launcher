@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { SchemaValidationError } from "./schema.js";
 import {
+  loadProjectileSpec,
   PROJECTILE_ASSETS,
   ProjectileSpecSchema,
   resolveProjectileSpec,
@@ -72,5 +74,79 @@ describe("PROJECTILE_ASSETS", () => {
   it("the cannonball asset uses the tabulated-Reynolds drag model (high-Re flight regime)", () => {
     const cannonball = PROJECTILE_ASSETS.find((a) => a.id === "cannonball")!;
     expect(cannonball.dragCoefficient.kind).toBe("tabulatedReynolds");
+  });
+});
+
+describe("loadProjectileSpec (P1.26 asset loader)", () => {
+  const validFixture = {
+    id: "custom",
+    name: "Custom sphere",
+    mass: 1,
+    radius: 0.05,
+    dragCoefficient: { kind: "constant", value: 0.47 },
+    provenance: "test fixture",
+  };
+
+  it("loads a valid fixture", () => {
+    expect(loadProjectileSpec(validFixture)).toEqual(validFixture);
+  });
+
+  it("rejects a fixture missing a required field, naming the field in the error", () => {
+    const missingProvenance = {
+      id: validFixture.id,
+      name: validFixture.name,
+      mass: validFixture.mass,
+      radius: validFixture.radius,
+      dragCoefficient: validFixture.dragCoefficient,
+    };
+    let thrown: unknown;
+    try {
+      loadProjectileSpec(missingProvenance);
+    } catch (err) {
+      thrown = err;
+    }
+    expect(thrown).toBeInstanceOf(SchemaValidationError);
+    const schemaErr = thrown as SchemaValidationError;
+    expect(schemaErr.message).toContain("provenance");
+    expect(schemaErr.issues.some((i) => i.path.join(".") === "provenance")).toBe(true);
+  });
+
+  it("rejects a fixture with a negative mass, naming the field in the error", () => {
+    const corrupt = { ...validFixture, mass: -4 };
+    let thrown: unknown;
+    try {
+      loadProjectileSpec(corrupt);
+    } catch (err) {
+      thrown = err;
+    }
+    expect(thrown).toBeInstanceOf(SchemaValidationError);
+    expect((thrown as SchemaValidationError).message).toContain("mass");
+  });
+
+  it("rejects a fixture with an empty provenance string", () => {
+    const corrupt = { ...validFixture, provenance: "" };
+    expect(() => loadProjectileSpec(corrupt)).toThrow(SchemaValidationError);
+  });
+
+  it("rejects a fixture with an unrecognized drag-coefficient kind", () => {
+    const corrupt = { ...validFixture, dragCoefficient: { kind: "made-up-model" } };
+    expect(() => loadProjectileSpec(corrupt)).toThrow(SchemaValidationError);
+  });
+
+  it("rejects a wrong-type field (mass as a string) instead of coercing it", () => {
+    const corrupt = { ...validFixture, mass: "1" };
+    expect(() => loadProjectileSpec(corrupt)).toThrow(SchemaValidationError);
+  });
+
+  it("rejects non-object input (null, array, primitive) without crashing the process", () => {
+    for (const junk of [null, undefined, 42, "nope", []]) {
+      expect(() => loadProjectileSpec(junk)).toThrow(SchemaValidationError);
+    }
+  });
+
+  it("PROJECTILE_ASSETS passes build-time validation on module load (no throw on import)", () => {
+    // If any built-in asset were malformed, the top-level PROJECTILE_ASSETS.forEach(loadProjectileSpec)
+    // call in projectile-spec.ts would already have thrown before this test file could even run.
+    expect(() => PROJECTILE_ASSETS.forEach(loadProjectileSpec)).not.toThrow();
   });
 });
