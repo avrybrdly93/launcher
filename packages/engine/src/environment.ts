@@ -135,6 +135,44 @@ export class SinusoidalGustWind implements WindModel {
   }
 }
 
+const GAUSSIAN_VORTEX_R_EPS = 1e-9;
+
+/**
+ * Gaussian (Lamb-Oseen) vortex wind field (§3.5 case 3): tangential speed
+ * v_theta(r) = (circulation / (2*pi*r)) * (1 - exp(-r^2/coreRadius^2)),
+ * counterclockwise around (centerX, centerY). Unlike an ideal point vortex
+ * (v_theta = circulation/(2*pi*r)), the Gaussian core factor removes the
+ * r=0 singularity: v_theta -> 0 linearly with r, so the field is smooth
+ * everywhere except for a removable 0/0 at the exact center, which is
+ * guarded explicitly. Far from the core (r >> coreRadius) the field
+ * approaches the ideal point vortex, so circulation on a large ring
+ * converges to `circulation`.
+ */
+export class GaussianVortexWind implements WindModel {
+  constructor(
+    private readonly circulation: number, // Gamma, m^2/s
+    private readonly coreRadius: number, // r_c, m
+    private readonly centerX: number = 0,
+    private readonly centerY: number = 0,
+  ) {}
+
+  sample(_t: number, x: number, y: number, out: EnvSample): void {
+    const dx = x - this.centerX;
+    const dy = y - this.centerY;
+    const r = Math.hypot(dx, dy);
+    if (r < GAUSSIAN_VORTEX_R_EPS) {
+      out.wx = 0;
+      out.wy = 0;
+      return;
+    }
+    const vTheta =
+      (this.circulation / (2 * Math.PI * r)) *
+      (1 - Math.exp(-(r * r) / (this.coreRadius * this.coreRadius)));
+    out.wx = -vTheta * (dy / r);
+    out.wy = vTheta * (dx / r);
+  }
+}
+
 /**
  * Composes an Atmosphere + GravityModel + WindModel into the single
  * `Environment` the engine exports (§2.2 module table). `sample` is called

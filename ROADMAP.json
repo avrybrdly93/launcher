@@ -552,8 +552,8 @@
       "estMinutes": 25,
       "difficulty": "M",
       "validation": "circulation integral on ring \u2248 \u0393 to 1% (numeric quadrature test)",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added GaussianVortexWind to environment.ts: Lamb-Oseen-style vortex, v_theta(r)=(Gamma/(2*pi*r))*(1-exp(-r^2/rc^2)), tangential around a center point, removable-singularity guard at r=0. environment.test.ts computes circulation via a discretized ring-integral quadrature (4000 samples): matches Gamma to <1% far outside the core (R=8*rc), and is much smaller than Gamma well inside the core; also checks the field is exactly tangential (radial component 0) and finite at the center."
     },
     {
       "id": "P1.33",

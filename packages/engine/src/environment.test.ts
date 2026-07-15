@@ -4,6 +4,7 @@ import {
   ConstantAtmosphere,
   Environment,
   ExponentialAtmosphere,
+  GaussianVortexWind,
   LogProfileWind,
   SinusoidalGustWind,
   UniformGravity,
@@ -166,6 +167,61 @@ describe("SinusoidalGustWind", () => {
     wind.sample(2, 0, 0, outA);
     wind.sample(2, 500, -500, outB);
     expect(outB.wx).toBe(outA.wx);
+  });
+});
+
+/** Discretized ∮v.dl around a ring of radius R centered at (cx,cy) — a numeric quadrature. */
+function circulationOnRing(
+  wind: GaussianVortexWind,
+  cx: number,
+  cy: number,
+  radius: number,
+  samples = 4000,
+): number {
+  const out = new EnvSample();
+  const dTheta = (2 * Math.PI) / samples;
+  let circulation = 0;
+  for (let i = 0; i < samples; i++) {
+    const theta = i * dTheta;
+    wind.sample(0, cx + radius * Math.cos(theta), cy + radius * Math.sin(theta), out);
+    const tangentX = -Math.sin(theta);
+    const tangentY = Math.cos(theta);
+    circulation += (out.wx * tangentX + out.wy * tangentY) * radius * dTheta;
+  }
+  return circulation;
+}
+
+describe("GaussianVortexWind", () => {
+  it("circulation on a ring far outside the core is within 1% of Gamma (P1.32 validation criterion)", () => {
+    const circulationGamma = 12;
+    const coreRadius = 0.5;
+    const wind = new GaussianVortexWind(circulationGamma, coreRadius, 3, -2);
+    const measured = circulationOnRing(wind, 3, -2, 8 * coreRadius);
+    expect(Math.abs(measured - circulationGamma) / circulationGamma).toBeLessThan(0.01);
+  });
+
+  it("circulation on a ring inside the core is much smaller than Gamma", () => {
+    const circulationGamma = 12;
+    const coreRadius = 0.5;
+    const wind = new GaussianVortexWind(circulationGamma, coreRadius, 0, 0);
+    const measured = circulationOnRing(wind, 0, 0, 0.1 * coreRadius);
+    expect(Math.abs(measured)).toBeLessThan(0.05 * circulationGamma);
+  });
+
+  it("is finite (zero) at the exact center, no NaN", () => {
+    const wind = new GaussianVortexWind(10, 1, 5, 5);
+    const out = new EnvSample();
+    wind.sample(0, 5, 5, out);
+    expect(out.wx).toBe(0);
+    expect(out.wy).toBe(0);
+  });
+
+  it("wind is tangential (perpendicular to the radius vector) off-center", () => {
+    const wind = new GaussianVortexWind(10, 1, 0, 0);
+    const out = new EnvSample();
+    wind.sample(0, 2, 3, out);
+    const radial = out.wx * 2 + out.wy * 3;
+    expect(Math.abs(radial)).toBeLessThan(1e-12);
   });
 });
 
