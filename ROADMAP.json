@@ -442,8 +442,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "matches central finite differences to 1e-7 at 10 states",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Implemented gravityQuadraticDragJacobian (frozen-environment analytic Jacobian) in packages/engine/src/jacobian.ts; matches central FD to 1e-7 at 10 states (jacobian.test.ts). Scope documented: assumes spatially-uniform environment and treats Cd(Re) as evaluated-not-differentiated (exact for ConstantCd; a documented approximation for Reynolds-dependent tables, covered by P1.23 FD fallback)."
     },
     {
       "id": "P1.23",
