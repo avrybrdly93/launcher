@@ -464,8 +464,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "drag-off: dE/dt from powers \u2261 0 to 1e-13",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added packages/engine/src/energy.ts: mechanicalEnergy/createEnergyInvariant (E=0.5*m*|v|^2+mgy, wired into planarProjectileModel.invariants), totalEnergyPower (sum of all forces energyPower, verified == m*(v.a) from rhs), and aeroEnergyPower (sum excluding gravity, since gravity work exactly offsets the mgy term). Validates the three eq-3.19 checks: drag-off aeroEnergyPower==0 to 1e-13, Magnus-only aeroEnergyPower~0 (perp v_rel), drag-on-in-still-air aeroEnergyPower<=0. Documented limitation: buoyancy is treated as aero (no matching PE term), out of scope."
     },
     {
       "id": "P1.25",
