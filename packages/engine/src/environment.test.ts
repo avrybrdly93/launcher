@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { EnvSample } from "./env-sample.js";
-import { ConstantAtmosphere, Environment, UniformGravity, ZeroWind } from "./environment.js";
-import { EARTH_RADIUS_M, G_STD, ISA } from "./units.js";
+import {
+  ConstantAtmosphere,
+  Environment,
+  ExponentialAtmosphere,
+  UniformGravity,
+  ZeroWind,
+} from "./environment.js";
+import { EARTH_RADIUS_M, G_STD, ISA, sutherlandViscosity } from "./units.js";
 
 describe("ConstantAtmosphere", () => {
   it("returns ISA sea-level density everywhere", () => {
@@ -11,6 +17,58 @@ describe("ConstantAtmosphere", () => {
       atm.sample(0, y, out);
       expect(out.rho).toBe(ISA.rho0);
     }
+  });
+});
+
+describe("ExponentialAtmosphere", () => {
+  it("rho(0) = rho0", () => {
+    const atm = new ExponentialAtmosphere();
+    const out = new EnvSample();
+    atm.sample(0, 0, out);
+    expect(out.rho).toBe(ISA.rho0);
+  });
+
+  it("rho(H) = rho0/e to 1e-15 (P1.27 validation criterion)", () => {
+    const atm = new ExponentialAtmosphere();
+    const out = new EnvSample();
+    atm.sample(0, ISA.scaleHeight, out);
+    const expected = ISA.rho0 / Math.E;
+    expect(Math.abs(out.rho - expected)).toBeLessThan(1e-15);
+  });
+
+  it("is monotonically decreasing with altitude", () => {
+    const atm = new ExponentialAtmosphere();
+    const samples = [0, 1000, 5000, 10000].map((y) => {
+      const out = new EnvSample();
+      atm.sample(0, y, out);
+      return out.rho;
+    });
+    for (let i = 1; i < samples.length; i++) {
+      expect(samples[i]!).toBeLessThan(samples[i - 1]!);
+    }
+  });
+
+  it("is independent of x", () => {
+    const atm = new ExponentialAtmosphere();
+    const outA = new EnvSample();
+    const outB = new EnvSample();
+    atm.sample(0, 500, outA);
+    atm.sample(999, 500, outB);
+    expect(outB.rho).toBe(outA.rho);
+  });
+
+  it("keeps pressure consistent with the ideal gas law (p = rho*Rs*T)", () => {
+    const atm = new ExponentialAtmosphere();
+    const out = new EnvSample();
+    atm.sample(0, 2000, out);
+    expect(out.p).toBeCloseTo(out.rho * ISA.Rs * out.T, 8);
+  });
+
+  it("uses Sutherland viscosity at the isothermal T0", () => {
+    const atm = new ExponentialAtmosphere();
+    const out = new EnvSample();
+    atm.sample(0, 3000, out);
+    expect(out.eta).toBe(sutherlandViscosity(ISA.T0));
   });
 });
 

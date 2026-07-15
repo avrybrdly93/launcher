@@ -497,8 +497,8 @@
       "estMinutes": 10,
       "difficulty": "E",
       "validation": "\u03c1(H)=\u03c1\u2080/e to 1e-15",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added ExponentialAtmosphere to environment.ts: rho(y)=rho0*e^(-y/H) (isothermal, H=ISA.scaleHeight default), p=rho*Rs*T for ideal-gas consistency, eta/c from the isothermal T0 via sutherlandViscosity. rho(H)=rho0/e matches to <1e-15 absolute (environment.test.ts)."
     },
     {
       "id": "P1.28",
