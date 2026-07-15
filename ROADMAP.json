@@ -464,8 +464,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "drag-off: dE/dt from powers \u2261 0 to 1e-13",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added energy.ts: mechanicalEnergy(t,y,ctx)=0.5*m*|v|^2+m*g*y, createMechanicalEnergyInvariant() wrapping it as an InvariantSpec named 'energy', and composeEnergyPower(forces,t,y,ctx) summing ForceModel.energyPower like composeForces sums accumulate. Key derivation (in energy.ts/energy.test.ts comments): dE/dt = Sum_all_forces(energyPower) + m*g*vy always (algebraic identity from d(KE)/dt=v.F_total, d(PE)/dt=m*g*vy), and since GravityForce.energyPower = -m*g*vy exactly, dE/dt = Sum_non-gravity(energyPower) exactly -- gravity's own power term cancels the PE rate identically, matching eq 3.19's F_aero.v. energy.test.ts checks this pointwise identity (via rhs-derived ax/ay, no time integration) at 10 states: gravity-only gives dE/dt=0 to 1e-13 (round-off only, not truncation -- it's an instantaneous algebraic check), drag+Magnus-on matches the non-gravity power sum to 1e-11, Magnus-alone-in-still-air does ~0 net work, and the full all-forces identity (power sum + PE rate = dE/dt) holds."
     },
     {
       "id": "P1.25",
