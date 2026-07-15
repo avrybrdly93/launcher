@@ -475,8 +475,8 @@
       "estMinutes": 30,
       "difficulty": "E",
       "validation": "assets validate; each has provenance string",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "projectile-assets.ts: ProjectileSpecSchema (zod) validates name/mass/radius/dragCoefficient(discriminated union: constant | tabulated-smooth-sphere-reynolds)/optional spinDecayTau/provenance. PROJECTILE_ASSETS validates all 7 required assets (smooth sphere using the P1.10-13 drag-crisis table, golf/soccer/baseball/table-tennis/cannonball/shot-put using literature-sourced constant Cd) through parseWithSchema at import time, each with a non-empty provenance citation. resolveDragCoefficientModel/createProjectileParamsFromSpec wire a validated spec into the existing runtime DragCoefficientModel/ProjectileParams types. Sport-specific Cd(Re,Mach) curves with asserted literature bounds are deferred to P4.05."
     },
     {
       "id": "P1.26",
