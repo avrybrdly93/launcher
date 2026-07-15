@@ -4,6 +4,7 @@ import {
   ConstantAtmosphere,
   Environment,
   ExponentialAtmosphere,
+  LogProfileWind,
   UniformGravity,
   UniformWind,
   ZeroWind,
@@ -94,6 +95,43 @@ describe("UniformWind", () => {
     wind.sample(0, 0, 0, out);
     expect(out.wx).toBe(7);
     expect(out.wy).toBe(0);
+  });
+});
+
+describe("LogProfileWind (eq. 3.13)", () => {
+  it("w(yr*(e-1))*kappa/uStar = 1 (P1.30 validation criterion)", () => {
+    const uStar = 0.5;
+    const roughnessLength = 0.01;
+    const kappa = 0.41;
+    const wind = new LogProfileWind(uStar, roughnessLength, kappa);
+    const out = new EnvSample();
+    wind.sample(0, 0, roughnessLength * (Math.E - 1), out);
+    expect((out.wx * kappa) / uStar).toBeCloseTo(1, 12);
+  });
+
+  it("is finite (0) at y=0", () => {
+    const wind = new LogProfileWind(0.5);
+    const out = new EnvSample();
+    wind.sample(0, 0, 0, out);
+    expect(out.wx).toBe(0);
+    expect(Number.isFinite(out.wx)).toBe(true);
+  });
+
+  it("stays finite for y well below ground (guard clamps to y=0)", () => {
+    const wind = new LogProfileWind(0.5);
+    const out = new EnvSample();
+    wind.sample(0, 0, -100, out);
+    expect(Number.isFinite(out.wx)).toBe(true);
+    expect(out.wx).toBe(0);
+  });
+
+  it("increases with height above ground", () => {
+    const wind = new LogProfileWind(0.5);
+    const low = new EnvSample();
+    const high = new EnvSample();
+    wind.sample(0, 0, 1, low);
+    wind.sample(0, 0, 10, high);
+    expect(high.wx).toBeGreaterThan(low.wx);
   });
 });
 
