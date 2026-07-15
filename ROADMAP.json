@@ -475,8 +475,8 @@
       "estMinutes": 30,
       "difficulty": "E",
       "validation": "assets validate; each has provenance string",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added projectile-spec.ts (PROJECTILE_SPEC_SCHEMA: zod discriminated-union drag/lift-coefficient specs + m, R, provenance) and projectile-assets.ts (PROJECTILE_ASSETS: smooth sphere, golf, soccer, baseball, TT ball, cannonball, shot put, each with a cited provenance string). projectile-assets.test.ts validates every asset against the schema, checks unique ids and non-empty provenance, and checks schema rejection of a corrupt/missing-provenance fixture."
     },
     {
       "id": "P1.26",
