@@ -464,8 +464,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "drag-off: dE/dt from powers \u2261 0 to 1e-13",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "energy.ts: mechanicalEnergy(y,ctx) = (1/2)m|v|^2 + mgy. forces.ts: composeEnergyPower(forces,t,y,ctx) sums energyPower() across all registered forces (0 for forces that omit it). createPlanarProjectileModel now always attaches invariants=[{name:'energy', evaluate}]. The algebraic identity dE/dt = composeEnergyPower(all forces) + mg*vy reduces exactly to the aero-only power of eq 3.19, since gravity's own energyPower (-mg*vy) cancels the PE rate; verified at 5 states for gravity-alone (drag-off, |dE/dt|<1e-13), Magnus-only (energy conserved), and quadratic-drag-in-still-air (dE/dt<=0, monotone dissipation) per the three \u00a73.8 runtime checks."
     },
     {
       "id": "P1.25",

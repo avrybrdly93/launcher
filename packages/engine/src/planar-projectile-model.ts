@@ -1,4 +1,5 @@
 import type { EvalContext } from "./eval-context.js";
+import { mechanicalEnergy } from "./energy.js";
 import {
   composeForceJacobian,
   composeForces,
@@ -7,7 +8,7 @@ import {
   type ForceModel,
   type MutForceJacobian,
 } from "./forces.js";
-import type { Model } from "./model.js";
+import type { InvariantSpec, Model } from "./model.js";
 import type { ChannelMeta } from "./schema.js";
 import { norm } from "./vec2.js";
 
@@ -92,10 +93,22 @@ export function createPlanarProjectileModel(forces: readonly ForceModel[]): Mode
     out[15] = forceJ[7] / m;
   };
 
+  /** Mechanical energy E = (1/2)m|v|^2 + mgy (P1.24, §3.8/3.19), refreshing ctx.env first. */
+  const invariants: readonly InvariantSpec[] = [
+    {
+      name: "energy",
+      evaluate(t: number, y: Float64Array, ctx: EvalContext): number {
+        ctx.environment.sample(t, y[X]!, y[Y]!, ctx.env);
+        return mechanicalEnergy(y, ctx);
+      },
+    },
+  ];
+
   return {
     dim: 4,
     channels: PLANAR_CHANNELS,
     rhs,
+    invariants,
     ...(hasAnalyticJacobian ? { jacobian } : {}),
   };
 }

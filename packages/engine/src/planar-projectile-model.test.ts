@@ -15,6 +15,22 @@ describe("createPlanarProjectileModel", () => {
     expect(model.channels.map((c) => c.name)).toEqual(["x", "y", "vx", "vy"]);
   });
 
+  it("declares an 'energy' invariant matching E = (1/2)m|v|^2 + mgy (P1.24)", () => {
+    const model = createPlanarProjectileModel([new GravityForce()]);
+    const env = new Environment(new ConstantAtmosphere(), new UniformGravity());
+    const params = createSphericalProjectileParams({
+      mass: 2,
+      radius: 0.05,
+      dragCoefficient: new ConstantCd(0),
+    });
+    const ctx = createEvalContext(env, params);
+    const y = new Float64Array([0, 10, 3, 4]);
+
+    expect(model.invariants?.[0]?.name).toBe("energy");
+    const e = model.invariants![0]!.evaluate(0, y, ctx);
+    expect(e).toBeCloseTo(0.5 * 2 * (3 * 3 + 4 * 4) + 2 * ctx.env.g * 10, 12);
+  });
+
   it("under gravity alone, acceleration is exactly (0, -g)", () => {
     const model = createPlanarProjectileModel([new GravityForce()]);
     const env = new Environment(new ConstantAtmosphere(), new UniformGravity());

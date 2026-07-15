@@ -205,3 +205,25 @@ export function composeForceJacobian(
     force.jacobian!(t, y, ctx, outJ);
   }
 }
+
+/**
+ * Sums `energyPower()` over every force in `forces` (0 for forces that omit
+ * it) — the total power delivered to kinetic energy, d(KE)/dt = sum_i F_i.v
+ * (P1.24). Combined with d(PE)/dt = mgy's own rate, this is what
+ * `mechanicalEnergy`'s invariant check differentiates against (§3.19):
+ * gravity's own `energyPower` (-mgv_y) exactly cancels the PE term's rate
+ * when gravity is the only active force, which is the algebraic content of
+ * the "drag-off ⇒ energy conserved" runtime check.
+ */
+export function composeEnergyPower(
+  forces: readonly ForceModel[],
+  t: number,
+  y: Float64Array,
+  ctx: EvalContext,
+): number {
+  let power = 0;
+  for (const force of forces) {
+    power += force.energyPower?.(t, y, ctx) ?? 0;
+  }
+  return power;
+}
