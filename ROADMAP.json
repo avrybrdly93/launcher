@@ -486,8 +486,8 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "corrupt fixture rejected with useful error",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added projectile-asset-loader.ts: loadProjectileSpec/loadProjectileSpecs (validate raw fixtures against PROJECTILE_SPEC_SCHEMA via parseWithSchema, throwing SchemaValidationError with a field-referencing message), projectileParamsFromSpec (materializes the drag/lift-coefficient spec union into live ConstantCd/TabulatedReynoldsCd/SaturatingLiftCoefficient instances for ProjectileParams), and VALIDATED_PROJECTILE_ASSETS (PROJECTILE_ASSETS validated eagerly at module load, i.e. build time). Tests cover accept-all-assets, corrupt/negative-field rejection with useful error text, unknown-drag-kind rejection, non-object input, and both Cd-model materialization branches."
     },
     {
       "id": "P1.27",

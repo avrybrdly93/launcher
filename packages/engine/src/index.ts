@@ -10,6 +10,7 @@ export * from "./lift-coefficient.js";
 export * from "./projectile-params.js";
 export * from "./projectile-spec.js";
 export * from "./projectile-assets.js";
+export * from "./projectile-asset-loader.js";
 export * from "./eval-context.js";
 export * from "./forces.js";
 export * from "./energy.js";
