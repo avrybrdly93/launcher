@@ -2,6 +2,12 @@ import type { EvalContext } from "./eval-context.js";
 import type { MutVec2 } from "./vec2.js";
 
 /**
+ * Row-major 2x4 block ∂F/∂y for one force's contribution to the accumulator
+ * (P1.22): indices 0-3 are ∂Fx/∂(x,y,vx,vy), indices 4-7 are ∂Fy/∂(x,y,vx,vy).
+ */
+export type MutForceJacobian = [number, number, number, number, number, number, number, number];
+
+/**
  * One term of the force composition (3.2). `accumulate` *adds* into
  * `outForce` — it never zeroes or overwrites it — so composeForces can sum
  * an arbitrary set of forces into one preallocated buffer (§2.4a).
@@ -11,6 +17,13 @@ export interface ForceModel {
   accumulate(t: number, y: Float64Array, ctx: EvalContext, outForce: MutVec2): void;
   /** Instantaneous power this force delivers, F.v using the true velocity (eq. 3.19). */
   energyPower?(t: number, y: Float64Array, ctx: EvalContext): number;
+  /**
+   * Analytic ∂F/∂y, *adding* into `outJ` (same accumulate-not-overwrite contract
+   * as `accumulate`). Optional: a force that omits it makes any model
+   * composed from it fall back to a finite-difference Jacobian (P1.23) rather
+   * than silently omitting its contribution.
+   */
+  jacobian?(t: number, y: Float64Array, ctx: EvalContext, outJ: MutForceJacobian): void;
 }
 
 const VX = 2;
@@ -26,6 +39,11 @@ export class GravityForce implements ForceModel {
 
   energyPower(_t: number, y: Float64Array, ctx: EvalContext): number {
     return -ctx.params.mass * ctx.env.g * y[VY]!;
+  }
+
+  /** F_g is position/velocity-independent under uniform gravity (§3.2 default): ∂F/∂y = 0. */
+  jacobian(_t: number, _y: Float64Array, _ctx: EvalContext, _outJ: MutForceJacobian): void {
+    // no-op: contributes nothing to accumulate
   }
 }
 
@@ -64,6 +82,30 @@ export class QuadraticDragForce implements ForceModel {
     const cd = ctx.params.dragCoefficient.cd(ctx.re, ctx.mach);
     const k = 0.5 * ctx.env.rho * cd * ctx.params.area * ctx.speedRel;
     return -k * (ctx.vRel[0] * y[VX]! + ctx.vRel[1] * y[VY]!);
+  }
+
+  /**
+   * Analytic ∂F/∂y for F = -k*|u|*u, u = v_rel (P1.22). Treats k = 0.5*rho*Cd*A
+   * as locally frozen w.r.t. y — exact for a position/speed-independent Cd
+   * model (ConstantCd, the P1.08 default) with wind that doesn't vary with
+   * position (ZeroWind/uniform wind, so ∂u/∂r = 0); a Cd(Re,Mach) or
+   * position-dependent wind model reintroduces terms this omits, which is why
+   * P1.23's finite-difference Jacobian exists as the general-case fallback.
+   * Singular at u = 0 (the same C1-not-C2 kink noted in §3.8); left as 0
+   * there, matching how the force itself vanishes smoothly.
+   */
+  jacobian(_t: number, _y: Float64Array, ctx: EvalContext, outJ: MutForceJacobian): void {
+    const s = ctx.speedRel;
+    if (s < 1e-9) return;
+    const cd = ctx.params.dragCoefficient.cd(ctx.re, ctx.mach);
+    const k = 0.5 * ctx.env.rho * cd * ctx.params.area;
+    const ux = ctx.vRel[0];
+    const uy = ctx.vRel[1];
+    // d/dvx, d/dvy of Fx = -k*s*ux and Fy = -k*s*uy; d/dx, d/dy are 0.
+    outJ[2] += -k * (s + (ux * ux) / s);
+    outJ[3] += -k * ((ux * uy) / s);
+    outJ[6] += -k * ((uy * ux) / s);
+    outJ[7] += -k * (s + (uy * uy) / s);
   }
 }
 
@@ -142,5 +184,24 @@ export function composeForces(
   outForce[1] = 0;
   for (const force of forces) {
     force.accumulate(t, y, ctx, outForce);
+  }
+}
+
+/** True only when every force in `forces` declares an analytic jacobian (P1.22). */
+export function forcesSupportJacobian(forces: readonly ForceModel[]): boolean {
+  return forces.every((force) => typeof force.jacobian === "function");
+}
+
+/** Zeroes `outJ` then accumulates every force's jacobian, in registry order. */
+export function composeForceJacobian(
+  forces: readonly ForceModel[],
+  t: number,
+  y: Float64Array,
+  ctx: EvalContext,
+  outJ: MutForceJacobian,
+): void {
+  for (let i = 0; i < 8; i++) outJ[i] = 0;
+  for (const force of forces) {
+    force.jacobian!(t, y, ctx, outJ);
   }
 }

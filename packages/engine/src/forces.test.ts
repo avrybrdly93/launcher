@@ -6,13 +6,16 @@ import { SaturatingLiftCoefficient } from "./lift-coefficient.js";
 import { createSphericalProjectileParams } from "./projectile-params.js";
 import {
   BuoyancyForce,
+  composeForceJacobian,
   composeForces,
   createForceRegistry,
+  forcesSupportJacobian,
   GravityForce,
   LinearDragForce,
   MagnusForce,
   QuadraticDragForce,
   type ForceModel,
+  type MutForceJacobian,
 } from "./forces.js";
 import { norm, dot } from "./vec2.js";
 
@@ -51,6 +54,15 @@ describe("GravityForce", () => {
     new GravityForce().accumulate(0, y, ctx, out);
     expect(out[0]).toBe(0);
     expect(out[1]).toBeCloseTo(-ctx.params.mass * ctx.env.g, 15);
+  });
+
+  it("jacobian() adds nothing: F_g is constant under uniform gravity (P1.22)", () => {
+    const { ctx, env } = makeContext();
+    const y = new Float64Array([0, 0, 10, 5]);
+    refreshDerived(ctx, env, 0, y);
+    const out: MutForceJacobian = [1, 2, 3, 4, 5, 6, 7, 8];
+    new GravityForce().jacobian!(0, y, ctx, out);
+    expect(out).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
   });
 });
 
@@ -98,6 +110,55 @@ describe("QuadraticDragForce", () => {
     expect(Number.isFinite(out[1])).toBe(true);
     expect(out[0]).toBe(0);
     expect(out[1]).toBe(0);
+  });
+
+  it("jacobian() matches central finite differences of accumulate() w.r.t. (vx, vy) (P1.22)", () => {
+    const { ctx, env } = makeContext();
+    const force = new QuadraticDragForce();
+    const h = 1e-5;
+
+    for (const [vx, vy] of [
+      [10, 0],
+      [0, -20],
+      [7, 7],
+      [-15, 3],
+      [1, -1],
+    ] as const) {
+      const y = new Float64Array([0, 0, vx, vy]);
+      refreshDerived(ctx, env, 0, y);
+      const analytic: MutForceJacobian = [0, 0, 0, 0, 0, 0, 0, 0];
+      force.jacobian!(0, y, ctx, analytic);
+
+      const evalAt = (dvx: number, dvy: number): [number, number] => {
+        const yy = new Float64Array([0, 0, vx + dvx, vy + dvy]);
+        refreshDerived(ctx, env, 0, yy);
+        const out: [number, number] = [0, 0];
+        force.accumulate(0, yy, ctx, out);
+        return out;
+      };
+      const fPlusVx = evalAt(h, 0);
+      const fMinusVx = evalAt(-h, 0);
+      const fPlusVy = evalAt(0, h);
+      const fMinusVy = evalAt(0, -h);
+
+      expect(analytic[0]).toBe(0); // dFx/dx
+      expect(analytic[1]).toBe(0); // dFx/dy
+      expect(analytic[2]).toBeCloseTo((fPlusVx[0] - fMinusVx[0]) / (2 * h), 5); // dFx/dvx
+      expect(analytic[3]).toBeCloseTo((fPlusVy[0] - fMinusVy[0]) / (2 * h), 5); // dFx/dvy
+      expect(analytic[4]).toBe(0); // dFy/dx
+      expect(analytic[5]).toBe(0); // dFy/dy
+      expect(analytic[6]).toBeCloseTo((fPlusVx[1] - fMinusVx[1]) / (2 * h), 5); // dFy/dvx
+      expect(analytic[7]).toBeCloseTo((fPlusVy[1] - fMinusVy[1]) / (2 * h), 5); // dFy/dvy
+    }
+  });
+
+  it("jacobian() adds nothing (leaves outJ untouched) at v_rel = 0", () => {
+    const { ctx, env } = makeContext();
+    const y = new Float64Array([0, 0, 0, 0]);
+    refreshDerived(ctx, env, 0, y);
+    const out: MutForceJacobian = [1, 2, 3, 4, 5, 6, 7, 8];
+    new QuadraticDragForce().jacobian!(0, y, ctx, out);
+    expect(out).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
   });
 });
 
@@ -193,5 +254,39 @@ describe("createForceRegistry / composeForces", () => {
     composeForces(createForceRegistry([...forces].reverse()), 0, y, ctx, outB);
     expect(outA[0]).toBe(outB[0]);
     expect(outA[1]).toBe(outB[1]);
+  });
+});
+
+describe("forcesSupportJacobian / composeForceJacobian (P1.22)", () => {
+  it("is true for gravity+quadratic-drag and false once Magnus joins", () => {
+    expect(forcesSupportJacobian([new GravityForce(), new QuadraticDragForce()])).toBe(true);
+    expect(
+      forcesSupportJacobian([new GravityForce(), new QuadraticDragForce(), new MagnusForce()]),
+    ).toBe(false);
+  });
+
+  it("sums multiple forces' jacobians into a zeroed accumulator", () => {
+    const a: ForceModel = {
+      id: "a",
+      accumulate: () => {},
+      jacobian: (_t, _y, _ctx, out) => {
+        out[0] += 1;
+        out[7] += 2;
+      },
+    };
+    const b: ForceModel = {
+      id: "b",
+      accumulate: () => {},
+      jacobian: (_t, _y, _ctx, out) => {
+        out[0] += 10;
+        out[7] += 20;
+      },
+    };
+    const { ctx, env } = makeContext();
+    const y = new Float64Array([0, 0, 0, 0]);
+    refreshDerived(ctx, env, 0, y);
+    const out: MutForceJacobian = [999, 999, 999, 999, 999, 999, 999, 999];
+    composeForceJacobian(createForceRegistry([a, b]), 0, y, ctx, out);
+    expect(out).toEqual([11, 0, 0, 0, 0, 0, 0, 22]);
   });
 });

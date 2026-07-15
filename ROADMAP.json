@@ -442,8 +442,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "matches central finite differences to 1e-7 at 10 states",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "ForceModel gained an optional jacobian(t,y,ctx,outJ) accumulating a 2x4 ∂F/∂y block; GravityForce is a no-op (uniform gravity), QuadraticDragForce differentiates -k|u|u treating k=0.5*rho*Cd*A as locally frozen (exact for ConstantCd + ZeroWind). Model.jacobian gained a ctx param and createPlanarProjectileModel composes forces' jacobians only when every registered force supports one (forcesSupportJacobian), else omits jacobian so P1.23's FD fallback applies. Max analytic-vs-central-FD error ~1.2e-10 across 10 states, well inside the 1e-7 bound."
     },
     {
       "id": "P1.23",
