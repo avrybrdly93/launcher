@@ -475,8 +475,8 @@
       "estMinutes": 30,
       "difficulty": "E",
       "validation": "assets validate; each has provenance string",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added projectile-spec.ts (ProjectileSpecSchema: mass/radius as {value,citation} pairs, a data-only DragModelSpec/LiftModelSpec discriminated union the P1.26 loader will turn into DragCoefficientModel/LiftCoefficientModel instances, spinDecayTau, top-level provenance) and projectile-assets.ts with the 7 §3.9 assets (sphere, golf ball, soccer ball -- reusing the exact mass/radius/Cd already established for P1.16's buoyancy test --, baseball, table-tennis ball, cannonball computed from 0.1m iron-density sphere, shot put), each with real-world citations (USGA, FIFA, MLB, ITTF, World Athletics rules; sports-aerodynamics literature for Cd/lift). projectile-assets.test.ts validates every asset against the schema, checks provenance/citations are non-empty, confirms a corrupted (negative-mass) fixture is rejected, and checks id uniqueness and mass ordering."
     },
     {
       "id": "P1.26",
