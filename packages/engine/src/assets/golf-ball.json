@@ -1,0 +1,9 @@
+{
+  "id": "golf-ball",
+  "name": "Golf Ball",
+  "mass": 0.04593,
+  "radius": 0.021335,
+  "dragCoefficient": { "kind": "constant", "value": 0.25 },
+  "liftCoefficient": { "kind": "saturating", "maxCl": 0.6, "slope": 1.6 },
+  "provenance": "Mass/diameter: USGA/R&A Rules of Golf, Equipment Rules (max mass 45.93 g, min diameter 42.67 mm). Cd≈0.25 for a dimpled golf ball (dimples trip the boundary layer, delaying separation well below a smooth sphere's drag crisis): Bearman & Harvey, 'Golf ball aerodynamics', Aeronautical Quarterly 27 (1976)."
+}

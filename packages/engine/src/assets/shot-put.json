@@ -1,0 +1,8 @@
+{
+  "id": "shot-put",
+  "name": "Shot Put",
+  "mass": 7.26,
+  "radius": 0.06,
+  "dragCoefficient": { "kind": "constant", "value": 0.47 },
+  "provenance": "Mass 7.26 kg (16 lb, men's); diameter 110-130 mm (midpoint 120 mm used): World Athletics Technical Rules, Rule 32 (Shot Put). Cd≈0.47 (standard sphere, subcritical regime): NASA Glenn Research Center, 'Shape Effects on Drag'."
+}

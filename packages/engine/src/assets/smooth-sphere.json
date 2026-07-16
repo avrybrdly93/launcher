@@ -1,0 +1,14 @@
+{
+  "id": "smooth-sphere",
+  "name": "Smooth Reference Sphere",
+  "mass": 0.5,
+  "radius": 0.05,
+  "dragCoefficient": {
+    "kind": "tabulated-reynolds",
+    "table": {
+      "re": [10, 100, 1000, 10000, 100000, 200000, 300000, 400000, 1000000, 10000000],
+      "cd": [4.1, 1.1, 0.47, 0.5, 0.5, 0.4, 0.1, 0.18, 0.2, 0.2]
+    }
+  },
+  "provenance": "Synthetic reference sphere (not a specific commercial object), sized to illustrate the smooth-sphere Cd(Re) drag-crisis curve, digitized from standard aerodynamics references, e.g. Hoerner, Fluid-Dynamic Drag (1965); Achenbach, 'Experiments on the flow past spheres at very high Reynolds numbers', J. Fluid Mech. (1972)."
+}

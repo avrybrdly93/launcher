@@ -1,0 +1,9 @@
+{
+  "id": "soccer-ball",
+  "name": "Soccer Ball",
+  "mass": 0.43,
+  "radius": 0.1114,
+  "dragCoefficient": { "kind": "constant", "value": 0.25 },
+  "liftCoefficient": { "kind": "saturating", "maxCl": 0.6, "slope": 1.6 },
+  "provenance": "Mass/circumference: FIFA Laws of the Game, Law 2 (mass 410-450 g, circumference 68-70 cm; midpoints used, giving radius = 0.70 m / (2*pi)). Cd≈0.25 at typical play speeds: Asai et al., 'Fundamental aerodynamics of the soccer ball', Sports Engineering 10 (2007)."
+}

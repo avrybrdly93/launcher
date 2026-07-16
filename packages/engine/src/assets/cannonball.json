@@ -1,0 +1,8 @@
+{
+  "id": "cannonball",
+  "name": "Cannonball (0.1 m iron)",
+  "mass": 3.82,
+  "radius": 0.05,
+  "dragCoefficient": { "kind": "constant", "value": 0.47 },
+  "provenance": "Diameter 0.1 m cast-iron shot; mass = (4/3)*pi*r^3 * 7300 kg/m^3 (cast-iron density) ≈ 3.82 kg. Cd≈0.47 (standard sphere, subcritical regime): NASA Glenn Research Center, 'Shape Effects on Drag'."
+}

@@ -1,0 +1,9 @@
+{
+  "id": "baseball",
+  "name": "Baseball",
+  "mass": 0.145,
+  "radius": 0.0366,
+  "dragCoefficient": { "kind": "constant", "value": 0.35 },
+  "liftCoefficient": { "kind": "saturating", "maxCl": 0.6, "slope": 1.6 },
+  "provenance": "Mass/circumference: Official Baseball Rules, Rule 3.01 (mass 5.00-5.25 oz, circumference 9.00-9.25 in; midpoints used). Cd≈0.3-0.4 in flight (midpoint 0.35 used): Adair, The Physics of Baseball, 3rd ed. (2002)."
+}

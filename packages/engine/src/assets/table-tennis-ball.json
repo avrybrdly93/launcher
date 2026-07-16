@@ -1,0 +1,9 @@
+{
+  "id": "table-tennis-ball",
+  "name": "Table Tennis Ball",
+  "mass": 0.0027,
+  "radius": 0.02,
+  "dragCoefficient": { "kind": "constant", "value": 0.47 },
+  "liftCoefficient": { "kind": "saturating", "maxCl": 0.6, "slope": 1.6 },
+  "provenance": "Mass/diameter: ITTF Table Tennis Equipment Regulations (mass 2.70 g, diameter 40 mm). Cd≈0.47 (subcritical smooth-sphere regime at typical play Reynolds numbers ~2-5e4): Hoerner, Fluid-Dynamic Drag (1965)."
+}

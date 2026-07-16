@@ -1,0 +1,7 @@
+{
+  "id": "bad-asset",
+  "name": "Corrupt Fixture (negative mass, missing provenance)",
+  "mass": -1,
+  "radius": 0.05,
+  "dragCoefficient": { "kind": "constant", "value": 0.47 }
+}
