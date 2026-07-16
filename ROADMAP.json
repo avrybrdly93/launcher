@@ -442,7 +442,7 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "matches central finite differences to 1e-7 at 10 states",
-      "status": "todo",
+      "status": "done",
       "notes": ""
     },
     {
