@@ -464,8 +464,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "drag-off: dE/dt from powers \u2261 0 to 1e-13",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added energy-invariant.ts: planarMechanicalEnergy (E = 0.5*m*|v|^2 + mgy, samples env fresh) and composeEnergyPower (id-sorted sum of registered forces' energyPower, mirroring composeForces). Wired PLANAR_ENERGY_INVARIANT onto createPlanarProjectileModel's invariants field. Tests verify dE/dt-from-powers is 0 to 1e-13 with drag off and with Magnus-alone (no work), and non-positive (dissipative) with drag on in still air, matching the three exact runtime checks in blueprint (3.19)."
     },
     {
       "id": "P1.25",
