@@ -475,8 +475,8 @@
       "estMinutes": 30,
       "difficulty": "E",
       "validation": "assets validate; each has provenance string",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added projectile-spec.ts (zod ProjectileSpec schema: mass, radius, discriminated-union drag/lift model choice, optional spinDecayTau, required non-empty provenance) and projectile-assets.ts (7 PROJECTILE_ASSETS entries: smooth sphere, golf, soccer, baseball, table-tennis, cannonball, shot put), each with real-world dimensions/mass and a provenance citation string. Reused mass/radius/Cd values already established in existing tests (golf 0.0459kg/0.02135m/Cd0.25, soccer 0.43kg/0.11m/Cd0.25, baseball 0.145kg/0.0366m) for cross-file consistency. Test validates every asset parses and has non-empty provenance, and that an empty-provenance spec is rejected."
     },
     {
       "id": "P1.26",
