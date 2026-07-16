@@ -453,8 +453,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "matches P1.22 analytic where available",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added createFiniteDifferenceJacobian (finite-difference-jacobian.ts): central-difference Jacobian for any Model+EvalContext, per-component step scaled by eps^(1/3)*max(1,|y_i|), preallocated scratch buffers. Verified it matches the P1.22 analytic gravity+quadratic-drag Jacobian to 1e-6 at 10 random states, and produces finite output on a Magnus-included model the analytic form can't handle."
     },
     {
       "id": "P1.24",
