@@ -486,8 +486,8 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "corrupt fixture rejected with useful error",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added projectile-asset-loader.ts: loadProjectileSpec/loadProjectileSpecs (parseWithSchema + index-prefixed re-throw for list validation), projectileParamsFromSpec (builds live ProjectileParams from a validated spec), and VALIDATED_PROJECTILE_ASSETS which validates the full PROJECTILE_ASSETS table at import time (build-time gate per §3.9). Removed projectileSpecSchema's liftModel .default() - it caused a ZodType<T> Input/Output generic mismatch through the Schema<T> wrapper at typecheck time; all assets specify liftModel explicitly anyway. Tests confirm real assets load cleanly and a corrupt fixture (negative mass, empty provenance, bad list entry) is rejected with a message naming the offending field/index."
     },
     {
       "id": "P1.27",

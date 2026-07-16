@@ -31,7 +31,7 @@ export const projectileSpecSchema = z.object({
   mass: z.number().positive(),
   radius: z.number().positive(),
   dragModel: dragModelSpecSchema,
-  liftModel: liftModelSpecSchema.default({ kind: "none" }),
+  liftModel: liftModelSpecSchema,
   spinDecayTau: z.number().positive().optional(),
   provenance: z.string().min(1),
 });
