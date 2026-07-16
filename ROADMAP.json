@@ -442,8 +442,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "matches central finite differences to 1e-7 at 10 states",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added createGravityQuadraticDragJacobian (planar-projectile-jacobian.ts): closed-form d f/d y for gravity+quadratic-drag-only rhs, row-major dim*dim out matching Model.jacobian's signature. Assumes rho/g/wind are state-independent (ConstantAtmosphere + non-altitude UniformGravity + Zero/uniform wind) and Cd is state-independent (ConstantCd); Re-dependent Cd or position/time-varying environments need the P1.23 FD fallback. Verified against a central-difference Jacobian at 10 random states to 1e-7."
     },
     {
       "id": "P1.23",
