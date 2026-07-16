@@ -442,8 +442,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "matches central finite differences to 1e-7 at 10 states",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Extended Model.jacobian to take EvalContext (matching rhs's signature; it was previously undialled and unused). Implemented planarGravityQuadraticDragJacobian, wired onto createPlanarProjectileModel only when the force set is exactly {gravity, drag-quadratic} (checked by id). Treats rho/Cd/g as locally frozen w.r.t. y -- exact for ConstantCd + position-independent atmosphere/wind + non-altitude-dependent gravity; documented as an approximation (missing dCd/dRe, dg/dy) otherwise. Zero velocity-block at v_rel=0 matches the analytic C1 limit. Added 3 tests in planar-projectile-model.test.ts: dispatch-gating, central-FD match to 1e-7 at 10 states, and finiteness at v_rel=0."
     },
     {
       "id": "P1.23",
