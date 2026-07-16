@@ -144,3 +144,24 @@ export function composeForces(
     force.accumulate(t, y, ctx, outForce);
   }
 }
+
+/**
+ * Sum of F_i . v over every non-gravity ("aero": drag, Magnus, buoyancy)
+ * force in `forces` — the F_aero . v of eq. (3.19). Gravity is excluded
+ * because its power (-mg*vy) is already accounted for by the mgy potential
+ * term of `mechanicalEnergy` (energy.ts): d(KE+PE)/dt = sum-of-all-powers +
+ * mg*vy = aeroEnergyPower + (-mg*vy) + mg*vy = aeroEnergyPower exactly.
+ */
+export function aeroEnergyPower(
+  forces: readonly ForceModel[],
+  t: number,
+  y: Float64Array,
+  ctx: EvalContext,
+): number {
+  let power = 0;
+  for (const force of forces) {
+    if (force.id === "gravity") continue;
+    power += force.energyPower?.(t, y, ctx) ?? 0;
+  }
+  return power;
+}

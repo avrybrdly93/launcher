@@ -1,6 +1,7 @@
 import type { EvalContext } from "./eval-context.js";
-import { composeForces, createForceRegistry, type ForceModel } from "./forces.js";
-import type { Model } from "./model.js";
+import { mechanicalEnergy } from "./energy.js";
+import { aeroEnergyPower, composeForces, createForceRegistry, type ForceModel } from "./forces.js";
+import type { InvariantSpec, Model } from "./model.js";
 import type { ChannelMeta } from "./schema.js";
 import { norm } from "./vec2.js";
 
@@ -25,9 +26,21 @@ const VY = 3;
 export function createPlanarProjectileModel(forces: readonly ForceModel[]): Model {
   const registry = createForceRegistry(forces);
 
+  /**
+   * `energy` is E = KE + PE (eq. 3.19); `energyPower` is dE/dt = F_aero . v.
+   * Both read `ctx.env`/`ctx.params`, which are only in sync with `y` right
+   * after a `rhs` call for that same (t, y) — the intended usage, mirroring
+   * the Recorder's per-step invariant sampling (§5.1).
+   */
+  const invariants: readonly InvariantSpec[] = [
+    { name: "energy", evaluate: (_t, y, ctx) => mechanicalEnergy(y, ctx) },
+    { name: "energyPower", evaluate: (t, y, ctx) => aeroEnergyPower(registry, t, y, ctx) },
+  ];
+
   return {
     dim: 4,
     channels: PLANAR_CHANNELS,
+    invariants,
     rhs(t: number, y: Float64Array, out: Float64Array, ctx: EvalContext): void {
       const x = y[X]!;
       const yPos = y[Y]!;
