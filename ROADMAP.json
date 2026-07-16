@@ -442,8 +442,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "matches central finite differences to 1e-7 at 10 states",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added createGravityQuadraticDragJacobian (packages/engine/src/jacobian.ts), a factory matching the Model.jacobian(t,y,out) contract (no ctx param per the blueprint's own interface). It bakes in rho/Cd/area/mass/wind as constants of the linearization -- exact for ConstantCd/ConstantAtmosphere/ZeroWind, matching the frozen-coefficient eigenvalue estimate of Sec 4.3; variable-Cd(Re)/altitude-gravity cases are left to the FD fallback (P1.23). jacobian.test.ts cross-checks against central finite differences of the real composed rhs (createPlanarProjectileModel + GravityForce/QuadraticDragForce) at the same 10 states used by P1.20, to 1e-7, plus zero-speed and position-independence edge cases."
     },
     {
       "id": "P1.23",
