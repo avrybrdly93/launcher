@@ -1,3 +1,4 @@
+import { ENERGY_INVARIANT } from "./energy.js";
 import type { EvalContext } from "./eval-context.js";
 import { composeForces, createForceRegistry, type ForceModel } from "./forces.js";
 import type { Model } from "./model.js";
@@ -28,6 +29,7 @@ export function createPlanarProjectileModel(forces: readonly ForceModel[]): Mode
   return {
     dim: 4,
     channels: PLANAR_CHANNELS,
+    invariants: [ENERGY_INVARIANT],
     rhs(t: number, y: Float64Array, out: Float64Array, ctx: EvalContext): void {
       const x = y[X]!;
       const yPos = y[Y]!;

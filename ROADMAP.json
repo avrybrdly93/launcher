@@ -464,8 +464,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "drag-off: dE/dt from powers \u2261 0 to 1e-13",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added packages/engine/src/energy.ts: mechanicalEnergy(y,mass,g), composeEnergyPower (sums ForceModel.energyPower across a registry, mirroring composeForces), the ENERGY_INVARIANT InvariantSpec (now wired into createPlanarProjectileModel's invariants array), and two independent dE/dt computations -- energyDerivativeFromPowers (work-energy theorem via powers + analytic d(mgy)/dt) and energyDerivativeFromRhs (via rhs acceleration) -- used as a cross-check that every force's energyPower matches its accumulate. energy.test.ts verifies: drag-off dE/dt==0 to 1e-13 (gravity's own power exactly cancels the potential's derivative), Magnus-only conservation, drag-on monotone non-increase in still air, the two independent dE/dt derivations agree across 4 force combinations, and the wired InvariantSpec matches mechanicalEnergy directly."
     },
     {
       "id": "P1.25",
