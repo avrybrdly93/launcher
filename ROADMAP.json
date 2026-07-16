@@ -453,8 +453,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "matches P1.22 analytic where available",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added createFiniteDifferenceJacobian (packages/engine/src/finite-difference-jacobian.ts): a central-difference Model.jacobian(t,y,out) fallback for any Model, with per-component scaled steps h_j = max(minStep, eps^(1/3)*|y_j|). Captures EvalContext by closure like P1.22, since Model.jacobian per the blueprint has no ctx param. finite-difference-jacobian.test.ts verifies it matches the P1.22 analytic Jacobian to 1e-7 on gravity+quadratic-drag, stays finite on the Cd(Re)/Magnus cases the analytic one doesn't cover, and matches a hand-known J=-I on a trivial decoupled model."
     },
     {
       "id": "P1.24",
