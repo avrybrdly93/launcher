@@ -4,6 +4,7 @@ import {
   ConstantAtmosphere,
   Environment,
   ExponentialAtmosphere,
+  GaussianVortexWind,
   LogProfileWind,
   SinusoidalGustWind,
   UniformGravity,
@@ -180,6 +181,52 @@ describe("SinusoidalGustWind", () => {
     wind.sample(2, 0, 0, outA);
     wind.sample(2, 500, -500, outB);
     expect(outB.wx).toBe(outA.wx);
+  });
+});
+
+describe("GaussianVortexWind", () => {
+  it("circulation integral on a ring far outside the core matches Gamma to 1% (numeric quadrature)", () => {
+    const gamma = 5;
+    const rc = 0.5;
+    const wind = new GaussianVortexWind(gamma, rc);
+    const R = 10 * rc;
+    const out = new EnvSample();
+    const n = 2000;
+    const dTheta = (2 * Math.PI) / n;
+    let circulation = 0;
+    for (let i = 0; i < n; i++) {
+      const theta = i * dTheta;
+      const x = R * Math.cos(theta);
+      const y = R * Math.sin(theta);
+      wind.sample(0, x, y, out);
+      const tx = -Math.sin(theta);
+      const ty = Math.cos(theta);
+      circulation += (out.wx * tx + out.wy * ty) * R * dTheta;
+    }
+    expect(Math.abs(circulation - gamma) / gamma).toBeLessThan(0.01);
+  });
+
+  it("is finite (zero) at the vortex center, not NaN from a 0/0 division", () => {
+    const wind = new GaussianVortexWind(5, 0.5);
+    const out = new EnvSample();
+    wind.sample(0, 0, 0, out);
+    expect(out.wx).toBe(0);
+    expect(out.wy).toBe(0);
+  });
+
+  it("is purely tangential: velocity is perpendicular to the radial direction from the center", () => {
+    const wind = new GaussianVortexWind(3, 1, 2, -1);
+    const out = new EnvSample();
+    for (const [x, y] of [
+      [5, 3],
+      [-2, 4],
+      [2, -1.001],
+    ] as const) {
+      wind.sample(0, x, y, out);
+      const dx = x - 2;
+      const dy = y - -1;
+      expect(Math.abs(out.wx * dx + out.wy * dy)).toBeLessThan(1e-10);
+    }
   });
 });
 

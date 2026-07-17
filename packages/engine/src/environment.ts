@@ -140,6 +140,37 @@ export class SinusoidalGustWind implements WindModel {
 }
 
 /**
+ * Gaussian (Lamb-Oseen) vortex analytic wind field (§3.5 case 3): tangential
+ * speed vTheta(r) = (Gamma / (2*pi*r)) * (1 - exp(-r^2/rc^2)), circulation
+ * Gamma, core radius rc. vTheta -> 0 smoothly as r -> 0 (no solid-body
+ * singularity), so r = 0 is handled explicitly rather than dividing by zero.
+ */
+export class GaussianVortexWind implements WindModel {
+  constructor(
+    private readonly circulation: number, // Gamma, m^2/s
+    private readonly coreRadius: number, // rc, m
+    private readonly centerX: number = 0,
+    private readonly centerY: number = 0,
+  ) {}
+
+  sample(_t: number, x: number, y: number, out: EnvSample): void {
+    const dx = x - this.centerX;
+    const dy = y - this.centerY;
+    const r = Math.hypot(dx, dy);
+    if (r === 0) {
+      out.wx = 0;
+      out.wy = 0;
+      return;
+    }
+    const vTheta =
+      (this.circulation / (2 * Math.PI * r)) *
+      (1 - Math.exp(-(r * r) / (this.coreRadius * this.coreRadius)));
+    out.wx = -vTheta * (dy / r);
+    out.wy = vTheta * (dx / r);
+  }
+}
+
+/**
  * Composes an Atmosphere + GravityModel + WindModel into the single
  * `Environment` the engine exports (§2.2 module table). `sample` is called
  * exactly once per rhs evaluation (§2.4a); internally it delegates to the

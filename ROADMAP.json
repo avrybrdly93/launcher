@@ -552,8 +552,8 @@
       "estMinutes": 25,
       "difficulty": "M",
       "validation": "circulation integral on ring \u2248 \u0393 to 1% (numeric quadrature test)",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added GaussianVortexWind (environment.ts): Lamb-Oseen vortex, vTheta(r) = (Gamma/(2*pi*r))*(1-exp(-r^2/rc^2)), circulation Gamma, core radius rc, optional center offset. r=0 handled explicitly (returns 0) since the 0/0 limit, while analytically 0, would otherwise divide by zero. Tests in environment.test.ts: numeric quadrature of the circulation line integral around a ring at R=10*rc (well outside the core, so 1-exp(-100)~=1) matches Gamma to 1% (validation criterion, 2000-point discretized sum of v.dl); finite/zero at the vortex center; velocity is purely tangential (v . r_hat = 0) at several offset-center points."
     },
     {
       "id": "P1.33",
