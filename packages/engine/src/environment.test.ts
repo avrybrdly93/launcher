@@ -5,6 +5,7 @@ import {
   Environment,
   ExponentialAtmosphere,
   UniformGravity,
+  UniformWind,
   ZeroWind,
 } from "./environment.js";
 import { EARTH_RADIUS_M, G_STD, ISA, sutherlandViscosity } from "./units.js";
@@ -77,6 +78,30 @@ describe("ExponentialAtmosphere", () => {
     const out = new EnvSample();
     atm.sample(0, 5000, out);
     expect(out.eta).toBe(sutherlandViscosity(ISA.T0));
+  });
+});
+
+describe("UniformWind", () => {
+  it("returns a constant w everywhere in space and time (validation criterion)", () => {
+    const wind = new UniformWind(5, -1.5);
+    const out = new EnvSample();
+    for (const [t, x, y] of [
+      [0, 0, 0],
+      [10, 100, -50],
+      [1e6, -1e3, 1e3],
+    ] as const) {
+      wind.sample(t, x, y, out);
+      expect(out.wx).toBe(5);
+      expect(out.wy).toBe(-1.5);
+    }
+  });
+
+  it("defaults wy to 0 for a purely horizontal wind", () => {
+    const wind = new UniformWind(3);
+    const out = new EnvSample();
+    wind.sample(0, 0, 0, out);
+    expect(out.wx).toBe(3);
+    expect(out.wy).toBe(0);
   });
 });
 

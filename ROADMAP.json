@@ -519,8 +519,8 @@
       "estMinutes": 10,
       "difficulty": "E",
       "validation": "w constant everywhere",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added UniformWind (environment.ts): WindModel implementation returning a constant (wx, wy) independent of t/x/y (\u00a73.5 case 1), defaulting wy to 0 for horizontal-only wind. The WindModel interface itself already existed (P1.03-era environment.ts) with ZeroWind as the trivial w=0 case; this adds the nonzero constant case. Tests in environment.test.ts: w is identical across widely spread (t, x, y) samples (validation criterion), and wy defaults to 0."
     },
     {
       "id": "P1.30",
