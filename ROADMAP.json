@@ -629,8 +629,8 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "ground event function g=y\u2212h(x) evaluates",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added terrain.ts: Terrain interface (height(x)), FlatTerrain (h\u22610, the platform default), FunctionTerrain (wraps an arbitrary h(x)), and groundHeightResidual(terrain,x,y) = y-h(x) (the ground-contact event quantity per \u00a73.9's well-posedness-of-events note). terrain.test.ts (4 tests): FlatTerrain is 0 everywhere; FunctionTerrain evaluates the wrapped function; groundHeightResidual evaluates against both flat and sloped terrain (validation criterion). P4.13 will later extend Terrain with a piecewise-PCHIP editor model; this interface is deliberately generic enough to support that without a breaking change."
     },
     {
       "id": "P1.40",
