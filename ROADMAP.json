@@ -662,8 +662,8 @@
       "estMinutes": 30,
       "difficulty": "M",
       "validation": "fast-check suite green, 1e3 cases",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added fast-check as a devDependency of @ballista/engine (test-only; confirmed it doesn't affect the app bundle, still 11.74 kB / 5.03 kB gz). Added force-properties.test.ts with 2 properties, each numRuns:1000 (validation criterion): (1) mirror x => mirror F_x for the gravity+quadratic-drag+buoyancy composed force under x->-x (negating x, vx, wx; y, vy, wy unchanged) -- Magnus is deliberately excluded since a plain x-reflection isn't a symmetry of the spin pseudovector without also flipping spin's sign; (2) rotational consistency of quadratic drag, F(R_theta u) = R_theta F(u), verified by rotating both velocity and wind by a random theta and comparing the rotated force to the force computed directly at the rotated state. Both exercise the real QuadraticDragForce/GravityForce/BuoyancyForce classes (not reimplemented formulas) via the same ctx-refresh pattern forces.test.ts uses."
     },
     {
       "id": "P1.43",
