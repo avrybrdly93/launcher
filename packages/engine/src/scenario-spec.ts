@@ -91,6 +91,12 @@ export const initialConditionsSchema = z.object({
   y0: z.number(),
   vx0: z.number(),
   vy0: z.number(),
+  /**
+   * Constant launch spin, rad/s (§3.6): positive = backspin for rightward
+   * motion. Feeds `ProjectileParams.spin` for scenarios whose `forceIds`
+   * include "magnus"; omit (or 0) for spin-free scenarios.
+   */
+  spin0: z.number().optional(),
 });
 export type InitialConditions = z.infer<typeof initialConditionsSchema>;
 

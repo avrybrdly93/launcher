@@ -596,8 +596,8 @@
       "estMinutes": 25,
       "difficulty": "E",
       "validation": "each parses; dimensionless \u03a0 spans \u22653 decades across set",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added scenario-presets.ts: PRESET_SCENARIOS (7 ScenarioSpecs: drag-free reference, shot put, table-tennis, golf-drive with Magnus/backspin, dust-grain, headwind+tailwind baseball pair) plus referenceDimensionlessPi(projectile, v0), a minimal single-use eval of \u03a0 = \u03c1 Cd(Re(v0),M(v0)) A v0^2/(2mg) at ISA sea-level -- P1.37 will generalize this into a full characteristic-scales module. Also added an optional spin0 (rad/s) field to initialConditionsSchema (scenario-spec.ts) since nothing in ScenarioSpec could previously express launch spin for a Magnus-bearing preset like golf-drive; matches the blueprint's P3.19 launch-panel v0/theta/y0/omega grouping. Dust-grain is a fabricated 5-micron mineral-dust ProjectileSpec (not a real projectile asset) wired with drag-linear (Stokes) rather than drag-quadratic since that's the physically dominant regime at its Reynolds number; its huge area/mass ratio pushes \u03a0 far above the shot put's, giving the set a ~4.8-decade \u03a0 span (shot put ~0.009, dust grain ~527), comfortably over the 3-decade bound. scenario-presets.test.ts (4 tests): every preset parses and round-trips; every computed \u03a0 is finite and positive; the full-set span is \u2265 3 decades; shot put < 0.1 < dust grain (sanity bookends per the P1.38-style ordering check)."
     },
     {
       "id": "P1.37",
