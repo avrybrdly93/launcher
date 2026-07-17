@@ -475,8 +475,8 @@
       "estMinutes": 30,
       "difficulty": "E",
       "validation": "assets validate; each has provenance string",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added projectile-spec.ts (zod ProjectileSpec schema: mass, radius, discriminated-union drag/lift model specs, optional spinDecayTime tau_omega for P4.07, required provenance string) and projectile-assets.ts (7 data assets: smooth-sphere, golf-ball, soccer-ball, baseball, table-tennis-ball, cannonball, shot-put, each with a literature/rules-body citation). projectileSpecToParams() bridges a spec into the existing runtime ProjectileParams (instantiating ConstantCd/TabulatedReynoldsCd/SaturatingLiftCoefficient). projectile-spec.test.ts validates every asset against the schema, checks non-empty provenance, unique ids, and that projectileSpecToParams derives sane runtime params for each. Build-time-validating asset loader + corrupt-fixture rejection test is P1.26 (todo)."
     },
     {
       "id": "P1.26",
