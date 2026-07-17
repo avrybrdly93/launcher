@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { add, crossZ, dot, norm, scale, zero } from "./vec2.js";
-import { degToRad, ftToM, mToFt, radToDeg } from "./units.js";
+import { degToRad, ftToM, mToFt, radToDeg, SUTHERLAND, sutherlandViscosity } from "./units.js";
 import { PCG32 } from "./random.js";
 
 describe("vec2", () => {
@@ -26,6 +26,24 @@ describe("units", () => {
     }
     for (const m of [0, 1, 100, 1609.34]) {
       expect(ftToM(mToFt(m))).toBeCloseTo(m, 9);
+    }
+  });
+});
+
+describe("sutherlandViscosity", () => {
+  it("matches the reference value at Tref = 288.15 K to 1% (validation criterion)", () => {
+    const eta = sutherlandViscosity(288.15);
+    expect(Math.abs(eta - 1.789e-5) / 1.789e-5).toBeLessThan(0.01);
+  });
+
+  it("equals etaRef exactly at Tref by construction", () => {
+    expect(sutherlandViscosity(SUTHERLAND.Tref)).toBe(SUTHERLAND.etaRef);
+  });
+
+  it("increases monotonically with temperature over the ISA troposphere range", () => {
+    const temps = [220, 250, 280, 288.15, 300, 320];
+    for (let i = 1; i < temps.length; i++) {
+      expect(sutherlandViscosity(temps[i]!)).toBeGreaterThan(sutherlandViscosity(temps[i - 1]!));
     }
   });
 });

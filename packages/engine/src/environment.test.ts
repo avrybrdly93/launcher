@@ -7,7 +7,7 @@ import {
   UniformGravity,
   ZeroWind,
 } from "./environment.js";
-import { EARTH_RADIUS_M, G_STD, ISA } from "./units.js";
+import { EARTH_RADIUS_M, G_STD, ISA, sutherlandViscosity } from "./units.js";
 
 describe("ConstantAtmosphere", () => {
   it("returns ISA sea-level density everywhere", () => {
@@ -17,6 +17,13 @@ describe("ConstantAtmosphere", () => {
       atm.sample(0, y, out);
       expect(out.rho).toBe(ISA.rho0);
     }
+  });
+
+  it("computes eta from Sutherland's law at ISA sea-level temperature", () => {
+    const atm = new ConstantAtmosphere();
+    const out = new EnvSample();
+    atm.sample(0, 0, out);
+    expect(out.eta).toBe(sutherlandViscosity(ISA.T0));
   });
 });
 
@@ -63,6 +70,13 @@ describe("ExponentialAtmosphere", () => {
     const T0 = out.T;
     atm.sample(0, 8000, out);
     expect(out.T).toBe(T0);
+  });
+
+  it("computes eta from Sutherland's law at the (fixed) isothermal temperature", () => {
+    const atm = new ExponentialAtmosphere();
+    const out = new EnvSample();
+    atm.sample(0, 5000, out);
+    expect(out.eta).toBe(sutherlandViscosity(ISA.T0));
   });
 });
 
