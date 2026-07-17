@@ -574,7 +574,7 @@
       "estMinutes": 25,
       "difficulty": "M",
       "validation": "serialize\u2192parse round-trip bit-equal",
-      "status": "todo",
+      "status": "done",
       "notes": ""
     },
     {
