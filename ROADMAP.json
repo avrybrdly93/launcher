@@ -453,8 +453,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "matches P1.22 analytic where available",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added finiteDifferenceJacobian(model,t,y,ctx,out,typicalScale) in finite-difference-jacobian.ts: central differences with per-component scaled step h_j = sqrt(eps)*max(|y_j|, typicalScale), generic over any Model (not tied to the planar projectile). Tests: (1) matches P1.22's analytic gravity+quadratic-drag jacobian to 1e-6 at the same 10 states, (2) sane fallback behavior (finite entries, correct kinematic identity block, asymmetric velocity block from Magnus coupling) when Magnus is present and no analytic jacobian exists, (3) no NaN/Inf at y=0 where a naive unscaled step would underflow."
     },
     {
       "id": "P1.24",
