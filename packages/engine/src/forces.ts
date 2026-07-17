@@ -130,6 +130,27 @@ export function createForceRegistry(forces: readonly ForceModel[]): readonly For
   return [...forces].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 }
 
+/**
+ * Sums each force's declared power F_i . v_true (0 for a force with no
+ * `energyPower`), in registry order — the per-force half of the energy
+ * bookkeeping (3.19). Combined with gravity's own -mg*v_y term this
+ * reconstructs dE/dt for the mechanical energy E = (1/2)m|v|^2 + mgy: the
+ * two cancel exactly whenever gravity is in `forces`, leaving only the
+ * remaining (aero) forces' contribution.
+ */
+export function totalForcePower(
+  forces: readonly ForceModel[],
+  t: number,
+  y: Float64Array,
+  ctx: EvalContext,
+): number {
+  let power = 0;
+  for (const force of forces) {
+    power += force.energyPower?.(t, y, ctx) ?? 0;
+  }
+  return power;
+}
+
 /** Zeroes `outForce` then accumulates every force in `forces`, in registry order. */
 export function composeForces(
   forces: readonly ForceModel[],

@@ -1,6 +1,6 @@
 import type { EvalContext } from "./eval-context.js";
 import { composeForces, createForceRegistry, type ForceModel } from "./forces.js";
-import type { Model } from "./model.js";
+import type { InvariantSpec, Model } from "./model.js";
 import type { ChannelMeta } from "./schema.js";
 import { norm } from "./vec2.js";
 
@@ -29,6 +29,19 @@ const DIM = 4;
  */
 const ANALYTIC_JACOBIAN_FORCE_IDS = new Set(["gravity", "buoyancy", "drag-quadratic"]);
 const JACOBIAN_SPEED_EPS = 1e-9;
+
+/**
+ * Mechanical energy E = (1/2)m|v|^2 + mgy (§3.8). Reads ctx.env.g, which is
+ * only meaningful once the environment has been sampled at this (t, x, y) —
+ * true immediately after rhs() runs for this state, which is how invariant
+ * evaluation is used in practice (re-evaluated against the state ctx was
+ * just computed for).
+ */
+export function mechanicalEnergy(y: Float64Array, ctx: EvalContext): number {
+  const vx = y[VX]!;
+  const vy = y[VY]!;
+  return 0.5 * ctx.params.mass * (vx * vx + vy * vy) + ctx.params.mass * ctx.env.g * y[Y]!;
+}
 
 /**
  * Analytic df/dy for gravity + quadratic drag (eq. 3.18, no Magnus): with
@@ -75,6 +88,11 @@ function planarGravityQuadraticDragJacobian(
  * the first Model SolverKit will integrate — deliberately just a Model, with
  * no special status in the engine (§1.4).
  */
+const ENERGY_INVARIANT: InvariantSpec = {
+  name: "energy",
+  evaluate: (_t: number, y: Float64Array, ctx: EvalContext) => mechanicalEnergy(y, ctx),
+};
+
 export function createPlanarProjectileModel(forces: readonly ForceModel[]): Model {
   const registry = createForceRegistry(forces);
   const supportsAnalyticJacobian = registry.every((f) => ANALYTIC_JACOBIAN_FORCE_IDS.has(f.id));
@@ -83,6 +101,7 @@ export function createPlanarProjectileModel(forces: readonly ForceModel[]): Mode
   return {
     dim: DIM,
     channels: PLANAR_CHANNELS,
+    invariants: [ENERGY_INVARIANT],
     rhs(t: number, y: Float64Array, out: Float64Array, ctx: EvalContext): void {
       const x = y[X]!;
       const yPos = y[Y]!;

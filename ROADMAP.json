@@ -464,8 +464,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "drag-off: dE/dt from powers \u2261 0 to 1e-13",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added mechanicalEnergy(y,ctx) = (1/2)m|v|^2 + mgy and wired it as an 'energy' InvariantSpec on createPlanarProjectileModel's returned Model (always present, independent of the wired force set). Added totalForcePower(forces,t,y,ctx) in forces.ts, summing each force's already-implemented energyPower. Test verifies the algebraic identity dE/dt = totalForcePower(forces) + m*g*vy -- gravity's own -mg*vy cancels the +mg*vy term, leaving only aero forces' contribution -- is |.| < 1e-13 with drag off (gravity+Magnus only) at 6 states, exercising that MagnusForce.energyPower is genuinely orthogonal to v (ideal Magnus does no work, per \u00a73.8)."
     },
     {
       "id": "P1.25",
