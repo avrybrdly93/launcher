@@ -497,8 +497,8 @@
       "estMinutes": 10,
       "difficulty": "E",
       "validation": "\u03c1(H)=\u03c1\u2080/e to 1e-15",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added ExponentialAtmosphere (environment.ts): isothermal exponential atmosphere per blueprint (3.4), rho(y)=rho0*e^(-y/H) with H=ISA.scaleHeight (8500 m). Pressure decays by the same exponential factor (p=p0*e^(-y/H)) so p/rho stays constant with altitude, consistent with the isothermal hydrostatic derivation; T and eta held fixed (isothermal; Sutherland's eta(T) is P1.28). Tests in environment.test.ts: matches ISA sea-level values at y=0; rho(H)=rho0/e to 1e-15 (validation criterion); closed-form match at an arbitrary altitude; p/rho invariant with altitude; T constant with altitude."
     },
     {
       "id": "P1.28",

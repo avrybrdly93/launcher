@@ -29,6 +29,32 @@ export class ConstantAtmosphere implements Atmosphere {
   }
 }
 
+/**
+ * Isothermal exponential atmosphere (§3.4): rho(y) = rho0*e^(-y/H), scale
+ * height H = Rs*T/g ~= 8.5 km. Temperature is held fixed (isothermal), and
+ * pressure follows the same exponential decay so that p = rho*Rs*T remains
+ * consistent with the ideal-gas law at every altitude.
+ */
+export class ExponentialAtmosphere implements Atmosphere {
+  private static readonly GAMMA = 1.4;
+
+  constructor(
+    private readonly rho0: number = ISA.rho0,
+    private readonly T0: number = ISA.T0,
+    private readonly p0: number = ISA.p0,
+    private readonly scaleHeight: number = ISA.scaleHeight,
+  ) {}
+
+  sample(_x: number, y: number, out: EnvSample): void {
+    const factor = Math.exp(-y / this.scaleHeight);
+    out.rho = this.rho0 * factor;
+    out.T = this.T0;
+    out.p = this.p0 * factor;
+    out.eta = 1.789e-5;
+    out.c = Math.sqrt(ExponentialAtmosphere.GAMMA * ISA.Rs * this.T0);
+  }
+}
+
 /** Uniform gravity, optionally with the altitude correction (3.3) behind a flag. */
 export class UniformGravity implements GravityModel {
   constructor(
