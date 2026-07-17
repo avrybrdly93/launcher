@@ -1,12 +1,9 @@
+import { loadProjectileAssets } from "./asset-loader.js";
 import { SMOOTH_SPHERE_CD_TABLE } from "./drag-coefficient.js";
 import type { ProjectileSpec } from "./projectile-spec.js";
 
-/**
- * Initial projectile data-asset library (§3.9). Every numeric datum is
- * backed by the asset's `provenance` citation; the asset loader (P1.26)
- * schema-validates these at build time.
- */
-export const PROJECTILE_ASSETS: readonly ProjectileSpec[] = [
+/** Source literals for the initial projectile data-asset library (§3.9); validated below at import time. */
+const PROJECTILE_ASSET_SOURCE: readonly ProjectileSpec[] = [
   {
     id: "smooth-sphere",
     name: "Smooth sphere (reference)",
@@ -98,3 +95,11 @@ export const PROJECTILE_ASSETS: readonly ProjectileSpec[] = [
       "ch. 7.",
   },
 ];
+
+/**
+ * The projectile asset library, schema-validated at import time by
+ * `loadProjectileAssets` (P1.26) -- a corrupt or duplicate-id entry throws
+ * with a message naming the offending asset, rather than shipping silently.
+ */
+export const PROJECTILE_ASSETS: readonly ProjectileSpec[] =
+  loadProjectileAssets(PROJECTILE_ASSET_SOURCE);

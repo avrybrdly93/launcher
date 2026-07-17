@@ -486,8 +486,8 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "corrupt fixture rejected with useful error",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added asset-loader.ts: loadProjectileAssets(raw: readonly unknown[]) validates each entry against projectileSpecSchema, rejecting the first invalid or duplicate-id entry with a SchemaValidationError naming the asset's id/index and failing field(s). projectile-assets.ts now runs its literal fixtures through this loader at import time (PROJECTILE_ASSETS = loadProjectileAssets(PROJECTILE_ASSET_SOURCE)), which is this project's build-time-validation analog since assets ship as TS literals rather than a separate compiled data file. asset-loader.test.ts covers: real library loads clean; missing-provenance, non-positive-mass, unknown-dragModel-kind, and duplicate-id fixtures are all rejected with useful (asset-identifying) error messages."
     },
     {
       "id": "P1.27",
