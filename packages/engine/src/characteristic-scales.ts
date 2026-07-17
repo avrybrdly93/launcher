@@ -15,11 +15,13 @@ export interface CharacteristicEnvironment {
   readonly g?: number; // m/s^2, defaults to G_STD
 }
 
-function reynoldsNumber(rho: number, speed: number, radius: number, eta: number): number {
+/** Reynolds number Re = ρ·v·(2R)/η (§3.3, eq. 3.9). */
+export function reynoldsNumber(rho: number, speed: number, radius: number, eta: number): number {
   return (rho * speed * 2 * radius) / eta;
 }
 
-function machNumber(speed: number, c: number | undefined): number {
+/** Mach number M = v/c; 0 for c<=0 or undefined (incompressible / no atmosphere sound speed). */
+export function machNumber(speed: number, c: number | undefined): number {
   return c !== undefined && c > 0 ? speed / c : 0;
 }
 

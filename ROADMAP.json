@@ -618,8 +618,8 @@
       "estMinutes": 10,
       "difficulty": "E",
       "validation": "\u03a0(shot put) < 0.1 < \u03a0(TT ball)",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added scenario-metadata.ts: scenarioNondimensionalGroups(spec) evaluates \u03a0, Re, M, and spin ratio S = |omega|R/v0 (the four groups \u00a73.6 says the UI surfaces live) at a scenario's launch state (t=0, initial position/velocity), by building the live Environment from spec.environment, sampling it once at (x0,y0), and delegating to characteristic-scales.ts's dimensionlessPi (now also exports reynoldsNumber/machNumber so this module doesn't duplicate that math). v0=0 scenarios short-circuit to all-zero groups rather than divide by zero. scenario-metadata.test.ts (4 tests): \u03a0(shot put) < 0.1 < \u03a0(table-tennis) (validation criterion, using P1.36's preset library); every preset's groups are finite and non-negative; spin ratio is nonzero only for the golf-drive preset (the only one with spin0 set) and exactly 0 elsewhere; a launched-from-rest scenario returns all-zero groups."
     },
     {
       "id": "P1.39",
