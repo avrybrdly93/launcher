@@ -5,6 +5,10 @@ import type { EvalContext } from "./eval-context.js";
 export interface EventSpec {
   readonly name: string;
   g(t: number, y: Float64Array): number;
+  /** Zero-crossing direction that counts as this event firing; any direction if omitted (§4.9). */
+  readonly direction?: "rising" | "falling" | "any";
+  /** Whether this event stops integration when it fires; non-terminal if omitted. */
+  readonly terminal?: boolean;
 }
 
 /** A conserved or monotone quantity of the model, used as a runtime correctness check (§3.8). */

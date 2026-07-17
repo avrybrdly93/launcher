@@ -640,8 +640,8 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "declared specs typecheck; unit eval of g at states",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Extended EventSpec (model.ts) with optional direction ('rising'|'falling'|'any') and terminal fields -- needed to actually express 'ground impact (falling, terminal), apex (v_y falling)' since the P1.19 EventSpec only had name+g. Both optional so the existing mock EventSpec in model.test.ts stays valid. createPlanarProjectileModel now takes an optional terrain: Terrain = new FlatTerrain() second parameter and always declares events: [ground-impact, apex] -- ground-impact wraps terrain.height via P1.39's Terrain interface (g = y - h(x), falling, terminal), apex is g = v_y (falling, non-terminal). Added 4 tests to planar-projectile-model.test.ts: both events declared with correct terminal/direction metadata; apex g(t,y) unit-evaluated at several v_y states (validation criterion); ground-impact g unit-evaluated against the default flat terrain; ground-impact honors a custom FunctionTerrain passed in (slope h(x)=0.2x)."
     },
     {
       "id": "P1.41",

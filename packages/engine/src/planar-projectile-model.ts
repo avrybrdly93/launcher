@@ -1,7 +1,8 @@
 import type { EvalContext } from "./eval-context.js";
 import { composeForces, createForceRegistry, type ForceModel } from "./forces.js";
-import type { InvariantSpec, Model } from "./model.js";
+import type { EventSpec, InvariantSpec, Model } from "./model.js";
 import type { ChannelMeta } from "./schema.js";
+import { FlatTerrain, type Terrain } from "./terrain.js";
 import { norm } from "./vec2.js";
 
 export const PLANAR_CHANNELS: readonly ChannelMeta[] = [
@@ -93,7 +94,36 @@ const ENERGY_INVARIANT: InvariantSpec = {
   evaluate: (_t: number, y: Float64Array, ctx: EvalContext) => mechanicalEnergy(y, ctx),
 };
 
-export function createPlanarProjectileModel(forces: readonly ForceModel[]): Model {
+/**
+ * Apex event: root of v_y, falling direction only (ascending v_y=0 at launch
+ * from the ground doesn't count as an apex). Non-terminal -- the trajectory
+ * keeps integrating past it (§3.9 "Well-posedness of events").
+ */
+const APEX_EVENT: EventSpec = {
+  name: "apex",
+  g: (_t: number, y: Float64Array) => y[VY]!,
+  direction: "falling",
+  terminal: false,
+};
+
+/**
+ * Ground-impact event: root of g_gnd = y - h(x) (§3.9), falling direction
+ * (the projectile descending onto terrain, not departing from it).
+ * Terminal -- integration stops once the projectile hits the ground.
+ */
+function createGroundImpactEvent(terrain: Terrain): EventSpec {
+  return {
+    name: "ground-impact",
+    g: (_t: number, y: Float64Array) => y[Y]! - terrain.height(y[X]!),
+    direction: "falling",
+    terminal: true,
+  };
+}
+
+export function createPlanarProjectileModel(
+  forces: readonly ForceModel[],
+  terrain: Terrain = new FlatTerrain(),
+): Model {
   const registry = createForceRegistry(forces);
   const supportsAnalyticJacobian = registry.every((f) => ANALYTIC_JACOBIAN_FORCE_IDS.has(f.id));
   const hasQuadraticDrag = registry.some((f) => f.id === "drag-quadratic");
@@ -102,6 +132,7 @@ export function createPlanarProjectileModel(forces: readonly ForceModel[]): Mode
     dim: DIM,
     channels: PLANAR_CHANNELS,
     invariants: [ENERGY_INVARIANT],
+    events: [createGroundImpactEvent(terrain), APEX_EVENT],
     rhs(t: number, y: Float64Array, out: Float64Array, ctx: EvalContext): void {
       const x = y[X]!;
       const yPos = y[Y]!;

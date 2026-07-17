@@ -6,6 +6,7 @@ import { SaturatingLiftCoefficient } from "./lift-coefficient.js";
 import { createSphericalProjectileParams } from "./projectile-params.js";
 import { GravityForce, MagnusForce, QuadraticDragForce, totalForcePower } from "./forces.js";
 import { createPlanarProjectileModel, mechanicalEnergy } from "./planar-projectile-model.js";
+import { FunctionTerrain } from "./terrain.js";
 
 describe("createPlanarProjectileModel", () => {
   it("declares dim=4 with the expected channels", () => {
@@ -210,5 +211,48 @@ describe("createPlanarProjectileModel", () => {
       const dEdt = totalForcePower(forces, 0, y, ctx) + mass * ctx.env.g * y[3]!;
       expect(Math.abs(dEdt)).toBeLessThan(1e-13);
     }
+  });
+
+  it("declares a terminal falling ground-impact event and a non-terminal falling apex event", () => {
+    const model = createPlanarProjectileModel([new GravityForce()]);
+    expect(model.events).toHaveLength(2);
+
+    const groundImpact = model.events!.find((e) => e.name === "ground-impact")!;
+    expect(groundImpact).toBeDefined();
+    expect(groundImpact.terminal).toBe(true);
+    expect(groundImpact.direction).toBe("falling");
+
+    const apex = model.events!.find((e) => e.name === "apex")!;
+    expect(apex).toBeDefined();
+    expect(apex.terminal).toBeFalsy();
+    expect(apex.direction).toBe("falling");
+  });
+
+  it("apex event g(t,y) = v_y, evaluated at several states", () => {
+    const model = createPlanarProjectileModel([new GravityForce()]);
+    const apex = model.events!.find((e) => e.name === "apex")!;
+
+    expect(apex.g(0, new Float64Array([0, 10, 5, 3]))).toBe(3);
+    expect(apex.g(0, new Float64Array([0, 10, 5, 0]))).toBe(0);
+    expect(apex.g(0, new Float64Array([0, 10, 5, -7]))).toBe(-7);
+  });
+
+  it("ground-impact event g(t,y) = y - h(x) against flat terrain (the default)", () => {
+    const model = createPlanarProjectileModel([new GravityForce()]);
+    const groundImpact = model.events!.find((e) => e.name === "ground-impact")!;
+
+    expect(groundImpact.g(0, new Float64Array([0, 1.5, 10, -5]))).toBe(1.5);
+    expect(groundImpact.g(0, new Float64Array([100, 0, 10, -5]))).toBe(0);
+    expect(groundImpact.g(0, new Float64Array([-40, -0.01, 10, -5]))).toBeCloseTo(-0.01, 12);
+  });
+
+  it("ground-impact event honors a custom terrain passed to createPlanarProjectileModel", () => {
+    const slope = new FunctionTerrain((x) => 0.2 * x);
+    const model = createPlanarProjectileModel([new GravityForce()], slope);
+    const groundImpact = model.events!.find((e) => e.name === "ground-impact")!;
+
+    // At x=10, h(x)=2, so y=3 sits 1 above the slope and y=2 sits exactly on it.
+    expect(groundImpact.g(0, new Float64Array([10, 3, 0, 0]))).toBeCloseTo(1, 12);
+    expect(groundImpact.g(0, new Float64Array([10, 2, 0, 0]))).toBeCloseTo(0, 12);
   });
 });
