@@ -442,8 +442,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "matches central finite differences to 1e-7 at 10 states",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added Model.jacobian(t,y,ctx,out) (ctx was missing from the interface; needed for rho/Cd/mass/wind). Implemented in planar-projectile-model.ts: closed-form df/dy for gravity+quadratic-drag assuming a state-independent environment (constant atmosphere, non-altitude gravity, zero/uniform wind) and state-independent Cd (exact for ConstantCd). createPlanarProjectileModel only attaches jacobian when every wired force is in {gravity, buoyancy, drag-quadratic} (both contribute zero except drag-quadratic), so a model built with Magnus or linear-drag correctly omits it rather than return a wrong matrix -- P1.23's FD fallback is meant to cover those. Test added in planar-projectile-model.test.ts comparing to central finite differences (h=1e-6) at 10 states, all |diff| < 1e-7."
     },
     {
       "id": "P1.23",

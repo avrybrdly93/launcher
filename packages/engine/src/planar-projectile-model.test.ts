@@ -93,4 +93,62 @@ describe("createPlanarProjectileModel", () => {
       expect(out[3]).toBeCloseTo(expectedVy, 12);
     }
   });
+
+  it("gravity+quadratic-drag analytic jacobian matches central finite differences to 1e-7 at 10 states", () => {
+    const cd = new ConstantCd(0.47);
+    const mass = 0.145;
+    const radius = 0.0366;
+
+    const model = createPlanarProjectileModel([new GravityForce(), new QuadraticDragForce()]);
+    const env = new Environment(new ConstantAtmosphere(), new UniformGravity(), new ZeroWind());
+    const params = createSphericalProjectileParams({ mass, radius, dragCoefficient: cd });
+    const ctx = createEvalContext(env, params);
+
+    expect(model.jacobian).toBeDefined();
+
+    const states: [number, number, number, number][] = [
+      [0, 0, 12.3, 4.1],
+      [10, 5, -8.2, 15.6],
+      [-3, 20, 25.0, -30.1],
+      [0, 0.5, 0.001, -0.002],
+      [100, 10, -1.5, -1.5],
+      [0, 0, 40, 0],
+      [0, 0, 0.001, 40],
+      [5, 5, 5, 5],
+      [-10, -10, -20, 20],
+      [1, 1, 33.3, -12.7],
+    ];
+
+    const h = 1e-6;
+    const jac = new Float64Array(16);
+
+    function rhsAt(y: Float64Array): Float64Array {
+      const result = new Float64Array(4);
+      model.rhs(0, y, result, ctx);
+      return result;
+    }
+
+    for (const state of states) {
+      model.jacobian!(0, Float64Array.from(state), ctx, jac);
+
+      // Central finite differences: column j of J is d(rhs)/dy_j.
+      const fd = new Float64Array(16);
+      for (let j = 0; j < 4; j++) {
+        const plus = Float64Array.from(state);
+        const minus = Float64Array.from(state);
+        plus[j] = plus[j]! + h;
+        minus[j] = minus[j]! - h;
+
+        const fPlus = rhsAt(plus);
+        const fMinus = rhsAt(minus);
+        for (let i = 0; i < 4; i++) {
+          fd[i * 4 + j] = (fPlus[i]! - fMinus[i]!) / (2 * h);
+        }
+      }
+
+      for (let i = 0; i < 16; i++) {
+        expect(Math.abs(jac[i]! - fd[i]!)).toBeLessThan(1e-7);
+      }
+    }
+  });
 });

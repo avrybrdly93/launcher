@@ -15,6 +15,59 @@ const X = 0;
 const Y = 1;
 const VX = 2;
 const VY = 3;
+const DIM = 4;
+
+/**
+ * Force ids whose contribution to df/dy the analytic jacobian below accounts
+ * for: gravity and buoyancy are position/velocity-independent (zero
+ * contribution) under the default state-independent environment (constant
+ * atmosphere, non-altitude-dependent gravity, zero/uniform wind), and
+ * quadratic drag's contribution is the closed form derived from (3.18). Any
+ * other force present (Magnus, linear drag, ...) makes the model's jacobian
+ * incomplete, so createPlanarProjectileModel omits it rather than return a
+ * silently-wrong matrix; P1.23's finite-difference fallback covers those.
+ */
+const ANALYTIC_JACOBIAN_FORCE_IDS = new Set(["gravity", "buoyancy", "drag-quadratic"]);
+const JACOBIAN_SPEED_EPS = 1e-9;
+
+/**
+ * Analytic df/dy for gravity + quadratic drag (eq. 3.18, no Magnus): with
+ * u = v - w treated locally state-independent (w constant in x, y, t) and Cd
+ * treated as state-independent (exact for ConstantCd; a frozen-coefficient
+ * approximation otherwise), only the velocity block is nonzero:
+ *   d(vx')/dvx = -kd*(ux^2+u^2)/u,  d(vx')/dvy = -kd*ux*uy/u
+ *   d(vy')/dvx = -kd*ux*uy/u,       d(vy')/dvy = -kd*(uy^2+u^2)/u
+ * where kd = rho*Cd*A/(2m). At u=0 the drag force has a genuine kink (P1.09
+ * guards the value, not the slope), so the drag block is left at zero there.
+ */
+function planarGravityQuadraticDragJacobian(
+  hasQuadraticDrag: boolean,
+  t: number,
+  y: Float64Array,
+  ctx: EvalContext,
+  out: Float64Array,
+): void {
+  out.fill(0);
+  out[X * DIM + VX] = 1;
+  out[Y * DIM + VY] = 1;
+  if (!hasQuadraticDrag) return;
+
+  ctx.environment.sample(t, y[X]!, y[Y]!, ctx.env);
+  const ux = y[VX]! - ctx.env.wx;
+  const uy = y[VY]! - ctx.env.wy;
+  const u = Math.hypot(ux, uy);
+  if (u < JACOBIAN_SPEED_EPS) return;
+
+  const re = (ctx.env.rho * u * (2 * ctx.params.radius)) / ctx.env.eta;
+  const mach = ctx.env.c > 0 ? u / ctx.env.c : 0;
+  const cd = ctx.params.dragCoefficient.cd(re, mach);
+  const kd = (ctx.env.rho * cd * ctx.params.area) / (2 * ctx.params.mass);
+
+  out[VX * DIM + VX] = (-kd * (ux * ux + u * u)) / u;
+  out[VX * DIM + VY] = (-kd * ux * uy) / u;
+  out[VY * DIM + VX] = (-kd * ux * uy) / u;
+  out[VY * DIM + VY] = (-kd * (uy * uy + u * u)) / u;
+}
 
 /**
  * The workhorse planar projectile model (dim 4, eq. 3.17-3.18): wires
@@ -24,9 +77,11 @@ const VY = 3;
  */
 export function createPlanarProjectileModel(forces: readonly ForceModel[]): Model {
   const registry = createForceRegistry(forces);
+  const supportsAnalyticJacobian = registry.every((f) => ANALYTIC_JACOBIAN_FORCE_IDS.has(f.id));
+  const hasQuadraticDrag = registry.some((f) => f.id === "drag-quadratic");
 
   return {
-    dim: 4,
+    dim: DIM,
     channels: PLANAR_CHANNELS,
     rhs(t: number, y: Float64Array, out: Float64Array, ctx: EvalContext): void {
       const x = y[X]!;
@@ -49,5 +104,12 @@ export function createPlanarProjectileModel(forces: readonly ForceModel[]): Mode
       out[VX] = ctx.forceAccum[0] / ctx.params.mass;
       out[VY] = ctx.forceAccum[1] / ctx.params.mass;
     },
+    ...(supportsAnalyticJacobian
+      ? {
+          jacobian(t: number, y: Float64Array, ctx: EvalContext, out: Float64Array): void {
+            planarGravityQuadraticDragJacobian(hasQuadraticDrag, t, y, ctx, out);
+          },
+        }
+      : {}),
   };
 }
