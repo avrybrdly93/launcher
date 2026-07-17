@@ -585,8 +585,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "fabricated v0 fixture migrates and validates",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added scenario-migration.ts: migrateScenarioSpec(raw) reads the raw schemaVersion, walks a MIGRATIONS[version] chain one step at a time up to CURRENT_SCENARIO_SCHEMA_VERSION (=1), then validates via scenarioSpecSchema. At the current version this is a no-op (the identity migration); a version newer than current is rejected rather than silently misinterpreted. Since Ballista has never actually shipped a v0, migrateV0ToV1 (defaulting the seed field the v1 schema requires but v0 predates) exists as a worked example/template proving the chain mechanism end-to-end, exercised in scenario-migration.test.ts by a fabricated v0 fixture (6 tests: identity at v1, v0 fixture migrates+validates, explicit seed preserved not overwritten, future version rejected, missing schemaVersion rejected, negative schemaVersion rejected)."
     },
     {
       "id": "P1.36",
