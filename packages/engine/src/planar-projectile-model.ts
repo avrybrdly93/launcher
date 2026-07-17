@@ -45,6 +45,17 @@ export function mechanicalEnergy(y: Float64Array, ctx: EvalContext): number {
 }
 
 /**
+ * Horizontal momentum p_x = m*v_x -- a teaching-case invariant (§3.8): it is
+ * conserved only when no horizontal force acts (no drag, no wind, no
+ * Magnus), which most wired force sets violate. Declared unconditionally so
+ * a caller can see it break as soon as a horizontal force is added, rather
+ * than only appearing once forces happen to be horizontal-free.
+ */
+export function momentumX(y: Float64Array, ctx: EvalContext): number {
+  return ctx.params.mass * y[VX]!;
+}
+
+/**
  * Analytic df/dy for gravity + quadratic drag (eq. 3.18, no Magnus): with
  * u = v - w treated locally state-independent (w constant in x, y, t) and Cd
  * treated as state-independent (exact for ConstantCd; a frozen-coefficient
@@ -94,6 +105,11 @@ const ENERGY_INVARIANT: InvariantSpec = {
   evaluate: (_t: number, y: Float64Array, ctx: EvalContext) => mechanicalEnergy(y, ctx),
 };
 
+const MOMENTUM_X_INVARIANT: InvariantSpec = {
+  name: "momentum-x",
+  evaluate: (_t: number, y: Float64Array, ctx: EvalContext) => momentumX(y, ctx),
+};
+
 /**
  * Apex event: root of v_y, falling direction only (ascending v_y=0 at launch
  * from the ground doesn't count as an apex). Non-terminal -- the trajectory
@@ -131,7 +147,7 @@ export function createPlanarProjectileModel(
   return {
     dim: DIM,
     channels: PLANAR_CHANNELS,
-    invariants: [ENERGY_INVARIANT],
+    invariants: [ENERGY_INVARIANT, MOMENTUM_X_INVARIANT],
     events: [createGroundImpactEvent(terrain), APEX_EVENT],
     rhs(t: number, y: Float64Array, out: Float64Array, ctx: EvalContext): void {
       const x = y[X]!;

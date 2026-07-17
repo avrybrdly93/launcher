@@ -5,7 +5,11 @@ import { ConstantCd } from "./drag-coefficient.js";
 import { SaturatingLiftCoefficient } from "./lift-coefficient.js";
 import { createSphericalProjectileParams } from "./projectile-params.js";
 import { GravityForce, MagnusForce, QuadraticDragForce, totalForcePower } from "./forces.js";
-import { createPlanarProjectileModel, mechanicalEnergy } from "./planar-projectile-model.js";
+import {
+  createPlanarProjectileModel,
+  mechanicalEnergy,
+  momentumX,
+} from "./planar-projectile-model.js";
 import { FunctionTerrain } from "./terrain.js";
 
 describe("createPlanarProjectileModel", () => {
@@ -254,5 +258,52 @@ describe("createPlanarProjectileModel", () => {
     // At x=10, h(x)=2, so y=3 sits 1 above the slope and y=2 sits exactly on it.
     expect(groundImpact.g(0, new Float64Array([10, 3, 0, 0]))).toBeCloseTo(1, 12);
     expect(groundImpact.g(0, new Float64Array([10, 2, 0, 0]))).toBeCloseTo(0, 12);
+  });
+
+  it("declares a momentum-x invariant equal to m*vx", () => {
+    const model = createPlanarProjectileModel([new GravityForce()]);
+    const env = new Environment(new ConstantAtmosphere(), new UniformGravity());
+    const params = createSphericalProjectileParams({
+      mass: 2,
+      radius: 0.05,
+      dragCoefficient: new ConstantCd(0),
+    });
+    const ctx = createEvalContext(env, params);
+    const y = new Float64Array([0, 10, 3, 4]);
+
+    const momentumInvariant = model.invariants!.find((inv) => inv.name === "momentum-x")!;
+    expect(momentumInvariant).toBeDefined();
+    expect(momentumInvariant.evaluate(0, y, ctx)).toBe(6);
+    expect(momentumInvariant.evaluate(0, y, ctx)).toBe(momentumX(y, ctx));
+  });
+
+  it("teaching case: drag-off, wind-off, dp_x/dt = m*(dvx/dt) is exactly 0 (no horizontal force)", () => {
+    const model = createPlanarProjectileModel([new GravityForce()]);
+    const env = new Environment(new ConstantAtmosphere(), new UniformGravity(), new ZeroWind());
+    const params = createSphericalProjectileParams({
+      mass: 3.5,
+      radius: 0.05,
+      dragCoefficient: new ConstantCd(0.47), // unused: no drag force wired in
+    });
+    const ctx = createEvalContext(env, params);
+
+    const states: [number, number, number, number][] = [
+      [0, 0, 12.3, 4.1],
+      [10, 5, -8.2, 15.6],
+      [-3, 20, 25.0, -30.1],
+      [0, 0, 40, 0],
+      [5, 5, 5, 5],
+      [-10, -10, -20, 20],
+    ];
+
+    for (const state of states) {
+      const y = Float64Array.from(state);
+      const out = new Float64Array(4);
+      model.rhs(0, y, out, ctx);
+
+      // dp_x/dt = m * dvx/dt = m * out[VX]; out[VX] is exactly 0 with no
+      // horizontal force wired in, so this holds without any tolerance.
+      expect(params.mass * out[2]!).toBe(0);
+    }
   });
 });

@@ -651,8 +651,8 @@
       "estMinutes": 10,
       "difficulty": "E",
       "validation": "drag-off, wind-off: dp_x/dt \u2261 0",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added momentumX(y,ctx)=m*vx and a 'momentum-x' InvariantSpec to createPlanarProjectileModel's invariants array (always declared, alongside the existing energy invariant), evaluated as index[1] now (energy stays index[0], so the existing P1.24 test referencing invariants[0] is unaffected). It's a teaching-case invariant: conserved only when no horizontal force acts, so it's expected to visibly break once drag/wind/Magnus are wired in -- exactly the pedagogical point. Added 2 tests to planar-projectile-model.test.ts: the invariant equals m*vx and matches the exported momentumX helper; with only gravity wired (drag off, wind off via ZeroWind), out[VX] (=dvx/dt) is exactly 0 at 6 states, so dp_x/dt = m*out[VX] = 0 exactly, no tolerance needed (validation criterion)."
     },
     {
       "id": "P1.42",
