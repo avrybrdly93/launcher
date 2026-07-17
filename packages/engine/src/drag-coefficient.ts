@@ -2,6 +2,7 @@ import { PchipInterpolator } from "./pchip.js";
 
 /** Maps flow regime (Reynolds, Mach) to a drag coefficient (§3.3). */
 export interface DragCoefficientModel {
+  /** Drag coefficient at the given Reynolds and Mach numbers. */
   cd(re: number, mach: number): number;
 }
 
@@ -9,6 +10,7 @@ export interface DragCoefficientModel {
 export class ConstantCd implements DragCoefficientModel {
   constructor(private readonly value = 0.47) {}
 
+  /** @inheritDoc */
   cd(_re: number, _mach: number): number {
     return this.value;
   }
@@ -27,6 +29,7 @@ export class TabulatedReynoldsCd implements DragCoefficientModel {
     this.interpolator = new PchipInterpolator(table.re, table.cd);
   }
 
+  /** @inheritDoc */
   cd(re: number, _mach: number): number {
     return this.interpolator.evaluate(re);
   }

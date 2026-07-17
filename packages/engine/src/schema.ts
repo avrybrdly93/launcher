@@ -17,6 +17,7 @@ export type Params = Readonly<Record<string, number>>;
 /** A zod schema is the runtime validator for any serializable Ballista type. */
 export type Schema<T> = z.ZodType<T>;
 
+/** Thrown by {@link parseWithSchema} when data fails validation; carries the raw zod issues. */
 export class SchemaValidationError extends Error {
   constructor(
     message: string,

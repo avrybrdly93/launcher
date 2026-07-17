@@ -65,6 +65,7 @@ export class PchipInterpolator {
     return m;
   }
 
+  /** Interpolates (or clamps to the nearest endpoint) at `xq`. */
   evaluate(xq: number): number {
     const { x, y, m } = this;
     const n = x.length;

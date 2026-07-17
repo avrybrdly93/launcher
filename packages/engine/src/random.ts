@@ -11,6 +11,7 @@
 const MASK64 = (1n << 64n) - 1n;
 const MULT = 6364136223846793005n;
 
+/** A seeded PCG32 generator instance; see the module-level doc for rationale. */
 export class PCG32 {
   private state: bigint;
   private readonly inc: bigint;
@@ -35,6 +36,7 @@ export class PCG32 {
     return oldState;
   }
 
+  /** Next raw uniform 32-bit unsigned integer. */
   nextU32(): number {
     const oldState = this.step();
     const xorshifted = Number((((oldState >> 18n) ^ oldState) >> 27n) & 0xffffffffn);

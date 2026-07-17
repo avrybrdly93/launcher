@@ -27,6 +27,7 @@ export const atmosphereSpecSchema = z.discriminatedUnion("kind", [
     scaleHeight: z.number().positive().optional(),
   }),
 ]);
+/** Parsed type of {@link atmosphereSpecSchema}. */
 export type AtmosphereSpec = z.infer<typeof atmosphereSpecSchema>;
 
 /** Serializable description of a `GravityModel` (§3.2). */
@@ -34,6 +35,7 @@ export const gravitySpecSchema = z.object({
   g0: z.number().positive().optional(),
   altitudeDependent: z.boolean().optional(),
 });
+/** Parsed type of {@link gravitySpecSchema}. */
 export type GravitySpec = z.infer<typeof gravitySpecSchema>;
 
 /** Serializable description of a `WindModel` (§3.5). */
@@ -75,6 +77,7 @@ export const windSpecSchema = z.discriminatedUnion("kind", [
     }),
   }),
 ]);
+/** Parsed type of {@link windSpecSchema}. */
 export type WindSpec = z.infer<typeof windSpecSchema>;
 
 /** Serializable composition of atmosphere + gravity + wind (§2.3, §5.2 registry pattern). */
@@ -83,6 +86,7 @@ export const environmentSpecSchema = z.object({
   gravity: gravitySpecSchema,
   wind: windSpecSchema,
 });
+/** Parsed type of {@link environmentSpecSchema}. */
 export type EnvironmentSpec = z.infer<typeof environmentSpecSchema>;
 
 /** Planar initial conditions for the state vector (x, y, vx, vy) (§3.7). */
@@ -98,6 +102,7 @@ export const initialConditionsSchema = z.object({
    */
   spin0: z.number().optional(),
 });
+/** Parsed type of {@link initialConditionsSchema}. */
 export type InitialConditions = z.infer<typeof initialConditionsSchema>;
 
 /** Serializable `SolverConfig` (§5.1): stepper choice + step/tolerance controls. */
@@ -110,6 +115,7 @@ export const solverConfigSpecSchema = z.object({
   maxSteps: z.number().int().positive(),
   hMin: z.number().positive().optional(),
 });
+/** Parsed type of {@link solverConfigSpecSchema}. */
 export type SolverConfigSpec = z.infer<typeof solverConfigSpecSchema>;
 
 /**
@@ -131,6 +137,7 @@ export const scenarioSpecSchema = z.object({
   solver: solverConfigSpecSchema,
   seed: z.number().int().nonnegative(),
 });
+/** Parsed type of {@link scenarioSpecSchema}. */
 export type ScenarioSpec = z.infer<typeof scenarioSpecSchema>;
 
 function toAtmosphere(spec: AtmosphereSpec): Atmosphere {

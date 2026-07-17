@@ -4,6 +4,7 @@ import type { EvalContext } from "./eval-context.js";
 /** A quantity g(t,y) whose root marks an event of interest (ground impact, apex, ...). */
 export interface EventSpec {
   readonly name: string;
+  /** The event-indicator function; the event fires where this crosses zero. */
   g(t: number, y: Float64Array): number;
   /** Zero-crossing direction that counts as this event firing; any direction if omitted (§4.9). */
   readonly direction?: "rising" | "falling" | "any";
@@ -14,6 +15,7 @@ export interface EventSpec {
 /** A conserved or monotone quantity of the model, used as a runtime correctness check (§3.8). */
 export interface InvariantSpec {
   readonly name: string;
+  /** Current value of the invariant quantity at (t, y). */
   evaluate(t: number, y: Float64Array, ctx: EvalContext): number;
 }
 
@@ -25,6 +27,7 @@ export interface InvariantSpec {
 export interface Model {
   readonly dim: number;
   readonly channels: readonly ChannelMeta[];
+  /** Writes dy/dt at (t, y) into `out`. */
   rhs(t: number, y: Float64Array, out: Float64Array, ctx: EvalContext): void;
   readonly invariants?: readonly InvariantSpec[];
   readonly events?: readonly EventSpec[];

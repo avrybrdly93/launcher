@@ -14,6 +14,7 @@ export const dragModelSpecSchema = z.discriminatedUnion("kind", [
     }),
   }),
 ]);
+/** Parsed type of {@link dragModelSpecSchema}. */
 export type DragModelSpec = z.infer<typeof dragModelSpecSchema>;
 
 /** Serializable description of a `LiftCoefficientModel` (§3.6, §3.9). */
@@ -25,6 +26,7 @@ export const liftModelSpecSchema = z.discriminatedUnion("kind", [
     slope: z.number().positive(),
   }),
 ]);
+/** Parsed type of {@link liftModelSpecSchema}. */
 export type LiftModelSpec = z.infer<typeof liftModelSpecSchema>;
 
 /**
@@ -45,6 +47,7 @@ export const projectileSpecSchema = z.object({
   spinDecayTime: z.number().positive().optional(),
   provenance: z.string().min(1),
 });
+/** Parsed type of {@link projectileSpecSchema}. */
 export type ProjectileSpec = z.infer<typeof projectileSpecSchema>;
 
 function toDragCoefficientModel(spec: DragModelSpec): DragCoefficientModel {

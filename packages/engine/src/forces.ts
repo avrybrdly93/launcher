@@ -8,6 +8,7 @@ import type { MutVec2 } from "./vec2.js";
  */
 export interface ForceModel {
   readonly id: string;
+  /** Adds this force's contribution at (t, y) into `outForce` (does not zero it first). */
   accumulate(t: number, y: Float64Array, ctx: EvalContext, outForce: MutVec2): void;
   /** Instantaneous power this force delivers, F.v using the true velocity (eq. 3.19). */
   energyPower?(t: number, y: Float64Array, ctx: EvalContext): number;
@@ -20,6 +21,7 @@ const VY = 3;
 export class GravityForce implements ForceModel {
   readonly id = "gravity";
 
+  /** @inheritDoc */
   accumulate(_t: number, _y: Float64Array, ctx: EvalContext, outForce: MutVec2): void {
     outForce[1] += -ctx.params.mass * ctx.env.g;
   }
@@ -33,6 +35,7 @@ export class GravityForce implements ForceModel {
 export class LinearDragForce implements ForceModel {
   readonly id = "drag-linear";
 
+  /** @inheritDoc */
   accumulate(_t: number, _y: Float64Array, ctx: EvalContext, outForce: MutVec2): void {
     const b = 6 * Math.PI * ctx.env.eta * ctx.params.radius;
     outForce[0] += -b * ctx.vRel[0];
@@ -53,6 +56,7 @@ export class LinearDragForce implements ForceModel {
 export class QuadraticDragForce implements ForceModel {
   readonly id = "drag-quadratic";
 
+  /** @inheritDoc */
   accumulate(_t: number, _y: Float64Array, ctx: EvalContext, outForce: MutVec2): void {
     const cd = ctx.params.dragCoefficient.cd(ctx.re, ctx.mach);
     const k = 0.5 * ctx.env.rho * cd * ctx.params.area * ctx.speedRel;
@@ -79,6 +83,7 @@ const MAGNUS_SPEED_EPS = 1e-9;
 export class MagnusForce implements ForceModel {
   readonly id = "magnus";
 
+  /** @inheritDoc */
   accumulate(_t: number, _y: Float64Array, ctx: EvalContext, outForce: MutVec2): void {
     const omega = ctx.params.spin;
     const liftModel = ctx.params.liftCoefficient;
@@ -112,6 +117,7 @@ export class MagnusForce implements ForceModel {
 export class BuoyancyForce implements ForceModel {
   readonly id = "buoyancy";
 
+  /** @inheritDoc */
   accumulate(_t: number, _y: Float64Array, ctx: EvalContext, outForce: MutVec2): void {
     outForce[1] += ctx.env.rho * ctx.params.volume * ctx.env.g;
   }

@@ -3,16 +3,19 @@ import { EARTH_RADIUS_M, G_STD, ISA, sutherlandViscosity } from "./units.js";
 
 /** Fills the thermodynamic fields of an EnvSample (rho, T, p, eta, c) at a point (§3.4). */
 export interface Atmosphere {
+  /** Writes rho, T, p, eta, c into `out` at world position (x, y). */
   sample(x: number, y: number, out: EnvSample): void;
 }
 
 /** Fills the gravity field of an EnvSample at a point (§3.2). */
 export interface GravityModel {
+  /** Writes `g` into `out` at world position (x, y). */
   sample(x: number, y: number, out: EnvSample): void;
 }
 
 /** Fills the wind fields (wx, wy) of an EnvSample at a point and time (§3.5). */
 export interface WindModel {
+  /** Writes wx, wy into `out` at time `t` and world position (x, y). */
   sample(t: number, x: number, y: number, out: EnvSample): void;
 }
 
@@ -20,6 +23,7 @@ export interface WindModel {
 export class ConstantAtmosphere implements Atmosphere {
   private static readonly GAMMA = 1.4;
 
+  /** @inheritDoc */
   sample(_x: number, _y: number, out: EnvSample): void {
     out.rho = ISA.rho0;
     out.T = ISA.T0;
@@ -45,6 +49,7 @@ export class ExponentialAtmosphere implements Atmosphere {
     private readonly scaleHeight: number = ISA.scaleHeight,
   ) {}
 
+  /** @inheritDoc */
   sample(_x: number, y: number, out: EnvSample): void {
     const factor = Math.exp(-y / this.scaleHeight);
     out.rho = this.rho0 * factor;
@@ -62,6 +67,7 @@ export class UniformGravity implements GravityModel {
     private readonly altitudeDependent = false,
   ) {}
 
+  /** @inheritDoc */
   sample(_x: number, y: number, out: EnvSample): void {
     if (!this.altitudeDependent) {
       out.g = this.g0;
@@ -74,6 +80,7 @@ export class UniformGravity implements GravityModel {
 
 /** Default no-wind model: wx = wy = 0 everywhere (§3.5 case 1 with w = 0). */
 export class ZeroWind implements WindModel {
+  /** @inheritDoc */
   sample(_t: number, _x: number, _y: number, out: EnvSample): void {
     out.wx = 0;
     out.wy = 0;
@@ -87,6 +94,7 @@ export class UniformWind implements WindModel {
     private readonly wy: number = 0,
   ) {}
 
+  /** @inheritDoc */
   sample(_t: number, _x: number, _y: number, out: EnvSample): void {
     out.wx = this.wx;
     out.wy = this.wy;
@@ -110,6 +118,7 @@ export class LogProfileWind implements WindModel {
     private readonly wy: number = 0,
   ) {}
 
+  /** @inheritDoc */
   sample(_t: number, _x: number, y: number, out: EnvSample): void {
     const yEff = Math.max(y, 0);
     out.wx =
@@ -133,6 +142,7 @@ export class SinusoidalGustWind implements WindModel {
     private readonly wy: number = 0,
   ) {}
 
+  /** @inheritDoc */
   sample(t: number, _x: number, _y: number, out: EnvSample): void {
     out.wx = this.mean + this.amplitude * Math.sin(this.angularFrequency * t + this.phase);
     out.wy = this.wy;
@@ -153,6 +163,7 @@ export class GaussianVortexWind implements WindModel {
     private readonly centerY: number = 0,
   ) {}
 
+  /** @inheritDoc */
   sample(_t: number, x: number, y: number, out: EnvSample): void {
     const dx = x - this.centerX;
     const dy = y - this.centerY;
@@ -196,6 +207,7 @@ function clamp(v: number, lo: number, hi: number): number {
 export class GriddedWindField implements WindModel {
   constructor(private readonly grid: GriddedWindFieldData) {}
 
+  /** @inheritDoc */
   sample(_t: number, x: number, y: number, out: EnvSample): void {
     out.wx = this.bilinear(x, y, this.grid.wx);
     out.wy = this.bilinear(x, y, this.grid.wy);
@@ -234,6 +246,7 @@ export class Environment {
     private readonly wind: WindModel = new ZeroWind(),
   ) {}
 
+  /** Samples atmosphere, gravity, and wind into `out` at time `t`, position (x, y). */
   sample(t: number, x: number, y: number, out: EnvSample): void {
     this.atmosphere.sample(x, y, out);
     this.gravity.sample(x, y, out);

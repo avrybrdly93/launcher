@@ -26,6 +26,7 @@ export interface EvalContext {
   readonly forceAccum: MutVec2;
 }
 
+/** Allocates a fresh {@link EvalContext} with zeroed scratch buffers. */
 export function createEvalContext(environment: Environment, params: ProjectileParams): EvalContext {
   return {
     environment,

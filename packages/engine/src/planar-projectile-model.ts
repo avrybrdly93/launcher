@@ -5,6 +5,7 @@ import type { ChannelMeta } from "./schema.js";
 import { FlatTerrain, type Terrain } from "./terrain.js";
 import { norm } from "./vec2.js";
 
+/** State-channel metadata for {@link createPlanarProjectileModel}: [x, y, vx, vy]. */
 export const PLANAR_CHANNELS: readonly ChannelMeta[] = [
   { name: "x", unit: "m" },
   { name: "y", unit: "m" },
@@ -136,6 +137,13 @@ function createGroundImpactEvent(terrain: Terrain): EventSpec {
   };
 }
 
+/**
+ * Builds the planar (2D) projectile `Model` from a set of forces and an
+ * optional terrain. Declares the energy and momentum-x invariants and the
+ * apex/ground-impact events unconditionally, and attaches an analytic
+ * jacobian only when every wired force is one the closed-form jacobian
+ * accounts for exactly (gravity, buoyancy, quadratic drag).
+ */
 export function createPlanarProjectileModel(
   forces: readonly ForceModel[],
   terrain: Terrain = new FlatTerrain(),

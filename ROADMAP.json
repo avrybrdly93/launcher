@@ -673,8 +673,8 @@
       "estMinutes": 25,
       "difficulty": "E",
       "validation": "docs build in CI; no missing-doc warnings on public API",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added typedoc (packages/engine/typedoc.json, pnpm --filter @ballista/engine run docs) generating an HTML reference page from src/index.ts's public API, wired as an \"Engine API docs\" step in .github/workflows/ci.yml (treatWarningsAsErrors: true, so a missing-doc warning fails CI). requiredToBeDocumented is scoped to named declarations (Class/Interface/Method/Accessor/Function/Variable/TypeAlias/Enum), deliberately excluding Property: the default (all-kinds) setting produced ~1200 warnings almost entirely from TypeDoc structurally expanding zod z.infer<> return/parameter types field-by-field (e.g. every nested property of ScenarioSpec's discriminated-union wind variants) -- there's no sensible place to attach a doc comment to an inferred property of an anonymous object literal type, so requiring docs on named symbols only (functions, classes, interfaces, methods, type aliases) is the meaningful bar for \"public API documented\". Filled in the resulting ~65 real gaps across vec2/units/random/schema/environment/pchip/drag-coefficient/lift-coefficient/projectile-params/projectile-spec/eval-context/forces/model/terrain/planar-projectile-model/scenario-spec.ts with one-line TSDoc comments (interface method implementations use @inheritDoc to pull the interface's doc rather than duplicating it). Also fixed a latent bug found along the way: fast-check (added in P1.42) was in package.json but not actually present in node_modules -- pnpm install --frozen-lockfile hadn't been re-run since that commit -- which was silently breaking typedoc's (and would have broken any fresh clone's) TS compilation of force-properties.test.ts; `pnpm install` resolved it. docs/ output is generated (gitignored via packages/*/docs/), not committed."
     },
     {
       "id": "P1.44",

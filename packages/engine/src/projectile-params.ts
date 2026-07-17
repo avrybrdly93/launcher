@@ -17,6 +17,7 @@ export interface ProjectileParams {
   readonly spin?: number;
 }
 
+/** Input to {@link createSphericalProjectileParams}: mass/radius plus the coefficient models. */
 export interface SphericalProjectileInput {
   readonly mass: number;
   readonly radius: number;

@@ -27,36 +27,45 @@ export function sutherlandViscosity(temperatureK: number): number {
   );
 }
 
+/** Mean Earth radius, m (used by altitude-dependent gravity, §3.2). */
 export const EARTH_RADIUS_M = 6.371e6;
 
+/** Degrees to radians. */
 export function degToRad(deg: number): number {
   return (deg * Math.PI) / 180;
 }
 
+/** Radians to degrees. */
 export function radToDeg(rad: number): number {
   return (rad * 180) / Math.PI;
 }
 
+/** m/s to km/h. */
 export function msToKmh(ms: number): number {
   return ms * 3.6;
 }
 
+/** km/h to m/s. */
 export function kmhToMs(kmh: number): number {
   return kmh / 3.6;
 }
 
+/** m/s to mph. */
 export function msToMph(ms: number): number {
   return ms * 2.2369362920544;
 }
 
+/** mph to m/s. */
 export function mphToMs(mph: number): number {
   return mph / 2.2369362920544;
 }
 
+/** Meters to feet. */
 export function mToFt(m: number): number {
   return m * 3.280839895013123;
 }
 
+/** Feet to meters. */
 export function ftToM(ft: number): number {
   return ft / 3.280839895013123;
 }

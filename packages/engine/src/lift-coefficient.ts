@@ -1,5 +1,6 @@
 /** Maps spin ratio S = omega*R/|v_rel| to a lift coefficient for the Magnus force (§3.6). */
 export interface LiftCoefficientModel {
+  /** Lift coefficient at the given spin ratio S. */
   cl(spinRatio: number): number;
 }
 
@@ -10,6 +11,7 @@ export class SaturatingLiftCoefficient implements LiftCoefficientModel {
     private readonly slope = 1.6,
   ) {}
 
+  /** @inheritDoc */
   cl(spinRatio: number): number {
     return Math.min(this.maxCl, this.slope * Math.abs(spinRatio));
   }
