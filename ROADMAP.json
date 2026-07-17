@@ -530,8 +530,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "w(y_r\u00b7(e\u22121))\u00b7\u03ba/u* = 1 check; w finite at y=0",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added LogProfileWind (environment.ts): wx(y) = (uStar/kappa)*ln((y+yr)/yr) per eq. (3.13), kappa=0.41, default roughness length yr=0.01 m (grass). Guard: height clamped to y>=0 before evaluation (formula is singular/undefined for y<=-yr and the profile physically terminates at the ground), so below-ground samples return the y=0 value (0) instead of NaN/Infinity. Tests in environment.test.ts: w(yr*(e-1))*kappa/uStar = 1 to 1e-12 (validation criterion), finite (0) at y=0, finite (0) for y<0 down to -100, monotone increase with height above ground."
     },
     {
       "id": "P1.31",

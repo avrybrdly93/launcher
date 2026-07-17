@@ -4,6 +4,7 @@ import {
   ConstantAtmosphere,
   Environment,
   ExponentialAtmosphere,
+  LogProfileWind,
   UniformGravity,
   UniformWind,
   ZeroWind,
@@ -102,6 +103,48 @@ describe("UniformWind", () => {
     wind.sample(0, 0, 0, out);
     expect(out.wx).toBe(3);
     expect(out.wy).toBe(0);
+  });
+});
+
+describe("LogProfileWind", () => {
+  it("satisfies w(yr*(e-1))*kappa/u* = 1 (validation criterion)", () => {
+    const uStar = 2.5;
+    const yr = 0.01;
+    const wind = new LogProfileWind(uStar, yr);
+    const out = new EnvSample();
+    const KAPPA = 0.41;
+    wind.sample(0, 0, yr * (Math.E - 1), out);
+    expect((out.wx * KAPPA) / uStar).toBeCloseTo(1, 12);
+  });
+
+  it("is finite (not NaN) at y=0", () => {
+    const wind = new LogProfileWind(2.5, 0.01);
+    const out = new EnvSample();
+    wind.sample(0, 0, 0, out);
+    expect(Number.isFinite(out.wx)).toBe(true);
+    expect(out.wx).toBe(0);
+  });
+
+  it("clamps to the y=0 value below ground instead of producing NaN/Infinity", () => {
+    const wind = new LogProfileWind(2.5, 0.01);
+    const out = new EnvSample();
+    for (const y of [-1e-6, -0.01, -1, -100]) {
+      wind.sample(0, 0, y, out);
+      expect(Number.isFinite(out.wx)).toBe(true);
+      expect(out.wx).toBe(0);
+    }
+  });
+
+  it("increases monotonically with height above ground", () => {
+    const wind = new LogProfileWind(2.5, 0.01);
+    const out = new EnvSample();
+    const heights = [0.1, 1, 5, 20, 100];
+    let prev = -Infinity;
+    for (const y of heights) {
+      wind.sample(0, 0, y, out);
+      expect(out.wx).toBeGreaterThan(prev);
+      prev = out.wx;
+    }
   });
 });
 
