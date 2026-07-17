@@ -563,8 +563,8 @@
       "estMinutes": 30,
       "difficulty": "M",
       "validation": "reproduces linear field exactly; clamp documented+tested",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added GriddedWindField (environment.ts): rectilinear grid (origin x0,y0; spacing dx,dy; nx*ny row-major nodes) with bilinear interpolation. Out-of-domain policy: query points are clamped to the grid's bounding box before interpolating (field held constant at its edge value beyond the domain), documented in the class doc comment and exercised by tests. Tests in environment.test.ts: bilinear interpolation reproduces an affine field wx/wy = a+b*x+c*y exactly (to 1e-10) at interior/corner points sampled from a grid built from that same field (validation criterion); querying beyond the left edge and beyond the far corner returns exactly the corresponding edge/corner node value (clamp policy tested)."
     },
     {
       "id": "P1.34",

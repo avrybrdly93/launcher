@@ -5,6 +5,7 @@ import {
   Environment,
   ExponentialAtmosphere,
   GaussianVortexWind,
+  GriddedWindField,
   LogProfileWind,
   SinusoidalGustWind,
   UniformGravity,
@@ -227,6 +228,68 @@ describe("GaussianVortexWind", () => {
       const dy = y - -1;
       expect(Math.abs(out.wx * dx + out.wy * dy)).toBeLessThan(1e-10);
     }
+  });
+});
+
+describe("GriddedWindField", () => {
+  const x0 = -1;
+  const y0 = -2;
+  const dx = 2;
+  const dy = 3;
+  const nx = 5;
+  const ny = 4;
+  const wxOf = (x: number, y: number) => 1 + 0.5 * x - 0.25 * y;
+  const wyOf = (x: number, y: number) => -2 + 1.5 * x + 0.75 * y;
+
+  function buildLinearGrid() {
+    const wx: number[] = [];
+    const wy: number[] = [];
+    for (let j = 0; j < ny; j++) {
+      for (let i = 0; i < nx; i++) {
+        const x = x0 + i * dx;
+        const y = y0 + j * dy;
+        wx.push(wxOf(x, y));
+        wy.push(wyOf(x, y));
+      }
+    }
+    return new GriddedWindField({ x0, y0, dx, dy, nx, ny, wx, wy });
+  }
+
+  it("reproduces a linear field exactly at interior points (validation criterion)", () => {
+    const field = buildLinearGrid();
+    const out = new EnvSample();
+    const points: Array<[number, number]> = [
+      [0, 0],
+      [-0.3, 1.1],
+      [3.7, 4.2],
+      [x0, y0],
+      [x0 + (nx - 1) * dx, y0 + (ny - 1) * dy],
+    ];
+    for (const [x, y] of points) {
+      field.sample(0, x, y, out);
+      expect(out.wx).toBeCloseTo(wxOf(x, y), 10);
+      expect(out.wy).toBeCloseTo(wyOf(x, y), 10);
+    }
+  });
+
+  it("clamps out-of-domain queries to the edge value (documented+tested policy)", () => {
+    const field = buildLinearGrid();
+    const out = new EnvSample();
+    const edgeOut = new EnvSample();
+
+    // Left of domain: clamps to the x0 edge, still varying with y within range.
+    field.sample(0, x0 - 100, 0, out);
+    field.sample(0, x0, 0, edgeOut);
+    expect(out.wx).toBe(edgeOut.wx);
+    expect(out.wy).toBe(edgeOut.wy);
+
+    // Beyond the top-right corner: clamps to the far corner node.
+    const xMax = x0 + (nx - 1) * dx;
+    const yMax = y0 + (ny - 1) * dy;
+    field.sample(0, xMax + 50, yMax + 50, out);
+    field.sample(0, xMax, yMax, edgeOut);
+    expect(out.wx).toBe(edgeOut.wx);
+    expect(out.wy).toBe(edgeOut.wy);
   });
 });
 

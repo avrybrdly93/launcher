@@ -170,6 +170,57 @@ export class GaussianVortexWind implements WindModel {
   }
 }
 
+/** A rectilinear grid of wind samples (§3.5 case 5): origin (x0,y0), uniform spacing (dx,dy), nx*ny nodes, row-major. */
+export interface GriddedWindFieldData {
+  readonly x0: number;
+  readonly y0: number;
+  readonly dx: number;
+  readonly dy: number;
+  readonly nx: number;
+  readonly ny: number;
+  readonly wx: readonly number[]; // length nx*ny, row-major: index = j*nx + i
+  readonly wy: readonly number[]; // length nx*ny, row-major: index = j*nx + i
+}
+
+function clamp(v: number, lo: number, hi: number): number {
+  return Math.min(Math.max(v, lo), hi);
+}
+
+/**
+ * Gridded wind field with bilinear interpolation (§3.5 case 5) -- the seam
+ * for future imported/CFD-derived fields. Out-of-domain policy: query
+ * points are clamped to the grid's bounding box before interpolating, i.e.
+ * the field is held constant at its edge value beyond the domain (rather
+ * than extrapolating or erroring).
+ */
+export class GriddedWindField implements WindModel {
+  constructor(private readonly grid: GriddedWindFieldData) {}
+
+  sample(_t: number, x: number, y: number, out: EnvSample): void {
+    out.wx = this.bilinear(x, y, this.grid.wx);
+    out.wy = this.bilinear(x, y, this.grid.wy);
+  }
+
+  private bilinear(x: number, y: number, values: readonly number[]): number {
+    const { x0, y0, dx, dy, nx, ny } = this.grid;
+    const fx = clamp((x - x0) / dx, 0, nx - 1);
+    const fy = clamp((y - y0) / dy, 0, ny - 1);
+    const i0 = Math.min(Math.floor(fx), Math.max(nx - 2, 0));
+    const j0 = Math.min(Math.floor(fy), Math.max(ny - 2, 0));
+    const i1 = Math.min(i0 + 1, nx - 1);
+    const j1 = Math.min(j0 + 1, ny - 1);
+    const tx = nx > 1 ? fx - i0 : 0;
+    const ty = ny > 1 ? fy - j0 : 0;
+    const v00 = values[j0 * nx + i0]!;
+    const v10 = values[j0 * nx + i1]!;
+    const v01 = values[j1 * nx + i0]!;
+    const v11 = values[j1 * nx + i1]!;
+    const v0 = v00 * (1 - tx) + v10 * tx;
+    const v1 = v01 * (1 - tx) + v11 * tx;
+    return v0 * (1 - ty) + v1 * ty;
+  }
+}
+
 /**
  * Composes an Atmosphere + GravityModel + WindModel into the single
  * `Environment` the engine exports (§2.2 module table). `sample` is called
