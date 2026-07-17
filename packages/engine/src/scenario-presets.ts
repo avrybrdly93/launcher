@@ -1,7 +1,8 @@
+import { dimensionlessPi, type CharacteristicEnvironment } from "./characteristic-scales.js";
 import { PROJECTILE_ASSETS } from "./projectile-assets.js";
 import { projectileSpecToParams, type ProjectileSpec } from "./projectile-spec.js";
 import type { EnvironmentSpec, ScenarioSpec } from "./scenario-spec.js";
-import { G_STD, ISA, sutherlandViscosity } from "./units.js";
+import { ISA, sutherlandViscosity } from "./units.js";
 
 function asset(id: string): ProjectileSpec {
   const found = PROJECTILE_ASSETS.find((a) => a.id === id);
@@ -9,21 +10,19 @@ function asset(id: string): ProjectileSpec {
   return found;
 }
 
+/** ISA sea-level characteristic environment -- what every preset below is defined against. */
+const ISA_CHARACTERISTIC_ENVIRONMENT: CharacteristicEnvironment = {
+  rho: ISA.rho0,
+  eta: sutherlandViscosity(ISA.T0),
+};
+
 /**
- * Reference-speed evaluation of the drag-to-gravity dimensionless group
- * Π = ρ·Cd(Re(v0), M(v0))·A·v0²/(2mg) = (v0/v_T)² (§3.6), at ISA sea-level
- * density/viscosity with M≈0 (no atmosphere-specific correction) -- exactly
- * what every preset below is defined against. This is a minimal, single-use
- * evaluation to validate the preset library's Π spread; P1.37 generalizes it
- * into a full characteristic-scales computer (v_T, τ_drag, apex estimate)
- * reused across the engine.
+ * Reference-speed evaluation of the drag-to-gravity dimensionless group Π
+ * (§3.6, `characteristic-scales.ts`) at ISA sea level, used to validate the
+ * preset library's Π spread below.
  */
 export function referenceDimensionlessPi(projectile: ProjectileSpec, v0: number): number {
-  const params = projectileSpecToParams(projectile);
-  const eta = sutherlandViscosity(ISA.T0);
-  const re = (ISA.rho0 * v0 * 2 * params.radius) / eta;
-  const cd = params.dragCoefficient.cd(re, 0);
-  return (ISA.rho0 * cd * params.area * v0 * v0) / (2 * params.mass * G_STD);
+  return dimensionlessPi(projectileSpecToParams(projectile), ISA_CHARACTERISTIC_ENVIRONMENT, v0);
 }
 
 const ISA_ATMOSPHERE_NO_WIND: EnvironmentSpec = {

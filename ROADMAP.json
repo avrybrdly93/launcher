@@ -607,8 +607,8 @@
       "estMinutes": 20,
       "difficulty": "E",
       "validation": "v_T for skydiver-like preset \u2248 50\u201360 m/s",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added characteristic-scales.ts: terminalVelocityQuadratic (damped fixed-point solve of v_T=sqrt(2mg/(rho*Cd(Re(v_T))*A)), stable across a non-monotonic tabulated drag-crisis Cd curve), dragRelaxationTimeLinear (tau=m/(6*pi*eta*R)), dimensionlessPi (generalized from P1.36's scenario-presets-local copy), and apexHeightEstimate (vy0^2/(2g)). scenario-presets.ts's referenceDimensionlessPi now delegates to dimensionlessPi instead of duplicating the Re/Cd math. characteristic-scales.test.ts (9 tests): skydiver-like preset (mass 75 kg, Cd*A~=0.42 m^2 belly-to-earth drag area) gives v_T in the 50-60 m/s band (validation criterion); v_T converges finite/positive for a tabulated drag-crisis Cd curve; v_T matches the closed form exactly for constant Cd; Pi(v_T)=1 by construction; Pi scales as v0^2 for constant Cd; tau matches its closed form and is sub-millisecond (stiff) for a micron-scale dust grain; apexHeightEstimate matches the drag-free closed form including a non-default g."
     },
     {
       "id": "P1.38",
