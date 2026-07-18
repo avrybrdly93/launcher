@@ -805,7 +805,7 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "slope 2; differs from midpoint only in constant (intercept offset observed)",
-      "status": "todo",
+      "status": "done",
       "notes": ""
     },
     {
