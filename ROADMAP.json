@@ -695,8 +695,8 @@
       "estMinutes": 25,
       "difficulty": "E",
       "validation": "typecheck; mock stepper drives `integrate` skeleton",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "packages/solverkit/src/types.ts defines StepperInfo/StepResult/Stepper/SolverConfig/SolveReport/Sink per \u00a75.1's abbreviated sketch, filling two gaps the sketch leaves open: Stepper.init takes (model, ctx) since Model.rhs needs an EvalContext the sketch doesn't thread through, and integrate() takes a resolved Stepper instance directly rather than looking cfg.stepper up in a registry (SolverKit owns no global stepper registry). packages/solverkit/src/integrate.ts is a working fixed-step driver skeleton (loop, sink start/accept/finish dispatch, t_f clamp exact via direct t=tFinal assignment on the final step rather than t+=hStep, which avoids a spurious extra near-zero step from float drift e.g. ten 0.1-steps). NaN guard (P2.03), maxSteps/hMin enforcement (P2.29), and adaptive control (P2.27/28) are intentionally left to their own tasks. integrate.test.ts exercises it against a mock Euler stepper and a dim-1 decay model."
     },
     {
       "id": "P2.02",
