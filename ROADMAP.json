@@ -761,8 +761,8 @@
       "estMinutes": 30,
       "difficulty": "M",
       "validation": "harness on Euler + linear-drag analytic (3.6\u20133.7) reports slope 1.00\u00b10.05",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "packages/solverkit/src/convergence-harness.ts: measureConvergence(createStepper, model, ctx, y0, tspan, yExact, hs) runs a fresh stepper instance per h, measures L2 error against yExact(t_f), and least-squares-fits the log(error)-vs-log(h) slope. The linear-drag analytic solution (eq. 3.6-3.7) is defined inline in the test (not yet a shared module -- that's P2.08's 'golden analytic references module', which this harness will consume once it exists) using GravityForce+LinearDragForce composed via createPlanarProjectileModel; measured Euler slope over h=0.02..0.00125 is 1.00+/-0.05 with monotonically shrinking errors."
     },
     {
       "id": "P2.08",
