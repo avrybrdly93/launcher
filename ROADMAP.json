@@ -728,8 +728,8 @@
       "estMinutes": 25,
       "difficulty": "M",
       "validation": "1e4 steps recorded; subarray views zero-copy (identity check)",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "packages/solverkit/src/trajectory-recorder.ts: TrajectoryRecorder implements Sink, storing one Float64Array per model channel plus a t array (columnar SoA), growing each by doubling on overflow (amortized O(1)/row). finish() freezes a Trajectory of `.subarray()` views trimmed to the actual row count -- windows over the same backing buffers, not copies. Test drives 1e4 accepted steps through integrate() with the mock Euler stepper, asserts nSteps===10001 (steps + initial state), and checks zero-copy two ways: the exposed buffer is larger than the trimmed data (proving it's a window, not a same-sized copy) and repeated `.trajectory` reads return the identical frozen object/array references."
     },
     {
       "id": "P2.05",
