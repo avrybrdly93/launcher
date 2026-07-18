@@ -783,7 +783,7 @@
       "estMinutes": 10,
       "difficulty": "E",
       "validation": "error at t_f halves when h halves (ratio 2.0\u00b15%)",
-      "status": "todo",
+      "status": "done",
       "notes": ""
     },
     {
