@@ -7,4 +7,5 @@ export * from "./integrate.js";
 export * from "./trajectory-recorder.js";
 export * from "./stats-collector.js";
 export * from "./explicit-euler-stepper.js";
+export * from "./midpoint-rk2-stepper.js";
 export * from "./convergence-harness.js";
