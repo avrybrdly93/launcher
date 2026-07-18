@@ -739,8 +739,8 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "counts match instrumented mock",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "packages/solverkit/src/stats-collector.ts: StatsCollector implements Sink, tracking nSteps/nRHS/nRejected and hMin/hMax with O(1) streaming updates, plus a fixed-size (default 20-bin, log10-spaced over [1e-9, 1e3]) step-size histogram -- bounded memory per solve rather than retaining every h, matching the Monte-Carlo-scale intent of §5.1's Sink selection. nRejected is wired for when P2.27's rejection loop starts calling accept() with accepted=false; the current driver never rejects, so it stays 0 today. Tests use an instrumented mock stepper reporting a fixed nRHS/step and assert exact nSteps/nRHS/nRejected/hMin/hMax plus histogram-count-sum-equals-nSteps, both for uniform h and for a run whose last step is t_f-clamp-shrunk."
     },
     {
       "id": "P2.06",
