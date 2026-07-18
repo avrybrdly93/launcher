@@ -816,8 +816,8 @@
       "estMinutes": 30,
       "difficulty": "M",
       "validation": "reproduces P2.06/10/11 bit-identically via tableaux",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added explicit-rk-kernel.ts: ButcherTableau (c/a/b, a[i] holding only stage i's strictly-lower-triangular j<i row), stepExplicitRK (generic multi-stage kernel), and ExplicitRKStepper (a Stepper wrapping any tableau). Bit-identical reproduction of the hand-written P2.06/10/11 steppers isn't automatic from mathematical equivalence alone -- it requires matching their exact floating-point operation order: the stage increment is accumulated as a single weighted sum before the one multiply-by-h (y[i] + h*(b1*k1+b2*k2), not (y[i]+h*b1*k1)+h*b2*k2, which rounds differently), and each a_ij term is formed as h*a_ij*k_j[i] left-to-right. Also added EULER/MIDPOINT/HEUN/RK4_TABLEAU constants (RK4's ready for P2.13). explicit-rk-kernel.test.ts (6 tests): generic-via-tableau output matches ExplicitEulerStepper/MidpointRK2Stepper/HeunRK2Stepper with === (not toBeCloseTo) across 5 random states x 3 step sizes each (validation criterion); an integrate() end-to-end check against the decay-model closed-form Euler product; init-before-step guard; and a bonus RK4_TABLEAU convergence-harness check (slope 4.00+/-0.1 on the linear-drag benchmark) previewing P2.13."
     },
     {
       "id": "P2.13",
