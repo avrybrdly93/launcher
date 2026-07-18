@@ -2,6 +2,7 @@ import type { EvalContext, Model } from "@ballista/engine";
 import {
   createStepResult,
   type Sink,
+  type SolveFailure,
   type SolveReport,
   type SolverConfig,
   type Stepper,
@@ -18,14 +19,24 @@ const DEFAULT_STEP_COUNT = 100;
  */
 const FINAL_STEP_EPS_REL = 1e-9;
 
+/** True iff every channel of `y` is finite -- the per-accepted-step NaN/Inf guard (§5.1, P2.03). */
+function isFiniteState(y: Float64Array): boolean {
+  for (let i = 0; i < y.length; i++) {
+    if (!Number.isFinite(y[i]!)) return false;
+  }
+  return true;
+}
+
 /**
- * Fixed-step driver skeleton (§5.1): init the stepper, advance from
- * `tspan[0]` to `tspan[1]` at (approximately) `cfg.h`, clamping the final
- * step so it lands exactly on t_f, dispatching every accepted step to
- * `sinks`. Deliberately a skeleton -- the NaN/Inf guard (P2.03), maxSteps/
- * hMin enforcement (P2.29), and adaptive step-size control (P2.27/28) are
- * separate tasks; today's job is only the loop, the t_f clamp, and sink
- * dispatch working end to end against a real {@link Stepper}.
+ * Fixed-step driver (§5.1): init the stepper, advance from `tspan[0]` to
+ * `tspan[1]` at (approximately) `cfg.h`, clamping the final step so it lands
+ * exactly on t_f, dispatching every accepted step to `sinks`. Every stepped
+ * state is checked for finiteness before being accepted; a NaN/Inf channel
+ * stops the solve immediately with a typed `non-finite-state` failure
+ * carrying the last-good (t, y) rather than propagating garbage further
+ * (§5.1's error taxonomy -- "the single most valuable debugging feature in
+ * any solver"). maxSteps/hMin enforcement (P2.29) and adaptive step-size
+ * control (P2.27/28) remain separate tasks.
  *
  * `current` and `out.yNext` are two buffers preallocated once and copied
  * between (not swapped) each step, so a stepper never sees the buffer it is
@@ -63,6 +74,27 @@ export function integrate(
     stepper.step(t, current, hStep, out);
     nSteps++;
     nRHS += out.nRHS;
+
+    if (!isFiniteState(out.yNext)) {
+      const failure: SolveFailure = {
+        reason: "non-finite-state",
+        message: `non-finite state produced by stepper "${stepper.info.id}" advancing from t=${t}`,
+        t,
+        y: current,
+      };
+      const report: SolveReport = {
+        status: "failed",
+        tFinal: t,
+        yFinal: current,
+        nSteps,
+        nRHS,
+        nRejected: 0,
+        failure,
+      };
+      for (const sink of sinks) sink.finish?.(report);
+      return report;
+    }
+
     current.set(out.yNext);
     // Assigning t_f directly (rather than t + hStep) guarantees the final
     // time is bit-exact even though hStep = tFinal - t is itself rounded.

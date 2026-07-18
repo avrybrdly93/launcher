@@ -717,8 +717,8 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "rhs returning NaN produces failure report with last-good state",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "integrate() (packages/solverkit/src/integrate.ts) checks every channel of out.yNext for finiteness before accepting a step; a NaN/Inf channel returns immediately with status='failed' and a typed SolveFailure{reason:'non-finite-state'} carrying the last-good (t, y) -- report.tFinal/yFinal mirror the same last-good state. Tests inject a NaN and an Infinity via a stepper wrapper (createNonFiniteInjectingStepper) around the mock Euler stepper and assert the failing step's state never reaches a sink as an accepted step (accept count stops at the last good step; finish still fires once)."
     },
     {
       "id": "P2.04",

@@ -63,6 +63,24 @@ function createMockEulerStepper(): Stepper {
   };
 }
 
+/** Wraps a Stepper, overwriting yNext[0] with `value` on the call'th invocation of step (1-indexed). */
+function createNonFiniteInjectingStepper(
+  base: Stepper,
+  failOnCall: number,
+  value: number,
+): Stepper {
+  let calls = 0;
+  return {
+    info: base.info,
+    init: (model, ctx) => base.init(model, ctx),
+    step: (t, y, h, out) => {
+      base.step(t, y, h, out);
+      calls++;
+      if (calls === failOnCall) out.yNext[0] = value;
+    },
+  };
+}
+
 function createRecordingSink(): {
   sink: Sink;
   counts: () => { starts: number; accepts: number; finishes: number };
@@ -138,5 +156,42 @@ describe("integrate (P2.01 skeleton)", () => {
     const cfg: SolverConfig = { stepper: "mock-euler", h: 0.5, maxSteps: 1000 };
 
     expect(() => integrate(model, ctx, new Float64Array([1]), [0, 1], cfg, stepper)).not.toThrow();
+  });
+});
+
+describe("integrate (P2.03: non-finite-state guard)", () => {
+  it("a NaN state on an accepted step produces a typed non-finite-state failure carrying the last-good (t, y)", () => {
+    const model = createDecayModel();
+    const ctx = createEvalContextFixture();
+    // Fails on the 3rd step; two good Euler steps of h=0.1 from y0=1 land at t=0.2, y=0.9^2.
+    const stepper = createNonFiniteInjectingStepper(createMockEulerStepper(), 3, NaN);
+    const { sink, counts } = createRecordingSink();
+    const cfg: SolverConfig = { stepper: "mock-euler", h: 0.1, maxSteps: 1000 };
+
+    const report = integrate(model, ctx, new Float64Array([1]), [0, 1], cfg, stepper, [sink]);
+
+    expect(report.status).toBe("failed");
+    expect(report.failure).toBeDefined();
+    expect(report.failure?.reason).toBe("non-finite-state");
+    expect(report.failure?.t).toBeCloseTo(0.2, 15);
+    expect(report.failure?.y[0]).toBeCloseTo(0.9 ** 2, 15);
+    expect(report.tFinal).toBeCloseTo(0.2, 15);
+    expect(report.yFinal[0]).toBeCloseTo(0.9 ** 2, 15);
+    // The failing step's own state must never reach a sink as an accepted step.
+    expect(counts()).toEqual({ starts: 1, accepts: 2, finishes: 1 });
+  });
+
+  it("an Infinity state is caught by the same guard", () => {
+    const model = createDecayModel();
+    const ctx = createEvalContextFixture();
+    const stepper = createNonFiniteInjectingStepper(createMockEulerStepper(), 1, Infinity);
+    const cfg: SolverConfig = { stepper: "mock-euler", h: 0.1, maxSteps: 1000 };
+
+    const report = integrate(model, ctx, new Float64Array([1]), [0, 1], cfg, stepper, []);
+
+    expect(report.status).toBe("failed");
+    expect(report.failure?.reason).toBe("non-finite-state");
+    expect(report.failure?.t).toBe(0);
+    expect(report.failure?.y[0]).toBe(1);
   });
 });
