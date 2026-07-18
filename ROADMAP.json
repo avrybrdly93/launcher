@@ -827,8 +827,8 @@
       "estMinutes": 10,
       "difficulty": "E",
       "validation": "slope 4.00\u00b10.1 on linear-drag benchmark",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added classical-rk4-stepper.ts: ClassicalRK4Stepper, a thin Stepper wrapper over P2.12's stepExplicitRK kernel with the RK4_TABLEAU constant (already added in P2.12). classical-rk4-stepper.test.ts (5 tests): one-step exact match against the closed-form quartic Taylor truncation for ydot=-y (1-h+h^2/2-h^3/6+h^4/24); info metadata; init-before-step guard; integrate() end-to-end compounding check; and the validation criterion itself, a convergence-harness slope of 4.00+/-0.1 on the linear-drag benchmark (3.6-3.7), measured at 3.9-4.1 bound over h=0.02..0.00125."
     },
     {
       "id": "P2.14",
