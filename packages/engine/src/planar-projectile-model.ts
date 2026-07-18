@@ -142,7 +142,10 @@ function createGroundImpactEvent(terrain: Terrain): EventSpec {
  * optional terrain. Declares the energy and momentum-x invariants and the
  * apex/ground-impact events unconditionally, and attaches an analytic
  * jacobian only when every wired force is one the closed-form jacobian
- * accounts for exactly (gravity, buoyancy, quadratic drag).
+ * accounts for exactly (gravity, buoyancy, quadratic drag). Declares
+ * `partitions: { q: [x, y], p: [vx, vy] }` (paired by index: dq_0/dt is
+ * exactly the p_0 channel's value, and likewise for the second pair) for
+ * P2.15's semi-implicit Euler and later Verlet-family steppers.
  */
 export function createPlanarProjectileModel(
   forces: readonly ForceModel[],
@@ -157,6 +160,7 @@ export function createPlanarProjectileModel(
     channels: PLANAR_CHANNELS,
     invariants: [ENERGY_INVARIANT, MOMENTUM_X_INVARIANT],
     events: [createGroundImpactEvent(terrain), APEX_EVENT],
+    partitions: { q: [X, Y], p: [VX, VY] },
     rhs(t: number, y: Float64Array, out: Float64Array, ctx: EvalContext): void {
       const x = y[X]!;
       const yPos = y[Y]!;
