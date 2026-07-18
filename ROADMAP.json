@@ -772,8 +772,8 @@
       "estMinutes": 30,
       "difficulty": "M",
       "validation": "reference self-tests (e.g., \u1e8f of formula satisfies ODE symbolically-sampled to 1e-12)",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "packages/validation/src/analytic-references.ts (per the \u00a72.2 package table's 'Analytical reference solutions... @ballista/validation' -- distinct from P2.07's generic measureConvergence harness, which stays in solverkit). Each of the three references (createDragFreeParabolaReference, createLinearDragReference, createTerminalVelocityDropReference) bundles a real Model+EvalContext with a hand-derived closed-form state(t) AND derivative(t). Rather than finite-differencing state(t) (which floors out well above 1e-12), the self-test compares the hand-derived derivative(t) directly against model.rhs(t, state(t), ., ctx) -- i.e. checks the analytic formula against the actual simulated force models, not just its own algebra -- at 6 sampled t per reference, to |diff| < 1e-12 (typically ~1e-15, machine precision). Terminal-velocity-drop in particular cross-checks eq. 3.10 against the real QuadraticDragForce: launched exactly at v_T, dvy/dt must come out ~0 from gravity+drag genuinely canceling, not by construction. Convergence tests (P2.09+) should now import these instead of redefining scenarios inline as P2.07's test did."
     },
     {
       "id": "P2.09",
