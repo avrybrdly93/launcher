@@ -13,5 +13,6 @@ export * from "./heun-rk2-stepper.js";
 export * from "./explicit-rk-kernel.js";
 export * from "./classical-rk4-stepper.js";
 export * from "./semi-implicit-euler-stepper.js";
+export * from "./verlet-stepper.js";
 export * from "./order-condition-checker.js";
 export * from "./convergence-harness.js";

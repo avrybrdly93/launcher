@@ -860,8 +860,8 @@
       "estMinutes": 25,
       "difficulty": "M",
       "validation": "slope 2 gravity-only; bounded \u0394E",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added verlet-stepper.ts: VerletStepper(variant) implements both splittings of eq. 4.13 via model.partitions -- 'velocity' (kick-drift-half-kick-half, default, 2 rhs/step) and 'position' (drift-kick-drift, 1 rhs/step) -- documenting that both evaluate a(q,v) with a stale v where a fresh rhs call happens, so exact symplecticity only holds for velocity-independent forces (P2.17 refines this for drag/Magnus). Any model channel outside partitions.q/p is advanced by a companion Euler (velocity variant) or companion midpoint (position variant) step using the same rhs call(s), matching P4.10's future 'omega channel integrated by companion Euler' expectation for free. Worked out (and verified numerically) that literal gravity-only motion has EXACTLY constant acceleration, so Verlet's q-update Taylor truncation is exact (d^3q/dt^3=0) for ANY h -- there's no error-vs-h curve to fit a slope 2 against on that system, only floating-point noise (~1e-7 absolute in energy over 10000 steps, verified). So, consistent with how P2.15 handled the same tension: 'bounded DeltaE' is verified literally on gravity-only (and turns out to be even stronger -- exact, not just bounded), while the actual slope-2 convergence check uses a harmonic-oscillator fixture (state-dependent restoring force, closed-form solution) for both variants. verlet-stepper.test.ts (13 tests): info/guards; gravity-only energy conservation to float-noise level for both variants; slope 2.00+/-0.05 on the oscillator for both variants (validation criterion); and a bonus comparison showing velocity-Verlet's bounded energy error over 100 periods is smaller than P2.15's semi-implicit Euler's at equal h (the blueprint's 'smaller bounded sawtooth' claim, eq. 4.8 section)."
     },
     {
       "id": "P2.17",

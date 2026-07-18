@@ -1,0 +1,214 @@
+import type { EvalContext, Model } from "@ballista/engine";
+import type { Stepper, StepResult } from "./types.js";
+
+/** Which splitting of the Stormer-Verlet integrator (§4.8, eq. 4.13) a {@link VerletStepper} uses. */
+export type VerletVariant = "velocity" | "position";
+
+/**
+ * Order-2, symplectic, structure-preserving integrator for
+ * $\ddot{\mathbf q} = \mathbf a(\mathbf q, \mathbf v)$ via `model.partitions`
+ * (§4.8, eq. 4.13) -- gravity-only is the clean stage this construction is
+ * exact for; velocity-dependent forces (drag, Magnus) break exact
+ * symplecticity because both variants below evaluate `a` using a *stale* v
+ * at the position where a fresh rhs call is made (documented, refined by
+ * P2.17's extrapolated-velocity pass, not attempted here).
+ *
+ * **`"velocity"`** (velocity Verlet, kick-drift-half-kick-half, the
+ * default): $\mathbf a_k = \mathbf a(\mathbf q_k, \mathbf v_k)$;
+ * $\mathbf q_{k+1} = \mathbf q_k + h\mathbf v_k + \tfrac{h^2}2 \mathbf a_k$;
+ * $\mathbf a_{k+1} = \mathbf a(\mathbf q_{k+1}, \mathbf v_k)$ (stale v);
+ * $\mathbf v_{k+1} = \mathbf v_k + \tfrac h2(\mathbf a_k + \mathbf a_{k+1})$.
+ * 2 rhs evaluations/step.
+ *
+ * **`"position"`** (position Verlet, drift-kick-drift): $\mathbf q_{k+1/2}
+ * = \mathbf q_k + \tfrac h2 \mathbf v_k$; $\mathbf a_{\text{mid}} =
+ * \mathbf a(\mathbf q_{k+1/2}, \mathbf v_k)$; $\mathbf v_{k+1} = \mathbf v_k
+ * + h\,\mathbf a_{\text{mid}}$; $\mathbf q_{k+1} = \mathbf q_{k+1/2} +
+ * \tfrac h2 \mathbf v_{k+1}$. 1 rhs evaluation/step.
+ *
+ * Any model channel outside `partitions.q`/`partitions.p` (e.g. a future
+ * spin channel, P4.10) is advanced by a companion Euler/midpoint step using
+ * the same rhs evaluation(s) rather than left untouched.
+ */
+export class VerletStepper implements Stepper {
+  readonly info: {
+    readonly id: string;
+    readonly order: 2;
+    readonly fsal: false;
+    readonly symplectic: true;
+  };
+  private readonly variant: VerletVariant;
+
+  private model: Model | undefined;
+  private ctx: EvalContext | undefined;
+  private qIndex: readonly number[] | undefined;
+  private pIndex: readonly number[] | undefined;
+  private partitioned: boolean[] | undefined;
+  private derivA: Float64Array | undefined;
+  private derivB: Float64Array | undefined;
+  private yStage: Float64Array | undefined;
+
+  constructor(variant: VerletVariant = "velocity") {
+    this.variant = variant;
+    this.info = {
+      id: variant === "velocity" ? "velocity-verlet" : "position-verlet",
+      order: 2,
+      fsal: false,
+      symplectic: true,
+    };
+  }
+
+  /** @inheritDoc */
+  init(model: Model, ctx: EvalContext): void {
+    const partitions = model.partitions;
+    if (!partitions) {
+      throw new Error("VerletStepper requires a Model declaring partitions (q, p)");
+    }
+    if (partitions.q.length !== partitions.p.length) {
+      throw new Error("VerletStepper requires equal-length q/p partition index arrays");
+    }
+
+    this.model = model;
+    this.ctx = ctx;
+    this.qIndex = partitions.q;
+    this.pIndex = partitions.p;
+    this.derivA = new Float64Array(model.dim);
+    this.derivB = new Float64Array(model.dim);
+    this.yStage = new Float64Array(model.dim);
+
+    const partitioned = new Array<boolean>(model.dim).fill(false);
+    for (const qi of partitions.q) partitioned[qi] = true;
+    for (const pi of partitions.p) partitioned[pi] = true;
+    this.partitioned = partitioned;
+  }
+
+  /** @inheritDoc */
+  step(t: number, y: Float64Array, h: number, out: StepResult): void {
+    const model = this.model;
+    const ctx = this.ctx;
+    const qIndex = this.qIndex;
+    const pIndex = this.pIndex;
+    const partitioned = this.partitioned;
+    const derivA = this.derivA;
+    const derivB = this.derivB;
+    const yStage = this.yStage;
+    if (!model || !ctx || !qIndex || !pIndex || !partitioned || !derivA || !derivB || !yStage) {
+      throw new Error("VerletStepper.step called before init()");
+    }
+
+    if (this.variant === "velocity") {
+      this.stepVelocityVerlet(
+        model,
+        ctx,
+        qIndex,
+        pIndex,
+        partitioned,
+        derivA,
+        derivB,
+        yStage,
+        t,
+        y,
+        h,
+        out,
+      );
+    } else {
+      this.stepPositionVerlet(
+        model,
+        ctx,
+        qIndex,
+        pIndex,
+        partitioned,
+        derivA,
+        yStage,
+        t,
+        y,
+        h,
+        out,
+      );
+    }
+  }
+
+  private stepVelocityVerlet(
+    model: Model,
+    ctx: EvalContext,
+    qIndex: readonly number[],
+    pIndex: readonly number[],
+    partitioned: readonly boolean[],
+    accelOld: Float64Array,
+    accelNew: Float64Array,
+    yStage: Float64Array,
+    t: number,
+    y: Float64Array,
+    h: number,
+    out: StepResult,
+  ): void {
+    const dim = y.length;
+    model.rhs(t, y, accelOld, ctx);
+
+    for (let i = 0; i < dim; i++) {
+      yStage[i] = partitioned[i]! ? y[i]! : y[i]! + h * accelOld[i]!;
+    }
+    for (let k = 0; k < qIndex.length; k++) {
+      const qi = qIndex[k]!;
+      const pi = pIndex[k]!;
+      yStage[qi] = y[qi]! + h * y[pi]! + 0.5 * h * h * accelOld[pi]!;
+    }
+
+    model.rhs(t + h, yStage, accelNew, ctx);
+
+    for (let i = 0; i < dim; i++) {
+      out.yNext[i] = yStage[i]!;
+    }
+    for (let k = 0; k < qIndex.length; k++) {
+      const pi = pIndex[k]!;
+      out.yNext[pi] = y[pi]! + 0.5 * h * (accelOld[pi]! + accelNew[pi]!);
+    }
+
+    out.accepted = true;
+    out.h = h;
+    out.errorEstimate = 0;
+    out.nRHS = 2;
+  }
+
+  private stepPositionVerlet(
+    model: Model,
+    ctx: EvalContext,
+    qIndex: readonly number[],
+    pIndex: readonly number[],
+    partitioned: readonly boolean[],
+    accelMid: Float64Array,
+    yHalf: Float64Array,
+    t: number,
+    y: Float64Array,
+    h: number,
+    out: StepResult,
+  ): void {
+    const dim = y.length;
+    for (let i = 0; i < dim; i++) {
+      yHalf[i] = y[i]!;
+    }
+    for (let k = 0; k < qIndex.length; k++) {
+      const qi = qIndex[k]!;
+      const pi = pIndex[k]!;
+      yHalf[qi] = y[qi]! + 0.5 * h * y[pi]!;
+    }
+
+    model.rhs(t + 0.5 * h, yHalf, accelMid, ctx);
+
+    for (let i = 0; i < dim; i++) {
+      out.yNext[i] = partitioned[i]! ? y[i]! : y[i]! + h * accelMid[i]!;
+    }
+    for (let k = 0; k < qIndex.length; k++) {
+      const qi = qIndex[k]!;
+      const pi = pIndex[k]!;
+      const vNext = y[pi]! + h * accelMid[pi]!;
+      out.yNext[pi] = vNext;
+      out.yNext[qi] = yHalf[qi]! + 0.5 * h * vNext;
+    }
+
+    out.accepted = true;
+    out.h = h;
+    out.errorEstimate = 0;
+    out.nRHS = 1;
+  }
+}
