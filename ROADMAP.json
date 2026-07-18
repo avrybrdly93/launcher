@@ -750,8 +750,8 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "one step of \u1e8f=\u2212y matches 1+h\u00b7(\u22121) exactly",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "packages/solverkit/src/explicit-euler-stepper.ts: ExplicitEulerStepper is the first real (non-mock) Stepper, y_next = y + h*f(t,y), preallocating its one rhs-scratch buffer in init() per ADR-004. Tests check the exact single-step arithmetic (out.yNext[0] === 1 + h*-1), info metadata, that step() before init() throws, and an end-to-end integrate() run matching the closed-form Euler product (1-h)^n."
     },
     {
       "id": "P2.07",

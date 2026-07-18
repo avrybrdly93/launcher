@@ -6,3 +6,4 @@ export * from "./types.js";
 export * from "./integrate.js";
 export * from "./trajectory-recorder.js";
 export * from "./stats-collector.js";
+export * from "./explicit-euler-stepper.js";
