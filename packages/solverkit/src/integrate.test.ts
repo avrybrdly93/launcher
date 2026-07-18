@@ -115,6 +115,22 @@ describe("integrate (P2.01 skeleton)", () => {
     expect(report.nSteps).toBe(4); // 0.3, 0.3, 0.3, clamped 0.1
   });
 
+  it("P2.02: integrates ydot=-y with a mock Euler stepper; final t is exactly t_f", () => {
+    // Traceability test for P2.02's literal validation criterion -- the
+    // driver itself (loop, t_f clamp, sink dispatch) was built as part of
+    // P2.01's skeleton and is already exercised above; this test just names
+    // the exact scenario the roadmap asks for.
+    const model = createDecayModel(); // ydot = -y
+    const ctx = createEvalContextFixture();
+    const stepper = createMockEulerStepper();
+    const cfg: SolverConfig = { stepper: "mock-euler", h: 0.25, maxSteps: 1000 };
+
+    const report = integrate(model, ctx, new Float64Array([1]), [0, 1], cfg, stepper, []);
+
+    expect(report.tFinal).toBe(1);
+    expect(report.yFinal[0]).toBeCloseTo(0.75 ** 4, 15);
+  });
+
   it("runs with no sinks attached at all", () => {
     const model = createDecayModel();
     const ctx = createEvalContextFixture();

@@ -706,8 +706,8 @@
       "estMinutes": 30,
       "difficulty": "M",
       "validation": "integrates \u1e8f=\u2212y with mock Euler; final t exactly t_f",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "The driver itself was already built as part of P2.01's skeleton (packages/solverkit/src/integrate.ts): fixed-step loop, exact t_f clamp, and start/accept/finish sink dispatch. Added a dedicated traceability test in integrate.test.ts naming this task's literal validation criterion (ydot=-y, mock Euler stepper, final t exactly t_f); no further code changes were needed."
     },
     {
       "id": "P2.03",
