@@ -3,6 +3,7 @@ import {
   ConstantAtmosphere,
   Environment,
   GravityForce,
+  QuadraticDragForce,
   UniformGravity,
   ZeroWind,
   createEvalContext,
@@ -14,7 +15,9 @@ import {
   type EvalContext,
   type Model,
 } from "@ballista/engine";
+import { ClassicalRK4Stepper } from "./classical-rk4-stepper.js";
 import { measureConvergence } from "./convergence-harness.js";
+import { integrate } from "./integrate.js";
 import { SemiImplicitEulerStepper } from "./semi-implicit-euler-stepper.js";
 import { createStepResult, type Stepper } from "./types.js";
 import { VerletStepper } from "./verlet-stepper.js";
@@ -219,5 +222,66 @@ describe("VerletStepper (P2.16)", () => {
     const symplecticEulerErr = maxRelEnergyError(new SemiImplicitEulerStepper());
 
     expect(verletErr).toBeLessThan(symplecticEulerErr);
+  });
+
+  describe("P2.17: velocity-Verlet retains slope 2 on a genuinely velocity-dependent force (quadratic drag)", () => {
+    // Quadratic drag has no closed-form trajectory, so this benchmark needs a
+    // numerical reference in place of an analytic yExact. P2.18's
+    // tight-tolerance reference utility (tight DOPRI5, once P2.24 lands, or
+    // Richardson-extrapolated RK4 meanwhile) doesn't exist yet, so a tight
+    // fixed-step RK4 run (h=1e-5, global error ~O(h^4) ~ 1e-20 -- many orders
+    // below anything measured at the coarser hs below) stands in directly:
+    // exactly the "Richardson-extrapolated RK4" fallback §5.1/P2.18 name for
+    // problems without analytics, just inlined rather than factored out.
+    function projectileModelAndContext(): { model: Model; ctx: EvalContext } {
+      const env = new Environment(new ConstantAtmosphere(), new UniformGravity(), new ZeroWind());
+      const params = createSphericalProjectileParams({
+        mass: 0.145,
+        radius: 0.0366,
+        dragCoefficient: new ConstantCd(0.5),
+      });
+      return {
+        model: createPlanarProjectileModel([new GravityForce(), new QuadraticDragForce()]),
+        ctx: createEvalContext(env, params),
+      };
+    }
+
+    it("slope 2.00 +/- 0.1 vs tight-RK4 reference (validation criterion; measured ~1.0 before the P2.17 extrapolated-velocity fix)", () => {
+      const { model, ctx } = projectileModelAndContext();
+      const y0 = new Float64Array([0, 0, 30, 40]);
+      const tspan: readonly [number, number] = [0, 1];
+
+      const refStepper = new ClassicalRK4Stepper();
+      const refReport = integrate(
+        model,
+        ctx,
+        y0,
+        tspan,
+        { stepper: refStepper.info.id, h: 1e-5, maxSteps: Number.MAX_SAFE_INTEGER },
+        refStepper,
+        [],
+      );
+      const yRef = refReport.yFinal;
+
+      const hs = [0.02, 0.01, 0.005, 0.0025, 0.00125];
+      const result = measureConvergence(
+        () => new VerletStepper("velocity"),
+        model,
+        ctx,
+        y0,
+        tspan,
+        () => yRef,
+        hs,
+      );
+
+      expect(result.errors.length).toBe(hs.length);
+      for (let i = 1; i < result.errors.length; i++) {
+        expect(result.errors[i]!).toBeLessThan(result.errors[i - 1]!);
+      }
+      // Validation criterion (P2.17): slope 2 retained on the quadratic-drag
+      // benchmark vs. the tight reference above.
+      expect(result.slope).toBeGreaterThan(1.9);
+      expect(result.slope).toBeLessThan(2.1);
+    });
   });
 });

@@ -871,8 +871,8 @@
       "estMinutes": 25,
       "difficulty": "H",
       "validation": "slope 2 retained on quadratic-drag benchmark vs tight-RK45 reference",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "verlet-stepper.ts's velocity-Verlet variant previously evaluated a(q_{k+1}) using the stale v_k wherever a genuinely depends on v (drag, Magnus) -- measured directly, this degraded quadratic-drag convergence to slope ~1.0, not the claimed order 2. Fixed by feeding an explicit-Euler-extrapolated velocity v_k+h*a_k into that force evaluation instead of the stale v_k (the §4.8 'standard practical compromise'); harmless when a doesn't depend on v (extrapolated and stale v give the identical a_{k+1} there, so gravity-only/harmonic-oscillator behavior and all prior tests are unaffected), and restores second-order accuracy when it does. Scoped to the velocity-Verlet variant only, per the blueprint's phrasing (position-Verlet's velocity-dependent-force order is undocumented/uncorrected, noted in its doc comment). Since P2.18 (tight-reference utility) and P2.24 (DOPRI5) don't exist yet, the 'tight-RK45 reference' the validation criterion calls for is a tight fixed-step RK4 run (h=1e-5, global error ~1e-20, many orders below anything measured at the tested h's) -- the literal 'Richardson-extrapolated RK4 for problems without analytics' fallback P2.18's own description names, just inlined in the test rather than factored into a shared utility. Added a new describe block to verlet-stepper.test.ts: gravity+quadratic-drag (baseball-like projectile), velocity-Verlet vs the RK4 reference over hs=0.02..0.00125, measured slope 2.00 (bound 1.9-2.1, comfortably inside; was ~1.0 before the fix)."
     },
     {
       "id": "P2.18",

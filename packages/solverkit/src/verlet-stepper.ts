@@ -9,20 +9,28 @@ export type VerletVariant = "velocity" | "position";
  * $\ddot{\mathbf q} = \mathbf a(\mathbf q, \mathbf v)$ via `model.partitions`
  * (§4.8, eq. 4.13) -- gravity-only is the clean stage this construction is
  * exact for; velocity-dependent forces (drag, Magnus) break exact
- * symplecticity because both variants below evaluate `a` using a *stale* v
- * at the position where a fresh rhs call is made (documented, refined by
- * P2.17's extrapolated-velocity pass, not attempted here).
+ * symplecticity regardless of variant.
  *
  * **`"velocity"`** (velocity Verlet, kick-drift-half-kick-half, the
  * default): $\mathbf a_k = \mathbf a(\mathbf q_k, \mathbf v_k)$;
  * $\mathbf q_{k+1} = \mathbf q_k + h\mathbf v_k + \tfrac{h^2}2 \mathbf a_k$;
- * $\mathbf a_{k+1} = \mathbf a(\mathbf q_{k+1}, \mathbf v_k)$ (stale v);
+ * $\mathbf a_{k+1} = \mathbf a(\mathbf q_{k+1}, \tilde{\mathbf v}_{k+1})$
+ * where $\tilde{\mathbf v}_{k+1} = \mathbf v_k + h\mathbf a_k$ is an
+ * explicit-Euler *extrapolated* velocity (P2.17, §4.8's "standard practical
+ * compromise" for velocity-dependent forces -- using the true stale
+ * $\mathbf v_k$ here instead, as a naive port of the velocity-independent
+ * recurrence would, degrades the trapezoidal update below to first order
+ * whenever $\mathbf a$ genuinely depends on $\mathbf v$; the extrapolated
+ * pass is a no-op, and the order-2 recurrence exact, when it doesn't);
  * $\mathbf v_{k+1} = \mathbf v_k + \tfrac h2(\mathbf a_k + \mathbf a_{k+1})$.
  * 2 rhs evaluations/step.
  *
  * **`"position"`** (position Verlet, drift-kick-drift): $\mathbf q_{k+1/2}
  * = \mathbf q_k + \tfrac h2 \mathbf v_k$; $\mathbf a_{\text{mid}} =
- * \mathbf a(\mathbf q_{k+1/2}, \mathbf v_k)$; $\mathbf v_{k+1} = \mathbf v_k
+ * \mathbf a(\mathbf q_{k+1/2}, \mathbf v_k)$ (stale v -- the P2.17
+ * extrapolated-velocity pass above is scoped to the velocity-Verlet variant
+ * only, per §4.8's phrasing; position-Verlet's velocity-dependent-force
+ * order is not corrected here); $\mathbf v_{k+1} = \mathbf v_k
  * + h\,\mathbf a_{\text{mid}}$; $\mathbf q_{k+1} = \mathbf q_{k+1/2} +
  * \tfrac h2 \mathbf v_{k+1}$. 1 rhs evaluation/step.
  *
@@ -152,6 +160,21 @@ export class VerletStepper implements Stepper {
       const qi = qIndex[k]!;
       const pi = pIndex[k]!;
       yStage[qi] = y[qi]! + h * y[pi]! + 0.5 * h * h * accelOld[pi]!;
+    }
+
+    // P2.17: extrapolated-velocity pass. a(q_{k+1}) alone would need v_{k+1}
+    // to evaluate a velocity-dependent force (drag, Magnus), which isn't
+    // known yet -- using the stale v_k there (as a naive port of the
+    // velocity-independent recurrence would) makes the trapezoidal velocity
+    // update only first-order accurate whenever a genuinely depends on v, per
+    // §4.8's "standard practical compromise": feed the explicit-Euler
+    // *prediction* v_k + h*a(q_k,v_k) into the q_{k+1} force evaluation
+    // instead. Harmless when a doesn't depend on v (the prediction and the
+    // stale value give the identical a_{k+1}), and restores second-order
+    // convergence when it does (verified against quadratic drag below).
+    for (let k = 0; k < pIndex.length; k++) {
+      const pi = pIndex[k]!;
+      yStage[pi] = y[pi]! + h * accelOld[pi]!;
     }
 
     model.rhs(t + h, yStage, accelNew, ctx);
