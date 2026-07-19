@@ -970,8 +970,8 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "hand case matches to 1e-15",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "packages/solverkit/src/scaled-error-norm.ts: scaledErrorNorm(delta, y, yNext, rtol, atol) implements eq. 4.9's sc_i = atol_i + rtol*max(|y_i|,|yNext_i|) and err = sqrt(mean((delta_i/sc_i)^2)), with atol accepting either a scalar or a per-channel Float64Array. Exported from index.ts. scaled-error-norm.test.ts: two hand-computed cases (scalar atol and vector atol) matched to toBeCloseTo(..., 15) -- the task's literal validation criterion -- plus zero-delta, err-exactly-1, and max(|y|,|yNext|)-not-just-|y| edge cases."
     },
     {
       "id": "P2.27",

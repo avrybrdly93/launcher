@@ -13,6 +13,7 @@ export * from "./midpoint-rk2-stepper.js";
 export * from "./heun-rk2-stepper.js";
 export * from "./explicit-rk-kernel.js";
 export * from "./embedded-rk-kernel.js";
+export * from "./scaled-error-norm.js";
 export * from "./dormand-prince-54.js";
 export * from "./bogacki-shampine-32.js";
 export * from "./classical-rk4-stepper.js";
