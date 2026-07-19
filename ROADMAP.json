@@ -882,8 +882,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "self-consistency: two reference resolutions agree to 1e-10",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added packages/validation/src/reference-solution.ts: referenceSolution(model,ctx,y0,tspan,h) runs ClassicalRK4Stepper at h and h/2 and Richardson-combines the two final states (y*=(16*y(h/2)-y(h))/15) to cancel RK4's leading O(h^4) error term, per the task's Richardson-extrapolated-RK4 fallback option (DOPRI5 doesn't exist yet -- P2.24). reference-solution.test.ts builds a gravity+quadratic-drag+Magnus+crosswind scenario with no closed-form solution (the case this utility exists for) and checks the validation criterion directly: two independently-computed reference resolutions (base h=0.002 and h=0.001) agree to 1e-10. A second test checks the extrapolated result is within 1e-6 of a much finer 'truth' run, confirming it's genuinely tighter than either raw RK4 run it combines."
     },
     {
       "id": "P2.19",

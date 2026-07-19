@@ -4,3 +4,4 @@
 export const VALIDATION_PACKAGE = "@ballista/validation";
 
 export * from "./analytic-references.js";
+export * from "./reference-solution.js";
