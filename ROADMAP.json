@@ -959,8 +959,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "slope 3 fixed-h; FSAL verified",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added bogacki-shampine-32.ts: BS32_TABLEAU (standard Bogacki-Shampine RK3(2) coefficients, 4 stages, b exactly equal to a's 4th row with a trailing 0 -- the same FSAL structural property as P2.24's DOPRI5), BS32_INFO, and createBogackiShampine32Stepper(), built on P2.23/P2.24's already-generic EmbeddedRKStepper/stepEmbeddedRK (no kernel changes needed -- FSAL caching was already generalized over any info.fsal tableau in P2.24). bogacki-shampine-32.test.ts (4 tests): b satisfies every order<=3 rooted-tree condition and bHat every order<=2 condition (P2.14's verifiesOrder); the FSAL structural check (b = a's last row + trailing 0); convergence slope on the linear-drag benchmark (3.6-3.7, same tiny-mass/expm1 formula as P2.24's test to avoid analytic-reference cancellation) over h=0.02..0.00125; FSAL nRHS accounting (4 + 3*(nSteps-1) across a multi-step solve) -- both exactly the task's validation criterion (slope 3 fixed-h; FSAL verified)."
     },
     {
       "id": "P2.26",
