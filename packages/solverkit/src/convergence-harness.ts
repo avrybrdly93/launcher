@@ -11,7 +11,7 @@ export interface ConvergenceResult {
 }
 
 /** Euclidean norm of the difference between two same-length state vectors. */
-function l2Error(numeric: Float64Array, exact: Float64Array): number {
+export function l2Error(numeric: Float64Array, exact: Float64Array): number {
   let sumSq = 0;
   for (let i = 0; i < numeric.length; i++) {
     const d = numeric[i]! - exact[i]!;

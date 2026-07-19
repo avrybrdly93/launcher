@@ -16,3 +16,4 @@ export * from "./semi-implicit-euler-stepper.js";
 export * from "./verlet-stepper.js";
 export * from "./order-condition-checker.js";
 export * from "./convergence-harness.js";
+export * from "./work-precision-harness.js";

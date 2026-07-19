@@ -893,8 +893,8 @@
       "estMinutes": 25,
       "difficulty": "M",
       "validation": "Euler/RK2/RK4 curves ordered as expected at error 1e-6",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added packages/solverkit/src/work-precision-harness.ts: measureWorkPrecision (mirrors P2.07's measureConvergence but pairs error against SolveReport.nRHS -- the fair cost metric across methods with different stage counts -- instead of h), runWorkPrecisionStudy (runs several methods against the same problem), nRHSAtTargetError (log-log least-squares fit of a curve's (nRHS,error) points, solved for the nRHS at a given target error -- lets the test hit exactly error=1e-6 without literally running Euler out to ~6M rhs evals), and workPrecisionStudyToJSON (JSON.stringify entry point per the task's 'JSON output'). Exported l2Error from convergence-harness.ts (was private) for reuse as the default error norm. Test lives in packages/validation (needs P2.18's referenceSolution) on a gravity+quadratic-drag baseball scenario -- deliberately nonlinear/no-closed-form, since the built-in analytic references (linear-drag's near-infinite terminal velocity from a tiny Stokes radius, drag-free's degenerate polynomial solution) either floor out from catastrophic cancellation around 1e-5 or make RK2/RK4 trivially exact at any h, neither of which can actually demonstrate a clean error-vs-cost curve down to a 1e-6 target. work-precision-harness.test.ts (2 tests): curves are monotonically decreasing in error vs nRHS for all three methods; interpolated nRHS-at-1e-6-error is ordered Euler > RK2 > RK4 by the expected order-of-magnitude margins (RK2 needs >100x fewer evals than Euler, RK4 >10x fewer than RK2) -- validation criterion; workPrecisionStudyToJSON round-trips a full multi-method study through JSON.parse."
     },
     {
       "id": "P2.20",
