@@ -937,8 +937,8 @@
       "estMinutes": 30,
       "difficulty": "M",
       "validation": "\u03b4 ~ O(h^{p\u0302+1}) measured slope on smooth problem",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added embedded-rk-kernel.ts: EmbeddedButcherTableau extends ButcherTableau with bHat (embedded-order weights) and embeddedOrder; stepEmbeddedRK runs the same shared-stage loop as P2.12's stepExplicitRK, then in one pass over dim forms both yNext (advanced with the higher-order b, i.e. local extrapolation, matching MATLAB ode45/SciPy RK45 convention) and delta_i = h*sum_s(b_s-bHat_s)*k_s[i] (eq 4.8), writing delta's unscaled RMS norm into out.errorEstimate (atol/rtol-scaled eq 4.9 norm is P2.26's job). EmbeddedRKStepper wraps any EmbeddedButcherTableau as a Stepper, the embedded-pair analog of P2.12's ExplicitRKStepper, so P2.24 (DOPRI5) and P2.25 (Bogacki-Shampine) can be added as data. Added HEUN_EULER_TABLEAU (order2/order1 pair sharing HEUN_TABLEAU's 2 stages, bHat=[1,0]=Euler) as the minimal fixture to exercise the kernel, since neither of the two named production pairs exist yet. embedded-rk-kernel.test.ts (3 tests): yNext matches ExplicitRKStepper(HEUN_TABLEAU) exactly (confirms the shared-stage b-weighted advance is unaffected by adding the embedded machinery); on a smooth nonlinear problem (gravity+quadratic-drag planar projectile) over h=0.05..0.003125, out.errorEstimate shrinks monotonically and its log-log slope vs h is 2.00 +/- 0.1 (embeddedOrder=1 => p_hat+1=2, the validation criterion); init-before-step guard."
     },
     {
       "id": "P2.24",
