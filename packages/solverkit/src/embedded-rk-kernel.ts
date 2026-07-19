@@ -21,29 +21,29 @@ export interface EmbeddedButcherTableau extends ButcherTableau {
 }
 
 /** Scratch buffers an {@link EmbeddedRKStepper} preallocates once in `init` (ADR-004). */
-export interface EmbeddedRKBuffers extends ExplicitRKBuffers {
-  readonly delta: Float64Array;
-}
+export type EmbeddedRKBuffers = ExplicitRKBuffers;
 
 export function createEmbeddedRKBuffers(dim: number, stages: number): EmbeddedRKBuffers {
-  return { ...createExplicitRKBuffers(dim, stages), delta: new Float64Array(dim) };
+  return createExplicitRKBuffers(dim, stages);
 }
 
 /**
  * Runs the same stage evaluations {@link stepExplicitRK} would (an embedded
  * pair's whole point, eq. 4.8, is that the two methods *share* stages
  * rather than duplicating work), then additionally forms $\delta$ into
- * `buffers.delta` and its RMS norm into `out.errorEstimate`. `out.yNext` is
+ * `out.delta` and its RMS norm into `out.errorEstimate`. `out.yNext` is
  * always advanced with the pair's higher-order weights `b` ("local
  * extrapolation": the platform propagates the more accurate result and
  * uses the lower-order estimate only for error control -- the standard
  * choice, e.g. MATLAB `ode45`/SciPy's default `RK45`).
  *
- * `out.errorEstimate` here is $\delta$'s raw (unscaled) RMS magnitude --
- * per-component tolerance scaling (eq. 4.9's $sc_i = atol_i + rtol \cdot
- * \max(|y_i|, |\hat y_i|)$) is P2.26's job. The raw magnitude alone is
+ * `out.errorEstimate` here is $\delta$'s raw (unscaled) RMS magnitude,
  * sufficient to demonstrate $\delta \sim \mathcal O(h^{\hat p+1})$ (P2.23's
- * validation criterion).
+ * validation criterion). `out.delta`'s per-component values are what
+ * P2.26's `scaledErrorNorm` (eq. 4.9's $sc_i = atol_i + rtol \cdot
+ * \max(|y_i|, |\hat y_i|)$) and P2.27's step-acceptance controller actually
+ * consume -- the RMS scalar alone can't be rescaled per component once
+ * channels have different magnitudes or `atol` is a vector.
  *
  * `precomputedK0`, when supplied, is copied into stage 0 instead of calling
  * `model.rhs` for it (P2.24's FSAL wiring: a tableau with $c_{\text{last}}
@@ -63,7 +63,8 @@ export function stepEmbeddedRK(
   out: StepResult,
   precomputedK0?: Float64Array,
 ): void {
-  const { k, yStage, delta } = buffers;
+  const { k, yStage } = buffers;
+  const delta = out.delta;
   const dim = y.length;
   const stages = tableau.c.length;
 

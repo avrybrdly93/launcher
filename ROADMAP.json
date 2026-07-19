@@ -981,8 +981,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "tolerance sweep: achieved local error tracks rtol over 4 decades on benchmark",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "packages/solverkit/src/i-controller.ts: iControllerFactor(err, embeddedOrder, afterRejection, cfg) implements eq. 4.10's clamped step-size multiplier (fs=0.9, fmin=0.2, fmax=5, tighter fmax=1 after a rejection); attemptAdaptiveStep(stepper, embeddedOrder, t, y, h, rtol, atol, out, cfg) runs the eq. 4.9/4.10 accept-reject loop for one step, using P2.26's scaledErrorNorm against out.delta (StepResult gained a `delta: Float64Array` field in types.ts -- the raw per-component local error, needed because scaled error can't be recovered from errorEstimate's already-RMS'd scalar once atol is a vector; stepEmbeddedRK in embedded-rk-kernel.ts now writes directly into out.delta instead of a redundant internal scratch buffer). integrate.ts wires this in: cfg.rtol set selects the adaptive path (embedded-pair stepper required), cfg.atol defaults to 1e-6 when unset, SolveReport.nRejected is now a real running count (previously hardcoded 0 for every report). Found and fixed a real bug while writing the validation test: the driver was advancing `t` by the *requested* step size even when a rejection had shrunk the *accepted* one, silently skipping the state forward past where it actually was -- now tracks the actually-accepted h (`acceptedH`), and the t_f bit-exact-landing snap only fires when the final attempt was accepted at its full requested size unshrunk. i-controller.test.ts: hand-computed iControllerFactor cases (unclamped, min-clamp, max-clamp, afterRejection tightening, err=0 Infinity resolving to the growth cap instead of NaN); attemptAdaptiveStep unit tests (single-attempt acceptance, forced rejection-then-acceptance, never mutates the caller's y); and the task's literal validation criterion -- a DOPRI5 tolerance sweep (rtol 1e-3..1e-7, 4 decades) on the linear-drag benchmark (3.6-3.7) asserting achieved global error decreases monotonically and drops >100x across the sweep."
     },
     {
       "id": "P2.28",

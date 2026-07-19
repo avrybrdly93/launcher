@@ -29,13 +29,31 @@ export interface StepResult {
   h: number;
   /** Local error norm estimate for embedded-pair steppers (P2.23); 0 for non-adaptive steppers. */
   errorEstimate: number;
+  /**
+   * Raw per-component local error $\boldsymbol\delta$ (P2.23), same length
+   * as `yNext`; `errorEstimate` is this array's unscaled RMS norm. A
+   * caller doing tolerance-scaled step acceptance (P2.26's
+   * `scaledErrorNorm`, eq. 4.9) reads this directly, since per-component
+   * `atol`/`rtol` scaling can't be recovered from the single RMS scalar
+   * once channels have different magnitudes. Untouched (stale or zero) by
+   * non-adaptive steppers, which never populate it -- only meaningful
+   * alongside a nonzero `errorEstimate`.
+   */
+  readonly delta: Float64Array;
   /** rhs evaluations consumed by this attempt, for `StatsCollector` (P2.05) accounting. */
   nRHS: number;
 }
 
 /** Preallocates a {@link StepResult} sized for a model of the given dimension. */
 export function createStepResult(dim: number): StepResult {
-  return { yNext: new Float64Array(dim), accepted: false, h: 0, errorEstimate: 0, nRHS: 0 };
+  return {
+    yNext: new Float64Array(dim),
+    accepted: false,
+    h: 0,
+    errorEstimate: 0,
+    delta: new Float64Array(dim),
+    nRHS: 0,
+  };
 }
 
 /**

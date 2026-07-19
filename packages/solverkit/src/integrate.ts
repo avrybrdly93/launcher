@@ -1,4 +1,5 @@
 import type { EvalContext, Model } from "@ballista/engine";
+import { attemptAdaptiveStep } from "./i-controller.js";
 import {
   createStepResult,
   type Sink,
@@ -9,6 +10,17 @@ import {
 } from "./types.js";
 
 const DEFAULT_STEP_COUNT = 100;
+
+/**
+ * Absolute-tolerance floor (eq. 4.9's $atol_i$) used when `cfg.atol` is
+ * unset for an adaptive solve. Purely relative tolerance (`atol=0`) is
+ * hazardous whenever a channel's magnitude legitimately passes through
+ * (or starts at) exactly 0 -- `sc_i` would collapse to 0 and divide any
+ * nonzero `delta_i` there by zero. `1e-6` matches the blueprint's example
+ * rtol scale (§4.5) and is small enough not to mask genuine relative-error
+ * control on channels that stay well above it.
+ */
+const DEFAULT_ATOL = 1e-6;
 
 /**
  * Relative slack applied when deciding whether the remaining span is small
@@ -43,15 +55,25 @@ function roundToFloat32(y: Float64Array): void {
 }
 
 /**
- * Fixed-step driver (§5.1): init the stepper, advance from `tspan[0]` to
- * `tspan[1]` at (approximately) `cfg.h`, clamping the final step so it lands
- * exactly on t_f, dispatching every accepted step to `sinks`. Every stepped
- * state is checked for finiteness before being accepted; a NaN/Inf channel
- * stops the solve immediately with a typed `non-finite-state` failure
- * carrying the last-good (t, y) rather than propagating garbage further
- * (§5.1's error taxonomy -- "the single most valuable debugging feature in
- * any solver"). maxSteps/hMin enforcement (P2.29) and adaptive step-size
- * control (P2.27/28) remain separate tasks.
+ * Fixed- or adaptive-step driver (§5.1): init the stepper, advance from
+ * `tspan[0]` to `tspan[1]`, clamping the final step so it lands exactly on
+ * t_f, dispatching every accepted step to `sinks`. Every stepped state is
+ * checked for finiteness before being accepted; a NaN/Inf channel stops the
+ * solve immediately with a typed `non-finite-state` failure carrying the
+ * last-good (t, y) rather than propagating garbage further (§5.1's error
+ * taxonomy -- "the single most valuable debugging feature in any solver").
+ *
+ * `cfg.rtol` set selects adaptive stepping (§4.5): each step runs P2.27's
+ * eq. (4.9)/(4.10) accept-reject loop ({@link attemptAdaptiveStep}) against
+ * an embedded-pair `stepper` (`stepper.info.embeddedOrder` must be
+ * defined), `cfg.h` (or the same default-step-count guess the fixed path
+ * uses) seeding only the *first* step's size thereafter. `cfg.atol`
+ * defaults to `DEFAULT_ATOL` when unset. Rejected attempts are counted into
+ * `SolveReport.nRejected` and their rhs evaluations into `nRHS`, but never
+ * advance `t`. `cfg.h` set (and `cfg.rtol` unset) instead runs the plain
+ * fixed-step path at (approximately) `cfg.h`. `cfg.controller` (P2.28's PI
+ * variant), `cfg.hMin`-underflow-as-typed-failure, and `cfg.maxSteps`
+ * enforcement (P2.29) remain separate tasks.
  *
  * `current` and `out.yNext` are two buffers preallocated once and copied
  * between (not swapped) each step, so a stepper never sees the buffer it is
@@ -76,7 +98,17 @@ export function integrate(
   sinks: readonly Sink[] = [],
 ): SolveReport {
   const [t0, tFinal] = tspan;
-  const h = cfg.h ?? (tFinal - t0) / DEFAULT_STEP_COUNT;
+  let h = cfg.h ?? (tFinal - t0) / DEFAULT_STEP_COUNT;
+
+  const adaptive = cfg.rtol !== undefined;
+  const embeddedOrder = stepper.info.embeddedOrder;
+  if (adaptive && embeddedOrder === undefined) {
+    throw new Error(
+      `integrate: adaptive stepping (cfg.rtol set) requires an embedded-pair stepper; "${stepper.info.id}" has no embeddedOrder`,
+    );
+  }
+  const rtol = cfg.rtol ?? 0;
+  const atol = cfg.atol ?? DEFAULT_ATOL;
 
   stepper.init(model, ctx);
 
@@ -89,17 +121,43 @@ export function integrate(
   let t = t0;
   let nSteps = 0;
   let nRHS = 0;
+  let nRejected = 0;
 
   for (const sink of sinks) sink.start?.(model, t0, current);
 
   while (t < tFinal) {
     const remaining = tFinal - t;
-    const isFinalStep = remaining <= h * (1 + FINAL_STEP_EPS_REL);
-    const hStep = isFinalStep ? remaining : h;
+    const isFinalAttempt = remaining <= h * (1 + FINAL_STEP_EPS_REL);
+    const hStep = isFinalAttempt ? remaining : h;
 
-    stepper.step(t, current, hStep, out, compensation);
+    // The step size actually accepted -- for a rejected-then-shrunk
+    // adaptive attempt this is *less* than the requested `hStep`, which is
+    // why `t` below advances by this, never by `hStep` itself (advancing by
+    // the request would silently skip past the ground truth at t whenever
+    // a step was rejected, exactly what P2.27's rejection loop exists to
+    // prevent).
+    let acceptedH: number;
+    if (adaptive) {
+      const outcome = attemptAdaptiveStep(
+        stepper,
+        embeddedOrder!,
+        t,
+        current,
+        hStep,
+        rtol,
+        atol,
+        out,
+      );
+      nRejected += outcome.rejections;
+      nRHS += outcome.nRHS;
+      h = outcome.hNext;
+      acceptedH = outcome.h;
+    } else {
+      stepper.step(t, current, hStep, out, compensation);
+      nRHS += out.nRHS;
+      acceptedH = hStep;
+    }
     nSteps++;
-    nRHS += out.nRHS;
 
     if (!isFiniteState(out.yNext)) {
       const failure: SolveFailure = {
@@ -114,7 +172,7 @@ export function integrate(
         yFinal: current,
         nSteps,
         nRHS,
-        nRejected: 0,
+        nRejected,
         failure,
       };
       for (const sink of sinks) sink.finish?.(report);
@@ -123,9 +181,12 @@ export function integrate(
 
     current.set(out.yNext);
     if (float32Mode) roundToFloat32(current);
-    // Assigning t_f directly (rather than t + hStep) guarantees the final
-    // time is bit-exact even though hStep = tFinal - t is itself rounded.
-    t = isFinalStep ? tFinal : t + hStep;
+    // Assigning t_f directly (rather than t + acceptedH) guarantees the
+    // final time is bit-exact even though hStep = tFinal - t is itself
+    // rounded -- but only once the *accepted* step actually covers the
+    // full requested `hStep` (never true for a shrunk adaptive attempt,
+    // which under-reaches t_f and must keep looping).
+    t = isFinalAttempt && acceptedH === hStep ? tFinal : t + acceptedH;
     for (const sink of sinks) sink.accept?.(t, current, out);
   }
 
@@ -135,7 +196,7 @@ export function integrate(
     yFinal: current,
     nSteps,
     nRHS,
-    nRejected: 0,
+    nRejected,
   };
 
   for (const sink of sinks) sink.finish?.(report);
