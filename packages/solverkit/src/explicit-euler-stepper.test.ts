@@ -122,4 +122,52 @@ describe("ExplicitEulerStepper (P2.06)", () => {
       }
     }, 20_000);
   });
+
+  describe("precision: float32 mode (P2.21)", () => {
+    it("shifts the §4.7 V-curve minimum to a much larger h under float32 state storage", () => {
+      const model = createDecayModel();
+      const ctx = createEvalContextFixture();
+      const y0 = new Float64Array([1]);
+      const tspan: readonly [number, number] = [0, 1e-3];
+      const exact = Math.exp(-tspan[1]);
+
+      function errorAt(h: number, precision: "float64" | "float32"): number {
+        const cfg: SolverConfig = {
+          stepper: "explicit-euler",
+          h,
+          maxSteps: Number.MAX_SAFE_INTEGER,
+          precision,
+        };
+        const report = integrate(model, ctx, y0, tspan, cfg, new ExplicitEulerStepper());
+        return Math.abs(report.yFinal[0]! - exact);
+      }
+
+      // Float64: purely truncation-dominated (error falls monotonically as h
+      // shrinks) across this whole range -- its own rounding floor sits at a
+      // vastly smaller h (eps64 ~ 2.2e-16) than is practical to reach in a
+      // fast test.
+      const hs64 = [1e-8, 1e-7, 1e-6, 1e-5, 1e-4, 1e-3];
+      const errors64 = hs64.map((h) => errorAt(h, "float64"));
+      for (let i = 1; i < errors64.length; i++) {
+        expect(errors64[i]!).toBeGreaterThan(errors64[i - 1]!);
+      }
+
+      // Float32: the same span of h exposes a genuine interior V-curve
+      // minimum -- error falls approaching h=5e-5, then *rises* again for
+      // smaller h as per-step rounding (eps32 ~ 1.19e-7) swamps the
+      // shrinking increment, and rises again for larger h as truncation
+      // error grows -- the qualitative V shape §4.7 predicts.
+      const below = errorAt(2e-5, "float32");
+      const atMin = errorAt(5e-5, "float32");
+      const above = errorAt(1e-4, "float32");
+      expect(atMin).toBeLessThan(below);
+      expect(atMin).toBeLessThan(above);
+
+      // The minimum genuinely shifted to a larger h: at h=1e-8, where
+      // float64 is still deep in its accurate, rounding-negligible regime,
+      // float32 is already deep in its rounding-dominated regime -- many
+      // orders of magnitude worse at the same step size.
+      expect(errorAt(1e-8, "float32")).toBeGreaterThan(errorAt(1e-8, "float64") * 1e6);
+    });
+  });
 });

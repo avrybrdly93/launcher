@@ -28,6 +28,21 @@ function isFiniteState(y: Float64Array): boolean {
 }
 
 /**
+ * Rounds every channel of `y` to the nearest IEEE 754 single-precision value
+ * in place (P2.21's Float32 mode, §4.7). This is how the driver simulates
+ * storing the accepted state in a `Float32Array` between steps without
+ * requiring every stepper to internally compute in Float32: each step's
+ * rhs is still evaluated in Float64, but the state it reads next step has
+ * already lost its bits below `eps32 ≈ 1.19e-7`, which is what makes the
+ * rounding-error branch of the V-curve rise so much sooner as h shrinks.
+ */
+function roundToFloat32(y: Float64Array): void {
+  for (let i = 0; i < y.length; i++) {
+    y[i] = Math.fround(y[i]!);
+  }
+}
+
+/**
  * Fixed-step driver (§5.1): init the stepper, advance from `tspan[0]` to
  * `tspan[1]` at (approximately) `cfg.h`, clamping the final step so it lands
  * exactly on t_f, dispatching every accepted step to `sinks`. Every stepped
@@ -68,6 +83,8 @@ export function integrate(
   const current = Float64Array.from(y0);
   const out = createStepResult(model.dim);
   const compensation = cfg.compensatedSummation ? new Float64Array(model.dim) : undefined;
+  const float32Mode = cfg.precision === "float32";
+  if (float32Mode) roundToFloat32(current);
 
   let t = t0;
   let nSteps = 0;
@@ -105,6 +122,7 @@ export function integrate(
     }
 
     current.set(out.yNext);
+    if (float32Mode) roundToFloat32(current);
     // Assigning t_f directly (rather than t + hStep) guarantees the final
     // time is bit-exact even though hStep = tFinal - t is itself rounded.
     t = isFinalStep ? tFinal : t + hStep;

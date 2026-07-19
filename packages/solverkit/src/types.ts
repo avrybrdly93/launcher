@@ -71,6 +71,22 @@ export type StepperId = string;
 export type ControllerKind = "I" | "PI";
 
 /**
+ * Numeric representation used for state storage between accepted steps
+ * (§4.7, ADR-014, P2.21). `"float64"` (default) is the platform's one
+ * correctness-tested baseline. `"float32"` is an explicit, opt-in
+ * pedagogical/preview mode: the accepted state is rounded to IEEE 754
+ * single-precision after every step (simulating storage in a
+ * `Float32Array`, which is what a future WebGPU backend would use, §10.1),
+ * raising the effective rounding-error floor from
+ * `eps64 ≈ 2.2e-16` to `eps32 ≈ 1.19e-7`. This shifts the §4.7 V-shaped
+ * total-error curve's minimum to a larger `h`, since the rounding branch
+ * `C2 * eps / h` now overtakes the falling truncation branch `C1 * h^p`
+ * much sooner as h shrinks. Not held to Float64's absolute error bounds --
+ * validated only for that qualitative V-curve-shape shift.
+ */
+export type SolverPrecision = "float64" | "float32";
+
+/**
  * Configuration for one {@link integrate} call (§5.1). `stepper` names the
  * method for reporting/serialization (ScenarioSpec round-tripping, §5.2);
  * the caller resolves it to a concrete {@link Stepper} instance and passes
@@ -93,6 +109,11 @@ export interface SolverConfig {
    * to matter.
    */
   readonly compensatedSummation?: boolean;
+  /**
+   * State-storage precision (§4.7, ADR-014, P2.21). Defaults to `"float64"`.
+   * See {@link SolverPrecision} for the rounding model and rationale.
+   */
+  readonly precision?: SolverPrecision;
 }
 
 /** Typed failure taxonomy (§5.1): every way a solve can fail to reach t_f, not a generic Error. */

@@ -915,8 +915,8 @@
       "estMinutes": 25,
       "difficulty": "M",
       "validation": "V-curve minimum shifts to larger h; test asserts qualitative shape",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added SolverPrecision (\"float64\"|\"float32\") and SolverConfig.precision (types.ts, default float64). integrate() (integrate.ts) rounds the accepted state to the nearest Float32 value via Math.fround after every step (and on the initial y0) when precision===\"float32\" -- simulating storage in a Float32Array (what a WebGPU backend would use, \u00a710.1) between steps without requiring every stepper to compute internally in Float32: rhs is still evaluated in Float64 each step, but the state it reads next step has already lost bits below eps32~1.19e-7. Matches ADR-014's prior description of this task as an opt-in, qualitative-only preview mode. Test added in explicit-euler-stepper.test.ts (decay model ydot=-y, tf=1e-3): over h in [1e-8,1e-3], Float64 error is strictly monotonically increasing with h (still purely truncation-dominated -- its eps64 rounding floor sits far outside this range), while Float32 exhibits a genuine interior V-curve minimum near h=5e-5 (error there is less than at both a smaller and a larger neighboring h), and at h=1e-8 Float32's error is >1e6x Float64's -- the qualitative V-curve-minimum shift the validation criterion asks for."
     },
     {
       "id": "P2.22",
