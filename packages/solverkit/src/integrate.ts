@@ -42,6 +42,14 @@ function isFiniteState(y: Float64Array): boolean {
  * between (not swapped) each step, so a stepper never sees the buffer it is
  * writing into aliased with the state it is reading from, while the loop
  * itself still allocates nothing per step beyond that one fixed-size copy.
+ * `cfg.compensatedSummation` (P2.20) allocates a per-channel Kahan
+ * compensation buffer and passes it to `stepper.step`, so a stepper that
+ * understands the optional fifth parameter (currently
+ * {@link ExplicitEulerStepper}) can Kahan-compensate its own `y + h*f`
+ * addition -- the only place the low-order bits genuinely lost to rounding
+ * are still recoverable (post-hoc correction against the driver's `current`
+ * copy cannot recover them, since the stepper's addition has already
+ * rounded by the time `integrate` sees `out.yNext`).
  */
 export function integrate(
   model: Model,
@@ -59,6 +67,7 @@ export function integrate(
 
   const current = Float64Array.from(y0);
   const out = createStepResult(model.dim);
+  const compensation = cfg.compensatedSummation ? new Float64Array(model.dim) : undefined;
 
   let t = t0;
   let nSteps = 0;
@@ -71,7 +80,7 @@ export function integrate(
     const isFinalStep = remaining <= h * (1 + FINAL_STEP_EPS_REL);
     const hStep = isFinalStep ? remaining : h;
 
-    stepper.step(t, current, hStep, out);
+    stepper.step(t, current, hStep, out, compensation);
     nSteps++;
     nRHS += out.nRHS;
 

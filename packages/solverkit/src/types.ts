@@ -49,8 +49,20 @@ export interface Stepper {
   readonly info: StepperInfo;
   /** Allocates stage buffers sized for `model`/`ctx`; called once before stepping starts (ADR-004). */
   init(model: Model, ctx: EvalContext): void;
-  /** Advances the solution by one step of (requested) size h, writing the result into `out`. */
-  step(t: number, y: Float64Array, h: number, out: StepResult): void;
+  /**
+   * Advances the solution by one step of (requested) size h, writing the
+   * result into `out`. `compensation` (P2.20), when the caller requested
+   * `SolverConfig.compensatedSummation`, is a driver-owned, per-channel
+   * Kahan running-error buffer persisted across the whole solve; a stepper
+   * that performs its final state update as a single `y + increment`
+   * addition (currently just {@link ExplicitEulerStepper}) can fold it
+   * into that addition via {@link kahanAdd} to recover the low-order bits
+   * a plain addition would round away -- the only point in the pipeline
+   * where those bits are still recoverable, since by the time `out.yNext`
+   * reaches the driver the addition has already happened and rounded.
+   * Steppers that ignore the parameter (the default) are unaffected.
+   */
+  step(t: number, y: Float64Array, h: number, out: StepResult, compensation?: Float64Array): void;
   /** Dense-output interpolant at fractional position theta in [0, 1] of the last accepted step. */
   interpolant?(theta: number, out: Float64Array): void;
 }
@@ -73,6 +85,14 @@ export interface SolverConfig {
   readonly controller?: ControllerKind;
   readonly maxSteps: number;
   readonly hMin?: number;
+  /**
+   * Kahan-compensate the per-step state update (P2.20) instead of a plain
+   * overwrite, trading a few extra flops/step for O(eps) accumulated
+   * rounding error instead of O(nSteps * eps). Off by default since most
+   * solves never run deep enough into the rounding-dominated regime for it
+   * to matter.
+   */
+  readonly compensatedSummation?: boolean;
 }
 
 /** Typed failure taxonomy (§5.1): every way a solve can fail to reach t_f, not a generic Error. */

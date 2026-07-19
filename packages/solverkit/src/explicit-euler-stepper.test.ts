@@ -84,4 +84,42 @@ describe("ExplicitEulerStepper (P2.06)", () => {
     expect(report.nSteps).toBe(10);
     expect(report.yFinal[0]).toBeCloseTo(0.9 ** 10, 15);
   });
+
+  describe("compensatedSummation (P2.20)", () => {
+    it("flattens the Float64 rounding branch of the V-curve, measurably, as h shrinks deep enough to expose it", () => {
+      // §4.7's V-shaped total-error curve: truncation error C1*h falls as h
+      // shrinks, but rounding error C2*eps/h *rises*, so total error
+      // eventually turns around and grows again at small enough h. Reaching
+      // that regime in genuine Float64 arithmetic needs step counts in the
+      // tens of millions (eps_mach ~ 2e-16 is small); a large y0 and tiny
+      // t_f keep the model itself trivial (dim 1, no force/env overhead) so
+      // that many steps still runs in a couple of seconds.
+      const model = createDecayModel();
+      const ctx = createEvalContextFixture();
+      const y0 = new Float64Array([1e6]);
+      const tspan: readonly [number, number] = [0, 1e-3];
+      const exact = y0[0]! * Math.exp(-tspan[1]);
+
+      function errorAt(h: number, compensatedSummation: boolean): number {
+        const cfg: SolverConfig = {
+          stepper: "explicit-euler",
+          h,
+          maxSteps: Number.MAX_SAFE_INTEGER,
+          compensatedSummation,
+        };
+        const report = integrate(model, ctx, y0, tspan, cfg, new ExplicitEulerStepper());
+        return Math.abs(report.yFinal[0]! - exact);
+      }
+
+      const hs = [1e-10, 3e-11];
+      for (const h of hs) {
+        const uncompensated = errorAt(h, false);
+        const compensated = errorAt(h, true);
+        // The rounding-dominated regime: compensation measurably shrinks
+        // the error at the same h, i.e. flattens the branch that would
+        // otherwise rise as h keeps shrinking.
+        expect(compensated).toBeLessThan(uncompensated / 2);
+      }
+    }, 20_000);
+  });
 });

@@ -3,6 +3,7 @@
 export const SOLVERKIT_PACKAGE = "@ballista/solverkit";
 
 export * from "./types.js";
+export * from "./compensated-summation.js";
 export * from "./integrate.js";
 export * from "./trajectory-recorder.js";
 export * from "./stats-collector.js";
