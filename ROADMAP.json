@@ -926,8 +926,8 @@
       "estMinutes": 25,
       "difficulty": "M",
       "validation": "h_crit within 20% of (4.12) prediction",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added stability-boundary-sweep.ts: isStepperStable(stepper,model,ctx,y0,h,nSteps,channelIndex,reference=0) runs a fixed number of steps and reports boundedness (|y_final[channel]-reference| <= |y0[channel]-reference|), the empirical counterpart of the Dahlquist |R(z)|<=1 criterion; bisectCriticalStepSize(isStable,hStable,hUnstable,relTol,maxIterations) bisects in log(h) space for the stable/unstable boundary, throwing on an invalid (non-bracketing) input rather than returning a meaningless answer. Test (stability-boundary-sweep.test.ts) targets P1.36's actual dust-grain preset (5-micron mineral-dust grain, gravity+drag-linear via createPlanarProjectileModel) and bisects Euler's h_crit by monitoring the vx channel: since Stokes drag makes dv_x/dt=-v_x/tau exactly linear and unforced (no gravity component on x), its Dahlquist eigenvalue lambda=-1/tau is exact (not a linearized approximation, unlike quadratic drag's eq 4.12 derivation), so the predicted h_crit=2/|lambda|=2*tau (tau=dragRelaxationTimeLinear, P1.37) is the direct analog of (4.12)'s general h_crit=2/|lambda_max| principle applied to this preset's actual (linear-drag) force model rather than (4.12)'s literal quadratic-drag formula, which doesn't apply since the dust-grain preset deliberately wires Stokes drag (P1.36's note: 'the physically dominant regime at its Reynolds number'). Measured h_crit matches the 2*tau prediction to ~3e-7 relative (nSteps=20 is already enough given the recursion amplifies |R(z)-1| geometrically every step, so bisection precision -- not step count -- is what limits the match), comfortably inside the 20% bound."
     },
     {
       "id": "P2.23",
