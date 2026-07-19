@@ -122,4 +122,47 @@ describe("ExplicitEulerStepper (P2.06)", () => {
       }
     }, 20_000);
   });
+
+  describe("float32Mode (P2.21)", () => {
+    it("shifts the V-curve minimum to a larger h than Float64's", () => {
+      // eps_f32 ~ 1.19e-7 is ~9 orders of magnitude coarser than eps_f64 ~
+      // 2.22e-16, so Float32 mode's rounding-error branch (§4.7's
+      // C2*eps/h) overtakes its shrinking truncation error (C1*h) at a far
+      // larger h than Float64 needs -- reachable with ordinary step counts
+      // (<=1e6), unlike P2.20's Float64 demo above which needs 1e7-3e7.
+      const model = createDecayModel();
+      const ctx = createEvalContextFixture();
+      const y0 = new Float64Array([1]);
+      const tspan: readonly [number, number] = [0, 1];
+      const exact = y0[0]! * Math.exp(-tspan[1]);
+
+      function errorAt(h: number, float32Mode: boolean): number {
+        const cfg: SolverConfig = {
+          stepper: "explicit-euler",
+          h,
+          maxSteps: Number.MAX_SAFE_INTEGER,
+          float32Mode,
+        };
+        const report = integrate(model, ctx, y0, tspan, cfg, new ExplicitEulerStepper());
+        return Math.abs(report.yFinal[0]! - exact);
+      }
+
+      const e64 = [1e-3, 1e-4, 1e-5, 1e-6].map((h) => errorAt(h, false));
+      const e32 = [1e-3, 1e-4, 1e-5, 1e-6].map((h) => errorAt(h, true));
+
+      // Float64: still purely truncation-dominated over this whole range --
+      // order-1 convergence holds all the way down, no turn yet.
+      expect(e64[1]).toBeLessThan(e64[0]!);
+      expect(e64[2]).toBeLessThan(e64[1]!);
+      expect(e64[3]).toBeLessThan(e64[2]!);
+
+      // Float32: error keeps falling from h=1e-3 to h=1e-5 (still
+      // truncation-dominated there), then *rises* from h=1e-5 to h=1e-6 --
+      // the classic V-curve turn, already visible at an h where Float64's
+      // curve is nowhere near turning (asserted above).
+      expect(e32[1]).toBeLessThan(e32[0]!);
+      expect(e32[2]).toBeLessThan(e32[1]!);
+      expect(e32[3]).toBeGreaterThan(e32[2]!);
+    }, 20_000);
+  });
 });

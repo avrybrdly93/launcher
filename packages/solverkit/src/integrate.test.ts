@@ -195,3 +195,50 @@ describe("integrate (P2.03: non-finite-state guard)", () => {
     expect(report.failure?.y[0]).toBe(1);
   });
 });
+
+describe("integrate (P2.21: float32Mode)", () => {
+  it("quantizes the initial state to Float32 before the first sink sees it", () => {
+    const model = createDecayModel();
+    const ctx = createEvalContextFixture();
+    const stepper = createMockEulerStepper();
+    const cfg: SolverConfig = { stepper: "mock-euler", h: 0.1, maxSteps: 1000, float32Mode: true };
+    let y0Seen: number | undefined;
+    const sink: Sink = { id: "capture", start: (_m, _t, y) => (y0Seen = y[0]) };
+
+    integrate(model, ctx, new Float64Array([0.1]), [0, 1], cfg, stepper, [sink]);
+
+    // 0.1 has no exact Float64 *or* Float32 representation, but the two
+    // roundings differ -- Math.fround(0.1) !== 0.1 -- so this only passes if
+    // the driver actually quantized the initial state, not merely copied it.
+    expect(y0Seen).toBe(Math.fround(0.1));
+    expect(y0Seen).not.toBe(0.1);
+  });
+
+  it("quantizes every accepted step's state to the nearest Float32 value", () => {
+    const model = createDecayModel();
+    const ctx = createEvalContextFixture();
+    const stepper = createMockEulerStepper();
+    const cfg: SolverConfig = { stepper: "mock-euler", h: 0.1, maxSteps: 1000, float32Mode: true };
+    const accepted: number[] = [];
+    const sink: Sink = { id: "capture", accept: (_t, y) => accepted.push(y[0]!) };
+
+    integrate(model, ctx, new Float64Array([1]), [0, 1], cfg, stepper, [sink]);
+
+    expect(accepted).toHaveLength(10);
+    for (const value of accepted) {
+      expect(value).toBe(Math.fround(value));
+    }
+  });
+
+  it("leaves the state at full Float64 precision when the flag is off (default)", () => {
+    const model = createDecayModel();
+    const ctx = createEvalContextFixture();
+    const stepper = createMockEulerStepper();
+    const cfg: SolverConfig = { stepper: "mock-euler", h: 0.1, maxSteps: 1000 };
+
+    const report = integrate(model, ctx, new Float64Array([1]), [0, 1], cfg, stepper, []);
+
+    // 0.9^10 in Float64 is not exactly representable in Float32.
+    expect(report.yFinal[0]).not.toBe(Math.fround(report.yFinal[0]!));
+  });
+});

@@ -915,8 +915,8 @@
       "estMinutes": 25,
       "difficulty": "M",
       "validation": "V-curve minimum shifts to larger h; test asserts qualitative shape",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added SolverConfig.float32Mode (types.ts). Wired generically in integrate.ts rather than per-stepper: the driver rounds the initial state and every accepted step's state through Math.fround on the way into its own `current` buffer (a new copyRoundedToFloat32 helper) -- the one point common to every Stepper -- quantizing the trajectory to Float32 precision the same way storing it in a Float32Array would, without threading float32 arithmetic through every force/environment computation. Off by default (Float64 stays the numerics core per ADR-014). integrate.test.ts (P2.21 describe block, 3 tests): initial state is quantized before the first sink sees it (Math.fround(0.1) != 0.1, so this only passes if the driver actually rounds, not merely copies); every accepted step's state is exactly its own Float32 rounding; the flag off (default) leaves Float64 precision intact. explicit-euler-stepper.test.ts gained a float32Mode describe block mirroring P2.20's V-curve demo: eps_f32 (~1.19e-7) is ~9 orders coarser than eps_f64 (~2.22e-16), so Float32's rounding-error branch overtakes truncation error at a far larger h -- reachable with <=1e6 steps (vs P2.20's 1e7-3e7 for Float64), so the whole describe block runs in ~3.5s. Validation criterion measured directly on ydot=-y (y0=1, t_f=1): Float64 error strictly decreases across h=1e-3,1e-4,1e-5,1e-6 (still purely truncation-dominated, order-1 holds throughout, no turn); Float32 error decreases from h=1e-3 to h=1e-5 then *rises* from h=1e-5 to h=1e-6 -- the V-curve's turn, already visible at an h where Float64's curve isn't remotely near turning, i.e. the minimum has shifted to a larger h exactly as the criterion asks."
     },
     {
       "id": "P2.22",

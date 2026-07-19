@@ -93,6 +93,19 @@ export interface SolverConfig {
    * to matter.
    */
   readonly compensatedSummation?: boolean;
+  /**
+   * Quantize the accepted state to Float32 precision after every step
+   * (§4.7, P2.21) by rounding each channel through `Math.fround` -- the
+   * cheapest faithful stand-in for storing the trajectory in a
+   * `Float32Array`, without threading float32 arithmetic through every
+   * force/environment computation. `eps_f32 ~ 1.19e-7` is ~9 orders of
+   * magnitude coarser than `eps_f64 ~ 2.22e-16`, so the rounding-error
+   * branch of the V-shaped total-error curve (`E(h) ~ C1*h^p + C2*eps/h`)
+   * is reached at a far larger `h`, previewing the precision the GPU path
+   * (§10.1, P7.14) will actually compute in. Off by default -- Float64 is
+   * the platform's numerics core (ADR-014).
+   */
+  readonly float32Mode?: boolean;
 }
 
 /** Typed failure taxonomy (§5.1): every way a solve can fail to reach t_f, not a generic Error. */

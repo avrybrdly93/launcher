@@ -27,6 +27,13 @@ function isFiniteState(y: Float64Array): boolean {
   return true;
 }
 
+/** Rounds every channel of `src` to nearest-Float32 into `dst` (P2.21's state-quantization point). */
+function copyRoundedToFloat32(dst: Float64Array, src: Float64Array): void {
+  for (let i = 0; i < dst.length; i++) {
+    dst[i] = Math.fround(src[i]!);
+  }
+}
+
 /**
  * Fixed-step driver (§5.1): init the stepper, advance from `tspan[0]` to
  * `tspan[1]` at (approximately) `cfg.h`, clamping the final step so it lands
@@ -50,6 +57,12 @@ function isFiniteState(y: Float64Array): boolean {
  * are still recoverable (post-hoc correction against the driver's `current`
  * copy cannot recover them, since the stepper's addition has already
  * rounded by the time `integrate` sees `out.yNext`).
+ *
+ * `cfg.float32Mode` (P2.21) rounds every channel of the accepted state
+ * through `Math.fround` on the way into `current` (and on the initial
+ * state), quantizing the trajectory to Float32 precision at the one point
+ * common to every stepper -- the driver's own state copy -- rather than
+ * requiring each `Stepper` to know about it individually.
  */
 export function integrate(
   model: Model,
@@ -66,6 +79,7 @@ export function integrate(
   stepper.init(model, ctx);
 
   const current = Float64Array.from(y0);
+  if (cfg.float32Mode) copyRoundedToFloat32(current, current);
   const out = createStepResult(model.dim);
   const compensation = cfg.compensatedSummation ? new Float64Array(model.dim) : undefined;
 
@@ -104,7 +118,11 @@ export function integrate(
       return report;
     }
 
-    current.set(out.yNext);
+    if (cfg.float32Mode) {
+      copyRoundedToFloat32(current, out.yNext);
+    } else {
+      current.set(out.yNext);
+    }
     // Assigning t_f directly (rather than t + hStep) guarantees the final
     // time is bit-exact even though hStep = tFinal - t is itself rounded.
     t = isFinalStep ? tFinal : t + hStep;
