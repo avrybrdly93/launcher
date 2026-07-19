@@ -44,6 +44,13 @@ export function createEmbeddedRKBuffers(dim: number, stages: number): EmbeddedRK
  * \max(|y_i|, |\hat y_i|)$) is P2.26's job. The raw magnitude alone is
  * sufficient to demonstrate $\delta \sim \mathcal O(h^{\hat p+1})$ (P2.23's
  * validation criterion).
+ *
+ * `precomputedK0`, when supplied, is copied into stage 0 instead of calling
+ * `model.rhs` for it (P2.24's FSAL wiring: a tableau with $c_{\text{last}}
+ * = 1$ and $b = a_{\text{last row}}$ has its last stage evaluated at
+ * exactly $(t+h, \mathbf y_{k+1})$ -- the same point the *next* step's
+ * stage 0 would evaluate -- so a caller that cached that value can pass it
+ * back in here to skip one `model.rhs` call).
  */
 export function stepEmbeddedRK(
   model: Model,
@@ -54,12 +61,17 @@ export function stepEmbeddedRK(
   y: Float64Array,
   h: number,
   out: StepResult,
+  precomputedK0?: Float64Array,
 ): void {
   const { k, yStage, delta } = buffers;
   const dim = y.length;
   const stages = tableau.c.length;
 
   for (let s = 0; s < stages; s++) {
+    if (s === 0 && precomputedK0) {
+      k[0]!.set(precomputedK0);
+      continue;
+    }
     const aRow = tableau.a[s]!;
     for (let i = 0; i < dim; i++) {
       let yi = y[i]!;
@@ -89,7 +101,7 @@ export function stepEmbeddedRK(
   out.accepted = true;
   out.h = h;
   out.errorEstimate = Math.sqrt(sumSq / dim);
-  out.nRHS = stages;
+  out.nRHS = precomputedK0 ? stages - 1 : stages;
 }
 
 /**
@@ -107,10 +119,28 @@ export const HEUN_EULER_TABLEAU: EmbeddedButcherTableau = {
   embeddedOrder: 1,
 };
 
+/** True iff every component of `a` and `b` is bit-identical (FSAL cache-validity check). */
+function sameState(a: Float64Array, b: Float64Array): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+}
+
 /**
  * A {@link Stepper} for any {@link EmbeddedButcherTableau} (P2.23): the
  * embedded-pair counterpart to {@link ExplicitRKStepper}, letting adaptive
  * methods (P2.24's DOPRI5, P2.25's Bogacki-Shampine) be added as data.
+ *
+ * When `info.fsal` is true (P2.24), the stepper caches the last stage's
+ * `k` and the state it was evaluated at (`out.yNext`) after every step; the
+ * *next* `step()` call reuses that cached `k` as its own stage 0 -- via
+ * {@link stepEmbeddedRK}'s `precomputedK0` -- whenever its `y` argument is
+ * bit-identical to the cached state, saving one `model.rhs` call. Reuse is
+ * skipped (falling back to a fresh evaluation, never a wrong one) whenever
+ * that identity doesn't hold, e.g. the very first step, or a driver that
+ * perturbs the state between accepted steps (P2.21's Float32 mode).
  */
 export class EmbeddedRKStepper implements Stepper {
   readonly info: StepperInfo;
@@ -119,6 +149,8 @@ export class EmbeddedRKStepper implements Stepper {
   private model: Model | undefined;
   private ctx: EvalContext | undefined;
   private buffers: EmbeddedRKBuffers | undefined;
+  private fsalK: Float64Array | undefined;
+  private fsalY: Float64Array | undefined;
 
   constructor(info: StepperInfo, tableau: EmbeddedButcherTableau) {
     this.info = info;
@@ -130,6 +162,8 @@ export class EmbeddedRKStepper implements Stepper {
     this.model = model;
     this.ctx = ctx;
     this.buffers = createEmbeddedRKBuffers(model.dim, this.tableau.c.length);
+    this.fsalK = this.info.fsal ? new Float64Array(model.dim) : undefined;
+    this.fsalY = undefined;
   }
 
   /** @inheritDoc */
@@ -141,6 +175,24 @@ export class EmbeddedRKStepper implements Stepper {
       throw new Error("EmbeddedRKStepper.step called before init()");
     }
 
-    stepEmbeddedRK(model, ctx, this.tableau, buffers, t, y, h, out);
+    const reuseFsal = this.fsalK && this.fsalY && sameState(this.fsalY, y);
+    stepEmbeddedRK(
+      model,
+      ctx,
+      this.tableau,
+      buffers,
+      t,
+      y,
+      h,
+      out,
+      reuseFsal ? this.fsalK : undefined,
+    );
+
+    if (this.fsalK) {
+      const lastStage = buffers.k[this.tableau.c.length - 1]!;
+      this.fsalK.set(lastStage);
+      this.fsalY ??= new Float64Array(out.yNext.length);
+      this.fsalY.set(out.yNext);
+    }
   }
 }
