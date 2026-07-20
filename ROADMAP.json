@@ -992,8 +992,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "on drag-crisis scenario: \u226530% fewer rejected steps than I controller (measured)",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added pi-controller.ts: h_new = h*fs*errK^-alpha*errKMinus1^beta per eq. (4.10)'s PI paragraph, (alpha,beta)=(0.7/p_hat, 0.4/p_hat), same safety/min/maxFactor clamps as P2.27's I controller. attemptAdaptivePIStep mirrors attemptAdaptiveStep's accept-reject loop but threads errPrev (the previous accepted step's scaled error) in and returns errAccepted for the caller to carry forward; within-step rejection retries fall back to the elementary safety-factor-only shrink (PI history is only meaningful between accepted steps, per Hairer/Gustafsson convention), not the PI blend. Wired SolverConfig.controller (already typed as 'I'|'PI' since P2.01 but unused) into integrate.ts: an errPrev accumulator seeded at INITIAL_PI_ERROR=1 is threaded across the adaptive loop, switching between attemptAdaptiveStep/attemptAdaptivePIStep per cfg.controller (default 'I', unchanged behavior). pi-controller.test.ts: unit tests for piControllerFactor's formula/clamps/history-direction and attemptAdaptivePIStep's accept/reject/never-advance-y behavior, plus the validation criterion itself -- an integrate() comparison on a drag-crisis scenario (TabulatedReynoldsCd projectile whose velocity sweeps through Re~2e5-3e5 where Cd drops sharply per SMOOTH_SPHERE_CD_TABLE, causing the I controller's local error to swing step to step) showing PI's nRejected <= 70% of I's nRejected (measured 3 vs 8, a 63% reduction) while both land at essentially the same final state."
     },
     {
       "id": "P2.29",

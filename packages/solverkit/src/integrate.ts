@@ -1,5 +1,6 @@
 import type { EvalContext, Model } from "@ballista/engine";
 import { attemptAdaptiveStep } from "./i-controller.js";
+import { attemptAdaptivePIStep, INITIAL_PI_ERROR } from "./pi-controller.js";
 import {
   createStepResult,
   type Sink,
@@ -71,9 +72,14 @@ function roundToFloat32(y: Float64Array): void {
  * defaults to `DEFAULT_ATOL` when unset. Rejected attempts are counted into
  * `SolveReport.nRejected` and their rhs evaluations into `nRHS`, but never
  * advance `t`. `cfg.h` set (and `cfg.rtol` unset) instead runs the plain
- * fixed-step path at (approximately) `cfg.h`. `cfg.controller` (P2.28's PI
- * variant), `cfg.hMin`-underflow-as-typed-failure, and `cfg.maxSteps`
- * enforcement (P2.29) remain separate tasks.
+ * fixed-step path at (approximately) `cfg.h`. `cfg.controller` selects the
+ * step-size controller for the adaptive path: `"I"` (default, P2.27) or
+ * `"PI"` (P2.28) -- the PI variant additionally blends in the previous
+ * accepted step's scaled error (`errPrev`, threaded across the loop and
+ * seeded with {@link INITIAL_PI_ERROR}), which damps accept/reject chatter
+ * on scenarios where the local error swings sharply step to step.
+ * `cfg.hMin`-underflow-as-typed-failure and `cfg.maxSteps` enforcement
+ * (P2.29) remain a separate task.
  *
  * `current` and `out.yNext` are two buffers preallocated once and copied
  * between (not swapped) each step, so a stepper never sees the buffer it is
@@ -118,10 +124,13 @@ export function integrate(
   const float32Mode = cfg.precision === "float32";
   if (float32Mode) roundToFloat32(current);
 
+  const usePIController = cfg.controller === "PI";
+
   let t = t0;
   let nSteps = 0;
   let nRHS = 0;
   let nRejected = 0;
+  let errPrev = INITIAL_PI_ERROR;
 
   for (const sink of sinks) sink.start?.(model, t0, current);
 
@@ -138,20 +147,39 @@ export function integrate(
     // prevent).
     let acceptedH: number;
     if (adaptive) {
-      const outcome = attemptAdaptiveStep(
-        stepper,
-        embeddedOrder!,
-        t,
-        current,
-        hStep,
-        rtol,
-        atol,
-        out,
-      );
-      nRejected += outcome.rejections;
-      nRHS += outcome.nRHS;
-      h = outcome.hNext;
-      acceptedH = outcome.h;
+      if (usePIController) {
+        const outcome = attemptAdaptivePIStep(
+          stepper,
+          embeddedOrder!,
+          t,
+          current,
+          hStep,
+          rtol,
+          atol,
+          errPrev,
+          out,
+        );
+        nRejected += outcome.rejections;
+        nRHS += outcome.nRHS;
+        h = outcome.hNext;
+        acceptedH = outcome.h;
+        errPrev = outcome.errAccepted;
+      } else {
+        const outcome = attemptAdaptiveStep(
+          stepper,
+          embeddedOrder!,
+          t,
+          current,
+          hStep,
+          rtol,
+          atol,
+          out,
+        );
+        nRejected += outcome.rejections;
+        nRHS += outcome.nRHS;
+        h = outcome.hNext;
+        acceptedH = outcome.h;
+      }
     } else {
       stepper.step(t, current, hStep, out, compensation);
       nRHS += out.nRHS;
