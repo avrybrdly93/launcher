@@ -1,5 +1,5 @@
 import type { EvalContext, Model } from "@ballista/engine";
-import { scanStepForEvents, type EventCandidate } from "./event-detection.js";
+import { scanStepForEvents } from "./event-detection.js";
 import { localizeEventRoot } from "./event-root-localization.js";
 import { attemptAdaptiveStep } from "./i-controller.js";
 import { attemptAdaptivePIStep, INITIAL_PI_ERROR } from "./pi-controller.js";
@@ -92,16 +92,19 @@ function roundToFloat32(y: Float64Array): void {
  * into a `step-size-underflow` failure, both carrying the last-good `(t, y)`
  * rather than propagating a raw exception or silently stalling.
  *
- * Terminal-event step truncation (§4.9 step 3, P2.32-P2.34): whenever
+ * Terminal-event step truncation (§4.9 steps 1-3, P2.32-P2.35): whenever
  * `model.events` is non-empty and `stepper` exposes dense output, every
  * accepted step is scanned ({@link scanStepForEvents}) for candidate
- * crossings; the earliest *terminal* one (by bracket position -- full
- * earliest-first multi-event ordering across event types is P2.35) is
- * root-localized ({@link localizeEventRoot}) and the step is truncated to
- * that exact event time/state rather than the stepper's originally
- * requested `h`, dispatched to `sinks` once, and the solve ends there with
- * `status: "ok"` (a terminal event is a normal, successful stopping
- * condition, not a failure). A model with no declared events, or a stepper
+ * crossings; every *terminal* candidate is root-localized
+ * ({@link localizeEventRoot}) and the earliest one *by localized time*
+ * (not bracket position -- true earliest-first ordering across event
+ * types, e.g. an apex crossing earlier in the step never blocks or
+ * misorders a later ground-impact from correctly stopping the solve) wins,
+ * truncating the step to that exact event time/state rather than the
+ * stepper's originally requested `h`, dispatched to `sinks` once, and the
+ * solve ends there with `status: "ok"` (a terminal event is a normal,
+ * successful stopping condition, not a failure). A model with no declared
+ * events, or a stepper
  * with no `interpolant`, integrates exactly as before -- this is
  * unconditional only when both are present. Non-terminal events (e.g.
  * apex) are detected the same way but do not truncate; collecting them is
@@ -300,16 +303,22 @@ export function integrate(
         stepper.interpolant!,
         eventScratch!,
       );
-      let earliestTerminal: EventCandidate | undefined;
+      // Earliest-first ordering across every terminal candidate (§4.9,
+      // P2.35): a step's bracket position (`thetaLo`) only coarsely orders
+      // candidates -- two different events can share a bracket sub-interval,
+      // and only the localized root time is the actual time-ordering the
+      // blueprint means by "earliest". Terminal events are rare (far off
+      // the hot path), so localizing every terminal candidate before
+      // picking the minimum is cheap; non-terminal candidates (e.g. apex)
+      // are intentionally never localized here -- collecting them is a
+      // future `EventCollector` sink's job, not this driver's, and an
+      // earlier non-terminal crossing must never block or reorder a later
+      // terminal one from correctly stopping the solve.
+      let earliestTerminalRoot: ReturnType<typeof localizeEventRoot> | undefined;
       for (const candidate of candidates) {
         if (!candidate.event.terminal) continue;
-        if (earliestTerminal === undefined || candidate.thetaLo < earliestTerminal.thetaLo) {
-          earliestTerminal = candidate;
-        }
-      }
-      if (earliestTerminal !== undefined) {
         const root = localizeEventRoot(
-          earliestTerminal,
+          candidate,
           t,
           newT,
           current,
@@ -317,6 +326,12 @@ export function integrate(
           stepper.interpolant!,
           eventScratch!,
         );
+        if (earliestTerminalRoot === undefined || root.t < earliestTerminalRoot.t) {
+          earliestTerminalRoot = root;
+        }
+      }
+      if (earliestTerminalRoot !== undefined) {
+        const root = earliestTerminalRoot;
         out.yNext.set(root.y);
         out.h = root.t - t;
         current.set(root.y);

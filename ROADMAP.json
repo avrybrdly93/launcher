@@ -1069,8 +1069,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "apex+impact in same step handled in correct order (constructed case)",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "P2.34's truncation already only ever acted on terminal candidates, but picked the 'earliest' one by thetaLo bracket position -- a coarse proxy that ties whenever two different events' brackets share a sub-interval. Refined integrate.ts to root-localize *every* terminal candidate (terminal events are rare, off the hot path, so this is cheap) and pick the minimum by actual localized time, which is what 'earliest-first' means in §4.9. Non-terminal candidates (apex) are still never localized here -- collecting them is a future EventCollector sink's job -- so an earlier non-terminal crossing can never block or misorder a later terminal one, which is exactly the ordering guarantee this task calls for; full state-mutating 'rescan the remainder after a non-terminal fires' only matters once a state-changing non-terminal event exists (a bounce, Phase 4), so there is nothing to re-scan yet with only apex/ground-impact declared. Added multi-event-ordering.test.ts (2 tests): this task's literal constructed case -- a single h=3s DOPRI5 step spanning both the apex (t~=1.02s, non-terminal) and ground-impact (t~=2.42s, terminal) of a lofted drag-free shot -- truncates at the impact time (to 1e-9) and not the apex time; and a synthetic two-terminal-event model (linear ramp, roots at t=0.3 and t=0.7) declared in *reverse* time order proves the driver picks by true localized time, not declaration/array order (would incorrectly stop at t=0.7 under the old thetaLo-only comparison if both landed in the same bracket sub-interval)."
     },
     {
       "id": "P2.36",
