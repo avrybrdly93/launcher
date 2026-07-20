@@ -1080,8 +1080,8 @@
       "estMinutes": 10,
       "difficulty": "E",
       "validation": "apex height matches analytic v\u2080\u00b2sin\u00b2\u03b8/2g drag-free to 1e-10",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "The apex EventSpec itself (g=v_y, direction='falling', terminal:false) already existed since P1.40; localizeEventRoot (P2.33) is already generic over terminal vs non-terminal (it never reads the `terminal` field -- only integrate()'s driver does, to decide whether to truncate), so no production code changed for this task. Added a test to event-root-localization.test.ts: a drag-free (gravity-only) 25 m/s/50deg launch, single DOPRI5 step straddling the apex without reaching ground impact, scanned+localized against the model's real apex EventSpec -- localized apex time matches v0*sin(theta)/g to 1e-11 and localized height matches v0^2*sin^2(theta)/(2g) to 1e-10 (this task's literal validation criterion), with v_y confirmed ~0 at the localized state by construction of the event."
     },
     {
       "id": "P2.37",
