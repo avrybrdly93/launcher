@@ -1,5 +1,5 @@
 import { scaledErrorNorm } from "./scaled-error-norm.js";
-import type { Stepper, StepResult } from "./types.js";
+import { StepSizeUnderflowError, type Stepper, type StepResult } from "./types.js";
 
 /**
  * Elementary ("I", integral-only) step-size controller (§4.5, eq. 4.10) for
@@ -71,8 +71,9 @@ export interface AdaptiveStepOutcome {
 
 /**
  * Safety bound on consecutive rejections for a single step, guarding
- * against a pathological (mis-set) tolerance spinning forever; P2.29
- * replaces this with the platform's typed `SolveFailure` taxonomy.
+ * against a pathological (mis-set) tolerance spinning forever when no
+ * explicit `hMin` floor is given -- the backstop of last resort behind
+ * P2.29's `hMin` check below.
  */
 const MAX_CONSECUTIVE_REJECTIONS = 50;
 
@@ -86,6 +87,13 @@ const MAX_CONSECUTIVE_REJECTIONS = 50;
  * `embeddedOrder` since `Stepper.info` is method-agnostic); `out` is left
  * holding the accepted attempt's `yNext`/`delta`/`errorEstimate` on return,
  * matching a plain `stepper.step` call's contract.
+ *
+ * `hMin` (P2.29, §4.5's mandatory "h_min floor with diagnostic failure, not
+ * silent stall" guard), when given, throws a {@link StepSizeUnderflowError}
+ * as soon as a rejection would shrink the retry below it, rather than
+ * continuing to retry a step size known to be unreachable. Omitted (the
+ * default), the loop instead falls back to the coarser
+ * `MAX_CONSECUTIVE_REJECTIONS` backstop, which throws the same error type.
  */
 export function attemptAdaptiveStep(
   stepper: Stepper,
@@ -97,6 +105,7 @@ export function attemptAdaptiveStep(
   atol: number | Float64Array,
   out: StepResult,
   cfg: IControllerConfig = DEFAULT_I_CONTROLLER,
+  hMin?: number,
 ): AdaptiveStepOutcome {
   let hAttempt = h;
   let rejections = 0;
@@ -113,11 +122,21 @@ export function attemptAdaptiveStep(
     }
 
     if (rejections >= MAX_CONSECUTIVE_REJECTIONS) {
-      throw new Error(
+      throw new StepSizeUnderflowError(
         `attemptAdaptiveStep: ${MAX_CONSECUTIVE_REJECTIONS} consecutive rejections at t=${t}, h=${hAttempt} (err=${err}); tolerance likely unreachable`,
+        t,
+        y,
       );
     }
     rejections++;
     hAttempt *= iControllerFactor(err, embeddedOrder, true, cfg);
+
+    if (hMin !== undefined && hAttempt < hMin) {
+      throw new StepSizeUnderflowError(
+        `attemptAdaptiveStep: step size underflowed hMin=${hMin} at t=${t} (err=${err}); tolerance likely unreachable`,
+        t,
+        y,
+      );
+    }
   }
 }

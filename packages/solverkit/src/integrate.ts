@@ -3,6 +3,7 @@ import { attemptAdaptiveStep } from "./i-controller.js";
 import { attemptAdaptivePIStep, INITIAL_PI_ERROR } from "./pi-controller.js";
 import {
   createStepResult,
+  StepSizeUnderflowError,
   type Sink,
   type SolveFailure,
   type SolveReport,
@@ -78,8 +79,16 @@ function roundToFloat32(y: Float64Array): void {
  * accepted step's scaled error (`errPrev`, threaded across the loop and
  * seeded with {@link INITIAL_PI_ERROR}), which damps accept/reject chatter
  * on scenarios where the local error swings sharply step to step.
- * `cfg.hMin`-underflow-as-typed-failure and `cfg.maxSteps` enforcement
- * (P2.29) remain a separate task.
+ *
+ * Two typed-failure guards beyond P2.03's non-finite-state check (P2.29,
+ * §5.1's error taxonomy -- "not a generic Error"): `cfg.maxSteps` (always
+ * enforced) stops the solve with a `max-steps-exceeded` failure the instant
+ * accepting another step would exceed the budget; `cfg.hMin`, when set, is
+ * passed into the adaptive controller's rejection loop and -- together with
+ * that loop's own `MAX_CONSECUTIVE_REJECTIONS` backstop when `hMin` is unset
+ * -- throws a {@link StepSizeUnderflowError} the driver catches and converts
+ * into a `step-size-underflow` failure, both carrying the last-good `(t, y)`
+ * rather than propagating a raw exception or silently stalling.
  *
  * `current` and `out.yNext` are two buffers preallocated once and copied
  * between (not swapped) each step, so a stepper never sees the buffer it is
@@ -132,12 +141,49 @@ export function integrate(
   let nRejected = 0;
   let errPrev = INITIAL_PI_ERROR;
 
+  function fail(
+    reason: SolveFailure["reason"],
+    message: string,
+    failT: number,
+    y: Float64Array,
+  ): SolveReport {
+    const report: SolveReport = {
+      status: "failed",
+      tFinal: failT,
+      yFinal: y,
+      nSteps,
+      nRHS,
+      nRejected,
+      failure: { reason, message, t: failT, y },
+    };
+    for (const sink of sinks) sink.finish?.(report);
+    return report;
+  }
+
   for (const sink of sinks) sink.start?.(model, t0, current);
 
   while (t < tFinal) {
+    if (nSteps >= cfg.maxSteps) {
+      return fail(
+        "max-steps-exceeded",
+        `integrate: exceeded maxSteps=${cfg.maxSteps} before reaching t_f=${tFinal} (stopped at t=${t})`,
+        t,
+        current,
+      );
+    }
+
     const remaining = tFinal - t;
     const isFinalAttempt = remaining <= h * (1 + FINAL_STEP_EPS_REL);
     const hStep = isFinalAttempt ? remaining : h;
+
+    if (cfg.hMin !== undefined && h < cfg.hMin) {
+      return fail(
+        "step-size-underflow",
+        `integrate: proposed step h=${h} fell below hMin=${cfg.hMin} at t=${t}`,
+        t,
+        current,
+      );
+    }
 
     // The step size actually accepted -- for a rejected-then-shrunk
     // adaptive attempt this is *less* than the requested `hStep`, which is
@@ -146,65 +192,65 @@ export function integrate(
     // a step was rejected, exactly what P2.27's rejection loop exists to
     // prevent).
     let acceptedH: number;
-    if (adaptive) {
-      if (usePIController) {
-        const outcome = attemptAdaptivePIStep(
-          stepper,
-          embeddedOrder!,
-          t,
-          current,
-          hStep,
-          rtol,
-          atol,
-          errPrev,
-          out,
-        );
-        nRejected += outcome.rejections;
-        nRHS += outcome.nRHS;
-        h = outcome.hNext;
-        acceptedH = outcome.h;
-        errPrev = outcome.errAccepted;
+    try {
+      if (adaptive) {
+        if (usePIController) {
+          const outcome = attemptAdaptivePIStep(
+            stepper,
+            embeddedOrder!,
+            t,
+            current,
+            hStep,
+            rtol,
+            atol,
+            errPrev,
+            out,
+            undefined,
+            cfg.hMin,
+          );
+          nRejected += outcome.rejections;
+          nRHS += outcome.nRHS;
+          h = outcome.hNext;
+          acceptedH = outcome.h;
+          errPrev = outcome.errAccepted;
+        } else {
+          const outcome = attemptAdaptiveStep(
+            stepper,
+            embeddedOrder!,
+            t,
+            current,
+            hStep,
+            rtol,
+            atol,
+            out,
+            undefined,
+            cfg.hMin,
+          );
+          nRejected += outcome.rejections;
+          nRHS += outcome.nRHS;
+          h = outcome.hNext;
+          acceptedH = outcome.h;
+        }
       } else {
-        const outcome = attemptAdaptiveStep(
-          stepper,
-          embeddedOrder!,
-          t,
-          current,
-          hStep,
-          rtol,
-          atol,
-          out,
-        );
-        nRejected += outcome.rejections;
-        nRHS += outcome.nRHS;
-        h = outcome.hNext;
-        acceptedH = outcome.h;
+        stepper.step(t, current, hStep, out, compensation);
+        nRHS += out.nRHS;
+        acceptedH = hStep;
       }
-    } else {
-      stepper.step(t, current, hStep, out, compensation);
-      nRHS += out.nRHS;
-      acceptedH = hStep;
+    } catch (e) {
+      if (e instanceof StepSizeUnderflowError) {
+        return fail("step-size-underflow", e.message, e.t, e.y);
+      }
+      throw e;
     }
     nSteps++;
 
     if (!isFiniteState(out.yNext)) {
-      const failure: SolveFailure = {
-        reason: "non-finite-state",
-        message: `non-finite state produced by stepper "${stepper.info.id}" advancing from t=${t}`,
+      return fail(
+        "non-finite-state",
+        `non-finite state produced by stepper "${stepper.info.id}" advancing from t=${t}`,
         t,
-        y: current,
-      };
-      const report: SolveReport = {
-        status: "failed",
-        tFinal: t,
-        yFinal: current,
-        nSteps,
-        nRHS,
-        nRejected,
-        failure,
-      };
-      for (const sink of sinks) sink.finish?.(report);
-      return report;
+        current,
+      );
     }
 
     current.set(out.yNext);

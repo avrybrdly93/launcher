@@ -138,6 +138,27 @@ export interface SolverConfig {
 export type SolveFailureReason =
   "step-size-underflow" | "max-steps-exceeded" | "non-finite-state" | "event-localization-failure";
 
+/**
+ * Thrown by an adaptive step-size controller (P2.27's `attemptAdaptiveStep`,
+ * P2.28's `attemptAdaptivePIStep`) when a step can't be resolved to an
+ * accepted state without shrinking `h` below a floor -- either an explicit
+ * `SolverConfig.hMin` or the controllers' own consecutive-rejections
+ * backstop (§4.5: "h_min floor with diagnostic failure, not silent stall").
+ * `integrate` (P2.29) catches this and converts it into a typed
+ * `step-size-underflow` {@link SolveFailure} carrying the last-good `(t, y)`
+ * rather than letting a generic exception propagate out of a solve.
+ */
+export class StepSizeUnderflowError extends Error {
+  constructor(
+    message: string,
+    readonly t: number,
+    readonly y: Float64Array,
+  ) {
+    super(message);
+    this.name = "StepSizeUnderflowError";
+  }
+}
+
 /** A typed solve failure, carrying the last-good (t, y) so callers can inspect, report, or resume. */
 export interface SolveFailure {
   readonly reason: SolveFailureReason;

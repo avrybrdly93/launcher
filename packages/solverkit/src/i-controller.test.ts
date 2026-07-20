@@ -17,7 +17,7 @@ import { l2Error } from "./convergence-harness.js";
 import { createDormandPrince54Stepper } from "./dormand-prince-54.js";
 import { attemptAdaptiveStep, DEFAULT_I_CONTROLLER, iControllerFactor } from "./i-controller.js";
 import { integrate } from "./integrate.js";
-import { createStepResult, type SolverConfig } from "./types.js";
+import { createStepResult, StepSizeUnderflowError, type SolverConfig } from "./types.js";
 
 describe("iControllerFactor (P2.27, eq. 4.10)", () => {
   it("matches the hand-computed formula at err=1 (raw factor, no clamp)", () => {
@@ -108,6 +108,28 @@ describe("attemptAdaptiveStep (P2.27)", () => {
     // The caller's y buffer itself is never mutated by attemptAdaptiveStep;
     // only out.yNext (the accepted result) is written.
     expect(y).toEqual(yBefore);
+  });
+
+  it("P2.29: throws a typed StepSizeUnderflowError, not a generic Error, once a rejection would shrink h below hMin", () => {
+    const { model, ctx } = makeDragModel();
+    const stepper = createBogackiShampine32Stepper();
+    stepper.init(model, ctx);
+
+    const y = new Float64Array([0, 1, 20, 10]);
+    const out = createStepResult(4);
+    // Deliberately huge h against a tight tolerance forces rejection; the
+    // first rejection's default minFactor=0.2 shrink already lands below
+    // hMin=1, so the throw fires well before the 50-rejection backstop.
+    let caught: unknown;
+    try {
+      attemptAdaptiveStep(stepper, 2, 0, y, 5, 1e-12, 1e-14, out, DEFAULT_I_CONTROLLER, 1);
+    } catch (e) {
+      caught = e;
+    }
+
+    expect(caught).toBeInstanceOf(StepSizeUnderflowError);
+    expect((caught as StepSizeUnderflowError).t).toBe(0);
+    expect((caught as StepSizeUnderflowError).y).toBe(y);
   });
 });
 

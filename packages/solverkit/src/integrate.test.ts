@@ -11,6 +11,7 @@ import {
   type EvalContext,
   type Model,
 } from "@ballista/engine";
+import { createDormandPrince54Stepper } from "./dormand-prince-54.js";
 import { integrate } from "./integrate.js";
 import type { Sink, SolverConfig, Stepper } from "./types.js";
 
@@ -193,5 +194,112 @@ describe("integrate (P2.03: non-finite-state guard)", () => {
     expect(report.failure?.reason).toBe("non-finite-state");
     expect(report.failure?.t).toBe(0);
     expect(report.failure?.y[0]).toBe(1);
+  });
+});
+
+/** An embedded-pair stepper whose scaled error is always astronomically large, so every attempt is rejected. */
+function createAlwaysRejectingStepper(): Stepper {
+  return {
+    info: { id: "always-reject", order: 2, embeddedOrder: 1, fsal: false, symplectic: false },
+    init(): void {},
+    step(_t, y, h, out): void {
+      out.yNext[0] = y[0]! + h;
+      out.delta[0] = 1e6;
+      out.errorEstimate = 1e6;
+      out.accepted = false;
+      out.h = h;
+      out.nRHS = 1;
+    },
+  };
+}
+
+describe("integrate (P2.29: maxSteps / hMin typed failures, t_f-clamp)", () => {
+  it("stops with a typed max-steps-exceeded failure, carrying the last-good (t, y), instead of looping past the budget", () => {
+    const model = createDecayModel();
+    const ctx = createEvalContextFixture();
+    const stepper = createMockEulerStepper();
+    const { sink, counts } = createRecordingSink();
+    // h=0.1 over [0,1] needs 10 steps; budget only 3.
+    const cfg: SolverConfig = { stepper: "mock-euler", h: 0.1, maxSteps: 3 };
+
+    const report = integrate(model, ctx, new Float64Array([1]), [0, 1], cfg, stepper, [sink]);
+
+    expect(report.status).toBe("failed");
+    expect(report.failure?.reason).toBe("max-steps-exceeded");
+    expect(report.nSteps).toBe(3);
+    expect(report.failure?.t).toBeCloseTo(0.3, 15);
+    expect(report.failure?.y[0]).toBeCloseTo(0.9 ** 3, 15);
+    expect(report.tFinal).toBeCloseTo(0.3, 15);
+    // The 4th (would-be) step never reaches a sink; finish still fires once.
+    expect(counts()).toEqual({ starts: 1, accepts: 3, finishes: 1 });
+  });
+
+  it("does not fail when exactly maxSteps steps reach t_f", () => {
+    const model = createDecayModel();
+    const ctx = createEvalContextFixture();
+    const stepper = createMockEulerStepper();
+    const cfg: SolverConfig = { stepper: "mock-euler", h: 0.1, maxSteps: 10 };
+
+    const report = integrate(model, ctx, new Float64Array([1]), [0, 1], cfg, stepper, []);
+
+    expect(report.status).toBe("ok");
+    expect(report.nSteps).toBe(10);
+  });
+
+  it("an adaptive step that must shrink below cfg.hMin fails with a typed step-size-underflow, not a thrown exception", () => {
+    const model = createDecayModel();
+    const ctx = createEvalContextFixture();
+    const stepper = createAlwaysRejectingStepper();
+    const { sink, counts } = createRecordingSink();
+    // Every attempt is rejected, clamped to the default minFactor=0.2 shrink
+    // per retry: h=1 -> 0.2 on the very first rejection, already < hMin=0.5.
+    const cfg: SolverConfig = {
+      stepper: "always-reject",
+      h: 1,
+      rtol: 1e-3,
+      atol: 1e-6,
+      hMin: 0.5,
+      maxSteps: 1000,
+    };
+
+    const report = integrate(model, ctx, new Float64Array([1]), [0, 1], cfg, stepper, [sink]);
+
+    expect(report.status).toBe("failed");
+    expect(report.failure?.reason).toBe("step-size-underflow");
+    expect(report.failure?.t).toBe(0);
+    expect(report.failure?.y[0]).toBe(1);
+    // Never accepted -- the underflow is caught before any step reaches a sink.
+    expect(counts()).toEqual({ starts: 1, accepts: 0, finishes: 1 });
+  });
+
+  it("a persistently tiny proposed h (below hMin) on the fixed-step path also fails as step-size-underflow", () => {
+    const model = createDecayModel();
+    const ctx = createEvalContextFixture();
+    const stepper = createMockEulerStepper();
+    const cfg: SolverConfig = { stepper: "mock-euler", h: 0.01, hMin: 0.05, maxSteps: 1000 };
+
+    const report = integrate(model, ctx, new Float64Array([1]), [0, 1], cfg, stepper, []);
+
+    expect(report.status).toBe("failed");
+    expect(report.failure?.reason).toBe("step-size-underflow");
+    expect(report.failure?.t).toBe(0);
+  });
+
+  it("t_f-clamp: an adaptive solve (real DOPRI5, not a mock) also lands its final t bit-exactly on t_f", () => {
+    const model = createDecayModel();
+    const ctx = createEvalContextFixture();
+    const stepper = createDormandPrince54Stepper();
+    const cfg: SolverConfig = {
+      stepper: stepper.info.id,
+      h: 0.3,
+      rtol: 1e-6,
+      atol: 1e-9,
+      maxSteps: 1000,
+    };
+
+    const report = integrate(model, ctx, new Float64Array([1]), [0, 1], cfg, stepper, []);
+
+    expect(report.status).toBe("ok");
+    expect(report.tFinal).toBe(1);
   });
 });

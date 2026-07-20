@@ -1003,8 +1003,8 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "forced-failure tests produce correct report types",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added StepSizeUnderflowError (types.ts): thrown by attemptAdaptiveStep/attemptAdaptivePIStep (both now take an optional trailing hMin) the instant a rejection retry would shrink h below it, replacing the old plain-Error MAX_CONSECUTIVE_REJECTIONS-only backstop (kept as a coarser fallback when hMin is unset, now throwing the same typed error). integrate.ts: added a `fail(reason, message, t, y)` helper (used by the existing non-finite-state path too, dedup'd) and two new guards -- cfg.maxSteps checked at the top of the loop before attempting another step (typed 'max-steps-exceeded' failure, last-good (t,current)), and cfg.hMin checked against the controller's *proposed* h (not the t_f-clamped hStep, so the legitimate tiny final step near t_f is never misflagged) both before an adaptive/fixed attempt and via a try/catch around the adaptive call that converts a thrown StepSizeUnderflowError into a typed 'step-size-underflow' failure. Tests: integrate.test.ts adds a maxSteps forced-failure test (3-step budget against a 10-step decay solve) + a not-exceeded sanity check, an hMin forced-failure test using a new createAlwaysRejectingStepper mock (embedded pair whose error estimate is always huge) with hMin set so the very first rejection's default minFactor=0.2 shrink already underflows, a fixed-step-path hMin test, and an adaptive t_f-clamp exactness test with the real DOPRI5 stepper (t_f-clamp itself was already covered for the fixed path since P2.01/P2.02). i-controller.test.ts and pi-controller.test.ts each add a unit test asserting attemptAdaptiveStep/attemptAdaptivePIStep throw StepSizeUnderflowError (not a generic Error) with the correct last-good (t,y) once hMin is set and breached."
     },
     {
       "id": "P2.30",

@@ -19,7 +19,7 @@ import {
   piControllerFactor,
 } from "./pi-controller.js";
 import { integrate } from "./integrate.js";
-import { createStepResult, type SolverConfig } from "./types.js";
+import { createStepResult, StepSizeUnderflowError, type SolverConfig } from "./types.js";
 
 describe("piControllerFactor (P2.28, eq. 4.10 PI variant)", () => {
   it("matches the hand-computed formula at errK=errKMinus1=1 (raw factor, no clamp)", () => {
@@ -140,6 +140,37 @@ describe("attemptAdaptivePIStep (P2.28)", () => {
 
     // Same errK (same t, y, h, tolerance) each time -- only errPrev differs.
     expect(withTinyHistory.hNext).toBeLessThan(neutral.hNext);
+  });
+
+  it("P2.29: throws a typed StepSizeUnderflowError, not a generic Error, once a rejection would shrink h below hMin", () => {
+    const { model, ctx } = makeDragModel();
+    const stepper = createDormandPrince54Stepper();
+    stepper.init(model, ctx);
+
+    const y = new Float64Array([0, 1, 20, 10]);
+    const out = createStepResult(4);
+    let caught: unknown;
+    try {
+      attemptAdaptivePIStep(
+        stepper,
+        4,
+        0,
+        y,
+        5,
+        1e-12,
+        1e-14,
+        INITIAL_PI_ERROR,
+        out,
+        DEFAULT_PI_CONTROLLER,
+        1,
+      );
+    } catch (e) {
+      caught = e;
+    }
+
+    expect(caught).toBeInstanceOf(StepSizeUnderflowError);
+    expect((caught as StepSizeUnderflowError).t).toBe(0);
+    expect((caught as StepSizeUnderflowError).y).toBe(y);
   });
 });
 

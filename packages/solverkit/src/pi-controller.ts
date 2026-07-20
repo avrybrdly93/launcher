@@ -1,5 +1,5 @@
 import { scaledErrorNorm } from "./scaled-error-norm.js";
-import type { Stepper, StepResult } from "./types.js";
+import { StepSizeUnderflowError, type Stepper, type StepResult } from "./types.js";
 
 /**
  * PI (proportional-integral) step-size controller variant (§4.5, eq. 4.10's
@@ -116,6 +116,11 @@ const MAX_CONSECUTIVE_REJECTIONS = 50;
  * rule. `errPrev` is `errKMinus1` -- the caller (`integrate`) threads
  * `outcome.errAccepted` from one call into the next call's `errPrev`,
  * seeding {@link INITIAL_PI_ERROR} before the solve's first step.
+ *
+ * `hMin` (P2.29) mirrors the I controller's guard: a rejection retry that
+ * would shrink below it throws a {@link StepSizeUnderflowError} immediately
+ * rather than continuing toward the coarser `MAX_CONSECUTIVE_REJECTIONS`
+ * backstop, which throws the same error type when `hMin` is omitted.
  */
 export function attemptAdaptivePIStep(
   stepper: Stepper,
@@ -128,6 +133,7 @@ export function attemptAdaptivePIStep(
   errPrev: number,
   out: StepResult,
   cfg: PIControllerConfig = DEFAULT_PI_CONTROLLER,
+  hMin?: number,
 ): AdaptivePIStepOutcome {
   let hAttempt = h;
   let rejections = 0;
@@ -144,11 +150,21 @@ export function attemptAdaptivePIStep(
     }
 
     if (rejections >= MAX_CONSECUTIVE_REJECTIONS) {
-      throw new Error(
+      throw new StepSizeUnderflowError(
         `attemptAdaptivePIStep: ${MAX_CONSECUTIVE_REJECTIONS} consecutive rejections at t=${t}, h=${hAttempt} (err=${err}); tolerance likely unreachable`,
+        t,
+        y,
       );
     }
     rejections++;
     hAttempt *= rejectionShrinkFactor(err, embeddedOrder, cfg);
+
+    if (hMin !== undefined && hAttempt < hMin) {
+      throw new StepSizeUnderflowError(
+        `attemptAdaptivePIStep: step size underflowed hMin=${hMin} at t=${t} (err=${err}); tolerance likely unreachable`,
+        t,
+        y,
+      );
+    }
   }
 }
