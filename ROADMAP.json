@@ -1036,8 +1036,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "detects contrived grazing event missed by naive sign check",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added event-detection.ts: scanStepForEvents(events, t0, y0, t1, y1, interpolant, scratch) implements \u00a74.9 step 1 -- for each EventSpec, samples g_j at theta=[0,0.25,0.5,0.75,1] (endpoints direct from y0/y1, 3 interior points via the caller-supplied dense-output interpolant) and checks every *consecutive* pair for a direction-respecting sign change, not just the two endpoints. This is what catches a grazing dip: a g that starts and ends the step with the same sign but dips through zero and back (e.g. g(theta)=peak-4*amplitude*theta*(1-theta) with peak>0) has g(t0)*g(t1)>0 so the naive endpoint-only check reports no crossing at all, but the 5-sample scan sees the sign change into the dip (falling) and back out of it (rising) as two ordinary adjacent-pair crossings. Returns EventCandidate[] (event ref + theta bracket + bracket g-values) for P2.33's Brent localization to consume directly without recomputing the bracket endpoints. Exact-zero-at-both-ends-of-a-pair is treated as degenerate/no-crossing (a g identically zero across a sub-interval has no root to localize), which is also what keeps an always-zero teaching-case event from spuriously firing. event-detection.test.ts (5 tests): ordinary sign change detected via one bracket; no false positive when g never crosses; the validation criterion itself (contrived dip: naive g(t0)*g(t1)>0 asserted first, then the guard finds >=2 candidates); direction filter ('falling' vs 'rising') isolates the correct half of the dip; multiple events scanned independently in one call, including a degenerate always-zero event correctly producing zero candidates."
     },
     {
       "id": "P2.33",

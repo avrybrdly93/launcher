@@ -24,3 +24,4 @@ export * from "./order-condition-checker.js";
 export * from "./convergence-harness.js";
 export * from "./work-precision-harness.js";
 export * from "./stability-boundary-sweep.js";
+export * from "./event-detection.js";
