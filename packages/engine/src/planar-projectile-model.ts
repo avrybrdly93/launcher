@@ -1,5 +1,5 @@
 import type { EvalContext } from "./eval-context.js";
-import { composeForces, createForceRegistry, type ForceModel } from "./forces.js";
+import { composeForces, createForceRegistry, totalForcePower, type ForceModel } from "./forces.js";
 import type { EventSpec, InvariantSpec, Model } from "./model.js";
 import type { ChannelMeta } from "./schema.js";
 import { FlatTerrain, type Terrain } from "./terrain.js";
@@ -101,10 +101,25 @@ function planarGravityQuadraticDragJacobian(
  * the first Model SolverKit will integrate — deliberately just a Model, with
  * no special status in the engine (§1.4).
  */
-const ENERGY_INVARIANT: InvariantSpec = {
-  name: "energy",
-  evaluate: (_t: number, y: Float64Array, ctx: EvalContext) => mechanicalEnergy(y, ctx),
-};
+/**
+ * Builds the energy invariant closed over this model's force `registry`
+ * (needed for `power`'s `totalForcePower` call, so this can't be a
+ * module-level constant the way {@link MOMENTUM_X_INVARIANT} is).
+ * `power` is dE/dt = F_aero.v (eq. 3.19): summing every registered force's
+ * power (gravity included) via `totalForcePower` gives F_total.v, and
+ * gravity's own -mg*vy term cancels exactly against the potential-energy
+ * derivative +mg*vy added back in below, leaving only the non-gravity
+ * (aero) forces' contribution -- verified in planar-projectile-model.test.ts's
+ * "dE/dt from powers" case.
+ */
+function createEnergyInvariant(registry: readonly ForceModel[]): InvariantSpec {
+  return {
+    name: "energy",
+    evaluate: (_t: number, y: Float64Array, ctx: EvalContext) => mechanicalEnergy(y, ctx),
+    power: (t: number, y: Float64Array, ctx: EvalContext) =>
+      totalForcePower(registry, t, y, ctx) + ctx.params.mass * ctx.env.g * y[VY]!,
+  };
+}
 
 const MOMENTUM_X_INVARIANT: InvariantSpec = {
   name: "momentum-x",
@@ -158,7 +173,7 @@ export function createPlanarProjectileModel(
   return {
     dim: DIM,
     channels: PLANAR_CHANNELS,
-    invariants: [ENERGY_INVARIANT, MOMENTUM_X_INVARIANT],
+    invariants: [createEnergyInvariant(registry), MOMENTUM_X_INVARIANT],
     events: [createGroundImpactEvent(terrain), APEX_EVENT],
     partitions: { q: [X, Y], p: [VX, VY] },
     rhs(t: number, y: Float64Array, out: Float64Array, ctx: EvalContext): void {

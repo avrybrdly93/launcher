@@ -1091,8 +1091,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "drag-off: |R_E| < 1e-12\u00b7E\u2080; drag-on: R_E order matches method order under h-refinement",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added InvariantSpec.power (dE/dt) and wired the planar model's energy invariant to it. InvariantMonitor accumulates the work integral per accepted step via Gauss-Legendre quadrature (node count = ceil(order/2), matching the stepper's local truncation order) sampled through stepper.interpolant, falling back to trapezoidal when a stepper has no dense output. Fixed a latent bug in integrate() where stepper.interpolant was passed to event detection as a detached method reference, breaking any class-based Stepper's `this` binding (surfaced by HermiteDenseOutputStepper + InvariantMonitor combined in tests). Tests: drag-off max|R_E| < 1e-12*E0; drag-on measured order via log-log slope for Euler/Heun/RK4/DOPRI5, all within 0.5 of nominal order."
     },
     {
       "id": "P2.38",

@@ -161,6 +161,14 @@ export function integrate(
   const events = model.events;
   const hasEvents = events !== undefined && events.length > 0 && stepper.interpolant !== undefined;
   const eventScratch = hasEvents ? new Float64Array(model.dim) : undefined;
+  // Wrapped (rather than passed as `stepper.interpolant` directly) so a
+  // class-based Stepper's `interpolant` method keeps its `this` binding once
+  // handed to scanStepForEvents/localizeEventRoot as a bare callback --
+  // `HermiteDenseOutputStepper.interpolant` reads `this.y0`/`this.f0`/etc,
+  // which a detached method reference would silently lose.
+  const denseInterpolant = hasEvents
+    ? (theta: number, out: Float64Array) => stepper.interpolant!(theta, out)
+    : undefined;
 
   let t = t0;
   let nSteps = 0;
@@ -300,7 +308,7 @@ export function integrate(
         current,
         newT,
         out.yNext,
-        stepper.interpolant!,
+        denseInterpolant!,
         eventScratch!,
       );
       // Earliest-first ordering across every terminal candidate (§4.9,
@@ -323,7 +331,7 @@ export function integrate(
           newT,
           current,
           out.yNext,
-          stepper.interpolant!,
+          denseInterpolant!,
           eventScratch!,
         );
         if (earliestTerminalRoot === undefined || root.t < earliestTerminalRoot.t) {

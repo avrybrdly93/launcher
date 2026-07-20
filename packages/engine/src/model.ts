@@ -17,6 +17,16 @@ export interface InvariantSpec {
   readonly name: string;
   /** Current value of the invariant quantity at (t, y). */
   evaluate(t: number, y: Float64Array, ctx: EvalContext): number;
+  /**
+   * Instantaneous rate of change of the invariant from non-conservative
+   * forcing, e.g. dE/dt = F_aero.v (eq. 3.19). Optional -- only declared
+   * when the model can express it in closed form -- and used by
+   * `InvariantMonitor` (P2.37) to accumulate the work-integral term of the
+   * residual R(t) = value(t) - value(0) - integral(power, 0, t): a nonzero
+   * residual on an invariant with no declared drift (e.g. gravity-only
+   * energy) signals numerical error rather than expected physics.
+   */
+  power?(t: number, y: Float64Array, ctx: EvalContext): number;
 }
 
 /**

@@ -27,3 +27,5 @@ export * from "./stability-boundary-sweep.js";
 export * from "./event-detection.js";
 export * from "./brent-root-finder.js";
 export * from "./event-root-localization.js";
+export * from "./hermite-dense-output.js";
+export * from "./invariant-monitor.js";
