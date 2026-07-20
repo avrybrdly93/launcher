@@ -1,4 +1,6 @@
 import type { EvalContext, Model } from "@ballista/engine";
+import { scanStepForEvents, type EventCandidate } from "./event-detection.js";
+import { localizeEventRoot } from "./event-root-localization.js";
 import { attemptAdaptiveStep } from "./i-controller.js";
 import { attemptAdaptivePIStep, INITIAL_PI_ERROR } from "./pi-controller.js";
 import {
@@ -90,6 +92,21 @@ function roundToFloat32(y: Float64Array): void {
  * into a `step-size-underflow` failure, both carrying the last-good `(t, y)`
  * rather than propagating a raw exception or silently stalling.
  *
+ * Terminal-event step truncation (§4.9 step 3, P2.32-P2.34): whenever
+ * `model.events` is non-empty and `stepper` exposes dense output, every
+ * accepted step is scanned ({@link scanStepForEvents}) for candidate
+ * crossings; the earliest *terminal* one (by bracket position -- full
+ * earliest-first multi-event ordering across event types is P2.35) is
+ * root-localized ({@link localizeEventRoot}) and the step is truncated to
+ * that exact event time/state rather than the stepper's originally
+ * requested `h`, dispatched to `sinks` once, and the solve ends there with
+ * `status: "ok"` (a terminal event is a normal, successful stopping
+ * condition, not a failure). A model with no declared events, or a stepper
+ * with no `interpolant`, integrates exactly as before -- this is
+ * unconditional only when both are present. Non-terminal events (e.g.
+ * apex) are detected the same way but do not truncate; collecting them is
+ * a future `EventCollector` sink's job, not this driver's.
+ *
  * `current` and `out.yNext` are two buffers preallocated once and copied
  * between (not swapped) each step, so a stepper never sees the buffer it is
  * writing into aliased with the state it is reading from, while the loop
@@ -134,6 +151,13 @@ export function integrate(
   if (float32Mode) roundToFloat32(current);
 
   const usePIController = cfg.controller === "PI";
+
+  // Event handling (§4.9, P2.32-P2.34) is only possible once the stepper
+  // exposes dense output -- a fixed-step method with no `interpolant` (or a
+  // model declaring no events) integrates exactly as before, unaffected.
+  const events = model.events;
+  const hasEvents = events !== undefined && events.length > 0 && stepper.interpolant !== undefined;
+  const eventScratch = hasEvents ? new Float64Array(model.dim) : undefined;
 
   let t = t0;
   let nSteps = 0;
@@ -253,14 +277,68 @@ export function integrate(
       );
     }
 
-    current.set(out.yNext);
-    if (float32Mode) roundToFloat32(current);
     // Assigning t_f directly (rather than t + acceptedH) guarantees the
     // final time is bit-exact even though hStep = tFinal - t is itself
     // rounded -- but only once the *accepted* step actually covers the
     // full requested `hStep` (never true for a shrunk adaptive attempt,
     // which under-reaches t_f and must keep looping).
-    t = isFinalAttempt && acceptedH === hStep ? tFinal : t + acceptedH;
+    const newT = isFinalAttempt && acceptedH === hStep ? tFinal : t + acceptedH;
+
+    // Event detection + localization (§4.9 steps 1-3, P2.32-P2.34): scanned
+    // against `current` (still the pre-step state here) -> `out.yNext`
+    // while both endpoints are still available, before either is
+    // overwritten below. Only a *terminal* crossing truncates the step; a
+    // non-terminal one (e.g. apex) is left for a future Sink/P2.35 to
+    // collect and this step is accepted normally.
+    if (hasEvents) {
+      const candidates = scanStepForEvents(
+        events!,
+        t,
+        current,
+        newT,
+        out.yNext,
+        stepper.interpolant!,
+        eventScratch!,
+      );
+      let earliestTerminal: EventCandidate | undefined;
+      for (const candidate of candidates) {
+        if (!candidate.event.terminal) continue;
+        if (earliestTerminal === undefined || candidate.thetaLo < earliestTerminal.thetaLo) {
+          earliestTerminal = candidate;
+        }
+      }
+      if (earliestTerminal !== undefined) {
+        const root = localizeEventRoot(
+          earliestTerminal,
+          t,
+          newT,
+          current,
+          out.yNext,
+          stepper.interpolant!,
+          eventScratch!,
+        );
+        out.yNext.set(root.y);
+        out.h = root.t - t;
+        current.set(root.y);
+        if (float32Mode) roundToFloat32(current);
+        t = root.t;
+        for (const sink of sinks) sink.accept?.(t, current, out);
+        const report: SolveReport = {
+          status: "ok",
+          tFinal: t,
+          yFinal: current,
+          nSteps,
+          nRHS,
+          nRejected,
+        };
+        for (const sink of sinks) sink.finish?.(report);
+        return report;
+      }
+    }
+
+    current.set(out.yNext);
+    if (float32Mode) roundToFloat32(current);
+    t = newT;
     for (const sink of sinks) sink.accept?.(t, current, out);
   }
 

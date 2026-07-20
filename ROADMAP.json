@@ -1058,8 +1058,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "trajectory ends exactly at y=0 (|y_impact|<1e-10)",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Wired P2.32's scanStepForEvents + P2.33's localizeEventRoot directly into integrate()'s driver loop (integrate.ts): whenever model.events is non-empty and the stepper exposes an interpolant, every accepted step is scanned against the pre-step state (still held in `current`) and out.yNext before either is overwritten; the earliest terminal candidate (by thetaLo -- full cross-event earliest-first ordering is P2.35) is root-localized, out.yNext/current are overwritten with the exact event state, out.h is corrected to the truncated dt, the truncated step is dispatched to sinks exactly once, and the solve returns status:'ok' immediately (a terminal event is a successful stop, not a failure) rather than continuing toward the originally requested t_f. A model with no declared events or a stepper with no interpolant is unaffected (hasEvents short-circuits false), verified by running the full existing suite (297 tests, including every integrate()+createPlanarProjectileModel+DOPRI5 test already in the repo) unchanged after the change. New tests in integrate-events.test.ts (3 tests): this task's literal validation criterion -- a drag+gravity projectile launched from y0=10 over a t_f=100 span (100x longer than needed) lands with |y_final|<1e-10, report.tFinal far short of 100, and the TrajectoryRecorder sink's own last recorded row exactly matches the truncated (t, y) the report returns, not an overshot pre-truncation step; a non-terminal apex event (v_y=0 crossing, well inside the tspan) does not truncate, solve reaches the full requested t_f; a model with events:[] integrates identically to before this change."
     },
     {
       "id": "P2.35",
