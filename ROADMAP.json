@@ -1124,8 +1124,8 @@
       "estMinutes": 25,
       "difficulty": "M",
       "validation": "1e6-step run yields \u2265 every 10 ms in simulated loop; resume bit-exact",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "integrate.ts's driver loop is now a generator (runIntegrationSteps) that yields once per accepted step; integrate() just drains it in a tight loop (behavior-preserving -- same function body, same three return points, only addition is the yield). Added beginIntegration(...) returning an IntegrationContinuation whose runSlice(maxStepsPerSlice) pulls at most that many .next() calls off the *same* generator before returning control, so resuming is bit-exact by construction (identical sequential execution, just paused/resumed by the caller rather than run straight through) with no hand-rolled state serialization. sink.start/finish still fire exactly once each regardless of chunk boundaries since they're unchanged code inside the same generator body. Added chunked-integration.test.ts (6 tests): single-slice vs integrate() bit-exact equality; many-small-slices (non-divisor slice size) reproduces the same SolveReport as unchunked; sink start/accept/finish counts identical across chunk boundaries; runSlice is idempotent after done (returns the same cached report object, sink.finish not re-fired); a failing solve (max-steps-exceeded) still resolves to done:true instead of looping forever; and the literal 1e6-step/10ms validation criterion, measuring real per-slice wall time (JIT-warmed first, same rationale as P1.21's rhs-allocation harness) and asserting the max stays under 10ms. Noted but not a defect: a generator's done:true is only observable on the .next() call after its last yield, so when totalSteps is an exact multiple of the slice size, one extra near-zero-cost slice is needed purely to detect completion -- accounted for in that test's slice-count assertion rather than asserted away."
     },
     {
       "id": "P2.41",

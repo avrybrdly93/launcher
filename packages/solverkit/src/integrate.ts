@@ -122,6 +122,16 @@ function roundToFloat32(y: Float64Array): void {
  * are still recoverable (post-hoc correction against the driver's `current`
  * copy cannot recover them, since the stepper's addition has already
  * rounded by the time `integrate` sees `out.yNext`).
+ *
+ * Implemented as a generator ({@link runIntegrationSteps}) that `yield`s
+ * once per accepted step: `integrate` itself just drains it in a tight
+ * loop, while `beginIntegration`/`IntegrationContinuation.runSlice` (P2.40)
+ * pause and resume the *exact same* generator across separate calls. A
+ * generator's local variables (`t`, `current`, `h`, `nSteps`, ...) already
+ * persist across `.next()` calls, so chunking never re-derives or
+ * serializes state by hand -- resuming is bit-exact by construction,
+ * since it is the identical sequential execution regardless of where the
+ * caller chose to pause it.
  */
 export function integrate(
   model: Model,
@@ -132,6 +142,101 @@ export function integrate(
   stepper: Stepper,
   sinks: readonly Sink[] = [],
 ): SolveReport {
+  const gen = runIntegrationSteps(model, ctx, y0, tspan, cfg, stepper, sinks);
+  let result = gen.next();
+  while (!result.done) result = gen.next();
+  return result.value;
+}
+
+/**
+ * Result of one {@link IntegrationContinuation.runSlice} call (P2.40): a
+ * discriminated union so a caller can't accidentally read `report` before
+ * checking `done`. `done: false` means the slice's step budget ran out
+ * before the solve reached a terminal state -- call `runSlice` again to
+ * keep going. `done: true` carries the same {@link SolveReport} the
+ * non-chunked `integrate` would have produced for an equivalent unchunked
+ * run.
+ */
+export type IntegrationSliceResult =
+  { readonly done: false } | { readonly done: true; readonly report: SolveReport };
+
+/**
+ * A paused, resumable solve (P2.40, §5.1's "cooperative chunking"): the
+ * mechanism a worker or the main thread uses to advance a long integration
+ * in bounded slices, so neither blocks the event loop for the whole solve.
+ */
+export interface IntegrationContinuation {
+  /**
+   * Advances the solve by at most `maxStepsPerSlice` further accepted
+   * steps (fewer if it reaches a terminal state first), then returns
+   * control to the caller. Calling this again after a `done: true` result
+   * is a no-op that keeps returning the same cached report.
+   */
+  runSlice(maxStepsPerSlice: number): IntegrationSliceResult;
+}
+
+/**
+ * Begins a chunked, cooperative integration (P2.40): identical inputs to
+ * {@link integrate}, but returns immediately without running a single
+ * step -- the caller drives progress via repeated
+ * {@link IntegrationContinuation.runSlice} calls (e.g. one per worker
+ * message-loop turn or `setTimeout(0)` tick), each bounded to a caller-
+ * chosen step budget so a multi-million-step solve never blocks
+ * interactivity for longer than that budget's wall time. `sinks` still see
+ * exactly one `start`/`finish` call each (on the first slice that runs a
+ * step, and on the slice that finishes the solve, respectively) and one
+ * `accept` per step, identically to an unchunked `integrate` call --
+ * chunking only changes *when* those calls happen relative to the caller,
+ * never their sequence or the values they carry.
+ */
+export function beginIntegration(
+  model: Model,
+  ctx: EvalContext,
+  y0: Float64Array,
+  tspan: readonly [number, number],
+  cfg: SolverConfig,
+  stepper: Stepper,
+  sinks: readonly Sink[] = [],
+): IntegrationContinuation {
+  const gen = runIntegrationSteps(model, ctx, y0, tspan, cfg, stepper, sinks);
+  let finished: SolveReport | undefined;
+
+  return {
+    runSlice(maxStepsPerSlice: number): IntegrationSliceResult {
+      if (finished !== undefined) return { done: true, report: finished };
+
+      let result = gen.next();
+      let stepsRun = 1;
+      while (!result.done && stepsRun < maxStepsPerSlice) {
+        result = gen.next();
+        stepsRun++;
+      }
+
+      if (result.done) {
+        finished = result.value;
+        return { done: true, report: finished };
+      }
+      return { done: false };
+    },
+  };
+}
+
+/**
+ * The driver loop shared by {@link integrate} and {@link beginIntegration}
+ * (P2.40): every accepted step and terminal outcome below is identical to
+ * pre-chunking `integrate`, with one addition -- a `yield` after each
+ * accepted step's `sink.accept` dispatch, which is the only thing that
+ * makes pausing between steps possible.
+ */
+function* runIntegrationSteps(
+  model: Model,
+  ctx: EvalContext,
+  y0: Float64Array,
+  tspan: readonly [number, number],
+  cfg: SolverConfig,
+  stepper: Stepper,
+  sinks: readonly Sink[],
+): Generator<void, SolveReport, void> {
   const [t0, tFinal] = tspan;
   let h = cfg.h ?? (tFinal - t0) / DEFAULT_STEP_COUNT;
 
@@ -363,6 +468,7 @@ export function integrate(
     if (float32Mode) roundToFloat32(current);
     t = newT;
     for (const sink of sinks) sink.accept?.(t, current, out);
+    yield;
   }
 
   const report: SolveReport = {
