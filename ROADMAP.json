@@ -1179,8 +1179,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "relative drift < 1e-13 documented; test warns if exceeded",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added scripts/cross-engine-drift-fixture.mjs (plain relative-import-only module, shared verbatim between a direct Node import and an esbuild browser bundle) computing a gravity+quadratic-drag dopri5 trajectory, and scripts/measure-cross-engine-drift.mjs which runs it under Node (reference) and under Playwright-driven Chromium/Firefox, compares every recorded t/state sample with a relative-drift formula (absolute fallback below a 1e-9 floor to avoid a divide-by-near-zero blowup near the ground-impact y crossing), and checks each engine against the 1e-13 threshold. Exceeding the threshold prints a `::warning::` annotation but the script always exits 0 (soft warn, matching P2.43's philosophy and this task's 'test warns if exceeded' validation text, not 'fails'); an engine with no installed browser is skipped the same way rather than crashing the script. Results are written to scripts/cross-engine-drift-results.json (checked in, with a provenance field) -- the 'documented' half of the validation criterion. Wired into CI as a new 'Install Playwright browsers' + 'Cross-engine drift check (soft warn)' step pair after the P2.43 benchmark step in .github/workflows/ci.yml, running `pnpm exec playwright install --with-deps chromium firefox` then `pnpm check:cross-engine-drift`. Verified end-to-end locally against a real Chromium build (manually pointed at the sandbox's pre-installed revision, since Playwright's default resolution expects a newer pinned revision than the sandbox ships) -- measured drift is exactly 0 (Node and Chromium both run V8), recorded in the results JSON. Firefox could not be exercised in this sandbox (its network egress policy blocks the playwright.dev/CDN download hosts); the graceful-skip path was exercised for real here since Firefox has no sandbox build, and the actual Firefox measurement will happen on the real CI runner via the new playwright-install CI step."
     },
     {
       "id": "P2.46",

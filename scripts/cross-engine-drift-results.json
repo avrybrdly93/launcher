@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-07-21",
+  "thresholdRelativeDrift": 1e-13,
+  "provenance": "Measured by `node scripts/measure-cross-engine-drift.mjs`, comparing the same gravity+quadratic-drag dopri5 trajectory computed under Node against the identical fixture bundled (esbuild) and run inside Playwright-driven browsers. Recorded in the Claude Code sandbox dev environment, not the real GitHub Actions runner: the sandbox's pre-installed Chromium build predates the exact revision this Playwright version expects, so this entry was captured by pointing chromium.launch() at that build's executable directly (a one-off local check, not part of the committed script, which always uses Playwright's normal browser resolution); Firefox has no pre-installed build in the sandbox and the sandbox's network egress policy blocks downloading one (playwright.dev/CDN hosts are not on the allowlist), so it is recorded as unavailable here. Both engines run via `playwright install --with-deps chromium firefox` on the real CI runner (see .github/workflows/ci.yml), which will overwrite this file with a real measurement the next time it is deliberately re-recorded.",
+  "results": [
+    {
+      "engine": "chromium",
+      "status": "measured",
+      "version": "141.0.7390.37",
+      "maxRelativeDrift": 0,
+      "detail": "bit-identical to the Node reference over all 101 recorded rows x 5 series (t + 4 state channels) -- expected, since Node and Chromium both run V8."
+    },
+    {
+      "engine": "firefox",
+      "status": "unavailable",
+      "reason": "No Firefox build available in the sandbox dev environment that produced this file (see provenance)."
+    }
+  ]
+}
