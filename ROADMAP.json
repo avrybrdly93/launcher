@@ -1212,8 +1212,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "measured RK4 order degradation documented (expect <4 locally)",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added vertical-drop-kink-convergence.test.ts. Contrary to the blueprint's expectation, extensive measurement (global order over a full flight, local single-step order at the kink, and a spin/Magnus-coupled variant, all explored numerically before settling on the final test) shows RK4 does NOT degrade below its design order for this scenario: measured global slope ~4.0-4.05, local single-step slope ~5.0, both matching the away-from-the-kink benchmark in classical-rk4-stepper.test.ts. Mechanism: quadratic drag (and Magnus) are proportional to |v_rel|, vanishing at u=0, so gravity -- the only non-vanishing force exactly at the kink -- uniquely fixes the trajectory's departure direction (purely vertical). The anisotropic (direction-dependent) second derivative of the |v|*v map only bites a trajectory sampling both sides of the singularity (e.g. a direction-reversing crossing, not a one-sided departure from rest); along any single fixed ray from the origin, |v|*v reduces to r^2*d̂, which is analytic. Documented this as the measured, checked finding per the task's validation criterion (\"documented\", not assumed) rather than asserting a false degradation."
     },
     {
       "id": "P2.49",
