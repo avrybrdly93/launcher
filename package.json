@@ -11,6 +11,7 @@
     "build": "pnpm -r --workspace-concurrency 1 run build",
     "typecheck": "tsc -b",
     "test": "vitest run",
+    "bench:solverkit": "node scripts/check-benchmark-regression.mjs",
     "lint": "eslint .",
     "lint:deps": "depcruise --config .dependency-cruiser.cjs packages",
     "format": "prettier --write .",

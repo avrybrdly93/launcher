@@ -32,6 +32,9 @@ jobs:
       - name: Test
         run: pnpm test
 
+      - name: Benchmark regression check (soft warn)
+        run: pnpm bench:solverkit
+
       - name: Engine API docs
         run: pnpm --filter @ballista/engine run docs
 

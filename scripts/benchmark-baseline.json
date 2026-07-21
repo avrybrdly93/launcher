@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-07-21",
+  "referenceMethod": "explicit-euler",
+  "regressionThresholdPct": 15,
+  "provenance": "Recorded in the Claude Code sandbox dev environment (not the actual GitHub Actions runner) via `node scripts/check-benchmark-regression.mjs --record`. The gated metric is each method's steps/sec *relative to explicit-euler on the same run*, not absolute steps/sec, specifically because that ratio is largely hardware-invariant -- it is dominated by each method's rhs-evaluations-per-step count (e.g. classical-rk4 costs ~4x an Euler step almost everywhere it runs), not by the CPU it happens to run on. `stepsPerSec` fields are recorded for trend/context only and are not compared. If a maintainer sees ratios drift outside noise once this has run for a while on the real CI runner, refresh this file with `--record` there.",
+  "methods": {
+    "explicit-euler": {
+      "stepsPerSec": 8865760,
+      "relativeToEuler": 1
+    },
+    "midpoint-rk2": {
+      "stepsPerSec": 5852789,
+      "relativeToEuler": 0.6602
+    },
+    "heun-rk2": {
+      "stepsPerSec": 5785855,
+      "relativeToEuler": 0.6526
+    },
+    "classical-rk4": {
+      "stepsPerSec": 2202097,
+      "relativeToEuler": 0.2484
+    },
+    "semi-implicit-euler": {
+      "stepsPerSec": 8372429,
+      "relativeToEuler": 0.9444
+    },
+    "velocity-verlet": {
+      "stepsPerSec": 4604115,
+      "relativeToEuler": 0.5193
+    },
+    "position-verlet": {
+      "stepsPerSec": 7100336,
+      "relativeToEuler": 0.8009
+    },
+    "bogacki-shampine-32": {
+      "stepsPerSec": 2259423,
+      "relativeToEuler": 0.2548
+    },
+    "dopri5": {
+      "stepsPerSec": 1209077,
+      "relativeToEuler": 0.1364
+    }
+  }
+}
