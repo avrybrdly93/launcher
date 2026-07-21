@@ -1168,8 +1168,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "SHA-256 of buffers equal",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added determinism.test.ts: runScenarioToTrajectory(spec) builds a fully independent Model/EvalContext/Stepper/state/SolverConfig from a ScenarioSpec each call (nothing shared across calls -- no module-level caches, no reused mutable objects), runs integrate() with a TrajectoryRecorder, and hashTrajectory() SHA-256-hashes every buffer backing the resulting Trajectory (t plus every channel). 'Across worker/main' from this task's literal validation text isn't yet testable as stated: there is no worker pool (P3.39+) or SimulationSession (P3.03) bridging ScenarioSpec to a live solve yet, so this test's actual guarantee is the closest available proxy -- the full ScenarioSpec-to-integrate pipeline depends on nothing but the spec's own values, no shared state or call-order reliance, which is exactly the property that would break first under real cross-thread execution. Also had to hand-roll two small stand-ins the L2 registry layer will eventually own: forceById(id) (a force-id -> ForceModel switch; P1.17 built the registry *pattern*, not an id resolver) and a direct dopri5 stepper construction (SolverConfig.stepper is presently just a label, per types.ts's own doc comment 'SolverKit itself owns no global stepper registry' -- REFERENCE_SOLVER's 'rk45' string is descriptive text, not yet resolvable). 3 tests: two independent runs of the headwind preset hash-match exactly (bit-exact channel-by-channel toEqual, not just hash-equal); every preset in PRESET_SCENARIOS independently reproduces its own hash across two runs; and a perturbed initial condition changes the hash (proving the harness discriminates rather than passing vacuously)."
     },
     {
       "id": "P2.45",
