@@ -1201,8 +1201,8 @@
       "estMinutes": 20,
       "difficulty": "E",
       "validation": "dust-grain \u21d2 stiff warning; golf \u21d2 DOPRI5 recommendation",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added packages/engine/src/solver-advisor.ts: recommendSolver(spec), a pure function encoding 3 of \u00a74.10's 5 regimes that are genuinely derivable from a ScenarioSpec alone -- \"stiff\", \"conservation-focus\" (gravity-only), and \"default-adaptive\" (the general sports-projectile case). The other 2 rows (\"teaching order/convergence\" and \"ensembles/Monte Carlo\") describe how the user is running the solve, not a scenario property, so no ScenarioSpec-only function can decide them; documented as explicitly out of scope for this v1 (left to P3.24's UI wiring). Stiffness is detected via a characteristic drag relaxation time tau (Stokes tau=m/(6*pi*eta*R) for linear drag; tau=v0/(2*g*Pi) for quadratic drag, derived algebraically from the existing dimensionlessPi rather than recomputing rho*Cd*A) compared against the flight's own timescale v0/g; threshold=50 was picked by measuring every P1.36 preset directly (non-stiff presets all land at ratio <5, dust-grain lands at ~2500 -- comfortably inside the two-orders-of-magnitude gap either way, not an assumed number). solver-advisor.test.ts: dust-grain triggers regime=\"stiff\" with a warning matching /stiff/i (the task's literal validation criterion); golf-ball (drag+Magnus, not gravity-only) gets regime=\"default-adaptive\"/recommendedStepperId=\"dopri5\" with no warning (the criterion's other half); the drag-free reference gets \"conservation-focus\"/\"velocity-verlet\"; and every other preset (shot-put, table-tennis, golf, baseball) is asserted not spuriously flagged stiff."
     },
     {
       "id": "P2.48",
