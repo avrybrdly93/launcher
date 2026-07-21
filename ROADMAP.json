@@ -1113,8 +1113,8 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "forced non-convergence surfaces typed info",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added StepResult.newtonIterations/newtonFailureReason (types.ts) and a NewtonFailureReason union (max-iterations, singular-jacobian, damping-exhausted, non-finite-residual). BackwardEulerStepper.step now populates both every call (converged step: iterations>0, reason undefined) instead of only the private lastNewtonIterations debug field (removed). Audited the damping-halving loop while wiring this in: its existing `|| damp === maxDampingHalvings` always accepts some candidate at the final halving as a last resort, so damping-exhausted is only reachable via a misconfigured negative maxDampingHalvings (no candidate attempted) -- documented as such rather than silently left as truly-dead code, and left the underlying accept-last-candidate Newton behavior unchanged since existing passing tests (A-stability demo, convergence order) depend on it. Added 5 tests to backward-euler-stepper.test.ts: one converged-step sanity check (iterations>0, reason undefined) plus one forced-non-convergence case per reason (validation criterion) -- maxNewtonIterations:0, a hand-crafted jacobian making (I-hJ) exactly singular, an rhs returning NaN, and maxDampingHalvings:-1 -- each asserting both the typed newtonFailureReason and the accompanying NaN yNext/accepted:false pair."
     },
     {
       "id": "P2.40",

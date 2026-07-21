@@ -1,7 +1,7 @@
 import type { EvalContext, Model } from "@ballista/engine";
 import { solveLinearSystemInPlace } from "./dense-linear-solve.js";
 import { scaledErrorNorm } from "./scaled-error-norm.js";
-import type { Stepper, StepResult } from "./types.js";
+import type { NewtonFailureReason, Stepper, StepResult } from "./types.js";
 
 const SQRT_EPS = Math.sqrt(Number.EPSILON);
 const DEFAULT_NEWTON_ATOL = 1e-10;
@@ -49,13 +49,15 @@ export interface BackwardEulerOptions {
  * candidate's scaled residual norm ({@link scaledErrorNorm}, reused here as
  * the Newton convergence/decrease test rather than an embedded-pair error
  * estimate) is smaller than the current iterate's, or the halving budget is
- * exhausted. Convergence is declared once that norm is $\le 1$. A step that
- * exhausts `maxNewtonIterations` without converging, or fails a damping
- * search, writes `NaN` into `out.yNext` -- `integrate`'s existing P2.03
- * non-finite-state guard then reports a typed solve failure rather than
- * this stepper needing its own diagnostics field (P2.39 adds structured
- * Newton diagnostics to `StepResult`; this task only needs the failure to
- * surface, not to be described in detail).
+ * exhausted. Convergence is declared once that norm is $\le 1$. A step that exhausts
+ * `maxNewtonIterations` without converging, hits a numerically singular
+ * iteration matrix, or fails a damping search writes `NaN` into
+ * `out.yNext` and sets `out.accepted = false` -- `integrate`'s existing
+ * P2.03 non-finite-state guard then reports a typed solve failure -- while
+ * also recording the iteration count and a typed {@link NewtonFailureReason}
+ * onto `out.newtonIterations` / `out.newtonFailureReason` (P2.39), so a
+ * forced non-convergence surfaces *why* it failed rather than only the
+ * NaN/`accepted: false` pair.
  */
 export class BackwardEulerStepper implements Stepper {
   readonly info = { id: "backward-euler", order: 1, fsal: false, symplectic: false } as const;
@@ -81,9 +83,6 @@ export class BackwardEulerStepper implements Stepper {
   private fdYPerturbed: Float64Array | undefined;
   private fdFPlus: Float64Array | undefined;
   private fdFMinus: Float64Array | undefined;
-
-  /** Newton iterations the most recent {@link step} call took; diagnostic only, not part of {@link Stepper}. */
-  lastNewtonIterations = 0;
 
   constructor(options: BackwardEulerOptions = {}) {
     this.newtonAtol = options.newtonAtol ?? DEFAULT_NEWTON_ATOL;
@@ -178,11 +177,11 @@ export class BackwardEulerStepper implements Stepper {
     let err = scaledErrorNorm(residual, y, yGuess, this.newtonRtol, this.newtonAtol);
 
     let iterations = 0;
-    let failed = false;
+    let failureReason: NewtonFailureReason | undefined;
 
     while (err > 1) {
       if (iterations >= this.maxNewtonIterations) {
-        failed = true;
+        failureReason = "max-iterations";
         break;
       }
       iterations++;
@@ -196,7 +195,7 @@ export class BackwardEulerStepper implements Stepper {
       }
 
       if (!solveLinearSystemInPlace(iterMatrix, delta, dim)) {
-        failed = true;
+        failureReason = "singular-jacobian";
         break;
       }
 
@@ -228,14 +227,19 @@ export class BackwardEulerStepper implements Stepper {
       }
 
       if (!accepted) {
-        failed = true;
+        failureReason = "damping-exhausted";
         break;
       }
     }
 
-    this.lastNewtonIterations = iterations;
+    if (failureReason === undefined && !Number.isFinite(err)) {
+      failureReason = "non-finite-residual";
+    }
 
-    if (failed || !Number.isFinite(err)) {
+    out.newtonIterations = iterations;
+    out.newtonFailureReason = failureReason;
+
+    if (failureReason !== undefined) {
       out.yNext.fill(NaN);
       out.accepted = false;
     } else {

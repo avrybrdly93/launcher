@@ -15,6 +15,24 @@ export interface StepperInfo {
 }
 
 /**
+ * Why an implicit stepper's Newton iteration failed to converge within its
+ * budget (P2.39): `"max-iterations"` when the residual never dropped below
+ * the convergence tolerance in the allotted iterations,
+ * `"singular-jacobian"` when {@link solveLinearSystemInPlace} (via
+ * `dense-linear-solve.js`) hit a numerically singular iteration matrix,
+ * `"damping-exhausted"` when the halving schedule is empty (a negative
+ * `maxDampingHalvings`, so no candidate step is even attempted --
+ * {@link BackwardEulerStepper}'s normal, non-negative schedule always
+ * accepts *some* candidate at the final halving as a last resort, so this
+ * is only a misconfiguration guard, not a naturally-occurring outcome),
+ * and `"non-finite-residual"` when the scaled residual norm itself
+ * evaluates to NaN (e.g. the model's rhs returns NaN at the current
+ * iterate).
+ */
+export type NewtonFailureReason =
+  "max-iterations" | "singular-jacobian" | "damping-exhausted" | "non-finite-residual";
+
+/**
  * Preallocated output of a single {@link Stepper.step} call (§5.1). Owned by
  * the caller (`integrate`'s driver loop) and reused across every step of a
  * solve, so a step never allocates: the stepper only ever writes into
@@ -42,6 +60,23 @@ export interface StepResult {
   readonly delta: Float64Array;
   /** rhs evaluations consumed by this attempt, for `StatsCollector` (P2.05) accounting. */
   nRHS: number;
+  /**
+   * Newton iterations consumed by an implicit stepper's step attempt
+   * (P2.39), e.g. {@link BackwardEulerStepper}. `0` and untouched by
+   * explicit steppers, which have no Newton loop -- same staleness
+   * convention as `delta`/`errorEstimate` for non-adaptive steppers: only
+   * meaningful for a stepper that actually populates it.
+   */
+  newtonIterations: number;
+  /**
+   * Set by an implicit stepper (P2.39) the moment its Newton iteration
+   * fails to converge within budget; `undefined` on a converged/accepted
+   * step and left untouched by steppers with no Newton loop. This is what
+   * lets a forced non-convergence surface a typed reason through `out`
+   * instead of only the NaN `yNext`/`accepted: false` pair `integrate`'s
+   * P2.03 non-finite-state guard already produces.
+   */
+  newtonFailureReason: NewtonFailureReason | undefined;
 }
 
 /** Preallocates a {@link StepResult} sized for a model of the given dimension. */
@@ -53,6 +88,8 @@ export function createStepResult(dim: number): StepResult {
     errorEstimate: 0,
     delta: new Float64Array(dim),
     nRHS: 0,
+    newtonIterations: 0,
+    newtonFailureReason: undefined,
   };
 }
 

@@ -225,4 +225,98 @@ describe("BackwardEulerStepper (P2.38)", () => {
     expect(result.slope).toBeGreaterThan(0.9);
     expect(result.slope).toBeLessThan(1.1);
   });
+
+  describe("Newton diagnostics in StepResult (P2.39)", () => {
+    it("records a positive iteration count and no failure reason on an ordinary converged step", () => {
+      const model = createDecayModel();
+      const ctx = createEvalContextFixture();
+      const stepper = new BackwardEulerStepper();
+      stepper.init(model, ctx);
+
+      const out = createStepResult(1);
+      stepper.step(0, new Float64Array([1]), 0.1, out);
+
+      expect(out.accepted).toBe(true);
+      expect(out.newtonIterations).toBeGreaterThan(0);
+      expect(out.newtonFailureReason).toBeUndefined();
+    });
+
+    it('forced non-convergence ("max-iterations"): a zero iteration budget surfaces the typed reason', () => {
+      const model = createDecayModel();
+      const ctx = createEvalContextFixture();
+      const stepper = new BackwardEulerStepper({ maxNewtonIterations: 0 });
+      stepper.init(model, ctx);
+
+      const out = createStepResult(1);
+      stepper.step(0, new Float64Array([1]), 0.1, out);
+
+      expect(out.accepted).toBe(false);
+      expect(Number.isNaN(out.yNext[0])).toBe(true);
+      expect(out.newtonFailureReason).toBe("max-iterations");
+      expect(out.newtonIterations).toBe(0);
+    });
+
+    it('forced non-convergence ("singular-jacobian"): a Jacobian that makes (I - hJ) exactly singular surfaces the typed reason', () => {
+      const h = 0.1;
+      // model.jacobian = 1/h makes the Newton iteration matrix
+      // (I - h*J) = 1 - h*(1/h) = 0 exactly -- a numerically singular 1x1 system.
+      const model: Model = {
+        dim: 1,
+        channels: DECAY_CHANNELS,
+        rhs(_t: number, y: Float64Array, out: Float64Array): void {
+          out[0] = -y[0]!;
+        },
+        jacobian(_t: number, _y: Float64Array, _ctx: EvalContext, outJ: Float64Array): void {
+          outJ[0] = 1 / h;
+        },
+      };
+      const ctx = createEvalContextFixture();
+      const stepper = new BackwardEulerStepper();
+      stepper.init(model, ctx);
+
+      const out = createStepResult(1);
+      stepper.step(0, new Float64Array([1]), h, out);
+
+      expect(out.accepted).toBe(false);
+      expect(Number.isNaN(out.yNext[0])).toBe(true);
+      expect(out.newtonFailureReason).toBe("singular-jacobian");
+      expect(out.newtonIterations).toBe(1);
+    });
+
+    it('forced non-convergence ("non-finite-residual"): a rhs returning NaN surfaces the typed reason', () => {
+      const model: Model = {
+        dim: 1,
+        channels: DECAY_CHANNELS,
+        rhs(_t: number, _y: Float64Array, out: Float64Array): void {
+          out[0] = NaN;
+        },
+      };
+      const ctx = createEvalContextFixture();
+      const stepper = new BackwardEulerStepper();
+      stepper.init(model, ctx);
+
+      const out = createStepResult(1);
+      stepper.step(0, new Float64Array([1]), 0.1, out);
+
+      expect(out.accepted).toBe(false);
+      expect(Number.isNaN(out.yNext[0])).toBe(true);
+      expect(out.newtonFailureReason).toBe("non-finite-residual");
+      expect(out.newtonIterations).toBe(0);
+    });
+
+    it('forced non-convergence ("damping-exhausted"): a negative damping budget tries no candidate and surfaces the typed reason', () => {
+      const model = createDecayModel();
+      const ctx = createEvalContextFixture();
+      const stepper = new BackwardEulerStepper({ maxDampingHalvings: -1 });
+      stepper.init(model, ctx);
+
+      const out = createStepResult(1);
+      stepper.step(0, new Float64Array([1]), 0.1, out);
+
+      expect(out.accepted).toBe(false);
+      expect(Number.isNaN(out.yNext[0])).toBe(true);
+      expect(out.newtonFailureReason).toBe("damping-exhausted");
+      expect(out.newtonIterations).toBe(1);
+    });
+  });
 });
