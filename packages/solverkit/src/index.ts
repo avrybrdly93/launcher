@@ -29,3 +29,5 @@ export * from "./brent-root-finder.js";
 export * from "./event-root-localization.js";
 export * from "./hermite-dense-output.js";
 export * from "./invariant-monitor.js";
+export * from "./dense-linear-solve.js";
+export * from "./backward-euler-stepper.js";
