@@ -1146,8 +1146,8 @@
       "estMinutes": 25,
       "difficulty": "M",
       "validation": "0 allocations/step after warmup for Euler..DOPRI5",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added stepper-allocation.test.ts, extending P1.21's rhs-allocation.test.ts warmup-then-measure-heapUsed-delta methodology (force gc() before AND after the measured loop) from the rhs hot path alone to every stepper's step() call across the P2.06-P2.24 range P2.42's own validation text names: ExplicitEuler, MidpointRK2, HeunRK2, ClassicalRK4, SemiImplicitEuler, Verlet (both velocity and position variants), BogackiShampine32, and DormandPrince54 (9 tests total, all against one shared gravity+quadratic-drag planar-projectile model/ctx fixture, dim 4). All 9 pass at <5 bytes/iter after a 5000-step warmup over 20000 measured steps each. Source-audited every stepper file first (no per-step `new`/`.slice`/`.map` outside init()) before writing the test: all stage/scratch buffers are allocated once in init() and reused; the one lazy-allocation site found, EmbeddedRKStepper's `this.fsalY ??= new Float64Array(...)` (shared by Bogacki-Shampine/Dormand-Prince), only fires on the first step() call after init() and is exactly what warmup-before-measuring is designed to absorb correctly, not a steady-state leak. BackwardEulerStepper (P2.38) is deliberately out of scope: it falls outside the 'Euler..DOPRI5' range this task's validation criterion literally names, and its damped-Newton/FD-Jacobian-fallback hot path (variable iteration count, distinct allocation risk surface) would need its own dedicated audit rather than a mechanical extension of this harness."
     },
     {
       "id": "P2.43",
