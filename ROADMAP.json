@@ -1223,8 +1223,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "returns to y\u2080 within 1e-9 over 100 steps",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added verlet-time-reversibility.test.ts, both variants: 100 forward steps (h=0.01) on a gravity-only planar projectile model, then 100 backward steps (-h) from the same stepper, lands within 1e-9 of y0 (measured well under that, at plain floating-point roundoff level) -- distinct from and stronger than the existing bounded-energy-error test in verlet-stepper.test.ts, since reversibility specifically checks the recurrence undoes itself exactly under sign-flipped h, not just that energy stays bounded along the way. Includes a sanity assert that the forward leg actually displaced the state first, so the round-trip check isn't vacuously satisfied by a near-stationary trajectory."
     },
     {
       "id": "P2.50",
