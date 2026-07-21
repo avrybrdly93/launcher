@@ -8,6 +8,7 @@ export * from "./compensated-summation.js";
 export * from "./integrate.js";
 export * from "./trajectory-recorder.js";
 export * from "./stats-collector.js";
+export * from "./step-size-recorder.js";
 export * from "./explicit-euler-stepper.js";
 export * from "./two-stage-rk2-kernel.js";
 export * from "./midpoint-rk2-stepper.js";

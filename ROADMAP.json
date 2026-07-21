@@ -1190,8 +1190,8 @@
       "estMinutes": 10,
       "difficulty": "E",
       "validation": "h(t) plotted artifact shows collapse near high-u phase",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added packages/solverkit/src/step-size-recorder.ts: StepSizeRecorder, a Sink recording one (t, h) row per accepted step in a growing columnar store (same doubling-array pattern as TrajectoryRecorder), exposed via solverkit's index. Quantitative validation lives in packages/validation/src/stiff-step-size-collapse.test.ts: runs the dust-grain preset (P1.36, physically stiff Stokes-drag relaxation) through adaptive DOPRI5 with both StepSizeRecorder and TrajectoryRecorder attached, then asserts the h(t) collapse claim as concrete derived bounds rather than 'small numbers' -- max(h)/min(h) > 10x (measured ~21x), the h-minimum occurs within the first 5% of accepted steps (measured at step 1 of 550), and speed at that step exceeds half the launch speed (measured ~66% of u0=15 m/s), i.e. the collapse genuinely coincides with the high-speed phase, not just with t~0. The literal 'plotted artifact' is scripts/plot-stiff-step-size-trace.mjs, a standalone script (mirrors P2.43/P2.45's dist-consuming script convention) that runs the same fixture and hand-rolls a dependency-free log-log SVG line plot to scripts/stiff-step-size-trace.svg (checked in), marking the measured h-minimum point. Verified visually by rendering the SVG in the sandbox's Chromium via Playwright and inspecting a screenshot -- h dips to its minimum just after launch, rises sharply once the Stokes relaxation finishes, and plateaus for the rest of the flight, exactly the claimed shape."
     },
     {
       "id": "P2.47",
