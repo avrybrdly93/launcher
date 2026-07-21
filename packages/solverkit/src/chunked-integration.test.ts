@@ -11,6 +11,7 @@ import {
   type EvalContext,
   type Model,
 } from "@ballista/engine";
+import { createCancellationSource, type CancellationToken } from "./cancellation-token.js";
 import { beginIntegration, integrate } from "./integrate.js";
 import type { Sink, SolveReport, SolverConfig, Stepper } from "./types.js";
 
@@ -95,8 +96,9 @@ function runChunked(
   stepper: Stepper,
   sinks: readonly Sink[],
   maxStepsPerSlice: number,
+  token?: CancellationToken,
 ): { report: SolveReport; slices: number } {
-  const continuation = beginIntegration(model, ctx, y0, tspan, cfg, stepper, sinks);
+  const continuation = beginIntegration(model, ctx, y0, tspan, cfg, stepper, sinks, token);
   let slices = 0;
   for (;;) {
     slices++;
@@ -314,5 +316,124 @@ describe("chunked cooperative integration (P2.40)", () => {
     expect(slices).toBeGreaterThanOrEqual(expectedFullSlices);
     expect(slices).toBeLessThanOrEqual(expectedFullSlices + 1);
     expect(maxSliceMs).toBeLessThan(10);
+  });
+});
+
+describe("cancellation token honored between chunks (P2.41)", () => {
+  it("canceling mid-run stops the solve, flags status:canceled, and carries only the partial trajectory", () => {
+    const model = createDecayModel();
+    const ctx = createEvalContextFixture();
+    // h=0.1 over [0,1] needs 10 steps; cancel after 4 of them.
+    const cfg: SolverConfig = { stepper: "mock-euler", h: 0.1, maxSteps: 1000 };
+    const { sink, counts } = createRecordingSink();
+    const { token, cancel } = createCancellationSource();
+
+    const continuation = beginIntegration(
+      model,
+      ctx,
+      new Float64Array([1]),
+      [0, 1],
+      cfg,
+      createMockEulerStepper(),
+      [sink],
+      token,
+    );
+
+    const firstSlice = continuation.runSlice(4);
+    expect(firstSlice.done).toBe(false);
+    expect(counts().accepts).toBe(4); // 4 accepted steps landed before we cancel
+
+    cancel();
+    const secondSlice = continuation.runSlice(1000);
+
+    expect(secondSlice.done).toBe(true);
+    if (!secondSlice.done) throw new Error("unreachable");
+    expect(secondSlice.report.status).toBe("canceled");
+    expect(secondSlice.report.nSteps).toBe(4);
+    expect(secondSlice.report.tFinal).toBeCloseTo(0.4, 15);
+    expect(secondSlice.report.yFinal[0]).toBeCloseTo(0.9 ** 4, 15);
+    // A partial trajectory: fewer accepts than the 10 a full solve needs,
+    // and finish fires exactly once with the canceled report.
+    expect(counts()).toEqual({ starts: 1, accepts: 4, finishes: 1 });
+  });
+
+  it("a token canceled before the first runSlice call stops with an empty (zero-step) partial trajectory", () => {
+    const model = createDecayModel();
+    const ctx = createEvalContextFixture();
+    const cfg: SolverConfig = { stepper: "mock-euler", h: 0.1, maxSteps: 1000 };
+    const { sink, counts } = createRecordingSink();
+    const { token, cancel } = createCancellationSource();
+    cancel();
+
+    const continuation = beginIntegration(
+      model,
+      ctx,
+      new Float64Array([1]),
+      [0, 1],
+      cfg,
+      createMockEulerStepper(),
+      [sink],
+      token,
+    );
+
+    const result = continuation.runSlice(1000);
+
+    expect(result.done).toBe(true);
+    if (!result.done) throw new Error("unreachable");
+    expect(result.report.status).toBe("canceled");
+    expect(result.report.nSteps).toBe(0);
+    expect(result.report.tFinal).toBe(0);
+    expect(result.report.yFinal[0]).toBe(1);
+    expect(counts()).toEqual({ starts: 1, accepts: 0, finishes: 1 });
+  });
+
+  it("keeps returning the same cached canceled report on further runSlice calls (idempotent, no extra steps)", () => {
+    const model = createDecayModel();
+    const ctx = createEvalContextFixture();
+    const cfg: SolverConfig = { stepper: "mock-euler", h: 0.1, maxSteps: 1000 };
+    const { token, cancel } = createCancellationSource();
+
+    const continuation = beginIntegration(
+      model,
+      ctx,
+      new Float64Array([1]),
+      [0, 1],
+      cfg,
+      createMockEulerStepper(),
+      [],
+      token,
+    );
+
+    continuation.runSlice(2);
+    cancel();
+    const first = continuation.runSlice(1000);
+    const second = continuation.runSlice(1000);
+
+    expect(first.done).toBe(true);
+    expect(second.done).toBe(true);
+    if (!first.done || !second.done) throw new Error("unreachable");
+    expect(second.report).toBe(first.report);
+  });
+
+  it("an uncanceled token has no effect: the solve still runs to completion normally", () => {
+    const model = createDecayModel();
+    const ctx = createEvalContextFixture();
+    const cfg: SolverConfig = { stepper: "mock-euler", h: 0.1, maxSteps: 1000 };
+    const { token } = createCancellationSource();
+
+    const { report } = runChunked(
+      model,
+      ctx,
+      new Float64Array([1]),
+      [0, 1],
+      cfg,
+      createMockEulerStepper(),
+      [],
+      3,
+      token, // never canceled; proves its mere presence changes nothing
+    );
+
+    expect(report.status).toBe("ok");
+    expect(report.nSteps).toBe(10);
   });
 });

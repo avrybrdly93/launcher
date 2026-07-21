@@ -1,4 +1,5 @@
 import type { EvalContext, Model } from "@ballista/engine";
+import type { CancellationToken } from "./cancellation-token.js";
 import { scanStepForEvents } from "./event-detection.js";
 import { localizeEventRoot } from "./event-root-localization.js";
 import { attemptAdaptiveStep } from "./i-controller.js";
@@ -188,6 +189,14 @@ export interface IntegrationContinuation {
  * `accept` per step, identically to an unchunked `integrate` call --
  * chunking only changes *when* those calls happen relative to the caller,
  * never their sequence or the values they carry.
+ *
+ * `token` (P2.41), when given, is checked once per accepted step; the
+ * moment it reports {@link CancellationToken.isCanceled}, the solve stops
+ * with `status: "canceled"` carrying the last-good `(t, y)` and every stat
+ * accrued so far -- a partial trajectory, not a failure. Cancellation is
+ * only exposed here (not on the plain `integrate` entry point) because a
+ * synchronous call never returns control for an external `cancel()` to
+ * land in between.
  */
 export function beginIntegration(
   model: Model,
@@ -197,8 +206,9 @@ export function beginIntegration(
   cfg: SolverConfig,
   stepper: Stepper,
   sinks: readonly Sink[] = [],
+  token?: CancellationToken,
 ): IntegrationContinuation {
-  const gen = runIntegrationSteps(model, ctx, y0, tspan, cfg, stepper, sinks);
+  const gen = runIntegrationSteps(model, ctx, y0, tspan, cfg, stepper, sinks, token);
   let finished: SolveReport | undefined;
 
   return {
@@ -236,6 +246,7 @@ function* runIntegrationSteps(
   cfg: SolverConfig,
   stepper: Stepper,
   sinks: readonly Sink[],
+  token?: CancellationToken,
 ): Generator<void, SolveReport, void> {
   const [t0, tFinal] = tspan;
   let h = cfg.h ?? (tFinal - t0) / DEFAULT_STEP_COUNT;
@@ -300,9 +311,27 @@ function* runIntegrationSteps(
     return report;
   }
 
+  /** Stops the solve with `status: "canceled"` (P2.41), carrying the last-good `(t, y)` and every stat so far. */
+  function cancel(atT: number, y: Float64Array): SolveReport {
+    const report: SolveReport = {
+      status: "canceled",
+      tFinal: atT,
+      yFinal: y,
+      nSteps,
+      nRHS,
+      nRejected,
+    };
+    for (const sink of sinks) sink.finish?.(report);
+    return report;
+  }
+
   for (const sink of sinks) sink.start?.(model, t0, current);
 
   while (t < tFinal) {
+    if (token?.isCanceled) {
+      return cancel(t, current);
+    }
+
     if (nSteps >= cfg.maxSteps) {
       return fail(
         "max-steps-exceeded",

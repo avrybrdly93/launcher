@@ -1135,8 +1135,8 @@
       "estMinutes": 10,
       "difficulty": "E",
       "validation": "cancel mid-run returns partial trajectory flagged canceled",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added cancellation-token.ts: CancellationToken (readonly isCanceled) + createCancellationSource() factory producing a token/cancel() pair. beginIntegration (P2.40) takes an optional 8th `token` argument, threaded into runIntegrationSteps and checked at the top of its while loop (once per accepted-step resume -- a stricter grain than 'between chunks' but a superset that still honors it); the moment it reports canceled, the generator returns a status:'canceled' SolveReport carrying the last-good (t, y) and every stat accrued so far, via the same single-sink.finish()-call pattern as the existing fail()/terminal-event paths. Deliberately not exposed on the plain integrate() entry point: a synchronous call never returns control for an external cancel() to land in between, so cancellation only makes sense paired with the chunking API. Added 4 tests to chunked-integration.test.ts: cancel mid-run (after 4 of 10 steps) yields a partial trajectory (nSteps=4, correct tFinal/yFinal, sink saw only 4 accepts + exactly one finish); a token canceled before the first runSlice call stops immediately with a zero-step report; the cached canceled report is returned idempotently on further runSlice calls; and an uncanceled token has no effect on a normal completion."
     },
     {
       "id": "P2.42",
