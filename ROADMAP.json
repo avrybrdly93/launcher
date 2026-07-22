@@ -1300,8 +1300,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "100 rapid slider events \u21d2 \u2264 1 solve per frame (instrumented)",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "P3.02's scenario-store.ts already had the draft/committed split at rest; this task adds the missing rAF-coalescing half (\u00a75.3: 'commits ... are scheduled per animation frame with latest-wins coalescing'). Added SimulationSession.updateDraft(spec) (simulation-session.ts): calls scenario.setDraft(spec) immediately (input rate, no solve), then schedules at most one frame via an injectable FrameScheduler; repeated calls before that frame fires only overwrite which spec is pending (latest-wins), so N rapid calls collapse into a single commitScenario/solve when the frame fires. Default scheduler probes globalThis.requestAnimationFrame dynamically (packages have no 'dom' lib, so the global isn't typed) and falls back to setTimeout(16ms) outside a browser. Restructured commitScenario/updateDraft as closures over a mutable `session` object reference so the scheduled callback calls session.commitScenario(...) -- letting tests instrument solve count via vi.spyOn(session, 'commitScenario') without adding a test-only counter to the public API. Added 2 tests to simulation-session.test.ts: 100 rapid updateDraft calls schedule exactly one frame and produce zero commits until it fires, then exactly one commit/solve with the latest (100th) draft's value carried through to committed (the literal validation criterion); and a scheduling-hygiene test (only one frame scheduled across repeated calls, firing a stale frame callback twice doesn't double-solve, a fresh updateDraft after the frame fires schedules a new one)."
     },
     {
       "id": "P3.05",

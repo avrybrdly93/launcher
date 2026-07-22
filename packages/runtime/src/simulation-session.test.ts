@@ -1,6 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { PRESET_SCENARIOS, type ScenarioSpec } from "@ballista/engine";
-import { createSimulationSession, DEFAULT_SCENARIO } from "./simulation-session.js";
+import {
+  createSimulationSession,
+  DEFAULT_SCENARIO,
+  type FrameScheduler,
+} from "./simulation-session.js";
 
 describe("SimulationSession", () => {
   it("starts with the default scenario committed and no result published", () => {
@@ -69,5 +73,59 @@ describe("SimulationSession", () => {
 
     expect(outcome.status).toBe("ok");
     expect(elapsedMs).toBeLessThan(16);
+  });
+
+  it("coalesces 100 rapid updateDraft calls within a frame into a single commit/solve (P3.04 validation criterion)", () => {
+    let scheduledFrame: (() => void) | null = null;
+    const frameScheduler: FrameScheduler = (callback) => {
+      scheduledFrame = callback;
+    };
+    const session = createSimulationSession(DEFAULT_SCENARIO, PRESET_SCENARIOS, { frameScheduler });
+    const commitSpy = vi.spyOn(session, "commitScenario");
+
+    for (let i = 0; i < 100; i++) {
+      session.updateDraft({
+        ...DEFAULT_SCENARIO,
+        initialConditions: { ...DEFAULT_SCENARIO.initialConditions, vx0: 10 + i },
+      });
+    }
+
+    // draft updates take effect immediately, at input rate...
+    expect(session.scenario.getState().draft.initialConditions.vx0).toBe(109);
+    // ...but no commit/solve has run yet, and only one frame was scheduled.
+    expect(commitSpy).not.toHaveBeenCalled();
+    expect(scheduledFrame).not.toBeNull();
+
+    scheduledFrame!();
+
+    // exactly one solve for all 100 rapid events, and it's the latest draft (latest-wins coalescing).
+    expect(commitSpy).toHaveBeenCalledTimes(1);
+    expect(session.scenario.getState().committed.initialConditions.vx0).toBe(109);
+    expect(session.result.getState().trajectory).not.toBeNull();
+  });
+
+  it("schedules only one frame across many updateDraft calls, and commits nothing if the frame fires with no pending draft", () => {
+    const frameCallbacks: Array<() => void> = [];
+    const frameScheduler: FrameScheduler = (callback) => {
+      frameCallbacks.push(callback);
+    };
+    const session = createSimulationSession(DEFAULT_SCENARIO, PRESET_SCENARIOS, { frameScheduler });
+    const commitSpy = vi.spyOn(session, "commitScenario");
+
+    session.updateDraft(DEFAULT_SCENARIO);
+    session.updateDraft(DEFAULT_SCENARIO);
+    expect(frameCallbacks).toHaveLength(1);
+
+    frameCallbacks[0]!();
+    expect(commitSpy).toHaveBeenCalledTimes(1);
+
+    // firing a stale/second frame callback (e.g. a scheduler quirk) with no
+    // new pending draft must not re-solve.
+    frameCallbacks[0]!();
+    expect(commitSpy).toHaveBeenCalledTimes(1);
+
+    // a fresh updateDraft after the frame fired schedules a new frame.
+    session.updateDraft(DEFAULT_SCENARIO);
+    expect(frameCallbacks).toHaveLength(2);
   });
 });
