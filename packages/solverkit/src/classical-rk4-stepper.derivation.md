@@ -34,7 +34,7 @@ The systematic tool is Butcher's rooted-tree theory: each elementary differentia
 $\mathbf f$ (e.g. $\mathbf f_y \mathbf f$, $\mathbf f_{yy}(\mathbf f,\mathbf f)$, $\mathbf f_y
 \mathbf f_y \mathbf f$, ...) corresponds to a rooted tree $\tau$, and order $p$ holds iff
 
-$$ \sum_i b_i, \phi_i(\tau) = \frac{1}{\gamma(\tau)} \quad \text{for all trees with } |\tau|
+$$\sum_i b_i\, \phi_i(\tau) = \frac{1}{\gamma(\tau)} \quad \text{for all trees with } |\tau|
 \le p \tag{4.7}$$
 
 where $\phi_i$ are stage weights and $\gamma$ the tree density. For $p=4$ there are 8 trees,
@@ -66,4 +66,3 @@ $R_{\text{RK4}}(z) = \sum_{j=0}^4 z^j/j!$ (§4.6, eq. 4.11); the region extends 
 $\approx -2.785$ on the real axis and, unlike Euler/RK2, includes a genuine interval of the
 imaginary axis ($|z| \lesssim 2\sqrt2$) — why RK4 tolerates oscillatory dynamics that
 destabilize Euler at any $h$.
-$$

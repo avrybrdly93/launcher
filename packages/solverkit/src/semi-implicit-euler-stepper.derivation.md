@@ -7,7 +7,7 @@ Implemented by {@link SemiImplicitEulerStepper}. Blueprint §4.2.
 For a separable mechanical system split into position channels $\mathbf q$ and velocity/momentum
 channels $\mathbf p$ (declared via `model.partitions`):
 
-$$ \mathbf v_{k+1} = \mathbf v_k + h, \mathbf a(t_k, \mathbf r_k, \mathbf v_k), \qquad
+$$\mathbf v_{k+1} = \mathbf v_k + h\, \mathbf a(t_k, \mathbf r_k, \mathbf v_k), \qquad
 \mathbf r_{k+1} = \mathbf r_k + h\, \mathbf v_{k+1} \tag{4.3}$$
 
 The only change from explicit Euler is *which* velocity feeds the position update: the
@@ -41,4 +41,3 @@ file).
 "Nearly free to implement and dramatically better on mechanical systems" (§4.2) — the
 platform's cheapest profound lesson in geometric integration, and the natural on-ramp to
 {@link VerletStepper}'s order-2 generalization (§4.8).
-$$

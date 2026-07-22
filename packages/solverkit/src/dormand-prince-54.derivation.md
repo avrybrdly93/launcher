@@ -8,7 +8,7 @@ Implemented via {@link createDormandPrince54Stepper} ({@link EmbeddedRKStepper} 
 Run two methods of orders $p$ and $\hat p = p-1$ sharing the same stages; their difference
 estimates the local truncation error of the lower-order result:
 
-$$ \boldsymbol\delta_{k+1} = \mathbf y_{k+1} - \hat{\mathbf y}_{k+1} = h \sum_i (b_i - \hat
+$$\boldsymbol\delta_{k+1} = \mathbf y_{k+1} - \hat{\mathbf y}_{k+1} = h \sum_i (b_i - \hat
 b_i)\, \mathbf k_i = \mathcal O(h^{\hat p + 1}) \tag{4.8}$$
 
 DOPRI5 is $p=5$, $\hat p=4$, 7 stages, FSAL: `b` (order 5) advances the accepted solution,
@@ -55,4 +55,3 @@ The reference production solver (§4.10): "Interactive sliders, sports projectil
 rtol $10^{-6}$ — fast, robust, dense output free." See
 `bogacki-shampine-32.derivation.md` for the cheaper, lower-order sibling
 ({@link createBogackiShampine32Stepper}) used for loose-tolerance interactive use.
-$$

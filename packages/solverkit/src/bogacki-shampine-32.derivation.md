@@ -1,7 +1,8 @@
 # Bogacki–Shampine RK3(2) — Derivation
 
 Implemented via {@link createBogackiShampine32Stepper} ({@link EmbeddedRKStepper} wired with
-{@link BS32_TABLEAU}). Blueprint §4.5. See the `dormand-prince-54.derivation.md` derivation page for
+{@link BS32_TABLEAU}). Blueprint §4.5. See
+the `dormand-prince-54.derivation.md` derivation page for
 {@link createDormandPrince54Stepper} — the shared embedded-pair theory this page only
 summarizes.
 
@@ -10,7 +11,7 @@ summarizes.
 Run two methods of orders $p=3$ and $\hat p=2$ sharing the same 4 stages; their difference
 estimates the local truncation error of the lower-order result:
 
-$$ \boldsymbol\delta_{k+1} = \mathbf y_{k+1} - \hat{\mathbf y}_{k+1} = h \sum_i (b_i - \hat
+$$\boldsymbol\delta_{k+1} = \mathbf y_{k+1} - \hat{\mathbf y}_{k+1} = h \sum_i (b_i - \hat
 b_i)\, \mathbf k_i = \mathcal O(h^{\hat p + 1}) \tag{4.8}$$
 
 ## Tableau
@@ -35,4 +36,3 @@ The right default for loose-tolerance interactive use (§4.10's method-selection
 cheaper per accepted step than {@link createDormandPrince54Stepper}'s DOPRI5 at the cost of
 one order of local accuracy, appropriate when the step-size controller (§4.5, eq. 4.9-4.10)
 is doing most of the accuracy work anyway.
-$$

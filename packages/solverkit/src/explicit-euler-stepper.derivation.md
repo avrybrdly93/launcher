@@ -19,7 +19,7 @@ $\boldsymbol\tau_{k+1} = \tfrac{h^2}{2}\ddot{\mathbf y}(\xi) = \mathcal O(h^2)$ 
 
 1. **Energy growth on oscillatory dynamics.** For the Dahlquist test equation restricted to
    the imaginary axis, $\dot y = i\lambda y$ (undamped rotation), $|y_{k+1}| =
-   |1+ih\lambda|\,|y_k| = \sqrt{1+h^2\lambda^2}\,|y_k| > |y_k|$ for _any_ $h>0$: explicit
+   |1+ih\lambda|\,|y_k| = \sqrt{1+h^2\lambda^2}\,|y_k| > |y_k|$ for *any* $h>0$: explicit
    Euler always spirals outward on pure oscillation, regardless of step size. On the
    projectile this appears as systematic range/apex bias.
 2. **Conditional stability on dissipative dynamics.** Stability requires $h < 2\tau_{\text{drag}}$

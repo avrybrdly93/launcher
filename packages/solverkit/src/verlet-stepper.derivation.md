@@ -5,16 +5,16 @@ Implemented by {@link VerletStepper} (both `"velocity"` and `"position"` variant
 
 ## The conservative sub-problem
 
-For the _conservative_ sub-problem (drag off), the system is Hamiltonian with $H(\mathbf r,
+For the *conservative* sub-problem (drag off), the system is Hamiltonian with $H(\mathbf r,
 \mathbf v) = \tfrac12 m\lVert\mathbf v\rVert^2 + mgy$. Non-symplectic methods (explicit
 Euler, RK4) exhibit secular energy drift $\Delta E \propto t$; symplectic integrators of
-order $p$ instead conserve a _modified_ Hamiltonian $\tilde H = H + \mathcal O(h^p)$,
+order $p$ instead conserve a *modified* Hamiltonian $\tilde H = H + \mathcal O(h^p)$,
 yielding bounded oscillatory energy error over exponentially long times (backward error
 analysis) rather than unbounded drift.
 
 ## Velocity Verlet (kick–drift–half-kick–half)
 
-$$ \mathbf v_{k+1/2} = \mathbf v_k + \tfrac h2 \mathbf a(\mathbf q_k), \quad
+$$\mathbf v_{k+1/2} = \mathbf v_k + \tfrac h2 \mathbf a(\mathbf q_k), \quad
 \mathbf q_{k+1} = \mathbf q_k + h\, \mathbf v_{k+1/2}, \quad
 \mathbf v_{k+1} = \mathbf v_{k+1/2} + \tfrac h2 \mathbf a(\mathbf q_{k+1}) \tag{4.13}$$
 
@@ -57,4 +57,3 @@ $E(t)/E(0) - 1$: explicit Euler (linear growth), RK4 (tiny but *secular* drift),
 Euler (bounded sawtooth), Verlet (smaller bounded sawtooth) — see
 `semi-implicit-euler-stepper.derivation.md` for the order-1 symplectic sibling this method
 generalizes.
-$$

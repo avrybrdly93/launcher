@@ -8,7 +8,7 @@ only summarizes.
 
 General explicit 2-stage RK:
 
-$$ \mathbf k_1 = \mathbf f(t_k, \mathbf y_k), \quad
+$$\mathbf k_1 = \mathbf f(t_k, \mathbf y_k), \quad
 \mathbf k_2 = \mathbf f(t_k + c_2 h,\ \mathbf y_k + h\, a_{21} \mathbf k_1), \quad
 \mathbf y_{k+1} = \mathbf y_k + h (b_1 \mathbf k_1 + b_2 \mathbf k_2) \tag{4.4}$$
 
@@ -35,4 +35,3 @@ surfacing pedagogically (§4.3). Midpoint and Heun are both order 2 with the sam
 work–precision *slope*, differing only in their LTE *constant* (offset intercept on the
 log-log convergence plot) — the platform demonstrates this empirically rather than just
 asserting it.
-$$

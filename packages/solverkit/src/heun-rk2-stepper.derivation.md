@@ -6,7 +6,7 @@ Implemented by {@link HeunRK2Stepper}. Blueprint §4.3.
 
 General explicit 2-stage RK:
 
-$$ \mathbf k_1 = \mathbf f(t_k, \mathbf y_k), \quad
+$$\mathbf k_1 = \mathbf f(t_k, \mathbf y_k), \quad
 \mathbf k_2 = \mathbf f(t_k + c_2 h,\ \mathbf y_k + h\, a_{21} \mathbf k_1), \quad
 \mathbf y_{k+1} = \mathbf y_k + h (b_1 \mathbf k_1 + b_2 \mathbf k_2) \tag{4.4}$$
 
@@ -42,4 +42,3 @@ Order 2 (LTE $\mathcal O(h^3)$), same as {@link MidpointRK2Stepper} — $c_2 = a
 forced by (4.5) for *any* member of this family, so the two named members necessarily share
 the same convergence *slope* and differ only in their LTE *constant* (offset intercept on
 the platform's work–precision plot, §4.5).
-$$

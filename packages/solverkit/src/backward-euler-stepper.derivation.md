@@ -17,7 +17,7 @@ y_k$, $z = h\lambda$. Backward Euler's stability function is
 
 $$R(z) = (1-z)^{-1}$$
 
-which satisfies $|R(z)| \le 1$ for _all_ $\operatorname{Re}(z) \le 0$ — **A-stable**. No
+which satisfies $|R(z)| \le 1$ for *all* $\operatorname{Re}(z) \le 0$ — **A-stable**. No
 explicit RK method achieves this (§4.6): explicit Euler's region is the disk $|1+z|\le1$,
 RK4's extends only to $\approx-2.785$ on the real axis. For the projectile, linearizing
 quadratic drag about speed $u$ gives velocity-block eigenvalues $\lambda \approx -\rho C_d A\,
@@ -55,5 +55,5 @@ that scaled norm is $\le 1$.
 singular iteration matrix, fails the damping search, or evaluates a non-finite residual
 writes `NaN` into `out.yNext`, sets `accepted = false`, and records a typed {@link
 NewtonFailureReason} onto `out.newtonFailureReason` — so a forced non-convergence surfaces
-_why_ it failed, not just the NaN/`accepted: false` pair `integrate`'s non-finite-state guard
+*why* it failed, not just the NaN/`accepted: false` pair `integrate`'s non-finite-state guard
 would otherwise report on its own.
