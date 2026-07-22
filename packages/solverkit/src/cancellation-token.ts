@@ -2,7 +2,8 @@
  * Cooperative cancellation for a chunked integration (P2.41, §5.1's
  * "worker-side cancellation are structural, not bolted on"). A caller
  * outside the solve (a "stop" button handler, a worker's message
- * listener) flips {@link CancellationSource.cancel}; the driver only ever
+ * listener) flips the `cancel()` callback returned alongside the token by
+ * {@link createCancellationSource}; the driver only ever
  * *reads* {@link CancellationToken.isCanceled}, checked once between each
  * accepted step inside {@link IntegrationContinuation.runSlice}'s
  * generator -- a stricter grain than "between chunks" (this task's own
@@ -18,7 +19,12 @@ export interface CancellationToken {
 }
 
 /** Creates a fresh, uncanceled {@link CancellationToken} plus the one-way `cancel()` call that trips it. */
-export function createCancellationSource(): { token: CancellationToken; cancel: () => void } {
+export function createCancellationSource(): {
+  /** The token to pass into a chunked solve's `runSlice`. */
+  token: CancellationToken;
+  /** Flips the paired token's `isCanceled` to `true`; idempotent. */
+  cancel: () => void;
+} {
   let canceled = false;
   const token: CancellationToken = {
     get isCanceled(): boolean {

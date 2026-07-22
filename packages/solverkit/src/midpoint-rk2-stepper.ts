@@ -17,6 +17,9 @@ const MIDPOINT_TABLEAU: TwoStageTableau = { c2: 0.5, a21: 0.5, b1: 0, b2: 1 };
  * {@link stepTwoStageRK2} kernel (P2.11) with {@link MIDPOINT_TABLEAU};
  * `step` itself allocates nothing beyond the buffers preallocated in `init`
  * (ADR-004).
+ *
+ * See the [derivation](./midpoint-rk2-stepper.derivation.md) for the order-condition
+ * expansion this tableau satisfies.
  */
 export class MidpointRK2Stepper implements Stepper {
   readonly info = { id: "midpoint-rk2", order: 2, fsal: false, symplectic: false } as const;

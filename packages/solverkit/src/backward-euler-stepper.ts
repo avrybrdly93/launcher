@@ -58,6 +58,9 @@ export interface BackwardEulerOptions {
  * onto `out.newtonIterations` / `out.newtonFailureReason` (P2.39), so a
  * forced non-convergence surfaces *why* it failed rather than only the
  * NaN/`accepted: false` pair.
+ *
+ * See the [derivation](./backward-euler-stepper.derivation.md) for the A-stability proof
+ * and the damped-Newton iteration this stepper runs each step.
  */
 export class BackwardEulerStepper implements Stepper {
   readonly info = { id: "backward-euler", order: 1, fsal: false, symplectic: false } as const;

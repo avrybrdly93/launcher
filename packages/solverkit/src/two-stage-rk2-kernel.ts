@@ -22,6 +22,7 @@ export interface TwoStageRK2Buffers {
   readonly yStage: Float64Array;
 }
 
+/** Allocates a {@link TwoStageRK2Buffers} sized for a model of dimension `dim`. */
 export function createTwoStageRK2Buffers(dim: number): TwoStageRK2Buffers {
   return { k1: new Float64Array(dim), k2: new Float64Array(dim), yStage: new Float64Array(dim) };
 }

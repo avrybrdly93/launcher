@@ -7,13 +7,15 @@
   "types": "./src/index.ts",
   "scripts": {
     "build": "tsc -b",
-    "test": "vitest run"
+    "test": "vitest run",
+    "docs": "typedoc"
   },
   "dependencies": {
     "@ballista/engine": "workspace:*"
   },
   "devDependencies": {
     "fast-check": "^4.9.0",
+    "typedoc": "^0.28.20",
     "typescript": "^5.6.3",
     "vitest": "^2.1.4"
   }

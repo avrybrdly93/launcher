@@ -23,6 +23,7 @@ export interface ExplicitRKBuffers {
   readonly yStage: Float64Array;
 }
 
+/** Allocates an {@link ExplicitRKBuffers} sized for a model of dimension `dim` and a tableau with `stages` stages. */
 export function createExplicitRKBuffers(dim: number, stages: number): ExplicitRKBuffers {
   const k: Float64Array[] = [];
   for (let s = 0; s < stages; s++) {

@@ -8,6 +8,9 @@ import type { Stepper, StepperInfo } from "./types.js";
  * trailing 0, the same FSAL structural property DOPRI5's tableau has
  * (P2.24): $c_4=1$ makes stage 4 evaluate $f$ at exactly $(t+h, \mathbf
  * y_{k+1})$, reusable as the next step's stage 0.
+ *
+ * See the [derivation](./bogacki-shampine-32.derivation.md) for the embedded-pair error
+ * estimate (eq. 4.8) and the FSAL cost accounting.
  */
 export const BS32_TABLEAU: EmbeddedButcherTableau = {
   c: [0, 1 / 2, 3 / 4, 1],

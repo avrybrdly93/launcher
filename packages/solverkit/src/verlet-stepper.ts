@@ -37,6 +37,9 @@ export type VerletVariant = "velocity" | "position";
  * Any model channel outside `partitions.q`/`partitions.p` (e.g. a future
  * spin channel, P4.10) is advanced by a companion Euler/midpoint step using
  * the same rhs evaluation(s) rather than left untouched.
+ *
+ * See the [derivation](./verlet-stepper.derivation.md) for the backward-error-analysis
+ * argument behind the bounded (rather than secular) energy error.
  */
 export class VerletStepper implements Stepper {
   readonly info: {

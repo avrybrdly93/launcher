@@ -18,6 +18,9 @@ const HEUN_TABLEAU: TwoStageTableau = { c2: 1, a21: 1, b1: 0.5, b2: 0.5 };
  * work-precision slope, offset intercept). A thin wrapper over the shared
  * {@link stepTwoStageRK2} kernel with {@link HEUN_TABLEAU}; `step` itself
  * allocates nothing beyond the buffers preallocated in `init` (ADR-004).
+ *
+ * See the [derivation](./heun-rk2-stepper.derivation.md) for the full order-condition
+ * expansion this tableau satisfies.
  */
 export class HeunRK2Stepper implements Stepper {
   readonly info = { id: "heun-rk2", order: 2, fsal: false, symplectic: false } as const;

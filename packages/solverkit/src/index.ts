@@ -1,5 +1,6 @@
 // L1 numerics: steppers, adaptive controllers, dense output, event detection,
 // root finding.
+/** This package's name, for diagnostics that need to identify their source layer. */
 export const SOLVERKIT_PACKAGE = "@ballista/solverkit";
 
 export * from "./types.js";

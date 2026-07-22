@@ -122,7 +122,9 @@ export interface Stepper {
   interpolant?(theta: number, out: Float64Array): void;
 }
 
+/** A {@link Stepper}'s registry name, e.g. `"classical-rk4"` or `"dopri5"` (§5.2 `ScenarioSpec` round-tripping). */
 export type StepperId = string;
+/** Step-size controller strategy (§4.5): `"I"` is the elementary eq. 4.10 controller, `"PI"` the chatter-suppressing PI variant. */
 export type ControllerKind = "I" | "PI";
 
 /**
@@ -224,7 +226,10 @@ export interface SolveReport {
  */
 export interface Sink {
   readonly id: string;
+  /** Called once before the first step, with the initial condition. */
   start?(model: Model, t0: number, y0: Float64Array): void;
+  /** Called once per accepted step, with the state just written to `yNext`/`out`. */
   accept?(t: number, y: Float64Array, step: StepResult): void;
+  /** Called once after the solve concludes, whether it succeeded, failed, or was canceled. */
   finish?(report: SolveReport): void;
 }

@@ -38,6 +38,7 @@ export type DenseOutputCoefficients = readonly (readonly number[])[];
 /** Scratch buffers an {@link EmbeddedRKStepper} preallocates once in `init` (ADR-004). */
 export type EmbeddedRKBuffers = ExplicitRKBuffers;
 
+/** Allocates an {@link EmbeddedRKBuffers} sized for a model of dimension `dim` and a tableau with `stages` stages. */
 export function createEmbeddedRKBuffers(dim: number, stages: number): EmbeddedRKBuffers {
   return createExplicitRKBuffers(dim, stages);
 }

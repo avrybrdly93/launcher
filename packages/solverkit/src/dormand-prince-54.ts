@@ -13,6 +13,9 @@ import type { Stepper, StepperInfo } from "./types.js";
  * `a[6]`) with a trailing 0 -- the defining FSAL property, since $c_7=1$
  * makes stage 7 evaluate $f$ at exactly $(t+h, \mathbf y_{k+1})$, the same
  * point stage 0 of the *next* step would evaluate at.
+ *
+ * See the [derivation](./dormand-prince-54.derivation.md) for the embedded-pair error
+ * estimate, the eq. 4.9-4.10 step-size controller, and the dense-output interpolant (§4.9).
  */
 export const DOPRI5_TABLEAU: EmbeddedButcherTableau = {
   c: [0, 1 / 5, 3 / 10, 4 / 5, 8 / 9, 1, 1],

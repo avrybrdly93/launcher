@@ -80,7 +80,7 @@ function roundToFloat32(y: Float64Array): void {
  * step-size controller for the adaptive path: `"I"` (default, P2.27) or
  * `"PI"` (P2.28) -- the PI variant additionally blends in the previous
  * accepted step's scaled error (`errPrev`, threaded across the loop and
- * seeded with {@link INITIAL_PI_ERROR}), which damps accept/reject chatter
+ * seeded with `INITIAL_PI_ERROR`), which damps accept/reject chatter
  * on scenarios where the local error swings sharply step to step.
  *
  * Two typed-failure guards beyond P2.03's non-finite-state check (P2.29,
@@ -124,7 +124,7 @@ function roundToFloat32(y: Float64Array): void {
  * copy cannot recover them, since the stepper's addition has already
  * rounded by the time `integrate` sees `out.yNext`).
  *
- * Implemented as a generator ({@link runIntegrationSteps}) that `yield`s
+ * Implemented as a generator (`runIntegrationSteps`) that `yield`s
  * once per accepted step: `integrate` itself just drains it in a tight
  * loop, while `beginIntegration`/`IntegrationContinuation.runSlice` (P2.40)
  * pause and resume the *exact same* generator across separate calls. A

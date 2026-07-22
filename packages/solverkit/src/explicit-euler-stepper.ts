@@ -14,6 +14,9 @@ import type { Stepper, StepResult } from "./types.js";
  * a plain `+`, which is what actually lets the rounding-dominated branch of
  * the V-curve flatten (the blueprint ties that demo specifically to "the
  * Euler curve").
+ *
+ * See the [derivation](./explicit-euler-stepper.derivation.md) for the Taylor-series order
+ * proof and the three in-platform pitfalls (energy growth, conditional stability, cost).
  */
 export class ExplicitEulerStepper implements Stepper {
   readonly info = { id: "explicit-euler", order: 1, fsal: false, symplectic: false } as const;

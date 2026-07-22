@@ -1245,8 +1245,8 @@
       "estMinutes": 30,
       "difficulty": "E",
       "validation": "docs build; each stepper links its derivation",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added packages/solverkit/typedoc.json (mirrors engine's: excludePrivate/excludeInternal, notExported/invalidLink/notDocumented validation, treatWarningsAsErrors) with projectDocuments: [\"src/*.derivation.md\"]. Wrote 9 literate derivation pages co-located with each stepper source file (explicit-euler, semi-implicit-euler, heun-rk2, midpoint-rk2, classical-rk4, bogacki-shampine-32, dormand-prince-54, verlet, backward-euler), each transcribing its blueprint §4 derivation (order-condition algebra, Butcher rooted-tree sketch for RK4, embedded-pair eq. 4.8-4.10 for BS32/DOPRI5, A-stability/Newton iteration for backward Euler, symplectic backward-error argument for semi-implicit-Euler/Verlet). Each stepper's top TSDoc comment links its page via a relative markdown link (typedoc rewrites these through projectDocuments; invalidLink+treatWarningsAsErrors makes a broken link fail the docs build). Fixed pre-existing undocumented-symbol/broken-link warnings elsewhere in the package (SOLVERKIT_PACKAGE, StepperId, ControllerKind, Sink call signatures, the three create*Buffers factories, createCancellationSource's inline return type, three internal-symbol {@link}s) so treatWarningsAsErrors passes cleanly. Added \"docs\" script + typedoc devDependency to solverkit's package.json, wired a \"SolverKit API docs\" CI step (mirroring the existing engine one). Validation: pnpm --filter @ballista/solverkit run docs builds clean (0 errors, 0 warnings); packages/solverkit/src/docs-derivation-links.test.ts asserts each of the 9 stepper files links an existing co-located *.derivation.md and that typedoc.json wires projectDocuments -- verified the generated HTML actually contains the resolved cross-links to each stepper's page."
     },
     {
       "id": "P2.52",

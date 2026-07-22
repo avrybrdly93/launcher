@@ -14,6 +14,9 @@ import type { Stepper, StepResult } from "./types.js";
  * {@link stepExplicitRK} kernel (P2.12) with {@link RK4_TABLEAU}; `step`
  * itself allocates nothing beyond the buffers preallocated in `init`
  * (ADR-004).
+ *
+ * See the [derivation](./classical-rk4-stepper.derivation.md) for the rooted-tree order
+ * theory and the Butcher-barrier stage-count fact.
  */
 export class ClassicalRK4Stepper implements Stepper {
   readonly info = { id: "classical-rk4", order: 4, fsal: false, symplectic: false } as const;

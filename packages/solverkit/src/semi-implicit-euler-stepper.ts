@@ -23,6 +23,9 @@ import type { Stepper, StepResult } from "./types.js";
  * linear potential like pure uniform gravity has no periodic recurrence to
  * exploit, so the qualitative benefit is demonstrated here on an oscillator
  * fixture, not a single unbounded ballistic arc (see the test file).
+ *
+ * See the [derivation](./semi-implicit-euler-stepper.derivation.md) for the symplectic
+ * shear-composition argument behind the bounded-energy-error claim.
  */
 export class SemiImplicitEulerStepper implements Stepper {
   readonly info = { id: "semi-implicit-euler", order: 1, fsal: false, symplectic: true } as const;

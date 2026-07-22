@@ -54,7 +54,7 @@ const DEFAULT_INITIAL_CAPACITY = 64;
  * channel. `power` (dE/dt = F_aero.v for the energy invariant) is
  * quadrature-accumulated per accepted step at Gauss-Legendre nodes whose
  * count is chosen so the quadrature's own local error matches or exceeds
- * the stepper's local truncation order (see {@link gaussNodeCountForOrder}) --
+ * the stepper's local truncation order (see `gaussNodeCountForOrder`) --
  * otherwise the residual would just measure quadrature error instead of
  * solver error. This requires evaluating the state *inside* each step, so
  * it reads `stepper.interpolant` (dense output) when available; a stepper
