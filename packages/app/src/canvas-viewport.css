@@ -1,0 +1,9 @@
+/* P3.05: the canvas fills its app-shell region; sizing (backing store vs
+ * CSS box) is handled imperatively by bootstrapCanvas, not by these rules. */
+.canvas-viewport {
+  display: block;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
