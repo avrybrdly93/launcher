@@ -1333,8 +1333,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "full trajectory visible for all presets",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added packages/viz/src/auto-fit-camera.ts, built on P3.06's Camera2D: computeBounds(xs,ys) (axis-aligned min/max of parallel x/y channel arrays, e.g. trajectory.channels[0]/[1]) and fitCameraToBounds(bounds,viewport,options) (independent x/y scale from each axis's own padded span -- true anisotropic fit, not a single uniform scale clamped to the tighter axis -- with a paddingFraction default of 10% margin per side and a minSpan default of 1 world unit guarding a degenerate zero-width axis, e.g. a dead-straight vertical drop's x span, from an infinite/absurd scale). Also encodes §6.1's 'user pan/zoom disables auto-fit until reset' as a small pure state machine -- CameraViewState={camera,autoFit}, fitToView (initial fit / what the reset button calls), applyManualCamera (installs a user-driven camera, sets autoFit=false), followBoundsIfAutoFitting (re-fits on new bounds/viewport only while still auto-fitting, a no-op once the user has taken over) -- since P3.02-P3.04's draft/committed store precedent is exactly this shape (plain data + pure transition functions, no hidden mutable object). auto-fit-camera.test.ts (14 tests) covers computeBounds edge cases (empty throws, single point), the anisotropic/padding/minSpan fitCameraToBounds behavior, the auto-fit/manual/reset state transitions, and the literal validation criterion: for every PRESET_SCENARIOS entry, actually integrates it via @ballista/runtime's createSimulationSession (real physics, not synthetic bounds), computes bounds from the resulting trajectory's x/y channels, fits a camera, and asserts every recorded (x,y) sample's worldToScreen position falls inside an 800x600 viewport for all 7 presets -- including the dust-grain (stiff, tiny-scale) and cannonball (large-scale) extremes the anisotropic scaling exists for."
     },
     {
       "id": "P3.08",
