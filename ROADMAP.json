@@ -1322,8 +1322,8 @@
       "estMinutes": 30,
       "difficulty": "M",
       "validation": "round-trip transform property test; zoom keeps cursor point fixed",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added packages/viz/src/camera2d.ts: Camera2DState = {centerX, centerY, scaleX, scaleY} (independent x/y scales -- anisotropic zoom, \u00a76.1's 'essential when range >> height'), plus pure worldToScreen/screenToWorld (world y-up <-> screen y-down, the one place that flip lives so rendering and hover-picking share it), panByScreenDelta (shifts every rendered point's screen position by exactly the drag delta), and zoomAtScreenPoint (scales both axes by the same factor about a screen cursor point, solving analytically for the new center so the world point under the cursor stays under the cursor -- not iterative/approximate). Added fast-check as a viz devDependency (already used the same way in engine/solverkit) for camera2d.test.ts's two literal validation-criterion properties, 1000 runs each: screenToWorld/worldToScreen are exact inverses of each other across random camera+viewport+point; zoomAtScreenPoint keeps the cursor's world anchor point's screen position fixed across random camera+viewport+zoom-factor. Also covers: camera-center maps to viewport-center, the y-flip direction, independent x/y scaling, pan leaves scale unchanged, zoom preserves the scaleX:scaleY anisotropy ratio, and a directional sanity check that zooming in about the viewport center pushes off-center points further outward on screen."
     },
     {
       "id": "P3.07",

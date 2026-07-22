@@ -4,3 +4,4 @@
 export const VIZ_PACKAGE = "@ballista/viz";
 
 export * from "./canvas-bootstrap.js";
+export * from "./camera2d.js";
