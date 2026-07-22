@@ -8,3 +8,4 @@ export * from "./camera2d.js";
 export * from "./auto-fit-camera.js";
 export * from "./axes-layer.js";
 export * from "./trajectory-layer.js";
+export * from "./trajectory-decimation.js";

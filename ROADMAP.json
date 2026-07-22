@@ -1366,8 +1366,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "50k-pt stiff run draws < 1 ms; max deviation < 0.5 px (test vs full path)",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "rdpDecimateIndices (packages/viz/src/trajectory-decimation.ts): iterative (explicit typed-array stack, not recursive) screen-space RDP, tolerance 0.5px default. Perf-critical inner loop compares squared cross-products so sqrt/division run once per segment, not once per point; buildDecimatedTrajectoryPath inlines the world->screen transform to avoid a per-point object allocation. Validated: 50k-point stiff-solve-shaped trajectory (tiny steps during a fast transient, relaxing as the curve smooths) decimates+traces in <1ms JIT-steady-state (best-of-15 after 20 warmup calls); max deviation of dropped points from the simplified polyline measured <0.5px+1e-9 on a separate synthetic stiff-shaped signal. The 'only recompute on zoom change' caching this task's title references is the stateful wiring P3.11 (offscreen-canvas caching + dirty flags) owns -- this task delivers the pure, stateless decimation step it will call."
     },
     {
       "id": "P3.11",
