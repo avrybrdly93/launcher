@@ -1,0 +1,68 @@
+/*
+ * App shell grid (P3.01): canvas center, control dock right, analysis
+ * drawer bottom. Below the `--app-shell-breakpoint`, the dock and drawer
+ * drop out of the fixed-viewport grid and back into normal document flow
+ * so the page itself is the only scroll surface on small screens -- two
+ * independent nested `overflow:auto` regions plus a page scrollbar is
+ * exactly the "scroll trap" the validation criterion rules out.
+ */
+:root {
+  --app-shell-breakpoint: 768px;
+  --app-shell-dock-width: 320px;
+}
+
+.app-shell {
+  display: grid;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto auto;
+  grid-template-areas:
+    "canvas"
+    "dock"
+    "drawer";
+}
+
+.app-shell__canvas {
+  grid-area: canvas;
+  min-height: 60vh;
+  position: relative;
+}
+
+.app-shell__dock {
+  grid-area: dock;
+  min-height: 0;
+}
+
+.app-shell__drawer {
+  grid-area: drawer;
+  min-height: 0;
+}
+
+@media (min-width: 768px) {
+  .app-shell {
+    height: 100dvh;
+    overflow: hidden;
+    grid-template-columns: minmax(0, 1fr) var(--app-shell-dock-width);
+    grid-template-rows: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "canvas dock"
+      "drawer drawer";
+  }
+
+  .app-shell__canvas {
+    min-height: 0;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .app-shell__dock {
+    overflow-y: auto;
+  }
+
+  .app-shell__drawer {
+    overflow-y: auto;
+    max-height: 33vh;
+  }
+}

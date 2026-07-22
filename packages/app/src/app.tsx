@@ -1,8 +1,11 @@
+import { AppShell } from "./app-shell.js";
+
 export function App() {
   return (
-    <main>
-      <h1>Ballista</h1>
-      <p>Phase 0 bootstrap: app shell renders. Physics engine lands in Phase 1.</p>
-    </main>
+    <AppShell
+      canvas={<p>Canvas viewport lands in P3.05+.</p>}
+      controlDock={<p>Control dock lands in P3.02+.</p>}
+      analysisDrawer={<p>Analysis drawer lands in later Phase 3 tasks.</p>}
+    />
   );
 }

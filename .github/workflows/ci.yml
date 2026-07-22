@@ -20,6 +20,9 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium firefox
+
       - name: Typecheck
         run: pnpm typecheck
 
@@ -34,9 +37,6 @@ jobs:
 
       - name: Benchmark regression check (soft warn)
         run: pnpm bench:solverkit
-
-      - name: Install Playwright browsers
-        run: pnpm exec playwright install --with-deps chromium firefox
 
       - name: Cross-engine drift check (soft warn)
         run: pnpm check:cross-engine-drift

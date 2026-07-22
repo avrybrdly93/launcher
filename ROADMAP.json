@@ -1267,8 +1267,8 @@
       "estMinutes": 25,
       "difficulty": "E",
       "validation": "responsive at 1280/1920/mobile; no scroll traps",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added packages/app/src/app-shell.{tsx,css}: AppShell composes canvas/control-dock/analysis-drawer regions via CSS Grid. >=768px (covers 1280/1920): fixed-viewport grid, canvas center, dock 320px column on the right, drawer spanning the bottom, dock/drawer independently overflow-y:auto. <768px (mobile): drops out of the fixed-viewport grid back into normal document flow (single page-level scroll surface) to avoid the classic mobile nested-scroll trap. App() now renders AppShell with placeholder region content (real content lands in P3.02+/P3.05+). Validation is a real-browser Playwright test (app-shell.responsive.test.ts) since jsdom doesn't run layout: builds the app via vite's build() API, serves it over a loopback HTTP origin via vite's preview() (file:// URLs block type=module scripts), then at 1280x800/1920x1080/375x812 checks no horizontal overflow, all three regions render with nonzero area, desktop dock-right-of-canvas/drawer-along-bottom geometry, and on mobile that the drawer becomes reachable by scrolling the page itself. Added playwright as an explicit packages/app devDependency (was only resolving via hoisting from the root). Reordered .github/workflows/ci.yml to install Playwright browsers before the Test step (previously installed only after, for the cross-engine-drift check), since this new test now also needs it. Note: discovered pnpm verify (typecheck/lint/lint:deps/test) is green on main, but three CI steps (bench:solverkit, check:cross-engine-drift, check-bundle-size) reference a scripts/ directory that does not exist in the current tree despite being referenced by package.json and having existed in the P2.05-era history -- likely lost in a prior history rewrite (origin/main required a forced ref update on fetch this run). Out of scope for this task; flagged for a future task to either restore or re-author those scripts."
     },
     {
       "id": "P3.02",

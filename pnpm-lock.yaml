@@ -85,6 +85,9 @@ importers:
       '@preact/preset-vite':
         specifier: ^2.9.1
         version: 2.10.5(@babel/core@7.29.7)(preact@10.29.3)(rollup@4.62.2)(vite@5.4.21(@types/node@22.20.0))
+      playwright:
+        specifier: ^1.61.1
+        version: 1.61.1
       typescript:
         specifier: ^5.6.3
         version: 5.9.3
