@@ -6,3 +6,4 @@ export const VIZ_PACKAGE = "@ballista/viz";
 export * from "./canvas-bootstrap.js";
 export * from "./camera2d.js";
 export * from "./auto-fit-camera.js";
+export * from "./axes-layer.js";

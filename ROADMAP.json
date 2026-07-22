@@ -1344,8 +1344,8 @@
       "estMinutes": 30,
       "difficulty": "M",
       "validation": "tick count 4\u20138 across 6 zoom decades (test)",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Adaptive 1-2-5 tick generation (computeNiceStep/computeAxisTicks), unit-suffixed label formatting, and a thin drawAxesLayer grid+label renderer over a minimal canvas surface (packages/viz/src/axes-layer.ts). Tick-count bound (4-8) verified in axes-layer.test.ts by sweeping 9 decades of span (1e-3..1e6) x multiple offsets."
     },
     {
       "id": "P3.09",
