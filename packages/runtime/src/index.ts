@@ -5,3 +5,5 @@ export * from "./scenario-store.js";
 export * from "./result-store.js";
 export * from "./playback-store.js";
 export * from "./ui-store.js";
+export * from "./scenario-resolver.js";
+export * from "./simulation-session.js";
