@@ -12,7 +12,8 @@
   "dependencies": {
     "@ballista/engine": "workspace:*",
     "@ballista/solverkit": "workspace:*",
-    "@ballista/analysis": "workspace:*"
+    "@ballista/analysis": "workspace:*",
+    "nanostores": "^0.11.3"
   },
   "devDependencies": {
     "typescript": "^5.6.3",
