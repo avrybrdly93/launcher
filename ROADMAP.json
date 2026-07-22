@@ -1355,8 +1355,8 @@
       "estMinutes": 20,
       "difficulty": "E",
       "validation": "drag-free preset renders parabola",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "buildTrajectoryPath (packages/viz/src/trajectory-layer.ts) traces columnar x/y channels through the camera transform into a minimal PathBuilder interface (moveTo/lineTo), one moveTo + one lineTo per point; drawTrajectoryLayer is the thin browser-only Path2D wrapper. No decimation yet (P3.10). Validation test runs the drag-free preset, builds the screen-space path, and least-squares-fits a quadratic to it: R^2 > 1-1e-6 (an affine camera transform of a true parabola stays exactly a parabola) with a non-degenerate quadratic coefficient."
     },
     {
       "id": "P3.10",
