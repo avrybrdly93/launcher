@@ -11,6 +11,7 @@
     "build": "pnpm -r --workspace-concurrency 1 run build",
     "typecheck": "tsc -b",
     "test": "vitest run",
+    "update-goldens": "UPDATE_GOLDENS=1 vitest run packages/validation/src/golden-trajectories.test.ts",
     "bench:solverkit": "node scripts/check-benchmark-regression.mjs",
     "check:cross-engine-drift": "node scripts/measure-cross-engine-drift.mjs",
     "lint": "eslint .",
