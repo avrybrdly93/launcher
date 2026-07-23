@@ -1388,8 +1388,8 @@
       "estMinutes": 20,
       "difficulty": "E",
       "validation": "marker position matches interpolant to sub-pixel",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "packages/viz/src/projectile-layer.ts: the recorded Trajectory carries no interpolation coefficients past the solve (only planarProjectileModel's [x,y,vx,vy] columnar rows), but since vx/vy literally are dx/dt, dy/dt, sampleProjectilePosition reuses P2.31's hermiteInterpolant directly on the bracketing recorded rows -- reproducing the live solver's own dense output for any fixed-step method, not approximating it. bracketStepIndex binary-searches the recorded times; theta is clamped to [0,1] so times outside the recorded span hold at the edge sample instead of extrapolating. Validated against ground truth: a second identical solve (fixed-h RK4 + HermiteDenseOutputStepper) with a probe Sink that calls stepper.interpolant directly on the accepted step bracketing a fixed playbackTime -- reconstructed position matches to 1e-10, well inside sub-pixel at any realistic camera scale."
     },
     {
       "id": "P3.13",

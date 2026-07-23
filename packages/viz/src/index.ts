@@ -10,3 +10,4 @@ export * from "./axes-layer.js";
 export * from "./trajectory-layer.js";
 export * from "./trajectory-decimation.js";
 export * from "./static-layer-cache.js";
+export * from "./projectile-layer.js";
