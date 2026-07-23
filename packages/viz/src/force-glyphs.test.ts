@@ -2,10 +2,19 @@ import { describe, expect, it } from "vitest";
 import { PRESET_SCENARIOS } from "@ballista/engine";
 import { resolveModel } from "@ballista/runtime";
 import {
+  ClassicalRK4Stepper,
+  HermiteDenseOutputStepper,
+  TrajectoryRecorder,
+  integrate,
+  type SolverConfig,
+  type Stepper,
+} from "@ballista/solverkit";
+import {
   computeForceGlyphs,
   createForceGlyphScratch,
   DEFAULT_FORCE_GLYPH_SCALE,
   forceGlyphLegendTicks,
+  forceGlyphsAtPlayhead,
   logScaleGlyphLength,
   worldForceDirectionToScreen,
 } from "./force-glyphs.js";
@@ -91,6 +100,79 @@ describe("computeForceGlyphs: glyph directions verified against rhs (P3.14 valid
 
     expect(second.resultant.fx).toBe(first.resultant.fx);
     expect(second.resultant.fy).toBe(first.resultant.fy);
+  });
+});
+
+describe("forceGlyphsAtPlayhead: badge equals |F| channel at playhead (P3.22 validation criterion)", () => {
+  it("at a playbackTime exactly on a recorded row, reproduces computeForceGlyphs run directly on that row's own channels", () => {
+    const { model, ctx, y0, forces } = resolveModel(GOLF_DRIVE);
+    const stepper: Stepper = new HermiteDenseOutputStepper(new ClassicalRK4Stepper());
+    const cfg: SolverConfig = { stepper: "classical-rk4", h: 0.01, maxSteps: 100_000 };
+    const recorder = new TrajectoryRecorder();
+    integrate(model, ctx, y0, [0, 2], cfg, stepper, [recorder]);
+    const trajectory = recorder.trajectory;
+
+    expect(trajectory.nSteps).toBeGreaterThan(10);
+    const rowIndex = Math.floor(trajectory.nSteps / 3);
+    const playbackTime = trajectory.t[rowIndex]!;
+
+    const scratchA = createForceGlyphScratch(model.dim);
+    const viaPlayhead = forceGlyphsAtPlayhead(
+      model,
+      forces,
+      trajectory,
+      playbackTime,
+      ctx,
+      scratchA,
+    );
+
+    const rowState = new Float64Array([
+      trajectory.channels[0]![rowIndex]!,
+      trajectory.channels[1]![rowIndex]!,
+      trajectory.channels[2]![rowIndex]!,
+      trajectory.channels[3]![rowIndex]!,
+    ]);
+    const scratchB = createForceGlyphScratch(model.dim);
+    const direct = computeForceGlyphs(model, forces, playbackTime, rowState, ctx, scratchB);
+
+    expect(viaPlayhead).toEqual(direct);
+  });
+
+  it("a playbackTime between recorded rows snaps to (never interpolates past) the nearer row's exact magnitude", () => {
+    const { model, ctx, y0, forces } = resolveModel(SHOT_PUT);
+    const stepper: Stepper = new HermiteDenseOutputStepper(new ClassicalRK4Stepper());
+    const cfg: SolverConfig = { stepper: "classical-rk4", h: 0.05, maxSteps: 100_000 };
+    const recorder = new TrajectoryRecorder();
+    integrate(model, ctx, y0, [0, 2], cfg, stepper, [recorder]);
+    const trajectory = recorder.trajectory;
+
+    const rowIndex = 5;
+    const nearTime = trajectory.t[rowIndex]! + 1e-4; // well within [t[5], t[6]), closer to row 5
+
+    const scratch = createForceGlyphScratch(model.dim);
+    const glyphSet = forceGlyphsAtPlayhead(model, forces, trajectory, nearTime, ctx, scratch);
+
+    const rowState = new Float64Array([
+      trajectory.channels[0]![rowIndex]!,
+      trajectory.channels[1]![rowIndex]!,
+      trajectory.channels[2]![rowIndex]!,
+      trajectory.channels[3]![rowIndex]!,
+    ]);
+    const directScratch = createForceGlyphScratch(model.dim);
+    const direct = computeForceGlyphs(
+      model,
+      forces,
+      trajectory.t[rowIndex]!,
+      rowState,
+      ctx,
+      directScratch,
+    );
+
+    expect(glyphSet.resultant.magnitude).toBe(direct.resultant.magnitude);
+    for (const glyph of glyphSet.forces) {
+      const directGlyph = direct.forces.find((f) => f.id === glyph.id)!;
+      expect(glyph.magnitude).toBe(directGlyph.magnitude);
+    }
   });
 });
 

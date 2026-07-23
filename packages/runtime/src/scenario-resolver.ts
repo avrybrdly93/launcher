@@ -48,6 +48,14 @@ export function resolveForce(id: string): ForceModel {
   return factory();
 }
 
+/**
+ * Every force id `resolveForce` knows how to build, in this registry's own
+ * declared order -- the canonical list a Forces panel (P3.22) enumerates
+ * toggles from, rather than a separately maintained id list drifting out of
+ * sync with `FORCE_FACTORIES`.
+ */
+export const KNOWN_FORCE_IDS: readonly string[] = Object.keys(FORCE_FACTORIES);
+
 export interface ResolvedModel {
   readonly model: Model;
   readonly ctx: EvalContext;

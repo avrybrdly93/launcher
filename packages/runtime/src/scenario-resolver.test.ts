@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { PRESET_SCENARIOS } from "@ballista/engine";
 import { ClassicalRK4Stepper, integrate, TrajectoryRecorder } from "@ballista/solverkit";
-import { resolveModel, resolveSolverConfig, resolveStepper } from "./scenario-resolver.js";
+import {
+  KNOWN_FORCE_IDS,
+  resolveForce,
+  resolveModel,
+  resolveSolverConfig,
+  resolveStepper,
+} from "./scenario-resolver.js";
 
 describe("resolveForce / resolveModel", () => {
   it("resolves every force id used across the preset library without throwing", () => {
@@ -33,6 +39,21 @@ describe("resolveForce / resolveModel", () => {
         model: { id: "planar-projectile", forceIds: ["not-a-real-force"] },
       }),
     ).toThrow(/not-a-real-force/);
+  });
+});
+
+describe("KNOWN_FORCE_IDS", () => {
+  it("every entry resolves via resolveForce without throwing", () => {
+    for (const id of KNOWN_FORCE_IDS) {
+      expect(() => resolveForce(id)).not.toThrow();
+    }
+  });
+
+  it("covers every force id used across the preset library", () => {
+    const usedIds = new Set(PRESET_SCENARIOS.flatMap((s) => s.model.forceIds));
+    for (const id of usedIds) {
+      expect(KNOWN_FORCE_IDS).toContain(id);
+    }
   });
 });
 

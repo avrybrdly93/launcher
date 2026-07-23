@@ -25,8 +25,10 @@
  */
 
 import type { EvalContext, ForceModel, Model, MutVec2 } from "@ballista/engine";
+import type { Trajectory } from "@ballista/solverkit";
 import type { Camera2DState, Viewport } from "./camera2d.js";
 import { worldToScreen } from "./camera2d.js";
+import { nearestRowIndex } from "./hud-readout.js";
 
 /** One force's glyph data at a sampled state: its exact (fx, fy) and derived magnitude. */
 export interface ForceGlyph {
@@ -47,11 +49,13 @@ export interface ForceGlyphScratch {
   readonly rhsOut: Float64Array;
   /** `ForceModel.accumulate`'s output param is a plain `MutVec2` tuple, not a `Float64Array` (see `forces.ts`). */
   readonly perForce: MutVec2;
+  /** State-vector scratch {@link forceGlyphsAtPlayhead} fills from a `Trajectory`'s recorded channels before delegating to {@link computeForceGlyphs}. */
+  readonly y: Float64Array;
 }
 
 /** Allocates a {@link ForceGlyphScratch} sized for a model of the given dimension; call once (e.g. alongside the layer's other per-mount state). */
 export function createForceGlyphScratch(dim: number): ForceGlyphScratch {
-  return { rhsOut: new Float64Array(dim), perForce: [0, 0] };
+  return { rhsOut: new Float64Array(dim), perForce: [0, 0], y: new Float64Array(dim) };
 }
 
 function magnitudeOf(fx: number, fy: number): number {
@@ -102,6 +106,36 @@ export function computeForceGlyphs(
       magnitude: magnitudeOf(resultantFx, resultantFy),
     },
   };
+}
+
+/**
+ * The {@link ForceGlyphSet} at `playbackTime`, read directly from the
+ * nearest recorded row of `trajectory` (mirrors `hud-readout.ts`'s
+ * `hudReadoutAtPlayhead`: no interpolation, since there's no recorded
+ * derivative to interpolate a force *from* -- a force depends on velocity,
+ * which the state channels give exactly at each recorded row, but nothing
+ * in between). This is the Forces panel's (P3.22) "badge equals |F| channel
+ * at playhead" validation criterion: the badge is whatever this function
+ * returns for the row nearest the scrub position, not a separately
+ * re-derived number.
+ */
+export function forceGlyphsAtPlayhead(
+  model: Model,
+  forces: readonly ForceModel[],
+  trajectory: Trajectory,
+  playbackTime: number,
+  ctx: EvalContext,
+  scratch: ForceGlyphScratch,
+): ForceGlyphSet {
+  const index = nearestRowIndex(trajectory.t, playbackTime);
+  const t = trajectory.t[index]!;
+  const { channels } = trajectory;
+
+  for (let c = 0; c < channels.length; c++) {
+    scratch.y[c] = channels[c]![index]!;
+  }
+
+  return computeForceGlyphs(model, forces, t, scratch.y, ctx, scratch);
 }
 
 /** Log-scale configuration for {@link logScaleGlyphLength}/{@link forceGlyphLegendTicks}. */

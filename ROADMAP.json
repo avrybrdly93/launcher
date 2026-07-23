@@ -1498,8 +1498,8 @@
       "estMinutes": 20,
       "difficulty": "E",
       "validation": "badge equals |F| channel at playhead",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added packages/ui/src/forces-panel.tsx + forces-panel-logic.ts: one toggle+badge row per KNOWN_FORCE_IDS (a new export added to packages/runtime/src/scenario-resolver.ts, the canonical id list resolveForce already maintained -- ResolvedModel's own doc comment had flagged this exact task as its future reader). Toggling commits an updated forceIds array (toggleForceId, refusing to remove the last remaining force since ScenarioSpec.model.forceIds must stay non-empty); the badge reads a force's magnitude straight off a caller-supplied ForceGlyphSet. Added forceGlyphsAtPlayhead to packages/viz/src/force-glyphs.ts (mirrors hud-readout.ts's hudReadoutAtPlayhead: nearest-recorded-row snap, no interpolation, reusing its nearestRowIndex) as the Trajectory-facing entry point that produces that ForceGlyphSet from a trajectory + playbackTime -- this task's literal validation criterion, covered directly in force-glyphs.test.ts (viaPlayhead deep-equals computeForceGlyphs run on the same row's own channels) and end-to-end in forces-panel.test.tsx (a real golf-drive trajectory's badge text matches glyph.magnitude.toPrecision(3) exactly). ForceGlyphScratch gained a `y` scratch buffer for this (mirrors HudReadoutScratch's shape)."
     },
     {
       "id": "P3.23",

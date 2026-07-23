@@ -13,3 +13,5 @@ export * from "./projectile-panel-logic.js";
 export * from "./projectile-panel.js";
 export * from "./environment-panel-logic.js";
 export * from "./environment-panel.js";
+export * from "./forces-panel-logic.js";
+export * from "./forces-panel.js";
