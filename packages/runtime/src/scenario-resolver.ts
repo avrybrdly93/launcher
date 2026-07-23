@@ -52,6 +52,15 @@ export interface ResolvedModel {
   readonly model: Model;
   readonly ctx: EvalContext;
   readonly y0: Float64Array;
+  /**
+   * The live force instances wired into `model`, in registration order (not
+   * `model`'s own id-sorted internal registry order, P1.17) -- `Model`
+   * itself never exposes its closed-over force list, so any consumer
+   * needing per-force introspection (e.g. `@ballista/viz`'s force glyphs,
+   * P3.14, or the eventual Forces panel, P3.22) reads it from here instead
+   * of re-deriving it from `spec.model.forceIds`.
+   */
+  readonly forces: readonly ForceModel[];
 }
 
 /** Builds a fresh Model/EvalContext/initial-state triple from a `ScenarioSpec` (mirrors `golden-trajectory-store.ts`'s pipeline). */
@@ -65,7 +74,7 @@ export function resolveModel(spec: ScenarioSpec): ResolvedModel {
   const ic = spec.initialConditions;
   const y0 = new Float64Array([ic.x0, ic.y0, ic.vx0, ic.vy0]);
 
-  return { model, ctx, y0 };
+  return { model, ctx, y0, forces };
 }
 
 /**
