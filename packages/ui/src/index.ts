@@ -15,3 +15,5 @@ export * from "./environment-panel-logic.js";
 export * from "./environment-panel.js";
 export * from "./forces-panel-logic.js";
 export * from "./forces-panel.js";
+export * from "./solver-panel-logic.js";
+export * from "./solver-panel.js";

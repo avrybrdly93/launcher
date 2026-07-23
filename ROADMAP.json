@@ -1509,8 +1509,8 @@
       "estMinutes": 20,
       "difficulty": "E",
       "validation": "invalid combos (h with adaptive) prevented by schema",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added packages/ui/src/solver-panel.tsx + solver-panel-logic.ts. Method <select> uses <optgroup> for Fixed-step/Adaptive (only the two groups scenario-resolver.ts's STEPPER_FACTORIES can actually resolve today -- geometric/implicit steppers exist in solverkit but aren't wired into the runtime resolver yet, per that file's own P4.10 note, so they're out of this panel's scope). integrate() (@ballista/solverkit) decides adaptive vs fixed purely from whether cfg.rtol is set, independent of cfg.h, and throws if an adaptive request targets a non-embedded-pair stepper -- so 'h with adaptive' is prevented structurally, not by refusing a bad value after the fact: fixedSolverPanelSchema (h only) and adaptiveSolverPanelSchema (rtol/atol/controller only) are disjoint, and toSolverConfigForStepper always rebuilds the committed SolverConfigSpec from only the new group's fields on a group-crossing switch (same-group switches, e.g. explicit-euler -> classical-rk4, just swap .stepper and keep existing values). Covered in solver-panel-logic.test.ts (toSolverConfigForStepper never leaves both h and rtol/atol/controller present) and solver-panel.test.tsx (a fixed stepper renders only the h row, an adaptive stepper renders only rtol/atol/controller, and switching between groups commits a spec missing the old group's fields entirely)."
     },
     {
       "id": "P3.24",
