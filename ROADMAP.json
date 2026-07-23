@@ -1487,8 +1487,8 @@
       "estMinutes": 25,
       "difficulty": "E",
       "validation": "wind model swap regenerates its param controls",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added packages/ui/src/environment-panel.tsx + environment-panel-logic.ts (gravity/atmosphere/wind kind selectors + schema-driven params, mirroring ProjectilePanel's P3.20 preset-swap shape) plus checkbox-control-row.tsx (wires up P3.18's previously-unused 'checkbox' ControlKind for the altitude-dependent-gravity toggle). Gravity preset dropdown (Earth/Moon/Mars, per blueprint §3.2) sets g0; atmosphere kind select (constant/exponential) and wind kind select (zero/uniform/log-profile/sinusoidal-gust/gaussian-vortex/gridded) each swap in a freshly-seeded EnvironmentSpec sub-object via toAtmosphereSpec/toWindSpec, which regenerates generateControlDescriptors for that kind's own params -- this task's validation criterion, covered directly in environment-panel-logic.test.ts and via full-panel swap tests in environment-panel.test.tsx (e.g. zero -> uniform rendering wx/wy, uniform -> gaussian-vortex rendering circulation/coreRadius/centerX/centerY). Gridded wind (array grid data) intentionally gets no editable param controls, mirroring ProjectilePanel's skip of a tabulated-Reynolds drag coefficient. All new per-kind schemas live in the ui package (parallel to launch-schema.ts / customProjectileParamsSchema), not added to the engine's wire schemas."
     },
     {
       "id": "P3.22",
