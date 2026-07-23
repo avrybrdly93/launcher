@@ -1443,8 +1443,8 @@
       "estMinutes": 25,
       "difficulty": "M",
       "validation": "picked index correct under zoom (test with synthetic click)",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "packages/viz/src/hover-picking.ts: pickNearestTrajectoryPoint measures distance in screen space (through the same worldToScreen every renderer uses), not world space -- required under Camera2D's anisotropic scaling, where world-space nearest and screen-space nearest can disagree. trajectoryPointTooltip builds the full-state tooltip from nothing but the recorded Trajectory plus the model's declared ChannelMeta (name/unit) -- no Model/EvalContext, no recomputed physics, per schema.ts's \"Viz consumes only this plus recorded channel data\". Validated with synthetic clicks against a hand-built trajectory: nearest-row selection at the identity camera, after zoomAtScreenPoint (the literal validation criterion), a maxDistancePx cutoff, and tooltip channel values/labels."
     },
     {
       "id": "P3.18",

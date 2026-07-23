@@ -15,3 +15,4 @@ export * from "./scrub-bar.js";
 export * from "./force-glyphs.js";
 export * from "./hud-readout.js";
 export * from "./annotation-layer.js";
+export * from "./hover-picking.js";
