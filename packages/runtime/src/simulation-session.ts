@@ -1,11 +1,14 @@
 import { PRESET_SCENARIOS, type ScenarioSpec } from "@ballista/engine";
 import {
+  EventCollector,
   HermiteDenseOutputStepper,
   StatsCollector,
   TrajectoryRecorder,
   integrate,
+  type EventRoot,
   type SolveFailureReason,
 } from "@ballista/solverkit";
+import { createPlaybackStore, type PlaybackStore } from "./playback-store.js";
 import { createResultStore, type ResultStore } from "./result-store.js";
 import { resolveModel, resolveSolverConfig, resolveStepper } from "./scenario-resolver.js";
 import { createScenarioStore, type ScenarioStore } from "./scenario-store.js";
@@ -50,18 +53,46 @@ const defaultFrameScheduler: FrameScheduler = (callback) => {
   }
 };
 
+function now(): number {
+  const perf = (globalThis as { performance?: { now(): number } }).performance;
+  return perf ? perf.now() : Date.now();
+}
+
+/**
+ * Schedules `callback` to run on the next animation frame, passing it a
+ * millisecond timestamp (P3.13 playback clock: unlike {@link FrameScheduler},
+ * which drives draft-commit coalescing and needs no timing information, the
+ * playback tick loop needs a timestamp each frame to compute elapsed time).
+ * Injectable so tests can drive frames with exact, deterministic deltas
+ * instead of racing a real `requestAnimationFrame`.
+ */
+export type AnimationFrameScheduler = (callback: (nowMs: number) => void) => void;
+
+const defaultAnimationFrameScheduler: AnimationFrameScheduler = (callback) => {
+  const raf = (globalThis as { requestAnimationFrame?: (cb: (t: number) => void) => number })
+    .requestAnimationFrame;
+  if (typeof raf === "function") {
+    raf(callback);
+  } else {
+    setTimeout(() => callback(now()), 16);
+  }
+};
+
 export interface SimulationSessionOptions {
   readonly frameScheduler?: FrameScheduler;
+  readonly animationFrameScheduler?: AnimationFrameScheduler;
 }
 
 export interface SimulationSession {
   readonly scenario: ScenarioStore;
   readonly result: ResultStore;
+  /** Playback clock state (§5.4); mutate only via {@link play}/{@link pause}/{@link scrubTo}/{@link scrubToEvent}. */
+  readonly playback: PlaybackStore;
   /**
    * Commits `spec` (§5.3 draft/committed split -- this always updates both
    * `scenario.draft` and `scenario.committed`) and synchronously
    * re-integrates on the main thread (§5.3 "Controller ... runs
-   * `integrate`"). On success, publishes the trajectory/stats to
+   * `integrate`"). On success, publishes the trajectory/stats/events to
    * `result` and returns `{status: "ok"}`; on failure, `result` is left
    * unpublished (whatever it held before this call) and the failure is
    * returned for the caller to surface.
@@ -75,6 +106,29 @@ export interface SimulationSession {
    * frame produce a single `commitScenario`/solve.
    */
   updateDraft(spec: ScenarioSpec): void;
+  /**
+   * Starts advancing `playback.playbackTime` once per animation frame at
+   * `playback.speed` (§5.3 command surface, P3.13). If already at (or past)
+   * the trajectory's end and not looping, restarts from `t=0` first (the
+   * natural "replay" affordance for a finished playback). A no-op if
+   * already playing, or if no trajectory has been published yet.
+   */
+  play(): void;
+  /** Stops the per-frame advance loop; `playback.playbackTime` holds wherever it was. */
+  pause(): void;
+  /**
+   * Pure lookup, never a solver interaction (§5.3, §5.4 "scrubbing is pure
+   * lookup"): sets `playback.playbackTime` to `t`, clamped to
+   * `[0, trajectory duration]` (`0` if no trajectory is published).
+   */
+  scrubTo(t: number): void;
+  /**
+   * Scrubs exactly to a localized event's own time (P3.13, e.g. an apex
+   * tick on the scrub bar) -- equivalent to `scrubTo(root.t)`, but named for
+   * callers reading ticks off `result.events` so they never have to
+   * destructure `root.t` themselves.
+   */
+  scrubToEvent(root: EventRoot): void;
 }
 
 export function createSimulationSession(
@@ -84,10 +138,16 @@ export function createSimulationSession(
 ): SimulationSession {
   const scenario = createScenarioStore(initialScenario, presets);
   const result = createResultStore();
+  const playback = createPlaybackStore();
   const frameScheduler = options.frameScheduler ?? defaultFrameScheduler;
+  const animationFrameScheduler = options.animationFrameScheduler ?? defaultAnimationFrameScheduler;
 
   let pendingDraft: ScenarioSpec | null = null;
   let frameScheduled = false;
+  // `undefined` between frames (paused, or the very first playing frame,
+  // where there is no previous timestamp to diff against -- that first
+  // frame advances by 0s rather than by a spurious huge delta).
+  let lastTickMs: number | undefined;
 
   function commitScenario(spec: ScenarioSpec): CommitOutcome {
     scenario.commit(spec);
@@ -105,7 +165,12 @@ export function createSimulationSession(
 
     const recorder = new TrajectoryRecorder();
     const stats = new StatsCollector();
-    const report = integrate(model, ctx, y0, [0, T_MAX_SECONDS], cfg, stepper, [recorder, stats]);
+    const events = new EventCollector();
+    const report = integrate(model, ctx, y0, [0, T_MAX_SECONDS], cfg, stepper, [
+      recorder,
+      stats,
+      events,
+    ]);
 
     if (report.status !== "ok") {
       // commitScenario never passes integrate() a cancellation token, so
@@ -121,7 +186,7 @@ export function createSimulationSession(
       };
     }
 
-    result.publish(recorder.trajectory, stats.stats);
+    result.publish(recorder.trajectory, stats.stats, events.events);
     return { status: "ok" };
   }
 
@@ -139,6 +204,93 @@ export function createSimulationSession(
     });
   }
 
-  const session: SimulationSession = { scenario, result, commitScenario, updateDraft };
+  /** The published trajectory's final recorded time, or 0 with no trajectory published (yet). */
+  function trajectoryDurationSeconds(): number {
+    const trajectory = result.getState().trajectory;
+    if (!trajectory || trajectory.nSteps === 0) return 0;
+    return trajectory.t[trajectory.nSteps - 1]!;
+  }
+
+  function clampToDuration(t: number): number {
+    if (!Number.isFinite(t) || t < 0) return 0;
+    const duration = trajectoryDurationSeconds();
+    return t > duration ? duration : t;
+  }
+
+  function scrubTo(t: number): void {
+    playback.setPlaybackTime(clampToDuration(t));
+  }
+
+  function scrubToEvent(root: EventRoot): void {
+    scrubTo(root.t);
+  }
+
+  /** One playback-clock advance, scheduled once per animation frame while `playback.playing` (P3.13). */
+  function tick(nowMs: number): void {
+    if (!playback.getState().playing) {
+      lastTickMs = undefined;
+      return;
+    }
+
+    const dtSeconds = lastTickMs === undefined ? 0 : Math.max(0, (nowMs - lastTickMs) / 1000);
+    lastTickMs = nowMs;
+
+    const duration = trajectoryDurationSeconds();
+    if (duration <= 0) {
+      // Nothing to play (no trajectory yet, or a degenerate zero-length one).
+      playback.setPlaybackTime(0);
+      playback.pause();
+      lastTickMs = undefined;
+      return;
+    }
+
+    const state = playback.getState();
+    let next = state.playbackTime + dtSeconds * state.speed;
+
+    if (next >= duration) {
+      if (state.loop) {
+        next = next % duration;
+      } else {
+        playback.setPlaybackTime(duration);
+        playback.pause();
+        lastTickMs = undefined;
+        return;
+      }
+    }
+
+    playback.setPlaybackTime(next);
+    animationFrameScheduler(tick);
+  }
+
+  function play(): void {
+    if (playback.getState().playing) return;
+
+    const duration = trajectoryDurationSeconds();
+    const state = playback.getState();
+    if (duration > 0 && !state.loop && state.playbackTime >= duration) {
+      playback.setPlaybackTime(0);
+    }
+
+    lastTickMs = undefined;
+    playback.play();
+    animationFrameScheduler(tick);
+  }
+
+  function pause(): void {
+    playback.pause();
+    lastTickMs = undefined;
+  }
+
+  const session: SimulationSession = {
+    scenario,
+    result,
+    playback,
+    commitScenario,
+    updateDraft,
+    play,
+    pause,
+    scrubTo,
+    scrubToEvent,
+  };
   return session;
 }

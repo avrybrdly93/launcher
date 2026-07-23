@@ -1,4 +1,5 @@
 import type { EvalContext, Model } from "@ballista/engine";
+import type { EventRoot } from "./event-root-localization.js";
 
 /**
  * Stable metadata describing a stepper's numerical properties (§5.1): the
@@ -220,7 +221,7 @@ export interface SolveReport {
 /**
  * A composable output of a solve (§5.1, §5.4): `TrajectoryRecorder` (P2.04),
  * `StatsCollector` (P2.05), `InvariantMonitor` (P2.37), and `EventCollector`
- * (P2.32) all implement this. `integrate` never accumulates results itself
+ * (P3.13) all implement this. `integrate` never accumulates results itself
  * -- batch/Monte Carlo callers attach only the sinks they need, which is the
  * difference between 1e3 and 1e5 runs/s (§5.1).
  */
@@ -230,6 +231,17 @@ export interface Sink {
   start?(model: Model, t0: number, y0: Float64Array): void;
   /** Called once per accepted step, with the state just written to `yNext`/`out`. */
   accept?(t: number, y: Float64Array, step: StepResult): void;
+  /**
+   * Called once per localized *non-terminal* event crossing (§4.9, P3.13),
+   * e.g. an apex (`v_y` falling through zero): `integrate` localizes every
+   * non-terminal candidate a step's {@link scanStepForEvents} scan turns up
+   * (skipping any that fall after an earlier terminal crossing truncates
+   * that same step, since the trajectory never actually reaches them) and
+   * dispatches each here in the order they were scanned, before the step's
+   * own `accept`. Terminal events are never dispatched here -- they already
+   * end the trajectory normally and appear as its final recorded row.
+   */
+  event?(root: EventRoot): void;
   /** Called once after the solve concludes, whether it succeeded, failed, or was canceled. */
   finish?(report: SolveReport): void;
 }

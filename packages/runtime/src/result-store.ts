@@ -1,5 +1,5 @@
 import { atom, type ReadableAtom } from "nanostores";
-import type { EventCandidate, SolveStats, Trajectory } from "@ballista/solverkit";
+import type { EventRoot, SolveStats, Trajectory } from "@ballista/solverkit";
 
 /**
  * Result of the last committed solve (§5.4): "immutable after publish".
@@ -7,22 +7,21 @@ import type { EventCandidate, SolveStats, Trajectory } from "@ballista/solverkit
  * is the only mutator, so a partially-updated (trajectory from one solve,
  * stats from another) state can never be observed.
  *
- * `events` holds non-terminal event occurrences from the solve; `integrate`
- * (solverkit) does not yet surface these on `SolveReport` (an `EventCollector`
- * sink is future work -- see integrate.ts), so this is always `[]` until
- * that lands. Terminal events already end the trajectory normally, so they
- * show up as the trajectory's final row rather than here.
+ * `events` holds every localized *non-terminal* event crossing of the solve
+ * (P3.13's `EventCollector` sink, §5.4 "scrub bar with event ticks"), e.g.
+ * apex. Terminal events (e.g. ground impact) already end the trajectory
+ * normally, so they show up as the trajectory's final row rather than here.
  */
 export interface ResultStoreState {
   readonly trajectory: Trajectory | null;
   readonly stats: SolveStats | null;
-  readonly events: readonly EventCandidate[];
+  readonly events: readonly EventRoot[];
 }
 
 export interface ResultStore {
   readonly store: ReadableAtom<ResultStoreState>;
   getState(): ResultStoreState;
-  publish(trajectory: Trajectory, stats: SolveStats, events?: readonly EventCandidate[]): void;
+  publish(trajectory: Trajectory, stats: SolveStats, events?: readonly EventRoot[]): void;
   clear(): void;
 }
 

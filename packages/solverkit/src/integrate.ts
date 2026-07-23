@@ -108,8 +108,11 @@ function roundToFloat32(y: Float64Array): void {
  * events, or a stepper
  * with no `interpolant`, integrates exactly as before -- this is
  * unconditional only when both are present. Non-terminal events (e.g.
- * apex) are detected the same way but do not truncate; collecting them is
- * a future `EventCollector` sink's job, not this driver's.
+ * apex) are root-localized the same way and dispatched to `sinks` via
+ * `Sink.event` (P3.13's `EventCollector`) -- but only those localized to
+ * *before or at* the step's own earliest terminal crossing (if any): a
+ * non-terminal candidate localized later never actually occurs, since the
+ * terminal event already ends the trajectory earlier in the same step.
  *
  * `current` and `out.yNext` are two buffers preallocated once and copied
  * between (not swapped) each step, so a stepper never sees the buffer it is
@@ -429,12 +432,12 @@ function* runIntegrationSteps(
     // which under-reaches t_f and must keep looping).
     const newT = isFinalAttempt && acceptedH === hStep ? tFinal : t + acceptedH;
 
-    // Event detection + localization (§4.9 steps 1-3, P2.32-P2.34): scanned
-    // against `current` (still the pre-step state here) -> `out.yNext`
-    // while both endpoints are still available, before either is
-    // overwritten below. Only a *terminal* crossing truncates the step; a
-    // non-terminal one (e.g. apex) is left for a future Sink/P2.35 to
-    // collect and this step is accepted normally.
+    // Event detection + localization (§4.9 steps 1-3, P2.32-P2.34, P3.13):
+    // scanned against `current` (still the pre-step state here) ->
+    // `out.yNext` while both endpoints are still available, before either
+    // is overwritten below. Only a *terminal* crossing truncates the step;
+    // non-terminal crossings (e.g. apex) are localized too and dispatched
+    // to `sinks` via `Sink.event`, then this step is accepted normally.
     if (hasEvents) {
       const candidates = scanStepForEvents(
         events!,
@@ -449,16 +452,16 @@ function* runIntegrationSteps(
       // P2.35): a step's bracket position (`thetaLo`) only coarsely orders
       // candidates -- two different events can share a bracket sub-interval,
       // and only the localized root time is the actual time-ordering the
-      // blueprint means by "earliest". Terminal events are rare (far off
-      // the hot path), so localizing every terminal candidate before
-      // picking the minimum is cheap; non-terminal candidates (e.g. apex)
-      // are intentionally never localized here -- collecting them is a
-      // future `EventCollector` sink's job, not this driver's, and an
-      // earlier non-terminal crossing must never block or reorder a later
-      // terminal one from correctly stopping the solve.
+      // blueprint means by "earliest". Every candidate is localized
+      // (events fire far less often than rhs evaluations, so this is cheap
+      // even though it's now unconditional rather than terminal-only);
+      // non-terminal roots are held until the earliest terminal root (if
+      // any) is known, since a non-terminal crossing localized *after* it
+      // never actually occurs -- the terminal event ends the trajectory
+      // first, earlier in the same step.
       let earliestTerminalRoot: ReturnType<typeof localizeEventRoot> | undefined;
+      const nonTerminalRoots: ReturnType<typeof localizeEventRoot>[] = [];
       for (const candidate of candidates) {
-        if (!candidate.event.terminal) continue;
         const root = localizeEventRoot(
           candidate,
           t,
@@ -468,9 +471,17 @@ function* runIntegrationSteps(
           denseInterpolant!,
           eventScratch!,
         );
-        if (earliestTerminalRoot === undefined || root.t < earliestTerminalRoot.t) {
-          earliestTerminalRoot = root;
+        if (candidate.event.terminal) {
+          if (earliestTerminalRoot === undefined || root.t < earliestTerminalRoot.t) {
+            earliestTerminalRoot = root;
+          }
+        } else {
+          nonTerminalRoots.push(root);
         }
+      }
+      for (const root of nonTerminalRoots) {
+        if (earliestTerminalRoot !== undefined && root.t > earliestTerminalRoot.t) continue;
+        for (const sink of sinks) sink.event?.(root);
       }
       if (earliestTerminalRoot !== undefined) {
         const root = earliestTerminalRoot;

@@ -1,10 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
 import { PRESET_SCENARIOS, type ScenarioSpec } from "@ballista/engine";
+import type { EventRoot } from "@ballista/solverkit";
 import {
   createSimulationSession,
   DEFAULT_SCENARIO,
+  type AnimationFrameScheduler,
   type FrameScheduler,
 } from "./simulation-session.js";
+
+/** `planarProjectileModel`'s `[x, y, vx, vy]` state layout (see planar-projectile-model.ts). */
+const VY_CHANNEL = 3;
 
 describe("SimulationSession", () => {
   it("starts with the default scenario committed and no result published", () => {
@@ -127,5 +132,208 @@ describe("SimulationSession", () => {
     // a fresh updateDraft after the frame fired schedules a new frame.
     session.updateDraft(DEFAULT_SCENARIO);
     expect(frameCallbacks).toHaveLength(2);
+  });
+});
+
+describe("SimulationSession: events (P3.13, §5.4 scrub-bar event ticks)", () => {
+  it("commitScenario publishes the apex as a non-terminal event, localized to v_y~=0", () => {
+    const session = createSimulationSession();
+    session.commitScenario(DEFAULT_SCENARIO);
+
+    const { events } = session.result.getState();
+    const apexEvents = events.filter((e) => e.event.name === "apex");
+    expect(apexEvents).toHaveLength(1);
+    expect(Math.abs(apexEvents[0]!.y[VY_CHANNEL]!)).toBeLessThan(1e-6);
+
+    // Ground impact (terminal) never appears in `events` -- it's the
+    // trajectory's own final row.
+    expect(events.some((e) => e.event.name === "ground-impact")).toBe(false);
+  });
+
+  it("a fresh session with no committed scenario publishes no events", () => {
+    const session = createSimulationSession();
+    expect(session.result.getState().events).toEqual([]);
+  });
+});
+
+describe("SimulationSession: playback clock (P3.13)", () => {
+  it("scrubToEvent lands playback exactly at the apex tick's time, whose state has v_y~=0 (this task's validation criterion)", () => {
+    const session = createSimulationSession();
+    session.commitScenario(DEFAULT_SCENARIO);
+
+    const apex = session.result.getState().events.find((e) => e.event.name === "apex")!;
+    expect(apex).toBeDefined();
+
+    session.scrubToEvent(apex);
+
+    expect(session.playback.getState().playbackTime).toBe(apex.t);
+    expect(Math.abs(apex.y[VY_CHANNEL]!)).toBeLessThan(1e-6);
+  });
+
+  it("scrubTo clamps to [0, trajectory duration]", () => {
+    const session = createSimulationSession();
+    session.commitScenario(DEFAULT_SCENARIO);
+    const duration = session.result.getState().trajectory!.t.at(-1)!;
+
+    session.scrubTo(-5);
+    expect(session.playback.getState().playbackTime).toBe(0);
+
+    session.scrubTo(duration + 1000);
+    expect(session.playback.getState().playbackTime).toBe(duration);
+
+    session.scrubTo(duration / 2);
+    expect(session.playback.getState().playbackTime).toBe(duration / 2);
+  });
+
+  it("scrubTo clamps to 0 when no trajectory has been published yet", () => {
+    const session = createSimulationSession();
+    session.scrubTo(5);
+    expect(session.playback.getState().playbackTime).toBe(0);
+  });
+
+  it("play() advances playbackTime once per animation frame, scaled by dt and speed", () => {
+    let scheduledTick: ((nowMs: number) => void) | null = null;
+    const animationFrameScheduler: AnimationFrameScheduler = (cb) => {
+      scheduledTick = cb;
+    };
+    const session = createSimulationSession(DEFAULT_SCENARIO, PRESET_SCENARIOS, {
+      animationFrameScheduler,
+    });
+    session.commitScenario(DEFAULT_SCENARIO);
+    session.playback.setSpeed(2);
+
+    session.play();
+    expect(session.playback.getState().playing).toBe(true);
+    expect(scheduledTick).not.toBeNull();
+
+    // First frame establishes the baseline timestamp; no elapsed time yet.
+    scheduledTick!(1000);
+    expect(session.playback.getState().playbackTime).toBe(0);
+
+    // 250ms later, at 2x speed: 0.25s * 2 = 0.5s advanced.
+    scheduledTick!(1250);
+    expect(session.playback.getState().playbackTime).toBeCloseTo(0.5, 10);
+
+    // Another 250ms: another 0.5s.
+    scheduledTick!(1500);
+    expect(session.playback.getState().playbackTime).toBeCloseTo(1.0, 10);
+  });
+
+  it("pause() stops the clock; a stray already-scheduled tick after pause is a no-op", () => {
+    let scheduledTick: ((nowMs: number) => void) | null = null;
+    const animationFrameScheduler: AnimationFrameScheduler = (cb) => {
+      scheduledTick = cb;
+    };
+    const session = createSimulationSession(DEFAULT_SCENARIO, PRESET_SCENARIOS, {
+      animationFrameScheduler,
+    });
+    session.commitScenario(DEFAULT_SCENARIO);
+
+    session.play();
+    scheduledTick!(0);
+    scheduledTick!(500);
+    const timeAtPause = session.playback.getState().playbackTime;
+    expect(timeAtPause).toBeGreaterThan(0);
+
+    const staleTick = scheduledTick!;
+    session.pause();
+    expect(session.playback.getState().playing).toBe(false);
+
+    staleTick(1000);
+    expect(session.playback.getState().playbackTime).toBe(timeAtPause);
+  });
+
+  it("stops and clamps to the end without looping by default", () => {
+    let scheduledTick: ((nowMs: number) => void) | null = null;
+    const animationFrameScheduler: AnimationFrameScheduler = (cb) => {
+      scheduledTick = cb;
+    };
+    const session = createSimulationSession(DEFAULT_SCENARIO, PRESET_SCENARIOS, {
+      animationFrameScheduler,
+    });
+    session.commitScenario(DEFAULT_SCENARIO);
+    const duration = session.result.getState().trajectory!.t.at(-1)!;
+
+    session.play();
+    scheduledTick!(0);
+    // One giant frame that overshoots the whole trajectory.
+    scheduledTick!((duration + 10) * 1000);
+
+    expect(session.playback.getState().playbackTime).toBe(duration);
+    expect(session.playback.getState().playing).toBe(false);
+  });
+
+  it("wraps around instead of stopping when loop is enabled", () => {
+    let scheduledTick: ((nowMs: number) => void) | null = null;
+    const animationFrameScheduler: AnimationFrameScheduler = (cb) => {
+      scheduledTick = cb;
+    };
+    const session = createSimulationSession(DEFAULT_SCENARIO, PRESET_SCENARIOS, {
+      animationFrameScheduler,
+    });
+    session.commitScenario(DEFAULT_SCENARIO);
+    const duration = session.result.getState().trajectory!.t.at(-1)!;
+    session.playback.setLoop(true);
+
+    session.play();
+    scheduledTick!(0);
+    // Advance 3/4 of the way through, then another 1/2 of a duration --
+    // total 1.25 durations, which should wrap to 0.25 * duration.
+    scheduledTick!(duration * 0.75 * 1000);
+    scheduledTick!((duration * 0.75 + duration * 0.5) * 1000);
+
+    expect(session.playback.getState().playing).toBe(true);
+    expect(session.playback.getState().playbackTime).toBeCloseTo(duration * 0.25, 6);
+  });
+
+  it("play() restarts from 0 when called again after reaching the end (not looping)", () => {
+    let scheduledTick: ((nowMs: number) => void) | null = null;
+    const animationFrameScheduler: AnimationFrameScheduler = (cb) => {
+      scheduledTick = cb;
+    };
+    const session = createSimulationSession(DEFAULT_SCENARIO, PRESET_SCENARIOS, {
+      animationFrameScheduler,
+    });
+    session.commitScenario(DEFAULT_SCENARIO);
+    const duration = session.result.getState().trajectory!.t.at(-1)!;
+
+    session.play();
+    scheduledTick!(0);
+    scheduledTick!((duration + 10) * 1000);
+    expect(session.playback.getState().playbackTime).toBe(duration);
+    expect(session.playback.getState().playing).toBe(false);
+
+    session.play();
+    expect(session.playback.getState().playbackTime).toBe(0);
+    expect(session.playback.getState().playing).toBe(true);
+  });
+
+  it("play() is a no-op if already playing", () => {
+    let scheduleCount = 0;
+    const animationFrameScheduler: AnimationFrameScheduler = () => {
+      scheduleCount++;
+    };
+    const session = createSimulationSession(DEFAULT_SCENARIO, PRESET_SCENARIOS, {
+      animationFrameScheduler,
+    });
+    session.commitScenario(DEFAULT_SCENARIO);
+
+    session.play();
+    expect(scheduleCount).toBe(1);
+    session.play();
+    expect(scheduleCount).toBe(1);
+  });
+
+  it("uses scrubToEvent as a thin wrapper naming exactly scrubTo(root.t)", () => {
+    const session = createSimulationSession();
+    session.commitScenario(DEFAULT_SCENARIO);
+    const root: EventRoot = session.result.getState().events[0]!;
+
+    session.scrubToEvent(root);
+    const viaEvent = session.playback.getState().playbackTime;
+
+    session.scrubTo(0);
+    session.scrubTo(root.t);
+    expect(session.playback.getState().playbackTime).toBe(viaEvent);
   });
 });
