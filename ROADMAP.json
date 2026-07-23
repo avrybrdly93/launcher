@@ -1454,8 +1454,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "adding mock force with schema yields working controls, zero UI edits",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "packages/ui/src/schema-controls.ts: generateControlDescriptors walks a zod ZodObject's own shape and derives each field's widget from what the schema itself already declares -- z.number().min/max -> slider (bounds needed for a track; one/no bound -> plain number), .step()/.multipleOf() -> step, z.enum -> select (options from the enum itself), z.boolean -> checkbox, .describe(\"Label|unit\") -> label/unit (falls back to a humanized field name), .optional()/.default() unwrapped transparently. No per-field UI registry to keep in sync -- the widget kind is read entirely off the schema. Added zod as an explicit packages/ui dependency (previously only engine depended on it). Validated per this task's literal wording: a schema authored in the test file simulating a brand-new force's params (bounded slider, enum, boolean, unbounded number), run through the same unmodified generator already exercised against unrelated schemas in the other test cases, yields fully correct descriptors -- zero changes to generateControlDescriptors itself. Actual DOM/Preact rendering of these descriptors is later Phase 3 UI-panel tasks (P3.19+); this task's scope is the framework-agnostic descriptor data."
     },
     {
       "id": "P3.19",

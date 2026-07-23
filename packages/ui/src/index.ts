@@ -2,3 +2,5 @@
 // UI. Implementation begins in Phase 3 (§7); this is the Phase 0 package
 // skeleton.
 export const UI_PACKAGE = "@ballista/ui";
+
+export * from "./schema-controls.js";
