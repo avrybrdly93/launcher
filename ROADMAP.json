@@ -1520,8 +1520,8 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "dust-grain shows stiff hint",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added packages/ui/src/advisor-hint-panel.tsx: wraps recommendSolver (P2.47, @ballista/engine) -- a pure function of a full ScenarioSpec -- rendering its rationale, its warning (stiff regime only), and a doc link to the recommended stepper's derivation page. Added packages/solverkit/src/stepper-derivation-docs.ts (STEPPER_DERIVATION_DOCS / stepperDerivationDoc): a Stepper.info.id -> co-located *.derivation.md filename lookup, since the ids recommendSolver returns (backward-euler, velocity-verlet, dopri5) don't match their derivation files' own names (dormand-prince-54.derivation.md, verlet-stepper.derivation.md) one-to-one -- covers all 10 real stepper ids, tested both for existence-on-disk (extending docs-derivation-links.test.ts's own file list) and for resolving from a live instance's info.id. advisor-hint-panel.test.tsx exercises all three regimes via PRESET_SCENARIOS; the dust-grain preset (this task's literal validation criterion) asserts regime='stiff', a rendered warning paragraph, and a backward-euler-stepper.derivation.md doc link."
     },
     {
       "id": "P3.25",
