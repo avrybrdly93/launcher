@@ -1432,8 +1432,8 @@
       "estMinutes": 20,
       "difficulty": "E",
       "validation": "drag-free range marker at v\u2080\u00b2sin2\u03b8/g \u00b11e-9",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "packages/viz/src/annotation-layer.ts: computeAnnotations (pure) derives apex from the first \"apex\"-named EventRoot in EventCollector.events and impact/range from the trajectory's final recorded row -- exact because P2.34 already truncates/records that row at the precisely root-localized ground-impact state, not an overshot last-accepted step. drawAnnotationLayer renders apex/impact as labeled dots plus a dashed range line, mirroring trajectory-layer.ts/axes-layer.ts's pure-computation-plus-minimal-canvas-interface split. Validated against a hand-built drag-free (gravity-only, y0=0) scenario integrated with DOPRI5: range matches v0\u00b2sin(2\u03b8)/g and apex height matches vy0\u00b2/(2g) both to <1e-9."
     },
     {
       "id": "P3.17",
