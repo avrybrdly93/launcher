@@ -1421,8 +1421,8 @@
       "estMinutes": 20,
       "difficulty": "E",
       "validation": "values equal recorder channels at playhead",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "packages/viz/src/hud-readout.ts: computeHudReadout (t, speed, energy, reynolds, spinRatio, pi at a state, mirrors force-glyphs.ts's model.rhs-refresh pattern) plus hudReadoutAtPlayhead, which snaps a playbackTime to its nearest recorded Trajectory row (no interpolation -- there's no recorded acceleration channel to Hermite-interpolate velocity from) and reads its exact channels, matching this task's literal validation wording. Added engine's spinParameter (characteristic-scales.ts) as the shared S = |omega|*R/|v_rel| formula, deduplicating it out of MagnusForce.accumulate/energyPower. While wiring spinRatio, found and fixed a real bug: resolveModel (runtime) and runGoldenTrajectory (validation) both called projectileSpecToParams(spec.projectile) without ever passing initialConditions.spin0 through, so ProjectileParams.spin was always undefined and Magnus lift silently never fired in any live-resolved integration (including the golf-ball golden trajectory) despite scenario-metadata.ts's independent spin-ratio computation and the P3.14 force-glyphs test both appearing to cover it. projectileSpecToParams now takes an optional spin argument; both call sites pass spec.initialConditions.spin0. This changes the golf-ball golden trajectory (Magnus force now genuinely applies -- final y goes from ~5.6 m to ~24 m, matching backspin lift): regenerated via `UPDATE_GOLDENS=1 pnpm run update-goldens` and re-formatted with prettier; only the golf-ball entries' hash/finalState/nSteps changed, every other preset's hash is untouched."
     },
     {
       "id": "P3.16",

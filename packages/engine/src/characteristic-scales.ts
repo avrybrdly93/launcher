@@ -25,6 +25,21 @@ export function machNumber(speed: number, c: number | undefined): number {
   return c !== undefined && c > 0 ? speed / c : 0;
 }
 
+/** Below this relative speed, {@link spinParameter} returns 0 rather than dividing by a near-zero denominator. */
+const SPIN_PARAMETER_SPEED_EPS = 1e-9;
+
+/**
+ * Magnus spin (ratio) parameter S = |omega|*R/|v_rel| (eq. 3.16), clamped to
+ * 0 as `speedRel` -> 0 (§3.6) rather than left to divide by zero -- the
+ * Magnus force itself already vanishes there via its own |v_rel| factor, so
+ * the clamp only prevents a spurious 0/0 = NaN when spin and speed are both
+ * exactly zero. `omega` omitted or 0 (no spin wired) also gives 0.
+ */
+export function spinParameter(omega: number | undefined, radius: number, speedRel: number): number {
+  if (!omega || speedRel < SPIN_PARAMETER_SPEED_EPS) return 0;
+  return (Math.abs(omega) * radius) / speedRel;
+}
+
 function dragCoefficientAt(
   params: ProjectileParams,
   env: CharacteristicEnvironment,

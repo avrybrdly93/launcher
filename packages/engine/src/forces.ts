@@ -1,3 +1,4 @@
+import { spinParameter } from "./characteristic-scales.js";
 import type { EvalContext } from "./eval-context.js";
 import type { MutVec2 } from "./vec2.js";
 
@@ -71,14 +72,13 @@ export class QuadraticDragForce implements ForceModel {
   }
 }
 
-const MAGNUS_SPEED_EPS = 1e-9;
-
 /**
  * Magnus lift force (eq. 3.15, 2D-specialized form). Spin is a constant
- * scalar on `params.spin`; the spin-ratio S = |omega|*R/|v_rel| is clamped
- * to 0 as |v_rel| -> 0 (P1.15) rather than left to divide by zero — the
- * force already vanishes there via the |v_rel| factor, so the clamp only
- * prevents a spurious 0/0 = NaN when both spin and speed are exactly zero.
+ * scalar on `params.spin`; the spin-ratio S = |omega|*R/|v_rel| ({@link
+ * spinParameter}) is clamped to 0 as |v_rel| -> 0 (P1.15) rather than left
+ * to divide by zero — the force already vanishes there via the |v_rel|
+ * factor, so the clamp only prevents a spurious 0/0 = NaN when both spin
+ * and speed are exactly zero.
  */
 export class MagnusForce implements ForceModel {
   readonly id = "magnus";
@@ -89,8 +89,7 @@ export class MagnusForce implements ForceModel {
     const liftModel = ctx.params.liftCoefficient;
     if (!omega || !liftModel) return;
 
-    const spinRatio =
-      ctx.speedRel < MAGNUS_SPEED_EPS ? 0 : (Math.abs(omega) * ctx.params.radius) / ctx.speedRel;
+    const spinRatio = spinParameter(omega, ctx.params.radius, ctx.speedRel);
     const cl = liftModel.cl(spinRatio);
     const k = 0.5 * ctx.env.rho * cl * ctx.params.area * ctx.speedRel * Math.sign(omega);
     // ê_z x v_rel = (-v_rel_y, v_rel_x)
@@ -103,8 +102,7 @@ export class MagnusForce implements ForceModel {
     const liftModel = ctx.params.liftCoefficient;
     if (!omega || !liftModel) return 0;
 
-    const spinRatio =
-      ctx.speedRel < MAGNUS_SPEED_EPS ? 0 : (Math.abs(omega) * ctx.params.radius) / ctx.speedRel;
+    const spinRatio = spinParameter(omega, ctx.params.radius, ctx.speedRel);
     const cl = liftModel.cl(spinRatio);
     const k = 0.5 * ctx.env.rho * cl * ctx.params.area * ctx.speedRel * Math.sign(omega);
     const fx = -k * ctx.vRel[1];

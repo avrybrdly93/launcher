@@ -68,7 +68,7 @@ export function resolveModel(spec: ScenarioSpec): ResolvedModel {
   const forces = spec.model.forceIds.map(resolveForce);
   const model = createPlanarProjectileModel(forces);
   const env = environmentSpecToEnvironment(spec.environment);
-  const params = projectileSpecToParams(spec.projectile);
+  const params = projectileSpecToParams(spec.projectile, spec.initialConditions.spin0);
   const ctx = createEvalContext(env, params);
 
   const ic = spec.initialConditions;

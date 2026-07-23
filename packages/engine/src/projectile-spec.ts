@@ -64,12 +64,22 @@ function toLiftCoefficientModel(spec: LiftModelSpec | undefined): LiftCoefficien
   return new SaturatingLiftCoefficient(spec.maxCl, spec.slope);
 }
 
-/** Instantiates the runtime `ProjectileParams` (live model instances) described by a `ProjectileSpec` asset. */
-export function projectileSpecToParams(spec: ProjectileSpec): ProjectileParams {
+/**
+ * Instantiates the runtime `ProjectileParams` (live model instances) described by a
+ * `ProjectileSpec` asset. `spin` is scenario-level state (a launch condition, §3.6's
+ * `initialConditions.spin0`), not part of the projectile asset itself, so it's an optional
+ * second argument rather than a `ProjectileSpec` field -- callers resolving a full
+ * `ScenarioSpec` for live integration (where a nonzero spin must actually drive the Magnus
+ * force) pass `spec.initialConditions.spin0` through; callers that only need static
+ * projectile properties (mass/radius/drag/lift, e.g. metadata or advisor computations) omit
+ * it, matching prior behavior.
+ */
+export function projectileSpecToParams(spec: ProjectileSpec, spin?: number): ProjectileParams {
   return createSphericalProjectileParams({
     mass: spec.mass,
     radius: spec.radius,
     dragCoefficient: toDragCoefficientModel(spec.dragModel),
     liftCoefficient: toLiftCoefficientModel(spec.liftModel),
+    spin,
   });
 }
