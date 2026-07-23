@@ -1377,8 +1377,8 @@
       "estMinutes": 25,
       "difficulty": "M",
       "validation": "steady-state frame cost < 4 ms (perf probe)",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "packages/viz/src/static-layer-cache.ts: StaticLayerCache wraps a surface factory with a field-compared StaticLayerCacheKey (camera center/scale + viewport size + caller-supplied dataRevision) -- render() redraws into the offscreen surface only on a key or size change, otherwise returns the cached surface untouched; blitStaticLayerCache() does the one drawImage() a steady-state frame needs. Perf probe: 50k-pt trajectory decimation + axes-grid redraw as the stand-in expensive draw, best-of-15 render() calls with an unchanged key measured < 4 ms and redrawCount stays at 1 (the redraw never re-fires once camera/viewport/data stop changing)."
     },
     {
       "id": "P3.12",
