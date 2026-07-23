@@ -4,3 +4,7 @@
 export const UI_PACKAGE = "@ballista/ui";
 
 export * from "./schema-controls.js";
+export * from "./numeric-control-logic.js";
+export * from "./numeric-control-row.js";
+export * from "./launch-schema.js";
+export * from "./launch-panel.js";

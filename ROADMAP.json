@@ -1465,8 +1465,8 @@
       "estMinutes": 25,
       "difficulty": "E",
       "validation": "values clamp to schema ranges; shift-fine works",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "packages/ui/src/launch-schema.ts declares v0 (0-150 m/s), theta (0-90 deg), y0 (0-100 m), omega (+-500 rad/s) per SS6.3 panel group 1. packages/ui/src/numeric-control-logic.ts is the pure clamp/nudge logic (clampToRange, nudgeStep with shift = step/10 per SS6.3, nudgeValue), independent of any rendered component. numeric-control-row.tsx renders one ControlDescriptor (P3.18) as a slider (kind=slider only) synced with a number input, both wired through the same commit/clamp path and a keyboard handler (ArrowUp/Down/Left/Right, shift = fine). launch-panel.tsx composes generateControlDescriptors(launchSpecSchema, value) into one row per field -- adding/re-ranging a launch field only ever touches launch-schema.ts. Set up packages/ui for JSX (tsconfig jsx/jsxImportSource=preact, DOM lib) and added preact as a dependency (previously only packages/app used it). Tests call components directly and inspect returned vnodes/invoke their handlers with synthetic events, matching this repo's existing app-shell.test.tsx convention (no jsdom): clamp/nudge logic unit-tested directly, then re-verified end-to-end through NumericControlRow and LaunchPanel's own committed onChange values."
     },
     {
       "id": "P3.20",

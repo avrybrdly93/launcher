@@ -178,6 +178,9 @@ importers:
       '@ballista/viz':
         specifier: workspace:*
         version: link:../viz
+      preact:
+        specifier: ^10.24.3
+        version: 10.29.3
       zod:
         specifier: ^3.23.8
         version: 3.25.76
