@@ -8,3 +8,5 @@ export * from "./numeric-control-logic.js";
 export * from "./numeric-control-row.js";
 export * from "./launch-schema.js";
 export * from "./launch-panel.js";
+export * from "./projectile-panel-logic.js";
+export * from "./projectile-panel.js";

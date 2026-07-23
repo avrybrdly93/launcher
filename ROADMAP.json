@@ -1476,8 +1476,8 @@
       "estMinutes": 20,
       "difficulty": "E",
       "validation": "switching preset re-solves; custom persists in draft",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "packages/ui/src/projectile-panel-logic.ts (pure): findProjectilePreset looks up PROJECTILE_ASSETS by id; toCustomProjectileSpec seeds a custom spec (id='custom') from the *current* mass/radius/dragModel/liftModel rather than resetting to arbitrary defaults, which is the 'custom persists in draft' transition; hasEditableDragCoefficient narrows to only the constant-Cd case (a tabulated Re-curve has no single number to expose, skipped rather than guessed at, matching P3.18's schema-controls contract). projectile-panel.tsx: a <select> over PROJECTILE_ASSETS+Custom that swaps in a full preset ProjectileSpec on selection (so every selection -- including reselecting the current preset -- commits a fresh onChange call, i.e. re-solves), plus schema-driven mass/radius/dragCoefficient NumericControlRows (P3.18/P3.19) when the current projectile is custom. Tests use this repo's vnode-inspection convention; JSX {array.map(...)} children come back as nested (unflattened) arrays in the raw vnode tree, so tests flatten before asserting -- worth noting since it's easy to trip on."
     },
     {
       "id": "P3.21",
