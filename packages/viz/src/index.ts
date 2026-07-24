@@ -18,3 +18,4 @@ export * from "./hud-readout.js";
 export * from "./annotation-layer.js";
 export * from "./hover-picking.js";
 export * from "./field-layer.js";
+export * from "./streamline-overlay.js";

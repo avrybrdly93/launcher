@@ -1564,7 +1564,7 @@
       "estMinutes": 25,
       "difficulty": "M",
       "validation": "streamlines tangent to arrows (spot test)",
-      "status": "todo",
+      "status": "done",
       "notes": ""
     },
     {
