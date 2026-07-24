@@ -225,13 +225,22 @@ importers:
       '@ballista/solverkit':
         specifier: workspace:*
         version: link:../solverkit
+      plotly.js-dist-min:
+        specifier: ^3.7.0
+        version: 3.7.0
     devDependencies:
       fast-check:
         specifier: ^4.9.0
         version: 4.9.0
+      rollup:
+        specifier: ^4.62.2
+        version: 4.62.2
       typescript:
         specifier: ^5.6.3
         version: 5.9.3
+      vite:
+        specifier: ^5.4.21
+        version: 5.4.21(@types/node@22.20.0)
       vitest:
         specifier: ^2.1.4
         version: 2.1.9(@types/node@22.20.0)
@@ -1672,6 +1681,9 @@ packages:
     resolution: {integrity: sha512-DWnY5o3YbLWK4GovuAVwpqL+1VwGNdUGrRr++8j8PtQQzvAVZUIMjKQ90fY689sEJZJBbZVw1rXaOKSTitkzPQ==}
     engines: {node: '>=18'}
     hasBin: true
+
+  plotly.js-dist-min@3.7.0:
+    resolution: {integrity: sha512-IRWNnBJZmKss3URDnicBK2nvt/VTSi/MD1GnUscAYFjwSuN6g/CTde5R1UC0RYtblehj8rkT4BL8r05e/c8j5Q==}
 
   postcss@8.5.16:
     resolution: {integrity: sha512-vuwillviilfKZsg0VGj5R/YwwcHx4SLsIOI/7K6mQkWx+l5cUHTjj5g0AasTBcyXsbfTgrwsUNmVUb5xVwyPwg==}
@@ -3350,6 +3362,8 @@ snapshots:
       playwright-core: 1.61.1
     optionalDependencies:
       fsevents: 2.3.2
+
+  plotly.js-dist-min@3.7.0: {}
 
   postcss@8.5.16:
     dependencies:

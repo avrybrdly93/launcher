@@ -10,14 +10,17 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@ballista/engine": "workspace:*",
-    "@ballista/solverkit": "workspace:*",
     "@ballista/analysis": "workspace:*",
-    "@ballista/runtime": "workspace:*"
+    "@ballista/engine": "workspace:*",
+    "@ballista/runtime": "workspace:*",
+    "@ballista/solverkit": "workspace:*",
+    "plotly.js-dist-min": "^3.7.0"
   },
   "devDependencies": {
     "fast-check": "^4.9.0",
+    "rollup": "^4.62.2",
     "typescript": "^5.6.3",
+    "vite": "^5.4.21",
     "vitest": "^2.1.4"
   }
 }
