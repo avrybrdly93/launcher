@@ -1575,8 +1575,8 @@
       "estMinutes": 30,
       "difficulty": "M",
       "validation": "curves match recorder channels; axes correct units",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "packages/viz/src/plot-pane.ts: PlotSeries derivation (heightSeries verbatim from the Y channel; computeSpeedAndEnergySeries reusing hud-readout.ts's computeHudReadout; invariantResidualSeries/stepSizeSeries verbatim from their recorders) + drawPlotPane (reuses axes-layer.ts's computeAxisTicks/formatTickValue for value+time ticks labeled with series units). Tests cover exact-match to recorder channels, round-trip screen<->data mapping (no resampling), and unit-labeled axis text via a RecordingCanvas."
     },
     {
       "id": "P3.30",
