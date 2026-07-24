@@ -1553,7 +1553,7 @@
       "estMinutes": 30,
       "difficulty": "M",
       "validation": "uniform wind \u21d2 identical arrows; vortex shows rotation",
-      "status": "todo",
+      "status": "done",
       "notes": ""
     },
     {

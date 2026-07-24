@@ -238,7 +238,14 @@ export const DEFAULT_FORCE_GLYPH_COLORS: ForceGlyphColors = Object.freeze({
 const ARROWHEAD_LENGTH_PX = 6;
 const ARROWHEAD_ANGLE_RAD = Math.PI / 7;
 
-function drawArrow(canvas: ForceGlyphCanvas, x0: number, y0: number, dx: number, dy: number): void {
+/** Draws one arrow (shaft + head) from `(x0, y0)` by screen-space offset `(dx, dy)`. Shared with `field-layer.ts` (P3.27) -- the same arrowhead geometry, just fed a linearly- rather than log-scaled length. */
+export function drawArrow(
+  canvas: ForceGlyphCanvas,
+  x0: number,
+  y0: number,
+  dx: number,
+  dy: number,
+): void {
   const x1 = x0 + dx;
   const y1 = y0 + dy;
 
