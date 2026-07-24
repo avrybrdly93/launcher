@@ -19,3 +19,4 @@ export * from "./annotation-layer.js";
 export * from "./hover-picking.js";
 export * from "./field-layer.js";
 export * from "./streamline-overlay.js";
+export * from "./plot-pane.js";

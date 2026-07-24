@@ -1575,7 +1575,7 @@
       "estMinutes": 30,
       "difficulty": "M",
       "validation": "curves match recorder channels; axes correct units",
-      "status": "todo",
+      "status": "done",
       "notes": ""
     },
     {
