@@ -1564,8 +1564,8 @@
       "estMinutes": 25,
       "difficulty": "M",
       "validation": "streamlines tangent to arrows (spot test)",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "packages/viz/src/streamline-layer.ts: traceStreamlineWorld RK2 (explicit midpoint) over unit wind direction at fixed arc-length steps (not physics time), seeded from field-layer.ts's screen-anchored grid at a sparser resolution; drawStreamlineLayer's enabled option (default false) is the toggle. Tests spot-check tangency directly (uniform wind exact, vortex within tight tolerance) plus the calm-point stop condition and toggle on/off."
     },
     {
       "id": "P3.29",

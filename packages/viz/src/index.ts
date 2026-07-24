@@ -15,6 +15,7 @@ export * from "./projectile-layer.js";
 export * from "./scrub-bar.js";
 export * from "./force-glyphs.js";
 export * from "./field-layer.js";
+export * from "./streamline-layer.js";
 export * from "./hud-readout.js";
 export * from "./annotation-layer.js";
 export * from "./hover-picking.js";
