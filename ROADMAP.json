@@ -1542,8 +1542,8 @@
       "estMinutes": 20,
       "difficulty": "E",
       "validation": "overlay coincides with DOPRI5 at 1e-6 rtol (visual + max-dev test)",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added GhostLayer (packages/viz/src/ghost-layer.ts): same geometry as TrajectoryLayer (reuses buildTrajectoryPath, P3.09) but styled faded+dashed (globalAlpha, setLineDash) so an overlay reads as a backdrop rather than a second solid trajectory; style application split into applyGhostStyle (pure, unit-tested against a recording mock canvas) from drawGhostLayer (Path2D construction, browser-only like drawTrajectoryLayer, untested directly under Node). viz can't import the dev-only validation package (dependency-cruiser), so the numeric half of the validation criterion -- 'overlay coincides with DOPRI5 at 1e-6 rtol (max-dev test)' -- lives in packages/validation/src/ghost-analytic-overlay.test.ts: solves each P2.08 analytic reference (drag-free parabola, linear drag) with DOPRI5 at rtol=1e-6/atol=1e-9 and checks every recorded state channel stays within 1e-4 of the closed-form solution over the whole flight (measured ~4e-14 drag-free, ~2.6e-5 linear-drag), plus a sanity check that tightening rtol tightens the deviation further (the coincidence is rtol-driven, not accidental)."
     },
     {
       "id": "P3.27",
