@@ -1619,8 +1619,8 @@
       "estMinutes": 20,
       "difficulty": "E",
       "validation": "filtering by tag works",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added packages/engine/src/scenario-regime-tags.ts: scenarioRegimeTags(spec) classifies a ScenarioSpec into RegimeTag = 'low-pi' | 'high-pi' | 'magnus' | 'stiff', built entirely from existing pure classifiers rather than new physics -- scenarioNondimensionalGroups (P1.38) for the Pi split (reusing P1.38's own validated 0.1 boundary: Pi(shot put) < 0.1 < Pi(table-tennis)) and recommendSolver (P2.47) for the stiff classification -- matching the exact vocabulary already used informally throughout the codebase (golden-trajectory-store.ts's own comment: 'low-Pi shot put, high-Pi table tennis, Magnus-bearing golf drive, stiff dust grain'). Added packages/ui/src/preset-browser-logic.ts (PRESET_BROWSER_ENTRIES: every preset paired with its tags; filterPresetsByTag, this task's literal validation criterion; regimeTagLabel for chip text) and preset-browser.tsx (a tag filter chip row -- 'All' plus one chip per ALL_REGIME_TAGS, aria-pressed reflecting the current selection -- over a preset list; selecting a preset commits its full ScenarioSpec, mirroring ProjectilePanel's contract). scenario-regime-tags.test.ts (6 tests) validates each tag against the known preset library (shot put low-pi, table-tennis high-pi, golf-drive magnus, dust-grain stiff, no false positives on any other preset). preset-browser-logic.test.ts (9 tests) + preset-browser.test.tsx (9 tests, calling the function component directly and inspecting the vnode tree per projectile-panel.test.tsx's established convention -- no DOM/jsdom) cover filtering by every tag end-to-end through the actual rendered component, plus chip aria-pressed state and preset selection. No app-level wiring yet (not mounted in app.tsx), consistent with every other panel/module shipped isolated-and-unit-tested first this phase. pnpm typecheck/lint/lint:deps/test (806 tests, 128 files)/build/check-bundle-size all green."
     },
     {
       "id": "P3.34",
