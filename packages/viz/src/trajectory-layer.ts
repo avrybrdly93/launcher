@@ -80,3 +80,36 @@ export function drawTrajectoryLayer(
   ctx.lineWidth = options.lineWidth ?? DEFAULT_LINE_WIDTH;
   ctx.stroke(path);
 }
+
+/** One pinned trajectory's world-space channels plus its assigned legend color (`compare-store.ts`'s `PinnedTrajectory.color`, `@ballista/runtime`). */
+export interface PinnedTrajectoryDrawEntry {
+  readonly xs: ArrayLike<number>;
+  readonly ys: ArrayLike<number>;
+  readonly color: string;
+}
+
+/**
+ * Draws every pinned trajectory (§6.1 WorldLayer: "TrajectoryLayer[×N]
+ * committed + pinned trajectories"; P3.25) as its own stroked polyline in
+ * its assigned color, one {@link drawTrajectoryLayer} call per entry in
+ * list order -- a pin drawn later overlaps a pin drawn earlier at any
+ * screen-space intersection, matching the legend's top-to-bottom order.
+ * Reuses {@link drawTrajectoryLayer}/{@link buildTrajectoryPath} rather
+ * than reimplementing polyline construction; not itself split into a
+ * `PathBuilder`-testable half since neither is (`Path2D` doesn't exist
+ * under Node -- see this file's module doc).
+ */
+export function drawPinnedTrajectoriesLayer(
+  ctx: TrajectoryLayerCanvas,
+  camera: Camera2DState,
+  viewport: Viewport,
+  entries: readonly PinnedTrajectoryDrawEntry[],
+  lineWidth: number = DEFAULT_LINE_WIDTH,
+): void {
+  for (const entry of entries) {
+    drawTrajectoryLayer(ctx, camera, viewport, entry.xs, entry.ys, {
+      color: entry.color,
+      lineWidth,
+    });
+  }
+}

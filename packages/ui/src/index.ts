@@ -18,3 +18,4 @@ export * from "./forces-panel.js";
 export * from "./solver-panel-logic.js";
 export * from "./solver-panel.js";
 export * from "./advisor-hint-panel.js";
+export * from "./compare-legend.js";

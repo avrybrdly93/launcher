@@ -1531,8 +1531,8 @@
       "estMinutes": 25,
       "difficulty": "M",
       "validation": "Euler vs RK4 overlay reproduces \u00a74 range-bias story visually",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added compareStore (packages/runtime/src/compare-store.ts): pinned list (append/remove) with fixed-order categorical color assignment (8-hue palette, slot freed/reused on unpin, never cycled/regenerated -- 'color follows the entity, never its rank'), plus compareLegend() deriving swatch+label rows. Added drawPinnedTrajectoriesLayer (packages/viz/src/trajectory-layer.ts), a thin loop over the existing per-trajectory drawTrajectoryLayer/buildTrajectoryPath (P3.09) with each pinned entry's assigned color -- no change needed to the tested pure polyline-building core. Added CompareLegend (packages/ui/src/compare-legend.tsx), a stateless swatch+label list with an optional per-row unpin button, following the advisor-hint-panel.tsx pattern (call the component fn directly in tests, no DOM needed). Validation criterion test (packages/runtime/src/compare-euler-rk4.test.ts): runs the drag-free reference preset through explicit-euler and classical-rk4 at the same fixed h via a real SimulationSession, pins both, and checks the landing-range gap is (a) positive and visually significant (>1% of range) at a moderate h -- Euler's y_Euler(t) = y_exact(t) + 0.5*g*h*t closed-form bias always overshoots range on this drag-free case -- and (b) shrinks by ~4x when h is quartered, while RK4's own range barely moves, isolating the bias as Euler's O(h) global error (the \u00a74.2 pitfall 1 'systematic range/apex bias' story) rather than run noise. A second test confirms pinning both runs produces a two-entry legend with distinct, in-order palette colors."
     },
     {
       "id": "P3.26",
