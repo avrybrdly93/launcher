@@ -1553,8 +1553,8 @@
       "estMinutes": 30,
       "difficulty": "M",
       "validation": "uniform wind \u21d2 identical arrows; vortex shows rotation",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "packages/viz/src/field-layer.ts: screen-anchored grid (default 24x16), sampleFieldArrows via WindModel + screenToWorld, linear magnitude->length scale with max-length clamp, legend ticks, drawFieldLayer. Tests cover both validation criteria directly."
     },
     {
       "id": "P3.28",
