@@ -1,6 +1,7 @@
 // L2 orchestration: SimulationSession, playback clock, worker pool, recorder.
 export const RUNTIME_PACKAGE = "@ballista/runtime";
 
+export * from "./scenario-persistence.js";
 export * from "./scenario-store.js";
 export * from "./result-store.js";
 export * from "./compare-store.js";
