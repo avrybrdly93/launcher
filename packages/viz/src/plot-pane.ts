@@ -22,11 +22,8 @@ import type { InvariantResidualChannel, StepSizeTrace, Trajectory } from "@balli
 import { computeAxisTicks, computeNiceStep, formatTickValue } from "./axes-layer.js";
 import { computeHudReadout, createHudReadoutScratch } from "./hud-readout.js";
 
-/** Shared `[x, y, vx, vy]` planar-projectile channel convention (`projectile-layer.ts`/`hud-readout.ts`). */
-const X = 0;
+/** Y index of the shared `[x, y, vx, vy]` planar-projectile channel convention (`projectile-layer.ts`/`hud-readout.ts`). */
 const Y = 1;
-const VX = 2;
-const VY = 3;
 
 /** One plottable time series: a label/unit for axis labeling, plus parallel `t`/`values` arrays. */
 export interface PlotSeries {
