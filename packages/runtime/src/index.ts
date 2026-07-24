@@ -2,6 +2,7 @@
 export const RUNTIME_PACKAGE = "@ballista/runtime";
 
 export * from "./scenario-persistence.js";
+export * from "./scenario-share-url.js";
 export * from "./scenario-store.js";
 export * from "./result-store.js";
 export * from "./compare-store.js";
