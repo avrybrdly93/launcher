@@ -112,6 +112,30 @@ export function buildWorkPrecisionFigure(curves: readonly WorkPrecisionCurve[]):
   };
 }
 
+/** One method's (h, error) samples for a convergence-study figure -- shape-compatible with `measureConvergence`'s `ConvergenceResult` (`@ballista/solverkit`) plus a display label. */
+export interface ConvergenceCurve {
+  readonly method: string;
+  readonly hs: readonly number[];
+  readonly errors: readonly number[];
+}
+
+/**
+ * Convergence-study figure (§4 pedagogy, P2.07/P3.42): log-log global error
+ * vs step size `h`, one trace per method -- the slope of each trace is the
+ * method's observed order of convergence, the same `measureConvergence`
+ * (`convergence-harness.ts`) fits numerically; this only plots the same
+ * `(h, error)` pairs that fit was computed from, so the visual slope and the
+ * displayed numeric slope are never two different measurements.
+ */
+export function buildConvergenceFigure(curves: readonly ConvergenceCurve[]): PlotlyFigureSpec {
+  return {
+    title: "Convergence study",
+    traces: curves.map((curve) => ({ name: curve.method, x: curve.hs, y: curve.errors })),
+    xAxis: { title: "step size h (s)", type: "log" },
+    yAxis: { title: "global error", type: "log" },
+  };
+}
+
 /** One channel of a recorded {@link Trajectory}, identified by its column index and axis label/unit. */
 export interface TrajectoryChannelSpec {
   readonly index: number;

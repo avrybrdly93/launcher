@@ -7,7 +7,8 @@ export function App() {
       canvas={<CanvasViewport />}
       controlDock={
         <p>
-          Control dock lands in P3.02+. <a href="#/solver-lab">Open Solver Lab &rarr;</a>
+          Control dock lands in P3.02+. <a href="#/solver-lab">Open Solver Lab &rarr;</a>{" "}
+          <a href="#/convergence-study">Open Convergence Study &rarr;</a>
         </p>
       }
       analysisDrawer={<p>Analysis drawer lands in later Phase 3 tasks.</p>}

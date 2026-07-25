@@ -10,9 +10,11 @@ import {
   type WorkPrecisionCurve,
 } from "@ballista/solverkit";
 import {
+  buildConvergenceFigure,
   buildPhasePlotFigure,
   buildPlotlyFigure,
   buildWorkPrecisionFigure,
+  type ConvergenceCurve,
   type TrajectoryChannelSpec,
 } from "./lazy-plotly-pane.js";
 
@@ -82,6 +84,24 @@ describe("buildWorkPrecisionFigure (P3.30 exploratory pane)", () => {
     expect(spec.traces).toEqual([
       { name: "explicit-euler", x: [10, 20], y: [1e-1, 5e-2] },
       { name: "classical-rk4", x: [40, 80], y: [1e-6, 1e-8] },
+    ]);
+  });
+});
+
+describe("buildConvergenceFigure (P3.42)", () => {
+  it("builds one log-log (h, error) trace per method, using measureConvergence's own samples verbatim", () => {
+    const curves: readonly ConvergenceCurve[] = [
+      { method: "explicit-euler", hs: [0.1, 0.05, 0.025], errors: [1e-1, 5e-2, 2.5e-2] },
+      { method: "classical-rk4", hs: [0.1, 0.05, 0.025], errors: [1e-4, 6.25e-6, 3.9e-7] },
+    ];
+
+    const spec = buildConvergenceFigure(curves);
+
+    expect(spec.xAxis).toEqual({ title: "step size h (s)", type: "log" });
+    expect(spec.yAxis).toEqual({ title: "global error", type: "log" });
+    expect(spec.traces).toEqual([
+      { name: "explicit-euler", x: [0.1, 0.05, 0.025], y: [1e-1, 5e-2, 2.5e-2] },
+      { name: "classical-rk4", x: [0.1, 0.05, 0.025], y: [1e-4, 6.25e-6, 3.9e-7] },
     ]);
   });
 });
