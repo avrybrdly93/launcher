@@ -10,3 +10,5 @@ export * from "./playback-store.js";
 export * from "./ui-store.js";
 export * from "./scenario-resolver.js";
 export * from "./simulation-session.js";
+export * from "./colorblind-safety.js";
+export * from "./colormap.js";

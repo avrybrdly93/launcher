@@ -18,16 +18,21 @@ import type { Trajectory } from "@ballista/solverkit";
  * entity, never its rank" -- even when an earlier pin is removed and later
  * ones shift down in `pinned`. Concurrently pinned trajectories are capped
  * at the palette's size; a caller wanting more must unpin something first.
+ *
+ * The palette is Okabe & Ito's (2008) "Color Universal Design" 8-color set,
+ * chosen (P3.36) because it stays pairwise distinguishable under simulated
+ * protanopia/deuteranopia/tritanopia, not just normal vision --
+ * `colorblind-safety.test.ts` checks it against `checkPaletteColorblindSafety`.
  */
 export const COMPARE_PALETTE: readonly string[] = Object.freeze([
-  "#2a78d6", // blue
-  "#eb6834", // orange
-  "#1baf7a", // aqua
-  "#eda100", // yellow
-  "#e87ba4", // magenta
-  "#008300", // green
-  "#4a3aa7", // violet
-  "#e34948", // red
+  "#000000", // black
+  "#E69F00", // orange
+  "#56B4E9", // sky blue
+  "#009E73", // bluish green
+  "#F0E442", // yellow
+  "#0072B2", // blue
+  "#D55E00", // vermillion
+  "#CC79A7", // reddish purple
 ]);
 
 export interface PinnedTrajectory {
