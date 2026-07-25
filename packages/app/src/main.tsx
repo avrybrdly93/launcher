@@ -2,6 +2,7 @@ import { render } from "preact";
 import { App } from "./app.js";
 import { ConvergenceStudyRoute } from "./convergence-study-route.js";
 import { SolverLabRoute } from "./solver-lab-route.js";
+import { StabilityExplorerRoute } from "./stability-explorer-route.js";
 
 /**
  * Minimal hash-based routing (P3.41, extended P3.42): a handful of routes
@@ -16,6 +17,9 @@ function renderRoute(root: HTMLElement): void {
       return;
     case "#/convergence-study":
       render(<ConvergenceStudyRoute />, root);
+      return;
+    case "#/stability-explorer":
+      render(<StabilityExplorerRoute />, root);
       return;
     default:
       render(<App />, root);

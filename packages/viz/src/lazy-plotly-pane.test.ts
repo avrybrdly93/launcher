@@ -13,6 +13,7 @@ import {
   buildConvergenceFigure,
   buildPhasePlotFigure,
   buildPlotlyFigure,
+  buildStabilityRegionFigure,
   buildWorkPrecisionFigure,
   type ConvergenceCurve,
   type TrajectoryChannelSpec,
@@ -103,6 +104,49 @@ describe("buildConvergenceFigure (P3.42)", () => {
       { name: "explicit-euler", x: [0.1, 0.05, 0.025], y: [1e-1, 5e-2, 2.5e-2] },
       { name: "classical-rk4", x: [0.1, 0.05, 0.025], y: [1e-4, 6.25e-6, 3.9e-7] },
     ]);
+  });
+});
+
+describe("buildStabilityRegionFigure (P3.43)", () => {
+  it("builds a contour trace at the |R(z)|=1 level plus a scatter trace of the given eigenvalue points", () => {
+    const spec = buildStabilityRegionFigure(
+      4,
+      "Classical RK4",
+      [-3, 1],
+      [-3, 3],
+      [
+        { re: -0.5, im: 0.1 },
+        { re: -1.2, im: -0.2 },
+      ],
+    );
+
+    expect(spec.traces).toHaveLength(2);
+    const [contour, eigenvalues] = spec.traces;
+    expect(contour).toMatchObject({
+      kind: "contour",
+      name: "|R(z)| = 1",
+      contourStart: 1,
+      contourEnd: 1,
+      contourSize: 0,
+    });
+    expect(contour!.x.length).toBeGreaterThan(1);
+    expect(contour!.y.length).toBeGreaterThan(1);
+    expect((contour as { z: readonly (readonly number[])[] }).z).toHaveLength(contour!.y.length);
+    expect((contour as { z: readonly (readonly number[])[] }).z[0]).toHaveLength(contour!.x.length);
+
+    expect(eigenvalues).toEqual({ name: "h·λ (trajectory)", x: [-0.5, -1.2], y: [0.1, -0.2] });
+    expect(spec.xAxis).toEqual({ title: "Re(z)" });
+    expect(spec.yAxis).toEqual({ title: "Im(z)" });
+  });
+
+  it("mirrors buildPlotlyFigure's contour trace into a Plotly contour data object", () => {
+    const spec = buildStabilityRegionFigure(1, "Explicit Euler", [-2, 1], [-1.5, 1.5], []);
+    const { data } = buildPlotlyFigure(spec);
+    expect(data[0]).toMatchObject({
+      type: "contour",
+      contours: { start: 1, end: 1, size: 0, coloring: "lines" },
+    });
+    expect(data[1]).toMatchObject({ type: "scatter", mode: "lines+markers" });
   });
 });
 

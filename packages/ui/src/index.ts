@@ -29,3 +29,5 @@ export * from "./solver-lab-page.js";
 export * from "./lazy-plotly-view.js";
 export * from "./convergence-study-page-logic.js";
 export * from "./convergence-study-page.js";
+export * from "./stability-explorer-page-logic.js";
+export * from "./stability-explorer-page.js";

@@ -17,14 +17,40 @@
  * renderLazyPlotlyPane}/{@link disposeLazyPlotlyPane} touch the lazy import.
  */
 
-import type { Trajectory, WorkPrecisionCurve } from "@ballista/solverkit";
+import {
+  sampleStabilityRegionGrid,
+  type Complex,
+  type Trajectory,
+  type WorkPrecisionCurve,
+} from "@ballista/solverkit";
 
 /** One named (x, y) curve to plot -- a work-precision method's points, or a phase trajectory. */
-export interface PlotlyTrace {
+export interface PlotlyScatterTrace {
+  readonly kind?: "scatter";
   readonly name: string;
   readonly x: readonly number[];
   readonly y: readonly number[];
 }
+
+/**
+ * A filled/leveled contour trace over a 2D grid (P3.43's `|R(z)|=1`
+ * stability-region boundary): `z` is row-major `z[row][col]`, `row` indexing
+ * `y` and `col` indexing `x`, matching {@link StabilityRegionGrid}'s shape
+ * exactly so the grid never needs reshaping between solverkit and Plotly.
+ */
+export interface PlotlyContourTrace {
+  readonly kind: "contour";
+  readonly name: string;
+  readonly x: readonly number[];
+  readonly y: readonly number[];
+  readonly z: readonly (readonly number[])[];
+  readonly contourStart: number;
+  readonly contourEnd: number;
+  readonly contourSize: number;
+}
+
+/** A trace is a plain scatter (the default, `kind` omitted, every pre-P3.43 builder's shape) or an explicit contour. */
+export type PlotlyTrace = PlotlyScatterTrace | PlotlyContourTrace;
 
 /** Axis label plus optional log scaling (work-precision plots are log-log; phase plots are linear). */
 export interface PlotlyAxisSpec {
@@ -74,6 +100,23 @@ export function resetLazyPlotlyModuleForTesting(): void {
 }
 
 function traceToPlotly(trace: PlotlyTrace): Record<string, unknown> {
+  if (trace.kind === "contour") {
+    return {
+      name: trace.name,
+      x: trace.x,
+      y: trace.y,
+      z: trace.z,
+      type: "contour",
+      contours: {
+        start: trace.contourStart,
+        end: trace.contourEnd,
+        size: trace.contourSize,
+        coloring: "lines",
+      },
+      line: { width: 2 },
+      showscale: false,
+    };
+  }
   return { name: trace.name, x: trace.x, y: trace.y, mode: "lines+markers", type: "scatter" };
 }
 
@@ -164,6 +207,57 @@ export function buildPhasePlotFigure(
     ],
     xAxis: { title: `${xChannel.label} (${xChannel.unit})` },
     yAxis: { title: `${yChannel.label} (${yChannel.unit})` },
+  };
+}
+
+/** Default resolution for {@link buildStabilityRegionFigure}'s sampled `|R(z)|` grid -- fine enough for a smooth-looking `|R(z)|=1` contour, coarse enough to compute well under a frame budget. */
+const STABILITY_REGION_GRID_RESOLUTION = 121;
+
+/**
+ * Stability-region figure (§4.6, P3.43): the `|R(z)|=1` boundary for a
+ * method of the given `order` (eq. 4.11's exact truncated-exponential
+ * scope -- Euler/RK2/RK4), overlaid with the scenario's own `z = h*lambda`
+ * points (already scaled by the caller's chosen `h`, `@ballista/runtime`'s
+ * `sampleTrajectoryEigenvalues` returning raw `lambda`) so their migration
+ * as the projectile decelerates is visible against the same axes as the
+ * region boundary.
+ */
+export function buildStabilityRegionFigure(
+  order: number,
+  methodLabel: string,
+  reRange: readonly [number, number],
+  imRange: readonly [number, number],
+  eigenvaluePoints: readonly Complex[],
+): PlotlyFigureSpec {
+  const grid = sampleStabilityRegionGrid(
+    order,
+    reRange,
+    imRange,
+    STABILITY_REGION_GRID_RESOLUTION,
+    STABILITY_REGION_GRID_RESOLUTION,
+  );
+
+  return {
+    title: `${methodLabel} stability region`,
+    traces: [
+      {
+        kind: "contour",
+        name: "|R(z)| = 1",
+        x: grid.reAxis,
+        y: grid.imAxis,
+        z: grid.magnitude,
+        contourStart: 1,
+        contourEnd: 1,
+        contourSize: 0,
+      },
+      {
+        name: "h·λ (trajectory)",
+        x: eigenvaluePoints.map((z) => z.re),
+        y: eigenvaluePoints.map((z) => z.im),
+      },
+    ],
+    xAxis: { title: "Re(z)" },
+    yAxis: { title: "Im(z)" },
   };
 }
 
