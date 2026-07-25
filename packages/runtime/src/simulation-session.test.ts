@@ -6,6 +6,7 @@ import {
   DEFAULT_SCENARIO,
   type AnimationFrameScheduler,
   type FrameScheduler,
+  type ReducedMotionQuery,
 } from "./simulation-session.js";
 
 /** `planarProjectileModel`'s `[x, y, vx, vy]` state layout (see planar-projectile-model.ts). */
@@ -335,5 +336,81 @@ describe("SimulationSession: playback clock (P3.13)", () => {
     session.scrubTo(0);
     session.scrubTo(root.t);
     expect(session.playback.getState().playbackTime).toBe(viaEvent);
+  });
+});
+
+describe("SimulationSession: prefers-reduced-motion disables auto-play/animation (P3.35 validation criterion, emulated media query)", () => {
+  it("with reduced motion preferred, play() never schedules the animation loop and jumps straight to the end", () => {
+    let scheduleCount = 0;
+    const animationFrameScheduler: AnimationFrameScheduler = () => {
+      scheduleCount++;
+    };
+    const reducedMotionQuery: ReducedMotionQuery = () => true;
+    const session = createSimulationSession(DEFAULT_SCENARIO, PRESET_SCENARIOS, {
+      animationFrameScheduler,
+      reducedMotionQuery,
+    });
+    session.commitScenario(DEFAULT_SCENARIO);
+    const duration = session.result.getState().trajectory!.t.at(-1)!;
+
+    session.play();
+
+    expect(scheduleCount).toBe(0);
+    expect(session.playback.getState().playing).toBe(false);
+    expect(session.playback.getState().playbackTime).toBe(duration);
+  });
+
+  it("with reduced motion NOT preferred (the default), play() behaves exactly as before -- schedules the animation loop", () => {
+    let scheduleCount = 0;
+    const animationFrameScheduler: AnimationFrameScheduler = () => {
+      scheduleCount++;
+    };
+    const reducedMotionQuery: ReducedMotionQuery = () => false;
+    const session = createSimulationSession(DEFAULT_SCENARIO, PRESET_SCENARIOS, {
+      animationFrameScheduler,
+      reducedMotionQuery,
+    });
+    session.commitScenario(DEFAULT_SCENARIO);
+
+    session.play();
+
+    expect(scheduleCount).toBe(1);
+    expect(session.playback.getState().playing).toBe(true);
+    expect(session.playback.getState().playbackTime).toBe(0);
+  });
+
+  it("with no trajectory published yet, reduced-motion play() is a harmless no-op (playbackTime stays 0)", () => {
+    const reducedMotionQuery: ReducedMotionQuery = () => true;
+    const session = createSimulationSession(DEFAULT_SCENARIO, PRESET_SCENARIOS, {
+      reducedMotionQuery,
+    });
+
+    session.play();
+
+    expect(session.playback.getState().playing).toBe(false);
+    expect(session.playback.getState().playbackTime).toBe(0);
+  });
+
+  it("defaults to honoring a real window.matchMedia('(prefers-reduced-motion: reduce)') when no override is supplied", () => {
+    const matches = vi.fn().mockReturnValue({ matches: true });
+    (globalThis as { matchMedia?: (q: string) => { matches: boolean } }).matchMedia = matches;
+
+    try {
+      let scheduleCount = 0;
+      const session = createSimulationSession(DEFAULT_SCENARIO, PRESET_SCENARIOS, {
+        animationFrameScheduler: () => {
+          scheduleCount++;
+        },
+      });
+      session.commitScenario(DEFAULT_SCENARIO);
+
+      session.play();
+
+      expect(matches).toHaveBeenCalledWith("(prefers-reduced-motion: reduce)");
+      expect(scheduleCount).toBe(0);
+      expect(session.playback.getState().playing).toBe(false);
+    } finally {
+      delete (globalThis as { matchMedia?: unknown }).matchMedia;
+    }
   });
 });

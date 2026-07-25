@@ -78,9 +78,26 @@ const defaultAnimationFrameScheduler: AnimationFrameScheduler = (callback) => {
   }
 };
 
+/**
+ * Reports whether the user has requested reduced motion (P3.35, §6.5
+ * accessibility requirement). Injectable so tests can emulate either media
+ * query state deterministically instead of depending on the environment's
+ * actual OS/browser setting.
+ */
+export type ReducedMotionQuery = () => boolean;
+
+const defaultReducedMotionQuery: ReducedMotionQuery = () => {
+  const matchMedia = (globalThis as { matchMedia?: (query: string) => { matches: boolean } })
+    .matchMedia;
+  return typeof matchMedia === "function"
+    ? matchMedia("(prefers-reduced-motion: reduce)").matches
+    : false;
+};
+
 export interface SimulationSessionOptions {
   readonly frameScheduler?: FrameScheduler;
   readonly animationFrameScheduler?: AnimationFrameScheduler;
+  readonly reducedMotionQuery?: ReducedMotionQuery;
 }
 
 export interface SimulationSession {
@@ -112,6 +129,12 @@ export interface SimulationSession {
    * the trajectory's end and not looping, restarts from `t=0` first (the
    * natural "replay" affordance for a finished playback). A no-op if
    * already playing, or if no trajectory has been published yet.
+   *
+   * Honors `prefers-reduced-motion` (P3.35): when the media query reports a
+   * reduced-motion preference, this never starts the per-frame animation
+   * loop -- it jumps `playback.playbackTime` straight to the trajectory's
+   * end (mirroring how CSS transitions skip straight to their end state
+   * under the same preference) and leaves `playback.playing` `false`.
    */
   play(): void;
   /** Stops the per-frame advance loop; `playback.playbackTime` holds wherever it was. */
@@ -141,6 +164,7 @@ export function createSimulationSession(
   const playback = createPlaybackStore();
   const frameScheduler = options.frameScheduler ?? defaultFrameScheduler;
   const animationFrameScheduler = options.animationFrameScheduler ?? defaultAnimationFrameScheduler;
+  const reducedMotionQuery = options.reducedMotionQuery ?? defaultReducedMotionQuery;
 
   let pendingDraft: ScenarioSpec | null = null;
   let frameScheduled = false;
@@ -269,6 +293,13 @@ export function createSimulationSession(
     const state = playback.getState();
     if (duration > 0 && !state.loop && state.playbackTime >= duration) {
       playback.setPlaybackTime(0);
+    }
+
+    if (reducedMotionQuery()) {
+      // prefers-reduced-motion (P3.35): skip the continuous per-frame
+      // animation loop entirely and land straight on the end state.
+      playback.setPlaybackTime(duration);
+      return;
     }
 
     lastTickMs = undefined;
