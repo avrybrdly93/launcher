@@ -55,6 +55,7 @@ export function ProjectilePanel({ projectile, onChange }: ProjectilePanelProps) 
     <div class="projectile-panel" data-testid="projectile-panel">
       <select
         value={projectile.id}
+        aria-label="Projectile preset"
         data-testid="projectile-preset-select"
         onInput={(event) => handlePresetSelect(event.currentTarget.value)}
       >

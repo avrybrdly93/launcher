@@ -36,6 +36,7 @@ export function CompareLegend({ entries, onUnpin }: CompareLegendProps) {
             <button
               type="button"
               class="compare-legend-unpin"
+              aria-label={`Unpin ${entry.label}`}
               data-testid={`compare-legend-unpin-${entry.id}`}
               onClick={() => onUnpin(entry.id)}
             >

@@ -58,6 +58,7 @@ export function SolverPanel({ solver, onChange }: SolverPanelProps) {
     <div class="solver-panel" data-testid="solver-panel">
       <select
         value={solver.stepper}
+        aria-label="Solver method"
         data-testid="solver-stepper-select"
         onInput={(event) => handleStepperSelect(event.currentTarget.value)}
       >
@@ -90,6 +91,7 @@ export function SolverPanel({ solver, onChange }: SolverPanelProps) {
             <label>{descriptor.label}</label>
             <select
               value={String(descriptor.value)}
+              aria-label={descriptor.label}
               data-testid={`control-${descriptor.path}-select`}
               onInput={(event) =>
                 handleAdaptiveFieldChange(descriptor.path, event.currentTarget.value)

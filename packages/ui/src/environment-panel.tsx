@@ -96,6 +96,7 @@ export function EnvironmentPanel({ environment, onChange }: EnvironmentPanelProp
       <div class="environment-panel-gravity" data-testid="environment-panel-gravity">
         <select
           value={gravitySelection}
+          aria-label="Gravity preset"
           data-testid="gravity-preset-select"
           onInput={(event) => handleGravityPresetSelect(event.currentTarget.value)}
         >
@@ -127,6 +128,7 @@ export function EnvironmentPanel({ environment, onChange }: EnvironmentPanelProp
       <div class="environment-panel-atmosphere" data-testid="environment-panel-atmosphere">
         <select
           value={atmosphere.kind}
+          aria-label="Atmosphere model"
           data-testid="atmosphere-kind-select"
           onInput={(event) => handleAtmosphereKindSelect(event.currentTarget.value)}
         >
@@ -149,6 +151,7 @@ export function EnvironmentPanel({ environment, onChange }: EnvironmentPanelProp
       <div class="environment-panel-wind" data-testid="environment-panel-wind">
         <select
           value={wind.kind}
+          aria-label="Wind model"
           data-testid="wind-kind-select"
           onInput={(event) => handleWindKindSelect(event.currentTarget.value)}
         >

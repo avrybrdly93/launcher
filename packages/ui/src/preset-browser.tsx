@@ -25,7 +25,12 @@ export function PresetBrowser({ selectedTag, onSelectTag, onSelectPreset }: Pres
 
   return (
     <div class="preset-browser" data-testid="preset-browser">
-      <div class="preset-browser-tags" data-testid="preset-browser-tags" role="group">
+      <div
+        class="preset-browser-tags"
+        data-testid="preset-browser-tags"
+        role="group"
+        aria-label="Filter presets by regime"
+      >
         <button
           type="button"
           class="preset-browser-tag"

@@ -37,6 +37,7 @@ function toNumericRange(descriptor: ControlDescriptor): NumericRange {
 export function NumericControlRow({ descriptor, onChange }: NumericControlRowProps) {
   const range = toNumericRange(descriptor);
   const value = typeof descriptor.value === "number" ? descriptor.value : 0;
+  const labelId = `control-${descriptor.path}-label`;
 
   function commit(next: number): void {
     if (Number.isFinite(next)) onChange(clampToRange(next, range));
@@ -62,7 +63,7 @@ export function NumericControlRow({ descriptor, onChange }: NumericControlRowPro
 
   return (
     <div class="numeric-control-row" data-testid={`control-${descriptor.path}`}>
-      <label>
+      <label id={labelId}>
         {descriptor.label}
         {descriptor.unit ? ` (${descriptor.unit})` : ""}
       </label>
@@ -73,6 +74,7 @@ export function NumericControlRow({ descriptor, onChange }: NumericControlRowPro
           max={descriptor.max}
           step={descriptor.step}
           value={value}
+          aria-labelledby={labelId}
           data-testid={`control-${descriptor.path}-slider`}
           onInput={handleInput}
           onKeyDown={handleKeyDown}
@@ -84,6 +86,7 @@ export function NumericControlRow({ descriptor, onChange }: NumericControlRowPro
         max={descriptor.max}
         step={descriptor.step}
         value={value}
+        aria-labelledby={labelId}
         data-testid={`control-${descriptor.path}-number`}
         onInput={handleInput}
         onKeyDown={handleKeyDown}
