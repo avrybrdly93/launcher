@@ -52,9 +52,26 @@ export interface SweepChunkResponse {
   readonly apexHeight: Float64Array;
 }
 
+/**
+ * A throttled interim progress report for one chunk (§5.6 "progress via
+ * streamed messages (throttled)"; P3.40) -- `completed` is chunk-local
+ * (out of that chunk's own `endIndex - startIndex`), not the full sweep's
+ * total; `runSweep`'s `onProgress` option aggregates across every chunk.
+ */
+export interface SweepChunkProgress {
+  readonly kind: "sweep-chunk-progress";
+  readonly startIndex: number;
+  readonly completed: number;
+}
+
+export interface RunSweepOptions {
+  /** Called with `(completed, total)` -- both full-sweep-wide counts -- as chunks report progress and as each chunk finishes. Best-effort: a chunk's interim reports are throttled (see {@link postSweepChunkResult}), so `completed` jumps in bursts rather than incrementing by exactly 1. */
+  readonly onProgress?: (completed: number, total: number) => void;
+}
+
 export interface WorkerPool {
   /** Runs `job`'s full grid across the pool, one contiguous chunk per worker, and resolves once every chunk has returned. */
-  runSweep(job: SweepJob): Promise<SweepResult>;
+  runSweep(job: SweepJob, options?: RunSweepOptions): Promise<SweepResult>;
   /** Terminates every worker in the pool. Safe to call once the pool is no longer needed (e.g. a page/component teardown). */
   terminate(): void;
 }
@@ -90,9 +107,17 @@ export function createWorkerPool(options: WorkerPoolOptions): WorkerPool {
   function runOnWorker(
     worker: WorkerLike,
     request: SweepChunkRequest,
+    onChunkProgress?: (completed: number) => void,
   ): Promise<SweepChunkResponse> {
     return new Promise((resolve, reject) => {
-      worker.onmessage = (event) => resolve(event.data as SweepChunkResponse);
+      worker.onmessage = (event) => {
+        const data = event.data as SweepChunkResponse | SweepChunkProgress;
+        if (data.kind === "sweep-chunk-progress") {
+          onChunkProgress?.(data.completed);
+          return;
+        }
+        resolve(data);
+      };
       worker.onerror = (event) => reject(event);
       worker.postMessage(request);
     });
@@ -115,7 +140,7 @@ export function createWorkerPool(options: WorkerPoolOptions): WorkerPool {
     return bounds;
   }
 
-  async function runSweep(job: SweepJob): Promise<SweepResult> {
+  async function runSweep(job: SweepJob, options: RunSweepOptions = {}): Promise<SweepResult> {
     const total = sweepPointCount(job);
     const range = new Float64Array(total);
     const apexHeight = new Float64Array(total);
@@ -123,9 +148,33 @@ export function createWorkerPool(options: WorkerPoolOptions): WorkerPool {
     if (total > 0) {
       const chunkCount = Math.min(size, total);
       const bounds = chunkBounds(total, chunkCount);
+      const completedByChunk = new Array<number>(chunkCount).fill(0);
+
+      function reportProgress(): void {
+        if (!options.onProgress) return;
+        let completed = 0;
+        for (const n of completedByChunk) completed += n;
+        options.onProgress(completed, total);
+      }
+
       const chunks = await Promise.all(
         bounds.map(([startIndex, endIndex], i) =>
-          runOnWorker(workers[i]!, { kind: "sweep-chunk", job, startIndex, endIndex }),
+          runOnWorker(
+            workers[i]!,
+            { kind: "sweep-chunk", job, startIndex, endIndex },
+            (completed) => {
+              completedByChunk[i] = completed;
+              reportProgress();
+            },
+          ).then((response) => {
+            // A chunk's own progress reports are throttled (may never reach
+            // its full size before the terminal result arrives); mark it
+            // fully done here regardless, so the aggregate total is exact
+            // once every chunk resolves, not dependent on throttling.
+            completedByChunk[i] = endIndex - startIndex;
+            reportProgress();
+            return response;
+          }),
         ),
       );
       for (const chunk of chunks) {
@@ -140,18 +189,51 @@ export function createWorkerPool(options: WorkerPoolOptions): WorkerPool {
   return { runSweep, terminate };
 }
 
+/** Post a progress message at most once every this many completed points within a chunk -- "throttled" per §5.6. */
+const PROGRESS_THROTTLE_POINTS = 8;
+
 /**
- * The message handler a real `sweep-worker-entry.ts` (running inside an
- * actual Worker) wires to `self.onmessage`: computes one chunk in-place
- * and returns the response object a caller should `postMessage` back
- * (with `range.buffer`/`apexHeight.buffer` as the transfer list). Kept
- * here (not duplicated in the worker entry) so the request/response shape
- * has exactly one definition.
+ * Computes one chunk's result, optionally reporting progress as it goes
+ * (chunk-local `completed`, per {@link runSweepRange}). Kept here (not
+ * duplicated in the worker entry) so the request/response shape has
+ * exactly one definition; {@link postSweepChunkResult} is the version a
+ * real worker actually calls (adds throttled posting + the transfer list).
  */
-export function handleSweepChunkRequest(request: SweepChunkRequest): SweepChunkResponse {
+export function handleSweepChunkRequest(
+  request: SweepChunkRequest,
+  onProgress?: (completed: number) => void,
+): SweepChunkResponse {
   const size = request.endIndex - request.startIndex;
   const range = new Float64Array(size);
   const apexHeight = new Float64Array(size);
-  runSweepRange(request.job, request.startIndex, request.endIndex, range, apexHeight);
+  runSweepRange(request.job, request.startIndex, request.endIndex, range, apexHeight, onProgress);
   return { kind: "sweep-chunk-result", startIndex: request.startIndex, range, apexHeight };
+}
+
+/**
+ * The message handler a real `sweep-worker-entry.ts` (running inside an
+ * actual Worker) wires to `self.onmessage`: computes `request`'s chunk,
+ * posting a throttled {@link SweepChunkProgress} every
+ * {@link PROGRESS_THROTTLE_POINTS} completed points (§5.6 "progress via
+ * streamed messages (throttled)"; P3.40), then posts the final
+ * {@link SweepChunkResponse} with its two `Float64Array`s' buffers as the
+ * transfer list -- a genuine zero-copy transfer, not a structured-clone
+ * copy (this task's validation criterion; see worker-pool.test.ts's
+ * `node:worker_threads` `MessageChannel`-based proof). Returns the
+ * response too, purely so a test can inspect the exact object that was
+ * transferred (its buffers are detached as a side effect of `post`, by
+ * design) -- the real worker entry ignores the return value.
+ */
+export function postSweepChunkResult(
+  post: (message: unknown, transfer?: readonly ArrayBufferLike[]) => void,
+  request: SweepChunkRequest,
+): SweepChunkResponse {
+  const size = request.endIndex - request.startIndex;
+  const response = handleSweepChunkRequest(request, (completed) => {
+    if (completed < size && completed % PROGRESS_THROTTLE_POINTS === 0) {
+      post({ kind: "sweep-chunk-progress", startIndex: request.startIndex, completed });
+    }
+  });
+  post(response, [response.range.buffer, response.apexHeight.buffer]);
+  return response;
 }

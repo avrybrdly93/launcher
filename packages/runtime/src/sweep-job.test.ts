@@ -72,4 +72,24 @@ describe("runSweepRange", () => {
       expect(apexHeight[i - startIndex]).toBe(expected.apexHeight);
     }
   });
+
+  it("calls onProgress once per point with the chunk-local completed count, in order, ending at the chunk size (P3.40)", () => {
+    const job: SweepJob = {
+      baseScenario: GROUND_LEVEL_DRAG_FREE,
+      thetaDegGrid: [20, 40, 60],
+      v0Grid: [15, 30],
+    };
+    const startIndex = 1;
+    const endIndex = 5;
+    const chunkSize = endIndex - startIndex;
+    const range = new Float64Array(chunkSize);
+    const apexHeight = new Float64Array(chunkSize);
+    const progress: number[] = [];
+
+    runSweepRange(job, startIndex, endIndex, range, apexHeight, (completed) =>
+      progress.push(completed),
+    );
+
+    expect(progress).toEqual([1, 2, 3, 4]);
+  });
 });

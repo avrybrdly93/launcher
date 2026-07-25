@@ -123,7 +123,12 @@ export function runSweepPoint(job: SweepJob, index: number): SweepPoint {
  * `range`/`apexHeight` into `outRange`/`outApexHeight` at the *chunk-local*
  * index `i - startIndex` -- so a caller (the worker pool) can hand a
  * worker a right-sized chunk-local buffer to fill and transfer back,
- * rather than the full sweep's arrays.
+ * rather than the full sweep's arrays. `onProgress`, if given, is called
+ * after every point with the chunk-local count completed so far (P3.40);
+ * this function calls it unconditionally on every point -- deciding how
+ * often that actually turns into a posted message (the "throttled" part of
+ * §5.6's "progress via streamed messages (throttled)") is `worker-pool.ts`'s
+ * concern, not this pure computation's.
  */
 export function runSweepRange(
   job: SweepJob,
@@ -131,11 +136,13 @@ export function runSweepRange(
   endIndex: number,
   outRange: Float64Array,
   outApexHeight: Float64Array,
+  onProgress?: (completed: number) => void,
 ): void {
   for (let i = startIndex; i < endIndex; i++) {
     const point = runSweepPoint(job, i);
     const local = i - startIndex;
     outRange[local] = point.range;
     outApexHeight[local] = point.apexHeight;
+    onProgress?.(local + 1);
   }
 }

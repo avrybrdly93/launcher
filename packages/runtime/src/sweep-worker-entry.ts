@@ -12,7 +12,7 @@
  * task's title asks for, never `viz`/`ui`.
  */
 
-import { handleSweepChunkRequest, type SweepChunkRequest } from "./worker-pool.js";
+import { postSweepChunkResult, type SweepChunkRequest } from "./worker-pool.js";
 
 /**
  * The minimal worker-global-scope surface this file needs. Declared
@@ -27,7 +27,8 @@ declare const self: {
 };
 
 self.onmessage = (event) => {
-  const request = event.data as SweepChunkRequest;
-  const response = handleSweepChunkRequest(request);
-  self.postMessage(response, [response.range.buffer, response.apexHeight.buffer]);
+  postSweepChunkResult(
+    (message, transfer) => self.postMessage(message, transfer),
+    event.data as SweepChunkRequest,
+  );
 };

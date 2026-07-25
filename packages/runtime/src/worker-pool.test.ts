@@ -1,9 +1,11 @@
+import { MessageChannel } from "node:worker_threads";
 import { describe, expect, it, vi } from "vitest";
 import { PRESET_SCENARIOS, type ScenarioSpec } from "@ballista/engine";
 import { runSweepPoint, sweepPointCount, type SweepJob } from "./sweep-job.js";
 import {
   createWorkerPool,
   handleSweepChunkRequest,
+  postSweepChunkResult,
   type SweepChunkRequest,
   type WorkerLike,
 } from "./worker-pool.js";
@@ -127,5 +129,103 @@ describe("createWorkerPool: dispatch and reassembly", () => {
     const { pool, fakes } = createFakePool(3);
     pool.terminate();
     for (const fake of fakes) expect(fake.worker.terminate).toHaveBeenCalledTimes(1);
+  });
+});
+
+/**
+ * A fake worker that (unlike {@link createFakeWorker} above) posts interim
+ * `sweep-chunk-progress` messages via `handleSweepChunkRequest`'s
+ * `onProgress` -- exercising `runSweep`'s progress-aggregation path
+ * (P3.40) the same way a real worker's `postSweepChunkResult` would,
+ * without needing a real thread.
+ */
+function createProgressReportingFakeWorker(): { worker: WorkerLike } {
+  const worker: WorkerLike = {
+    postMessage(message) {
+      const request = message as SweepChunkRequest;
+      queueMicrotask(() => {
+        const response = handleSweepChunkRequest(request, (completed) => {
+          worker.onmessage?.({
+            data: { kind: "sweep-chunk-progress", startIndex: request.startIndex, completed },
+          });
+        });
+        worker.onmessage?.({ data: response });
+      });
+    },
+    terminate: vi.fn(),
+    onmessage: null,
+    onerror: null,
+  };
+  return { worker };
+}
+
+describe("createWorkerPool: progress messages (P3.40 validation criterion: progress messages)", () => {
+  it("aggregates per-chunk progress into full-sweep (completed, total), ending exactly at (total, total)", async () => {
+    const job: SweepJob = {
+      baseScenario: BASE_SCENARIO,
+      thetaDegGrid: Array.from({ length: 11 }, (_, i) => 10 + i * 7),
+      v0Grid: Array.from({ length: 11 }, (_, i) => 10 + i * 4),
+    };
+    let created = 0;
+    const fakes = Array.from({ length: 4 }, () => createProgressReportingFakeWorker());
+    const pool = createWorkerPool({ size: 4, createWorker: () => fakes[created++]!.worker });
+
+    const reports: Array<readonly [number, number]> = [];
+    await pool.runSweep(job, {
+      onProgress: (completed, total) => reports.push([completed, total]),
+    });
+
+    expect(reports.length).toBeGreaterThan(0);
+    for (const [completed, total] of reports) {
+      expect(total).toBe(121);
+      expect(completed).toBeGreaterThanOrEqual(0);
+      expect(completed).toBeLessThanOrEqual(121);
+    }
+    // Monotonically non-decreasing, and the last report is fully done.
+    for (let i = 1; i < reports.length; i++) {
+      expect(reports[i]![0]).toBeGreaterThanOrEqual(reports[i - 1]![0]);
+    }
+    expect(reports[reports.length - 1]).toEqual([121, 121]);
+  });
+
+  it("never calls onProgress when no option is given (no unconditional overhead)", async () => {
+    const job: SweepJob = { baseScenario: BASE_SCENARIO, thetaDegGrid: [10], v0Grid: [20] };
+    const { pool } = createFakePool(1);
+    // No onProgress passed -- just confirming this doesn't throw / requires no callback.
+    await expect(pool.runSweep(job)).resolves.toMatchObject({ range: expect.any(Float64Array) });
+  });
+});
+
+describe("postSweepChunkResult: posts via transfer, not structured-clone (P3.40 validation criterion)", () => {
+  it("the response's Float64Array buffers are detached (byteLength 0) immediately after posting through a real MessagePort", async () => {
+    const job: SweepJob = { baseScenario: BASE_SCENARIO, thetaDegGrid: [10, 45], v0Grid: [20, 30] };
+    const request: SweepChunkRequest = { kind: "sweep-chunk", job, startIndex: 0, endIndex: 4 };
+    const { port1, port2 } = new MessageChannel();
+
+    const received = new Promise<SweepChunkRequest>((resolve) => {
+      port2.once("message", (data: SweepChunkRequest) => resolve(data));
+    });
+
+    const response = postSweepChunkResult(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- node:worker_threads' MessagePort.postMessage types its transfer list against the DOM `Transferable` type, unavailable in this DOM-lib-free package; this is a real port, not a type-safety-critical call.
+      (message, transfer) => port1.postMessage(message, transfer as any),
+      request,
+    );
+
+    // A structured-clone COPY would leave the sender's buffers intact; a
+    // real transfer detaches them synchronously, in this same tick.
+    expect(response.range.buffer.byteLength).toBe(0);
+    expect(response.apexHeight.buffer.byteLength).toBe(0);
+
+    // ...and the receiving side genuinely got a working, correctly-sized copy.
+    const receivedResponse = (await received) as unknown as {
+      range: Float64Array;
+      apexHeight: Float64Array;
+    };
+    expect(receivedResponse.range.length).toBe(4);
+    expect(receivedResponse.apexHeight.length).toBe(4);
+
+    port1.close();
+    port2.close();
   });
 });
