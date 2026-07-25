@@ -24,3 +24,5 @@ export * from "./preset-browser-logic.js";
 export * from "./preset-browser.js";
 export * from "./error-surface-logic.js";
 export * from "./error-surface-panel.js";
+export * from "./solver-lab-page-logic.js";
+export * from "./solver-lab-page.js";

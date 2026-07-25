@@ -14,3 +14,4 @@ export * from "./colorblind-safety.js";
 export * from "./colormap.js";
 export * from "./sweep-job.js";
 export * from "./worker-pool.js";
+export * from "./solver-lab.js";

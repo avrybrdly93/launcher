@@ -1,0 +1,37 @@
+/* Solver Lab route layout (P3.41): a simple padded page, comparison columns laid out side by side. */
+.solver-lab-route {
+  padding: 1rem;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.solver-lab-page-columns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.solver-lab-page-column {
+  flex: 1 1 200px;
+  min-width: 200px;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  padding: 0.75rem;
+}
+
+.solver-lab-page-column dl {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 0.25rem 0.75rem;
+  margin: 0;
+}
+
+.solver-lab-page-column dt {
+  font-weight: 600;
+}
+
+.solver-lab-page-h-control {
+  display: block;
+  margin-top: 0.75rem;
+}
