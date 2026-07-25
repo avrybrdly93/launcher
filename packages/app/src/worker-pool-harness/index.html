@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Sweep worker pool harness (P3.39 test-only)</title>
+  </head>
+  <body>
+    <!--
+      Not part of the shipped app (no link from index.html, no route) --
+      a dedicated Vite entry point so worker-pool.e2e.test.ts can drive a
+      real `sweep` job through a real browser Worker (P3.39's "runs
+      off-main; UI interactive throughout" criterion can't be verified any
+      other way -- jsdom doesn't implement real Worker parallelism).
+    -->
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>
