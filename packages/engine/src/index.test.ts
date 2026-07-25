@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { add, crossZ, dot, norm, scale, zero } from "./vec2.js";
-import { degToRad, ftToM, mToFt, radToDeg, SUTHERLAND, sutherlandViscosity } from "./units.js";
+import {
+  degToRad,
+  ftToM,
+  kgToLb,
+  lbToKg,
+  mToFt,
+  radToDeg,
+  SUTHERLAND,
+  sutherlandViscosity,
+} from "./units.js";
 import { PCG32 } from "./random.js";
 
 describe("vec2", () => {
@@ -26,6 +35,9 @@ describe("units", () => {
     }
     for (const m of [0, 1, 100, 1609.34]) {
       expect(ftToM(mToFt(m))).toBeCloseTo(m, 9);
+    }
+    for (const kg of [0, 1, 0.045, 7.26]) {
+      expect(lbToKg(kgToLb(kg))).toBeCloseTo(kg, 9);
     }
   });
 });

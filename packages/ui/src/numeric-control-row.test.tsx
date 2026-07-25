@@ -155,3 +155,85 @@ describe("NumericControlRow: keyboard nudge, shift-fine works (P3.19 validation 
     expect(otherEvent.preventDefault).not.toHaveBeenCalled();
   });
 });
+
+describe("NumericControlRow: units display toggle at the boundary (P3.37 validation criterion)", () => {
+  it("imperial mode displays a converted value, unit, and range -- SI mode is the default", () => {
+    const siVNode = NumericControlRow({ descriptor: SLIDER_DESCRIPTOR, onChange: vi.fn() });
+    const [siLabel, siSlider] = siVNode.props.children;
+    expect(siLabel.props.children).toEqual(["Launch speed v₀", " (m/s)"]);
+    expect(siSlider.props.value).toBe(50);
+    expect(siSlider.props.max).toBe(150);
+
+    const imperialVNode = NumericControlRow({
+      descriptor: SLIDER_DESCRIPTOR,
+      onChange: vi.fn(),
+      unitsDisplay: "imperial",
+    });
+    const [label, slider, numberInput] = imperialVNode.props.children;
+    expect(label.props.children).toEqual(["Launch speed v₀", " (mph)"]);
+    expect(slider.props.value).toBeCloseTo(50 * 2.2369362920544, 9);
+    expect(slider.props.max).toBeCloseTo(150 * 2.2369362920544, 9);
+    expect(numberInput.props.value).toBeCloseTo(50 * 2.2369362920544, 9);
+  });
+
+  it("a committed display-unit value converts back to SI before reaching onChange", () => {
+    const onChange = vi.fn();
+    const vnode = NumericControlRow({
+      descriptor: SLIDER_DESCRIPTOR,
+      onChange,
+      unitsDisplay: "imperial",
+    });
+    const [, , numberInput] = vnode.props.children;
+
+    numberInput.props.onInput(fakeInputEvent(2.2369362920544));
+    expect(onChange).toHaveBeenCalledWith(expect.closeTo(1, 9));
+  });
+
+  it("a display-unit value beyond the SI-derived range still clamps before onChange", () => {
+    const onChange = vi.fn();
+    const vnode = NumericControlRow({
+      descriptor: SLIDER_DESCRIPTOR,
+      onChange,
+      unitsDisplay: "imperial",
+    });
+    const [, , numberInput] = vnode.props.children;
+
+    numberInput.props.onInput(fakeInputEvent(9999));
+    expect(onChange).toHaveBeenCalledWith(expect.closeTo(150, 9));
+  });
+
+  it("toggling unitsDisplay never mutates the descriptor or calls onChange -- internal (SI) state is unchanged", () => {
+    const onChange = vi.fn();
+    const before = { ...SLIDER_DESCRIPTOR };
+
+    NumericControlRow({ descriptor: SLIDER_DESCRIPTOR, onChange, unitsDisplay: "SI" });
+    NumericControlRow({ descriptor: SLIDER_DESCRIPTOR, onChange, unitsDisplay: "imperial" });
+    NumericControlRow({ descriptor: SLIDER_DESCRIPTOR, onChange, unitsDisplay: "SI" });
+
+    expect(onChange).not.toHaveBeenCalled();
+    expect(SLIDER_DESCRIPTOR).toEqual(before);
+    expect(JSON.stringify(SLIDER_DESCRIPTOR)).toBe(JSON.stringify(before));
+  });
+
+  it("an SI-only unit (no imperial equivalent, e.g. degrees) is never converted", () => {
+    const angleDescriptor: ControlDescriptor = {
+      path: "theta",
+      kind: "slider",
+      label: "Launch angle θ",
+      unit: "deg",
+      value: 45,
+      min: 0,
+      max: 90,
+      step: 0.1,
+    };
+    const vnode = NumericControlRow({
+      descriptor: angleDescriptor,
+      onChange: vi.fn(),
+      unitsDisplay: "imperial",
+    });
+    const [label, slider] = vnode.props.children;
+    expect(label.props.children).toEqual(["Launch angle θ", " (deg)"]);
+    expect(slider.props.value).toBe(45);
+    expect(slider.props.max).toBe(90);
+  });
+});

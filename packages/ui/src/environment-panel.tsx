@@ -11,6 +11,7 @@
  */
 
 import type { AtmosphereSpec, EnvironmentSpec, WindSpec } from "@ballista/engine";
+import type { UnitsDisplay } from "@ballista/runtime";
 import { CheckboxControlRow } from "./checkbox-control-row.js";
 import {
   ATMOSPHERE_KINDS,
@@ -35,9 +36,10 @@ import { generateControlDescriptors, type ControlDescriptor } from "./schema-con
 export interface EnvironmentPanelProps {
   readonly environment: EnvironmentSpec;
   readonly onChange: (next: EnvironmentSpec) => void;
+  readonly unitsDisplay?: UnitsDisplay;
 }
 
-export function EnvironmentPanel({ environment, onChange }: EnvironmentPanelProps) {
+export function EnvironmentPanel({ environment, onChange, unitsDisplay }: EnvironmentPanelProps) {
   const { gravity, atmosphere, wind } = environment;
 
   function handleGravityPresetSelect(id: string): void {
@@ -119,6 +121,7 @@ export function EnvironmentPanel({ environment, onChange }: EnvironmentPanelProp
             <NumericControlRow
               key={descriptor.path}
               descriptor={descriptor}
+              {...(unitsDisplay !== undefined ? { unitsDisplay } : {})}
               onChange={(next) => handleGravityFieldChange(descriptor, next)}
             />
           ),
@@ -143,6 +146,7 @@ export function EnvironmentPanel({ environment, onChange }: EnvironmentPanelProp
           <NumericControlRow
             key={descriptor.path}
             descriptor={descriptor}
+            {...(unitsDisplay !== undefined ? { unitsDisplay } : {})}
             onChange={(next) => handleAtmosphereFieldChange(descriptor, next)}
           />
         ))}
@@ -166,6 +170,7 @@ export function EnvironmentPanel({ environment, onChange }: EnvironmentPanelProp
           <NumericControlRow
             key={descriptor.path}
             descriptor={descriptor}
+            {...(unitsDisplay !== undefined ? { unitsDisplay } : {})}
             onChange={(next) => handleWindFieldChange(descriptor, next)}
           />
         ))}

@@ -6,15 +6,25 @@
  * clamp/nudge logic (`numeric-control-logic.ts`) -- there is exactly one
  * place a committed value can end up out of range or a nudge step wrong,
  * shared by every field this renders, not per-field bespoke handlers.
+ *
+ * `unitsDisplay` (P3.37, §6.3 "units toggleable ... imperial display-only
+ * conversion at the boundary") converts `descriptor`'s SI value/range/unit
+ * to display units purely for rendering, and converts a committed display
+ * value back to SI before it ever reaches `onChange` -- `descriptor` itself
+ * (the caller's SI source of truth) is read, never written.
  */
 
 import type { JSX } from "preact";
+import type { UnitsDisplay } from "@ballista/runtime";
 import { clampToRange, nudgeValue, type NumericRange } from "./numeric-control-logic.js";
 import type { ControlDescriptor } from "./schema-controls.js";
+import { displayUnitFor, toDisplayValue, toSIValue } from "./units-display-logic.js";
 
 export interface NumericControlRowProps {
   readonly descriptor: ControlDescriptor;
   readonly onChange: (value: number) => void;
+  /** Defaults to `"SI"` (the descriptor's own units, unconverted). */
+  readonly unitsDisplay?: UnitsDisplay;
 }
 
 function toNumericRange(descriptor: ControlDescriptor): NumericRange {
@@ -34,13 +44,32 @@ function toNumericRange(descriptor: ControlDescriptor): NumericRange {
  * regardless of which control produced it (this task's "values clamp to
  * schema ranges" validation criterion).
  */
-export function NumericControlRow({ descriptor, onChange }: NumericControlRowProps) {
-  const range = toNumericRange(descriptor);
-  const value = typeof descriptor.value === "number" ? descriptor.value : 0;
+export function NumericControlRow({
+  descriptor,
+  onChange,
+  unitsDisplay = "SI",
+}: NumericControlRowProps) {
+  const siRange = toNumericRange(descriptor);
+  const range: NumericRange = {
+    ...(siRange.min !== undefined
+      ? { min: toDisplayValue(siRange.min, descriptor.unit, unitsDisplay) }
+      : {}),
+    ...(siRange.max !== undefined
+      ? { max: toDisplayValue(siRange.max, descriptor.unit, unitsDisplay) }
+      : {}),
+    ...(siRange.step !== undefined
+      ? { step: toDisplayValue(siRange.step, descriptor.unit, unitsDisplay) }
+      : {}),
+  };
+  const siValue = typeof descriptor.value === "number" ? descriptor.value : 0;
+  const value = toDisplayValue(siValue, descriptor.unit, unitsDisplay);
+  const unit = displayUnitFor(descriptor.unit, unitsDisplay);
   const labelId = `control-${descriptor.path}-label`;
 
   function commit(next: number): void {
-    if (Number.isFinite(next)) onChange(clampToRange(next, range));
+    if (!Number.isFinite(next)) return;
+    const clampedDisplay = clampToRange(next, range);
+    onChange(toSIValue(clampedDisplay, descriptor.unit, unitsDisplay));
   }
 
   function handleInput(event: JSX.TargetedEvent<HTMLInputElement>): void {
@@ -65,14 +94,14 @@ export function NumericControlRow({ descriptor, onChange }: NumericControlRowPro
     <div class="numeric-control-row" data-testid={`control-${descriptor.path}`}>
       <label id={labelId}>
         {descriptor.label}
-        {descriptor.unit ? ` (${descriptor.unit})` : ""}
+        {unit ? ` (${unit})` : ""}
       </label>
       {descriptor.kind === "slider" && (
         <input
           type="range"
-          min={descriptor.min}
-          max={descriptor.max}
-          step={descriptor.step}
+          min={range.min}
+          max={range.max}
+          step={range.step}
           value={value}
           aria-labelledby={labelId}
           data-testid={`control-${descriptor.path}-slider`}
@@ -82,9 +111,9 @@ export function NumericControlRow({ descriptor, onChange }: NumericControlRowPro
       )}
       <input
         type="number"
-        min={descriptor.min}
-        max={descriptor.max}
-        step={descriptor.step}
+        min={range.min}
+        max={range.max}
+        step={range.step}
         value={value}
         aria-labelledby={labelId}
         data-testid={`control-${descriptor.path}-number`}

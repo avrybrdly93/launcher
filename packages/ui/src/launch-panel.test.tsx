@@ -62,4 +62,21 @@ describe("LaunchPanel", () => {
 
     expect(onChange).toHaveBeenCalledWith({ v0: 30, theta: 45, y0: 0, omega: 500 });
   });
+
+  it("forwards unitsDisplay to every row, converting v0 for display without touching the SI draft (P3.37)", () => {
+    const onChange = vi.fn();
+    const panelVNode = LaunchPanel({ value: SPEC, onChange, unitsDisplay: "imperial" });
+    const v0Row = panelVNode.props.children.find(
+      (row: { props: { descriptor: { path: string } } }) => row.props.descriptor.path === "v0",
+    );
+    expect(v0Row.props.unitsDisplay).toBe("imperial");
+
+    const rowVNode = NumericControlRow(v0Row.props);
+    const [label, sliderInput] = rowVNode.props.children;
+    expect(label.props.children).toEqual(["Launch speed v₀", " (mph)"]);
+    expect(sliderInput.props.value).toBeCloseTo(30 * 2.2369362920544, 9);
+
+    // Still SI (v0=30) once it reaches onChange, and the draft passed in is untouched.
+    expect(SPEC).toEqual({ v0: 30, theta: 45, y0: 0, omega: 0 });
+  });
 });

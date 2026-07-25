@@ -13,6 +13,7 @@
 
 import type { ProjectileSpec } from "@ballista/engine";
 import { PROJECTILE_ASSETS } from "@ballista/engine";
+import type { UnitsDisplay } from "@ballista/runtime";
 import { NumericControlRow } from "./numeric-control-row.js";
 import {
   CUSTOM_PROJECTILE_ID,
@@ -27,9 +28,10 @@ import { generateControlDescriptors } from "./schema-controls.js";
 export interface ProjectilePanelProps {
   readonly projectile: ProjectileSpec;
   readonly onChange: (next: ProjectileSpec) => void;
+  readonly unitsDisplay?: UnitsDisplay;
 }
 
-export function ProjectilePanel({ projectile, onChange }: ProjectilePanelProps) {
+export function ProjectilePanel({ projectile, onChange, unitsDisplay }: ProjectilePanelProps) {
   const isCustom = projectile.id === CUSTOM_PROJECTILE_ID;
 
   function handlePresetSelect(id: string): void {
@@ -71,6 +73,7 @@ export function ProjectilePanel({ projectile, onChange }: ProjectilePanelProps) 
         <NumericControlRow
           key={descriptor.path}
           descriptor={descriptor}
+          {...(unitsDisplay !== undefined ? { unitsDisplay } : {})}
           onChange={(next) => onChange({ ...projectile, [descriptor.path]: next })}
         />
       ))}
@@ -79,6 +82,7 @@ export function ProjectilePanel({ projectile, onChange }: ProjectilePanelProps) 
         <NumericControlRow
           key={descriptor.path}
           descriptor={descriptor}
+          {...(unitsDisplay !== undefined ? { unitsDisplay } : {})}
           onChange={(next) =>
             onChange({ ...projectile, dragModel: { kind: "constant", cd: next } })
           }

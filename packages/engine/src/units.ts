@@ -69,3 +69,13 @@ export function mToFt(m: number): number {
 export function ftToM(ft: number): number {
   return ft / 3.280839895013123;
 }
+
+/** Kilograms to pounds (avoirdupois). */
+export function kgToLb(kg: number): number {
+  return kg * 2.2046226218487757;
+}
+
+/** Pounds (avoirdupois) to kilograms. */
+export function lbToKg(lb: number): number {
+  return lb / 2.2046226218487757;
+}
