@@ -29,7 +29,14 @@ const T_MAX_SECONDS = 60;
 
 export type CommitOutcome =
   | { readonly status: "ok" }
-  | { readonly status: "failed"; readonly reason: SolveFailureReason; readonly message: string };
+  | {
+      readonly status: "failed";
+      readonly reason: SolveFailureReason;
+      readonly message: string;
+      /** The last-good state before the failure (§5.1 error taxonomy: every `SolveFailure` carries this) -- P3.38's error surface renders it alongside the guidance text. */
+      readonly t: number;
+      readonly y: Float64Array;
+    };
 
 /**
  * Schedules `callback` to run on the next animation frame (§5.3
@@ -200,13 +207,16 @@ export function createSimulationSession(
       // commitScenario never passes integrate() a cancellation token, so
       // "canceled" (and thus a missing `failure`) shouldn't occur in
       // practice; the fallback below is a defensive backstop, not a path
-      // this session actually exercises.
+      // this session actually exercises. Falling back to (0, y0) there is
+      // the closest thing to a "last-good state" when none was recorded.
       return {
         status: "failed",
         reason: report.failure?.reason ?? "max-steps-exceeded",
         message:
           report.failure?.message ??
           `solve ended with status "${report.status}" and no failure detail`,
+        t: report.failure?.t ?? 0,
+        y: report.failure?.y ?? y0,
       };
     }
 

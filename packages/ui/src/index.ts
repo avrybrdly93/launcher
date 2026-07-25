@@ -22,3 +22,5 @@ export * from "./advisor-hint-panel.js";
 export * from "./compare-legend.js";
 export * from "./preset-browser-logic.js";
 export * from "./preset-browser.js";
+export * from "./error-surface-logic.js";
+export * from "./error-surface-panel.js";

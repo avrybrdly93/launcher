@@ -67,6 +67,24 @@ describe("SimulationSession", () => {
     expect(session.result.getState()).toBe(publishedBefore);
   });
 
+  it("a forced h_min underflow fails with the last-good (t, y) state attached (P3.38 validation criterion)", () => {
+    const session = createSimulationSession();
+    // h < hMin means the very first proposed fixed step already underflows,
+    // so the last-good state is exactly the initial condition.
+    const underflowSpec: ScenarioSpec = {
+      ...DEFAULT_SCENARIO,
+      solver: { stepper: "classical-rk4", h: 0.001, hMin: 0.01, maxSteps: 1000 },
+    };
+    const outcome = session.commitScenario(underflowSpec);
+
+    expect(outcome.status).toBe("failed");
+    if (outcome.status !== "failed") throw new Error("unreachable");
+    expect(outcome.reason).toBe("step-size-underflow");
+    expect(outcome.t).toBe(0);
+    expect(outcome.y[0]).toBe(underflowSpec.initialConditions.x0);
+    expect(outcome.y[1]).toBe(underflowSpec.initialConditions.y0);
+  });
+
   it("slider -> result round trip completes in under 16 ms for the default scenario (perf, P3.03 validation criterion)", () => {
     const session = createSimulationSession();
 
