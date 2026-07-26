@@ -1773,7 +1773,7 @@
       "estMinutes": 25,
       "difficulty": "M",
       "validation": "p(11 km) ≈ 22.63 kPa ±0.5%; ρ continuous with lapse T",
-      "status": "todo",
+      "status": "done",
       "notes": ""
     },
     {

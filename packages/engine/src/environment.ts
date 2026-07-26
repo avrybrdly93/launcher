@@ -60,6 +60,37 @@ export class ExponentialAtmosphere implements Atmosphere {
   }
 }
 
+/**
+ * ISA troposphere atmosphere (§3.4, eq. 3.11): linear temperature lapse
+ * T(y) = T0 - L*y, pressure from the barometric formula for a linear lapse
+ * rate, and density from the ideal-gas law p = rho*Rs*T. Valid to 11 km
+ * (the troposphere ceiling); callers querying above that altitude get a
+ * linear extrapolation of the same closed form rather than a clamp, since
+ * the platform has no stratosphere model yet.
+ */
+export class IsaTroposphereAtmosphere implements Atmosphere {
+  private static readonly GAMMA = 1.4;
+
+  constructor(
+    private readonly T0: number = ISA.T0,
+    private readonly p0: number = ISA.p0,
+    private readonly lapseRate: number = ISA.lapseRate,
+    private readonly g0: number = G_STD,
+  ) {}
+
+  /** @inheritDoc */
+  sample(_x: number, y: number, out: EnvSample): void {
+    const T = this.T0 - this.lapseRate * y;
+    const p =
+      this.p0 * Math.pow(1 - (this.lapseRate * y) / this.T0, this.g0 / (ISA.Rs * this.lapseRate));
+    out.T = T;
+    out.p = p;
+    out.rho = p / (ISA.Rs * T);
+    out.eta = sutherlandViscosity(T);
+    out.c = Math.sqrt(IsaTroposphereAtmosphere.GAMMA * ISA.Rs * T);
+  }
+}
+
 /** Uniform gravity, optionally with the altitude correction (3.3) behind a flag. */
 export class UniformGravity implements GravityModel {
   constructor(

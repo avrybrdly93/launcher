@@ -6,6 +6,7 @@ import {
   ExponentialAtmosphere,
   GaussianVortexWind,
   GriddedWindField,
+  IsaTroposphereAtmosphere,
   LogProfileWind,
   SinusoidalGustWind,
   UniformGravity,
@@ -82,6 +83,61 @@ describe("ExponentialAtmosphere", () => {
     const out = new EnvSample();
     atm.sample(0, 5000, out);
     expect(out.eta).toBe(sutherlandViscosity(ISA.T0));
+  });
+});
+
+describe("IsaTroposphereAtmosphere", () => {
+  it("matches ISA sea-level density, pressure, and temperature at y=0", () => {
+    const atm = new IsaTroposphereAtmosphere();
+    const out = new EnvSample();
+    atm.sample(0, 0, out);
+    expect(out.rho).toBeCloseTo(ISA.rho0, 4);
+    expect(out.p).toBe(ISA.p0);
+    expect(out.T).toBe(ISA.T0);
+  });
+
+  it("p(11 km) ~= 22.63 kPa to within 0.5% (validation criterion)", () => {
+    const atm = new IsaTroposphereAtmosphere();
+    const out = new EnvSample();
+    atm.sample(0, 11000, out);
+    const expected = 22632;
+    expect(Math.abs(out.p - expected) / expected).toBeLessThan(0.005);
+  });
+
+  it("temperature decreases linearly with altitude per the 6.5 K/km lapse rate", () => {
+    const atm = new IsaTroposphereAtmosphere();
+    const out = new EnvSample();
+    atm.sample(0, 1000, out);
+    expect(out.T).toBeCloseTo(ISA.T0 - ISA.lapseRate * 1000, 10);
+  });
+
+  it("pressure and temperature decay monotonically with altitude", () => {
+    const atm = new IsaTroposphereAtmosphere();
+    const out = new EnvSample();
+    let prevP = Infinity;
+    let prevT = Infinity;
+    for (const y of [0, 2000, 5000, 8000, 11000]) {
+      atm.sample(0, y, out);
+      expect(out.p).toBeLessThan(prevP);
+      expect(out.T).toBeLessThan(prevT);
+      prevP = out.p;
+      prevT = out.T;
+    }
+  });
+
+  it("rho stays consistent with the ideal-gas law p = rho*Rs*T at an arbitrary altitude", () => {
+    const atm = new IsaTroposphereAtmosphere();
+    const out = new EnvSample();
+    atm.sample(0, 5000, out);
+    expect(out.rho * ISA.Rs * out.T).toBeCloseTo(out.p, 6);
+  });
+
+  it("computes eta from Sutherland's law at the locally-lapsed temperature", () => {
+    const atm = new IsaTroposphereAtmosphere();
+    const out = new EnvSample();
+    atm.sample(0, 4000, out);
+    const expectedT = ISA.T0 - ISA.lapseRate * 4000;
+    expect(out.eta).toBe(sutherlandViscosity(expectedT));
   });
 });
 
