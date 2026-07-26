@@ -1762,8 +1762,8 @@
       "estMinutes": 30,
       "difficulty": "M",
       "validation": "suite green in CI on Chromium+Firefox",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "App.tsx was still the literal P3.02 stub (no Run/scrub/pin/share controls, CanvasViewport drew nothing) despite P3.02-P3.45 all being marked done -- those tasks built and unit-tested the underlying pieces (LaunchPanel, scrub-bar math, compare-store, share-URL codec, SimulationSession) but never composed them into the running app. Wired a real (if minimal, non-canvas-rendering) default route: boots SimulationSession + commits DEFAULT_SCENARIO synchronously so the app auto-runs on load (no Run button needed -- draft/committed already auto-integrates on commit per Sec 5.3), a scrub <input type=range> bound to playback-store, a pin button + CompareLegend bound to compare-store, and a share button + share-URL fragment load-on-boot bound to scenario-share-url.ts. Added app.e2e.test.ts driving real Chromium via the existing playwright driver-library pattern (canvas-viewport.test.ts, worker-pool.e2e.test.ts) parameterized over chromium+firefox; firefox gracefully skips in this sandbox (no firefox binary provisioned here) and runs for real in CI, which installs both via the existing \"Install Playwright browsers\" step. Full WorldLayer canvas rendering (TrajectoryLayer/AxesLayer/ProjectileLayer/HUD compositing into CanvasViewport) and the remaining control-dock panels (Launch/Projectile/Environment/Solver/Forces) are still not wired into app.tsx -- that remains real follow-up work; flagging here since ROADMAP status alone would not otherwise surface the gap."
     },
     {
       "id": "P4.01",
