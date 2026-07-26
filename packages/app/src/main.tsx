@@ -1,6 +1,7 @@
 import { render } from "preact";
 import { App } from "./app.js";
 import { ConvergenceStudyRoute } from "./convergence-study-route.js";
+import { EnergyDriftRoute } from "./energy-drift-route.js";
 import { SolverLabRoute } from "./solver-lab-route.js";
 import { StabilityExplorerRoute } from "./stability-explorer-route.js";
 
@@ -20,6 +21,9 @@ function renderRoute(root: HTMLElement): void {
       return;
     case "#/stability-explorer":
       render(<StabilityExplorerRoute />, root);
+      return;
+    case "#/energy-drift":
+      render(<EnergyDriftRoute />, root);
       return;
     default:
       render(<App />, root);

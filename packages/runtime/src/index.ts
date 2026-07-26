@@ -17,3 +17,4 @@ export * from "./worker-pool.js";
 export * from "./solver-lab.js";
 export * from "./convergence-study.js";
 export * from "./stability-explorer.js";
+export * from "./energy-drift-study.js";

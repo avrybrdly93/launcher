@@ -31,3 +31,5 @@ export * from "./convergence-study-page-logic.js";
 export * from "./convergence-study-page.js";
 export * from "./stability-explorer-page-logic.js";
 export * from "./stability-explorer-page.js";
+export * from "./energy-drift-page-logic.js";
+export * from "./energy-drift-page.js";

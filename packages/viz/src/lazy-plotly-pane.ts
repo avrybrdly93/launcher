@@ -261,6 +261,34 @@ export function buildStabilityRegionFigure(
   };
 }
 
+/** One method's E(t)/E(0)-1 trace for {@link buildEnergyDriftFigure} -- shape-compatible with `runEnergyDriftStudy`'s (`@ballista/runtime`) `EnergyDriftMethodTrace` plus a display label. */
+export interface EnergyDriftCurve {
+  readonly method: string;
+  readonly t: Float64Array;
+  readonly relativeEnergyError: Float64Array;
+}
+
+/**
+ * Energy-drift dashboard figure (§4.8 "flagship comparison exhibit", P3.44
+ * shell / P4.12 full content): linear-linear `E(t)/E(0) - 1` vs `t`, one
+ * trace per method, at whatever fixed-RHS-budget `h` each method's own
+ * `runEnergyDriftStudy` trace was already run at -- this only plots the
+ * same `(t, relativeEnergyError)` samples the study recorded, never
+ * re-derives them.
+ */
+export function buildEnergyDriftFigure(curves: readonly EnergyDriftCurve[]): PlotlyFigureSpec {
+  return {
+    title: "Energy drift",
+    traces: curves.map((curve) => ({
+      name: curve.method,
+      x: Array.from(curve.t),
+      y: Array.from(curve.relativeEnergyError),
+    })),
+    xAxis: { title: "t (s)" },
+    yAxis: { title: "E(t)/E(0) − 1" },
+  };
+}
+
 /**
  * Mounts `spec` into `container` via lazy-loaded Plotly. Safe to call again
  * on the same `container` to update in place (Plotly's `newPlot` reconciles

@@ -11,11 +11,13 @@ import {
 } from "@ballista/solverkit";
 import {
   buildConvergenceFigure,
+  buildEnergyDriftFigure,
   buildPhasePlotFigure,
   buildPlotlyFigure,
   buildStabilityRegionFigure,
   buildWorkPrecisionFigure,
   type ConvergenceCurve,
+  type EnergyDriftCurve,
   type TrajectoryChannelSpec,
 } from "./lazy-plotly-pane.js";
 
@@ -147,6 +149,33 @@ describe("buildStabilityRegionFigure (P3.43)", () => {
       contours: { start: 1, end: 1, size: 0, coloring: "lines" },
     });
     expect(data[1]).toMatchObject({ type: "scatter", mode: "lines+markers" });
+  });
+});
+
+describe("buildEnergyDriftFigure (P3.44)", () => {
+  it("builds one linear-linear (t, relativeEnergyError) trace per method, using the study's own samples verbatim", () => {
+    const curves: readonly EnergyDriftCurve[] = [
+      {
+        method: "Explicit Euler",
+        t: new Float64Array([0, 1, 2]),
+        relativeEnergyError: new Float64Array([0, 1e-3, 2e-3]),
+      },
+      {
+        method: "Velocity Verlet",
+        t: new Float64Array([0, 1, 2]),
+        relativeEnergyError: new Float64Array([0, -1e-14, 3e-14]),
+      },
+    ];
+
+    const spec = buildEnergyDriftFigure(curves);
+
+    expect(spec.title).toBe("Energy drift");
+    expect(spec.xAxis).toEqual({ title: "t (s)" });
+    expect(spec.yAxis).toEqual({ title: "E(t)/E(0) − 1" });
+    expect(spec.traces).toEqual([
+      { name: "Explicit Euler", x: [0, 1, 2], y: [0, 1e-3, 2e-3] },
+      { name: "Velocity Verlet", x: [0, 1, 2], y: [0, -1e-14, 3e-14] },
+    ]);
   });
 });
 

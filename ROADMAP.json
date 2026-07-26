@@ -1740,8 +1740,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "four-method E(t) traces render from pinned runs",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added runEnergyDriftStudy (runtime/energy-drift-study.ts): runs Explicit Euler, Classical RK4, semi-implicit (symplectic) Euler, and velocity Verlet on DEFAULT_SCENARIO (gravity-only) at a shared fixed rhs-evaluation budget (each method's h derived so nSteps*rhsPerStep is equal across all four, landing at the same tFinal from a tight-tolerance DOPRI5 reference solve, mirroring solver-lab.ts's pattern), recording E(t)/E(0)-1 (mechanicalEnergy) at every accepted step -- these are genuine pinned solver runs, not fixture data. Verlet/semi-implicit-Euler are instantiated directly (not via scenario-resolver's resolveStepper, which deliberately excludes them pending P4.10's general wiring) since this exhibit only ever runs the fixed gravity-only scenario where model.partitions is exact for them. Added buildEnergyDriftFigure (viz/lazy-plotly-pane.ts) for the linear-linear plot, and EnergyDriftPage/EnergyDriftRoute (mirroring SolverLabPage/SolverLabRoute) rendering a per-method summary table (h, steps, rhs, symplectic flag, final drift readout) plus the four-trace plot, wired at #/energy-drift. Full shape assertions (Euler linear growth, RK4 tiny secular, symplectic bounded) are P4.12's scope, not this shell's -- confirmed by hand that this exhibit's own math differs from that expectation for a single non-periodic gravity-only arc (constant acceleration makes velocity Verlet's discrete recurrence exactly reproduce the closed-form parabola, so it's near machine-precision flat rather than a 'bounded sawtooth', and semi-implicit Euler is actually secular here too, matching semi-implicit-euler-stepper.ts's own docstring caveat that the bounded-error guarantee needs a periodic/bounded orbit which a single ballistic arc isn't); left as a note for whoever picks up P4.12 rather than silently reshaping this task's scope to match."
     },
     {
       "id": "P3.45",
