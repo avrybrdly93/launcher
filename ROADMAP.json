@@ -1784,8 +1784,8 @@
       "estMinutes": 10,
       "difficulty": "E",
       "validation": "long-range cannonball range shifts by predicted sign/order",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Engine/scenario-spec/UI wiring already existed; added the missing range-shift validation test (altitude-gravity-range-shift.test.ts)."
     },
     {
       "id": "P4.03",
