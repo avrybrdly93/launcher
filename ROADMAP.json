@@ -1762,8 +1762,8 @@
       "estMinutes": 30,
       "difficulty": "M",
       "validation": "suite green in CI on Chromium+Firefox",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Wires SimulationSession + compareStore + scenario-share-url into a new SimulatorControls component mounted in the default App route (control dock) -- prior P3.02-P3.45 tasks each shipped isolated, unit-tested modules but App.tsx was still a stub (\"Control dock lands in P3.02+\") with nothing wired together and CanvasViewport drawing nothing; this task closes exactly the five flows its title names (load, run default, scrub, pin, share-URL) via SimulatorControls, not the full six-group control dock or the WorldLayer/HudLayer canvas render loop (each is its own substantial integration, out of scope here). simulator-smoke.e2e.test.ts drives a real Chromium build+preview per the validation criterion; Firefox is included in the same describe.each and runs in CI (.github/workflows/ci.yml installs both) but is skipped locally when its binary is not resolvable in this sandbox (no route to the Playwright browser CDN). simulator-controls.test.tsx covers the same flows at the jsdom/DOM level."
     },
     {
       "id": "P4.01",
