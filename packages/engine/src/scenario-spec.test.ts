@@ -35,6 +35,11 @@ const ENVIRONMENT_VARIANTS: readonly EnvironmentSpec[] = [
     wind: { kind: "uniform", wx: 5, wy: -0.5 },
   },
   {
+    atmosphere: { kind: "troposphere", T0: 288.15, p0: 101325, lapseRate: 0.0065 },
+    gravity: {},
+    wind: { kind: "zero" },
+  },
+  {
     atmosphere: { kind: "constant" },
     gravity: {},
     wind: { kind: "log-profile", frictionVelocity: 0.4, roughnessLength: 0.03, wy: 0 },

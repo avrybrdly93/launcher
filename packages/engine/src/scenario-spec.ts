@@ -7,6 +7,7 @@ import {
   GriddedWindField,
   LogProfileWind,
   SinusoidalGustWind,
+  TroposphereAtmosphere,
   UniformGravity,
   UniformWind,
   ZeroWind,
@@ -25,6 +26,12 @@ export const atmosphereSpecSchema = z.discriminatedUnion("kind", [
     T0: z.number().positive().optional(),
     p0: z.number().positive().optional(),
     scaleHeight: z.number().positive().optional(),
+  }),
+  z.object({
+    kind: z.literal("troposphere"),
+    T0: z.number().positive().optional(),
+    p0: z.number().positive().optional(),
+    lapseRate: z.number().positive().optional(),
   }),
 ]);
 /** Parsed type of {@link atmosphereSpecSchema}. */
@@ -146,6 +153,8 @@ function toAtmosphere(spec: AtmosphereSpec): Atmosphere {
       return new ConstantAtmosphere();
     case "exponential":
       return new ExponentialAtmosphere(spec.rho0, spec.T0, spec.p0, spec.scaleHeight);
+    case "troposphere":
+      return new TroposphereAtmosphere(spec.T0, spec.p0, spec.lapseRate);
   }
 }
 

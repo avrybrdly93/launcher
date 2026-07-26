@@ -10,6 +10,7 @@ import {
   isWindKind,
   toAtmosphereSpec,
   toWindSpec,
+  troposphereAtmospherePanelValues,
   windPanelValues,
   windParamsSchemaFor,
 } from "./environment-panel-logic.js";
@@ -47,6 +48,7 @@ describe("isAtmosphereKind / isWindKind", () => {
   it("accepts every real kind and rejects an unknown string", () => {
     expect(isAtmosphereKind("constant")).toBe(true);
     expect(isAtmosphereKind("exponential")).toBe(true);
+    expect(isAtmosphereKind("troposphere")).toBe(true);
     expect(isAtmosphereKind("not-a-kind")).toBe(false);
 
     expect(isWindKind("zero")).toBe(true);
@@ -81,6 +83,35 @@ describe("toAtmosphereSpec", () => {
       scaleHeight: 5000,
     });
     expect(next).toEqual({ kind: "constant" });
+  });
+
+  it("switching to troposphere seeds ISA defaults", () => {
+    const next = toAtmosphereSpec("troposphere", { kind: "constant" });
+    expect(next).toEqual({
+      kind: "troposphere",
+      T0: ISA.T0,
+      p0: ISA.p0,
+      lapseRate: ISA.lapseRate,
+    });
+  });
+});
+
+describe("troposphereAtmospherePanelValues", () => {
+  it("defaults unset fields to the engine's own ISA constants", () => {
+    expect(troposphereAtmospherePanelValues({ kind: "troposphere" })).toEqual({
+      T0: ISA.T0,
+      p0: ISA.p0,
+      lapseRate: ISA.lapseRate,
+    });
+  });
+
+  it("passes through explicit values unchanged", () => {
+    const spec = { kind: "troposphere" as const, T0: 300, p0: 100000, lapseRate: 0.007 };
+    expect(troposphereAtmospherePanelValues(spec)).toEqual({
+      T0: 300,
+      p0: 100000,
+      lapseRate: 0.007,
+    });
   });
 });
 

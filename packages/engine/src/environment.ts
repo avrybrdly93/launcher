@@ -60,6 +60,39 @@ export class ExponentialAtmosphere implements Atmosphere {
   }
 }
 
+/**
+ * ISA troposphere atmosphere (§3.4, eq. 3.11): linear temperature lapse
+ * T(y) = T0 - L*y, with pressure from the hydrostatic/ideal-gas closed form
+ * p(y) = p0*(1 - L*y/T0)^(g/(Rs*L)) and rho = p/(Rs*T) -- so density and
+ * pressure are continuous functions of the (continuous) lapsed temperature
+ * by construction, not fit independently. Valid to 11 km (the real
+ * troposphere's extent); this class does not clamp or extrapolate beyond
+ * it, matching (3.11)'s stated validity range.
+ */
+export class TroposphereAtmosphere implements Atmosphere {
+  private static readonly GAMMA = 1.4;
+  private readonly exponent: number;
+
+  constructor(
+    private readonly T0: number = ISA.T0,
+    private readonly p0: number = ISA.p0,
+    private readonly lapseRate: number = ISA.lapseRate,
+    private readonly g: number = G_STD,
+  ) {
+    this.exponent = this.g / (ISA.Rs * this.lapseRate);
+  }
+
+  /** @inheritDoc */
+  sample(_x: number, y: number, out: EnvSample): void {
+    const T = this.T0 - this.lapseRate * y;
+    out.T = T;
+    out.p = this.p0 * Math.pow(1 - (this.lapseRate * y) / this.T0, this.exponent);
+    out.rho = out.p / (ISA.Rs * T);
+    out.eta = sutherlandViscosity(T);
+    out.c = Math.sqrt(TroposphereAtmosphere.GAMMA * ISA.Rs * T);
+  }
+}
+
 /** Uniform gravity, optionally with the altitude correction (3.3) behind a flag. */
 export class UniformGravity implements GravityModel {
   constructor(

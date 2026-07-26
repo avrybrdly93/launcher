@@ -1773,8 +1773,8 @@
       "estMinutes": 25,
       "difficulty": "M",
       "validation": "p(11 km) ≈ 22.63 kPa ±0.5%; ρ continuous with lapse T",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "TroposphereAtmosphere (packages/engine/src/environment.ts): linear lapse T(y)=T0-L*y, p(y)=p0*(1-L*y/T0)^(g/(Rs*L)), rho=p/(Rs*T) per (3.11). p(11km)~=22.66kPa (within 0.5% of the 22.63kPa validation target); rho is the ideal-gas closure of the sampled p/T at every altitude, so continuity with the lapsed T holds by construction, not by independent curve-fit. Wired into scenarioSpecSchema (kind: troposphere) and the environment panel (UI kind-select + param controls), mirroring ExponentialAtmosphere's existing wiring end to end."
     },
     {
       "id": "P4.02",

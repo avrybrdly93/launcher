@@ -8,6 +8,7 @@ import {
   GriddedWindField,
   LogProfileWind,
   SinusoidalGustWind,
+  TroposphereAtmosphere,
   UniformGravity,
   UniformWind,
   ZeroWind,
@@ -82,6 +83,75 @@ describe("ExponentialAtmosphere", () => {
     const out = new EnvSample();
     atm.sample(0, 5000, out);
     expect(out.eta).toBe(sutherlandViscosity(ISA.T0));
+  });
+});
+
+describe("TroposphereAtmosphere", () => {
+  it("matches ISA sea-level density, pressure, and temperature at y=0", () => {
+    const atm = new TroposphereAtmosphere();
+    const out = new EnvSample();
+    atm.sample(0, 0, out);
+    expect(out.T).toBe(ISA.T0);
+    expect(out.p).toBe(ISA.p0);
+    expect(out.rho).toBeCloseTo(ISA.rho0, 3);
+  });
+
+  it("p(11 km) ~= 22.63 kPa to within 0.5% (validation criterion)", () => {
+    const atm = new TroposphereAtmosphere();
+    const out = new EnvSample();
+    atm.sample(0, 11000, out);
+    const expectedPa = 22632;
+    expect(Math.abs(out.p - expectedPa) / expectedPa).toBeLessThan(0.005);
+  });
+
+  it("T(11 km) = 216.65 K, the standard tropopause temperature (linear lapse)", () => {
+    const atm = new TroposphereAtmosphere();
+    const out = new EnvSample();
+    atm.sample(0, 11000, out);
+    expect(out.T).toBeCloseTo(216.65, 6);
+  });
+
+  it("rho is the ideal-gas closure of p and T at every altitude (continuous with the lapsed T, not fit independently)", () => {
+    const atm = new TroposphereAtmosphere();
+    const out = new EnvSample();
+    for (const y of [0, 1000, 5000, 9000, 11000]) {
+      atm.sample(0, y, out);
+      expect(out.rho).toBeCloseTo(out.p / (ISA.Rs * out.T), 12);
+    }
+  });
+
+  it("temperature, pressure, and density all decrease monotonically with altitude", () => {
+    const atm = new TroposphereAtmosphere();
+    const altitudes = [0, 1000, 3000, 5000, 7000, 9000, 11000];
+    const samples = altitudes.map((y) => {
+      const out = new EnvSample();
+      atm.sample(0, y, out);
+      return out;
+    });
+    for (let i = 1; i < samples.length; i++) {
+      expect(samples[i]!.T).toBeLessThan(samples[i - 1]!.T);
+      expect(samples[i]!.p).toBeLessThan(samples[i - 1]!.p);
+      expect(samples[i]!.rho).toBeLessThan(samples[i - 1]!.rho);
+    }
+  });
+
+  it("computes eta from Sutherland's law at the local lapsed temperature", () => {
+    const atm = new TroposphereAtmosphere();
+    const out = new EnvSample();
+    atm.sample(0, 5000, out);
+    expect(out.eta).toBe(sutherlandViscosity(out.T));
+  });
+
+  it("honors constructor overrides for T0/p0/lapseRate", () => {
+    const atm = new TroposphereAtmosphere(300, 100000, 0.01);
+    const sea = new EnvSample();
+    atm.sample(0, 0, sea);
+    expect(sea.T).toBe(300);
+    expect(sea.p).toBe(100000);
+
+    const aloft = new EnvSample();
+    atm.sample(0, 1000, aloft);
+    expect(aloft.T).toBeCloseTo(290, 10);
   });
 });
 

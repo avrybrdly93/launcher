@@ -59,6 +59,7 @@ export function gravityPanelValues(spec: GravitySpec): { g0: number; altitudeDep
 export const ATMOSPHERE_KINDS = [
   { id: "constant", label: "Constant (ISA sea level)" },
   { id: "exponential", label: "Exponential" },
+  { id: "troposphere", label: "ISA troposphere" },
 ] as const;
 
 /** `true` iff `value` is one of `atmosphereSpecSchema`'s own `kind` literals. */
@@ -71,6 +72,12 @@ export const exponentialAtmospherePanelSchema = z.object({
   T0: z.number().min(150).max(350).step(0.1).describe("Sea-level temperature T₀|K"),
   p0: z.number().min(1000).max(150000).step(100).describe("Sea-level pressure p₀|Pa"),
   scaleHeight: z.number().min(100).max(20000).step(10).describe("Scale height H|m"),
+});
+
+export const troposphereAtmospherePanelSchema = z.object({
+  T0: z.number().min(150).max(350).step(0.1).describe("Sea-level temperature T₀|K"),
+  p0: z.number().min(1000).max(150000).step(100).describe("Sea-level pressure p₀|Pa"),
+  lapseRate: z.number().min(0.0001).max(0.02).step(0.0001).describe("Lapse rate L|K/m"),
 });
 
 /**
@@ -94,6 +101,13 @@ export function toAtmosphereSpec(
         p0: ISA.p0,
         scaleHeight: ISA.scaleHeight,
       };
+    case "troposphere":
+      return {
+        kind: "troposphere",
+        T0: ISA.T0,
+        p0: ISA.p0,
+        lapseRate: ISA.lapseRate,
+      };
   }
 }
 
@@ -106,6 +120,17 @@ export function exponentialAtmospherePanelValues(
     T0: spec.T0 ?? ISA.T0,
     p0: spec.p0 ?? ISA.p0,
     scaleHeight: spec.scaleHeight ?? ISA.scaleHeight,
+  };
+}
+
+/** Field values for `troposphereAtmospherePanelSchema`, defaults filled in for optional fields. */
+export function troposphereAtmospherePanelValues(
+  spec: Extract<AtmosphereSpec, { kind: "troposphere" }>,
+): { T0: number; p0: number; lapseRate: number } {
+  return {
+    T0: spec.T0 ?? ISA.T0,
+    p0: spec.p0 ?? ISA.p0,
+    lapseRate: spec.lapseRate ?? ISA.lapseRate,
   };
 }
 

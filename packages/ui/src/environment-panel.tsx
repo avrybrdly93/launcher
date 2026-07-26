@@ -26,6 +26,8 @@ import {
   isWindKind,
   toAtmosphereSpec,
   toWindSpec,
+  troposphereAtmospherePanelSchema,
+  troposphereAtmospherePanelValues,
   WIND_KINDS,
   windPanelValues,
   windParamsSchemaFor,
@@ -77,16 +79,22 @@ export function EnvironmentPanel({ environment, onChange, unitsDisplay }: Enviro
   const gravityDescriptors = generateControlDescriptors(gravityPanelSchema, gravityValues);
   const gravitySelection = gravityPresetSelection(gravityValues.g0);
 
-  const atmosphereParamsSchema =
-    atmosphere.kind === "exponential" ? exponentialAtmospherePanelSchema : undefined;
-  const atmosphereDescriptors = atmosphereParamsSchema
-    ? generateControlDescriptors(
-        atmosphereParamsSchema,
-        exponentialAtmospherePanelValues(
-          atmosphere as Extract<AtmosphereSpec, { kind: "exponential" }>,
-        ),
-      )
-    : [];
+  const atmosphereDescriptors = (() => {
+    switch (atmosphere.kind) {
+      case "exponential":
+        return generateControlDescriptors(
+          exponentialAtmospherePanelSchema,
+          exponentialAtmospherePanelValues(atmosphere),
+        );
+      case "troposphere":
+        return generateControlDescriptors(
+          troposphereAtmospherePanelSchema,
+          troposphereAtmospherePanelValues(atmosphere),
+        );
+      case "constant":
+        return [];
+    }
+  })();
 
   const windParamsSchema = windParamsSchemaFor(wind.kind);
   const windValues = windPanelValues(wind);
