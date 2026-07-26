@@ -9,17 +9,27 @@
  * `comparison` (via `runSolverLabComparison`) and the step-size `h` that
  * drives it, so this component stays trivially testable without touching
  * the solver.
+ *
+ * Each column also gets a `DerivationPanel` (P3.45, §6.3 "each exhibit
+ * pairs the interactive view with a short derivation panel ... single-source
+ * pedagogy") when `derivationSources` has that column's stepper id --
+ * parsed from the exact same `*.derivation.md` text TypeDoc's docs build
+ * renders (the caller loads it via a Vite `?raw` import, never a copy), so
+ * the in-app panel and the generated docs page can never drift apart.
  */
 
 import type { SolverLabComparison } from "@ballista/runtime";
+import { parseDerivationMarkdown } from "@ballista/viz";
+import { DerivationPanel } from "./derivation-panel.js";
 import { formatCount, formatErrorReadout } from "./solver-lab-page-logic.js";
 
 export interface SolverLabPageProps {
   readonly comparison: SolverLabComparison;
   readonly onHChange: (h: number) => void;
+  readonly derivationSources: Readonly<Record<string, string>>;
 }
 
-export function SolverLabPage({ comparison, onHChange }: SolverLabPageProps) {
+export function SolverLabPage({ comparison, onHChange, derivationSources }: SolverLabPageProps) {
   return (
     <div class="solver-lab-page" data-testid="solver-lab-page">
       <h1>Solver Lab</h1>
@@ -73,6 +83,13 @@ export function SolverLabPage({ comparison, onHChange }: SolverLabPageProps) {
                 {formatErrorReadout(column.errorVsReference)}
               </dd>
             </dl>
+
+            {derivationSources[column.stepperId] !== undefined && (
+              <DerivationPanel
+                title={`${column.label} — derivation`}
+                blocks={parseDerivationMarkdown(derivationSources[column.stepperId]!)}
+              />
+            )}
           </div>
         ))}
       </div>

@@ -66,4 +66,29 @@ describe("SolverLabRoute (P3.41)", () => {
     )!.textContent;
     expect(eulerStepsAfter).not.toBe(eulerStepsBefore);
   });
+
+  it("opening a column's derivation panel renders real KaTeX-rendered content from the actual derivation.md source (P3.45)", async () => {
+    const root = mount(<SolverLabRoute scenario={TABLE_TENNIS} />);
+    const details = root.querySelectorAll('[data-testid="derivation-panel"]');
+    // Every SOLVER_LAB_COLUMN_STEPPERS entry has a known derivation.md
+    // (explicit-euler, classical-rk4, dopri5), so every column gets a panel.
+    expect(details).toHaveLength(SOLVER_LAB_COLUMN_STEPPERS.length);
+
+    const eulerDetails = details[0] as HTMLDetailsElement;
+    eulerDetails.open = true;
+    eulerDetails.dispatchEvent(new Event("toggle"));
+    // The lazy KaTeX module load is a real dynamic import (unmocked here,
+    // unlike the Plotly panes, since KaTeX does pure DOM/string rendering
+    // and needs none of jsdom's unimplemented canvas/URL APIs) -- give its
+    // promise chain (plus the module transform itself) real turns to settle.
+    for (let i = 0; i < 5; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+
+    const content = eulerDetails.querySelector('[data-testid="derivation-panel-content"]')!;
+    // The real explicit-euler-stepper.derivation.md source, KaTeX-rendered:
+    // its own title heading text and a real KaTeX-produced class.
+    expect(content.textContent).toContain("Explicit (Forward) Euler");
+    expect(content.querySelector(".katex")).not.toBeNull();
+  });
 });

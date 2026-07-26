@@ -14,6 +14,7 @@
     "@ballista/engine": "workspace:*",
     "@ballista/runtime": "workspace:*",
     "@ballista/solverkit": "workspace:*",
+    "katex": "^0.18.1",
     "plotly.js-dist-min": "^3.7.0"
   },
   "devDependencies": {

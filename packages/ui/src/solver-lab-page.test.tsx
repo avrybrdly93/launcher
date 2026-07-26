@@ -5,6 +5,7 @@ import {
   SOLVER_LAB_COLUMN_STEPPERS,
   type SolverLabComparison,
 } from "@ballista/runtime";
+import { DerivationPanel } from "./derivation-panel.js";
 import { SolverLabPage } from "./solver-lab-page.js";
 
 const TABLE_TENNIS = PRESET_SCENARIOS.find((s) => s.projectile.id === "table-tennis-ball")!;
@@ -28,18 +29,32 @@ function findByTestId(
   return undefined;
 }
 
+/** Depth-first search for the first node whose vnode `type` matches -- needed for a nested unrendered component like `<DerivationPanel />`, which (without an actual render cycle) shows up as its own vnode, not its rendered `<details>`. */
+function findByType(node: unknown, type: unknown): { props: Record<string, unknown> } | undefined {
+  if (node === null || node === undefined || typeof node !== "object") return undefined;
+  const candidate = node as { type?: unknown; props?: Record<string, unknown> };
+  if (candidate.type === type) return candidate as { props: Record<string, unknown> };
+  const children = candidate.props?.children;
+  if (children === undefined) return undefined;
+  for (const child of ([] as unknown[]).concat(children).flat(Infinity)) {
+    const found = findByType(child, type);
+    if (found) return found;
+  }
+  return undefined;
+}
+
 describe("SolverLabPage (P3.41)", () => {
   const comparison: SolverLabComparison = runSolverLabComparison(TABLE_TENNIS, 0.02);
 
   it("renders one column per SOLVER_LAB_COLUMN_STEPPERS entry", () => {
-    const vnode = SolverLabPage({ comparison, onHChange: vi.fn() });
+    const vnode = SolverLabPage({ comparison, onHChange: vi.fn(), derivationSources: {} });
     const columnsNode = findByTestId(vnode, "solver-lab-columns")!;
     const columnNodes = ([] as unknown[]).concat(columnsNode.props.children).flat(Infinity);
     expect(columnNodes).toHaveLength(SOLVER_LAB_COLUMN_STEPPERS.length);
   });
 
   it("renders a distinct, finite error readout for every column", () => {
-    const vnode = SolverLabPage({ comparison, onHChange: vi.fn() });
+    const vnode = SolverLabPage({ comparison, onHChange: vi.fn(), derivationSources: {} });
 
     const readouts = SOLVER_LAB_COLUMN_STEPPERS.map(({ id }) => {
       const errorNode = findByTestId(vnode, `solver-lab-column-${id}-error`)!;
@@ -54,7 +69,7 @@ describe("SolverLabPage (P3.41)", () => {
   });
 
   it("Euler's error readout is a larger number than DOPRI5's (the pedagogical point), read straight off the DOM text", () => {
-    const vnode = SolverLabPage({ comparison, onHChange: vi.fn() });
+    const vnode = SolverLabPage({ comparison, onHChange: vi.fn(), derivationSources: {} });
     const eulerError = findByTestId(vnode, "solver-lab-column-explicit-euler-error")!.props
       .children as string;
     const dopri5Error = findByTestId(vnode, "solver-lab-column-dopri5-error")!.props
@@ -65,7 +80,7 @@ describe("SolverLabPage (P3.41)", () => {
 
   it("the h input reflects comparison.h and calls onHChange with the parsed value on input", () => {
     const onHChange = vi.fn();
-    const vnode = SolverLabPage({ comparison, onHChange });
+    const vnode = SolverLabPage({ comparison, onHChange, derivationSources: {} });
     const input = findByTestId(vnode, "solver-lab-h-input")!;
     expect(input.props.value).toBe(0.02);
 
@@ -76,7 +91,7 @@ describe("SolverLabPage (P3.41)", () => {
 
   it("ignores non-positive or non-numeric h input rather than committing garbage", () => {
     const onHChange = vi.fn();
-    const vnode = SolverLabPage({ comparison, onHChange });
+    const vnode = SolverLabPage({ comparison, onHChange, derivationSources: {} });
     const input = findByTestId(vnode, "solver-lab-h-input")!;
     const onInput = input.props.onInput as (e: { currentTarget: { value: string } }) => void;
 
@@ -84,5 +99,21 @@ describe("SolverLabPage (P3.41)", () => {
     onInput({ currentTarget: { value: "-1" } });
     onInput({ currentTarget: { value: "abc" } });
     expect(onHChange).not.toHaveBeenCalled();
+  });
+
+  it("renders a derivation panel only for columns with a known source, titled with the column label (P3.45)", () => {
+    const derivationSources = {
+      "explicit-euler": "# Explicit (Forward) Euler — Derivation\n\nSome body text.",
+    };
+    const vnode = SolverLabPage({ comparison, onHChange: vi.fn(), derivationSources });
+
+    const eulerColumn = findByTestId(vnode, "solver-lab-column-explicit-euler")!;
+    const eulerPanel = findByType(eulerColumn, DerivationPanel)!;
+    expect(eulerPanel).toBeDefined();
+    expect(eulerPanel.props.title).toBe("Explicit Euler — derivation");
+    expect((eulerPanel.props.blocks as unknown[]).length).toBeGreaterThan(0);
+
+    const rk4Column = findByTestId(vnode, "solver-lab-column-classical-rk4")!;
+    expect(findByType(rk4Column, DerivationPanel)).toBeUndefined();
   });
 });

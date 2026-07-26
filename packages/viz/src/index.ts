@@ -18,6 +18,8 @@ export * from "./field-layer.js";
 export * from "./streamline-layer.js";
 export * from "./plot-pane.js";
 export * from "./lazy-plotly-pane.js";
+export * from "./derivation-markdown.js";
+export * from "./lazy-katex-pane.js";
 export * from "./hud-readout.js";
 export * from "./annotation-layer.js";
 export * from "./hover-picking.js";

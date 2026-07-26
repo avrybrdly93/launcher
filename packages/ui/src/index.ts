@@ -33,3 +33,4 @@ export * from "./stability-explorer-page-logic.js";
 export * from "./stability-explorer-page.js";
 export * from "./energy-drift-page-logic.js";
 export * from "./energy-drift-page.js";
+export * from "./derivation-panel.js";
