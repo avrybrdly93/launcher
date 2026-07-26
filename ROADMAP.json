@@ -1795,8 +1795,8 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "M at high-altitude preset > sea-level M for same speed",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Re/Mach were already computed from ctx.env.eta/c in the rhs hot path; wiring became altitude-aware for free once P4.01 landed IsaTroposphereAtmosphere. Added the missing validation test."
     },
     {
       "id": "P4.04",
