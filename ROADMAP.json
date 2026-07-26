@@ -1806,7 +1806,7 @@
       "estMinutes": 25,
       "difficulty": "M",
       "validation": "C_d(0.8)<C_d(1.1); smoothness FD check",
-      "status": "todo",
+      "status": "done",
       "notes": ""
     },
     {

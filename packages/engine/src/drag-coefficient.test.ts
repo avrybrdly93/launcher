@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ConstantCd, TabulatedReynoldsCd } from "./drag-coefficient.js";
+import { ConstantCd, TabulatedMachCd, TabulatedReynoldsCd } from "./drag-coefficient.js";
 
 describe("ConstantCd", () => {
   it("returns 0.47 by default", () => {
@@ -25,5 +25,25 @@ describe("TabulatedReynoldsCd", () => {
     const left = (model.cd(re0, 0) - model.cd(re0 - eps, 0)) / eps;
     const right = (model.cd(re0 + eps, 0) - model.cd(re0, 0)) / eps;
     expect(Math.abs(left - right)).toBeLessThan(1e-3);
+  });
+});
+
+describe("TabulatedMachCd", () => {
+  const model = new TabulatedMachCd();
+
+  it("Cd(0.8) < Cd(1.1): the transonic rise (validation criterion)", () => {
+    expect(model.cd(0, 0.8)).toBeLessThan(model.cd(0, 1.1));
+  });
+
+  it("matches the constant-Cd default on the subsonic plateau", () => {
+    expect(model.cd(0, 0.3)).toBeCloseTo(0.47, 5);
+  });
+
+  it("is C1-continuous: finite-difference slope agrees on both sides of an interior knot", () => {
+    const mach0 = 1.0;
+    const eps = 1e-4;
+    const left = (model.cd(0, mach0) - model.cd(0, mach0 - eps)) / eps;
+    const right = (model.cd(0, mach0 + eps) - model.cd(0, mach0)) / eps;
+    expect(Math.abs(left - right)).toBeLessThan(1e-2);
   });
 });

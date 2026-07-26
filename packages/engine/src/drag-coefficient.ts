@@ -40,3 +40,31 @@ export const SMOOTH_SPHERE_CD_TABLE = {
   re: [1e1, 1e2, 1e3, 1e4, 1e5, 2e5, 3e5, 4e5, 1e6, 1e7],
   cd: [4.1, 1.1, 0.47, 0.5, 0.5, 0.4, 0.1, 0.18, 0.2, 0.2],
 } as const;
+
+/**
+ * Mach-dependent Cd(M) with the classic transonic drag rise: a subsonic
+ * plateau near the constant-Cd default, a sharp climb through M~0.8-1.2 as
+ * shock-induced pressure drag appears, a peak just past Mach 1, and a slow
+ * supersonic falloff (§3.3 option 4). Requires the atmosphere to supply a
+ * temperature-dependent local speed of sound c(T) for M = |v_rel|/c to be
+ * meaningful (P4.01/P4.03). PCHIP again guarantees C1 continuity through the
+ * rise, matching TabulatedReynoldsCd's rationale.
+ */
+export class TabulatedMachCd implements DragCoefficientModel {
+  private readonly interpolator: PchipInterpolator;
+
+  constructor(table: { mach: readonly number[]; cd: readonly number[] } = TRANSONIC_MACH_CD_TABLE) {
+    this.interpolator = new PchipInterpolator(table.mach, table.cd);
+  }
+
+  /** @inheritDoc */
+  cd(_re: number, mach: number): number {
+    return this.interpolator.evaluate(mach);
+  }
+}
+
+/** Representative transonic drag-rise curve for a bluff (sphere-like) body, linear in M. */
+export const TRANSONIC_MACH_CD_TABLE = {
+  mach: [0, 0.5, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.5, 2.0, 3.0],
+  cd: [0.47, 0.47, 0.48, 0.5, 0.65, 0.9, 1.05, 1.0, 0.85, 0.7, 0.6],
+} as const;
