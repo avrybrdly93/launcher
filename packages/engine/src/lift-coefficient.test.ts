@@ -16,4 +16,19 @@ describe("SaturatingLiftCoefficient", () => {
   it("is symmetric in the sign of S", () => {
     expect(model.cl(-0.2)).toBe(model.cl(0.2));
   });
+
+  it("is zero at S=0 (clamp per eq. 3.16)", () => {
+    expect(model.cl(0)).toBe(0);
+  });
+
+  it("P4.06 validation: is monotone non-decreasing in |S| and never exceeds 0.6", () => {
+    const samples = Array.from({ length: 200 }, (_, i) => (i / 199) * 5); // S in [0, 5]
+    let prev = -Infinity;
+    for (const s of samples) {
+      const cl = model.cl(s);
+      expect(cl).toBeLessThanOrEqual(0.6);
+      expect(cl).toBeGreaterThanOrEqual(prev);
+      prev = cl;
+    }
+  });
 });

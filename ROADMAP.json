@@ -1828,8 +1828,8 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "C_L monotone, ≤0.6",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Implementation (SaturatingLiftCoefficient.cl = min(0.6, 1.6*|S|), spinParameter clamp-to-0 near v_rel=0) already existed from P1.14/P1.25. Added explicit P4.06 validation test: monotone non-decreasing sweep over S in [0,5] with cl<=0.6 throughout, plus cl(0)=0 clamp check."
     },
     {
       "id": "P4.07",
