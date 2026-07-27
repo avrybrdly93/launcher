@@ -16,6 +16,7 @@ export * from "./forces.js";
 export * from "./model.js";
 export * from "./terrain.js";
 export * from "./planar-projectile-model.js";
+export * from "./planar-projectile-spin-model.js";
 export * from "./finite-difference-jacobian.js";
 export * from "./scenario-spec.js";
 export * from "./characteristic-scales.js";

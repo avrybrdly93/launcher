@@ -1839,8 +1839,8 @@
       "estMinutes": 25,
       "difficulty": "M",
       "validation": "ω(t)=ω₀e^{−t/τ} to 1e-10; extensibility check: zero engine/UI edits beyond registration (§5.5)",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "New file planar-projectile-spin-model.ts: createPlanarProjectileSpinModel (dim 5, channels [x,y,vx,vy,omega]) with omega_dot=-omega/tauOmega, plus StatefulSpinMagnusForce (reads spin from y[4] instead of the constant ProjectileParams.spin the dim-4 MagnusForce uses). Built entirely from existing exported engine pieces; only edit elsewhere was the one-line index.ts export (the registration step) -- forces.ts, model.ts, eval-context.ts, and planar-projectile-model.ts are untouched, satisfying the extensibility criterion. Validated omega(t)=omega0*exp(-t/tau) to 1e-10 via a solverkit RK4 integration test (spin-decay-integration.test.ts), since engine (L0) cannot depend on a stepper itself."
     },
     {
       "id": "P4.08",
