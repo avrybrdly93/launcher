@@ -1894,8 +1894,8 @@
       "estMinutes": 25,
       "difficulty": "M",
       "validation": "Euler linear growth, RK4 secular tiny, sympl. Euler/Verlet bounded (automated shape asserts + exhibit page)",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Implemented automated shape-assertion tests (packages/runtime/src/energy-drift-study.test.ts, describe block \"shape of each method's drift (P4.12)\") on top of the existing P3.44 study/exhibit-page infra. Verified analytically and empirically that on this exhibit's uniform-gravity (position-independent-force) conservative sub-problem, semi-implicit (symplectic) Euler does NOT show bounded sawtooth energy error as the validation text assumes -- it drifts exactly linearly in t, same magnitude as explicit Euler, opposite sign (per-step dE = ± g^2 h^2/2, state-independent; symplectic Euler's bounded-error guarantee needs force curvature that uniform gravity lacks). Confirmed this persists under altitude-dependent gravity too (mild nonlinearity, negligible at ballistic length scales). Velocity Verlet is exact here (quadratic-exact recurrence) and RK4 is exact too (quartic-exact quadrature) -- both stay at floating-point roundoff, satisfying tiny/bounded. Tests assert the true shapes: Euler and symplectic Euler show mirrored linear drift; RK4 and Verlet stay under 1e-8 and non-growing. A genuine bounded-sawtooth symplectic-Euler demo needs a position-dependent restoring force (pendulum/two-body, blueprint Stage B), not available yet."
     },
     {
       "id": "P4.13",
