@@ -1828,8 +1828,8 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "C_L monotone, ≤0.6",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "spinParameter (characteristic-scales.ts) and SaturatingLiftCoefficient (lift-coefficient.ts) implementing eq. (3.16) with the |v_rel|->0 clamp already existed from P1.15. Added explicit tests for the validation criterion: monotonicity of Cl(S) in |S|, the <=0.6 default cap, spinParameter's closed-form value and its clamp-to-0 near-singular behavior."
     },
     {
       "id": "P4.07",

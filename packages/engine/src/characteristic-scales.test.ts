@@ -3,6 +3,7 @@ import {
   apexHeightEstimate,
   dimensionlessPi,
   dragRelaxationTimeLinear,
+  spinParameter,
   terminalVelocityQuadratic,
   type CharacteristicEnvironment,
 } from "./characteristic-scales.js";
@@ -99,5 +100,26 @@ describe("apexHeightEstimate", () => {
 
   it("honors a non-default g", () => {
     expect(apexHeightEstimate(10, 1.62)).toBeCloseTo(100 / (2 * 1.62), 12);
+  });
+});
+
+describe("spinParameter", () => {
+  it("matches the closed form S = |omega|*R/|v_rel| (eq. 3.16)", () => {
+    expect(spinParameter(300, 0.02134, 68.45)).toBeCloseTo((300 * 0.02134) / 68.45, 12);
+  });
+
+  it("is clamped to 0 as speedRel -> 0, avoiding a 0/0 division (P4.06, §3.6)", () => {
+    expect(spinParameter(300, 0.02134, 0)).toBe(0);
+    expect(spinParameter(300, 0.02134, 1e-12)).toBe(0);
+    expect(Number.isFinite(spinParameter(300, 0.02134, 1e-12))).toBe(true);
+  });
+
+  it("is 0 when spin is undefined or 0, regardless of speed", () => {
+    expect(spinParameter(undefined, 0.02134, 10)).toBe(0);
+    expect(spinParameter(0, 0.02134, 10)).toBe(0);
+  });
+
+  it("is invariant to the sign of omega (magnitude only)", () => {
+    expect(spinParameter(-300, 0.02134, 68.45)).toBeCloseTo(spinParameter(300, 0.02134, 68.45), 12);
   });
 });
