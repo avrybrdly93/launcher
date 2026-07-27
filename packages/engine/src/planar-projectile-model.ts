@@ -1,6 +1,7 @@
 import type { EvalContext } from "./eval-context.js";
 import { composeForces, createForceRegistry, totalForcePower, type ForceModel } from "./forces.js";
 import type { EventSpec, InvariantSpec, Model } from "./model.js";
+import { restitutionBounceAction, type RestitutionParams } from "./restitution.js";
 import type { ChannelMeta } from "./schema.js";
 import { FlatTerrain, type Terrain } from "./terrain.js";
 import { norm } from "./vec2.js";
@@ -140,15 +141,20 @@ const APEX_EVENT: EventSpec = {
 
 /**
  * Ground-impact event: root of g_gnd = y - h(x) (§3.9), falling direction
- * (the projectile descending onto terrain, not departing from it).
- * Terminal -- integration stops once the projectile hits the ground.
+ * (the projectile descending onto terrain, not departing from it). Always
+ * `terminal`, but only actually *stops* the solve when `restitution` is
+ * omitted. When given, its `action` (P4.11) reflects v_y/v_x by
+ * `e`/`muF` instead, and the solve continues -- the event re-arms itself
+ * automatically, so the projectile keeps bouncing until it runs out of
+ * `tspan` or step budget.
  */
-function createGroundImpactEvent(terrain: Terrain): EventSpec {
+function createGroundImpactEvent(terrain: Terrain, restitution?: RestitutionParams): EventSpec {
   return {
     name: "ground-impact",
     g: (_t: number, y: Float64Array) => y[Y]! - terrain.height(y[X]!),
     direction: "falling",
     terminal: true,
+    ...(restitution ? { action: restitutionBounceAction(VX, VY, restitution) } : {}),
   };
 }
 
@@ -161,10 +167,16 @@ function createGroundImpactEvent(terrain: Terrain): EventSpec {
  * `partitions: { q: [x, y], p: [vx, vy] }` (paired by index: dq_0/dt is
  * exactly the p_0 channel's value, and likewise for the second pair) for
  * P2.15's semi-implicit Euler and later Verlet-family steppers.
+ *
+ * `restitution`, when given (P4.11), turns the ground-impact event from a
+ * stopping condition into a bouncing one: each impact reflects `vy`/`vx` by
+ * `e`/`muF` and the trajectory continues rather than ending at first contact.
+ * Omitted (the default), ground impact stops the solve exactly as before.
  */
 export function createPlanarProjectileModel(
   forces: readonly ForceModel[],
   terrain: Terrain = new FlatTerrain(),
+  restitution?: RestitutionParams,
 ): Model {
   const registry = createForceRegistry(forces);
   const supportsAnalyticJacobian = registry.every((f) => ANALYTIC_JACOBIAN_FORCE_IDS.has(f.id));
@@ -174,7 +186,7 @@ export function createPlanarProjectileModel(
     dim: DIM,
     channels: PLANAR_CHANNELS,
     invariants: [createEnergyInvariant(registry), MOMENTUM_X_INVARIANT],
-    events: [createGroundImpactEvent(terrain), APEX_EVENT],
+    events: [createGroundImpactEvent(terrain, restitution), APEX_EVENT],
     partitions: { q: [X, Y], p: [VX, VY] },
     rhs(t: number, y: Float64Array, out: Float64Array, ctx: EvalContext): void {
       const x = y[X]!;

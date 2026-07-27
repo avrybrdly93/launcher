@@ -102,10 +102,16 @@ function roundToFloat32(y: Float64Array): void {
  * types, e.g. an apex crossing earlier in the step never blocks or
  * misorders a later ground-impact from correctly stopping the solve) wins,
  * truncating the step to that exact event time/state rather than the
- * stepper's originally requested `h`, dispatched to `sinks` once, and the
- * solve ends there with `status: "ok"` (a terminal event is a normal,
- * successful stopping condition, not a failure). A model with no declared
- * events, or a stepper
+ * stepper's originally requested `h`. If that earliest terminal event
+ * declares an `action` (P4.11, e.g. a restitution bounce), the driver
+ * "reflects" instead of stopping: it writes `action`'s output into `current`,
+ * dispatches the root to `sinks` via `Sink.event` and then `Sink.accept`, and
+ * continues integrating from the post-action state -- the event is re-armed
+ * for free, since the next step's scan is identical regardless of how the
+ * previous one ended. Absent an `action`, the root is dispatched via
+ * `Sink.accept` only and the solve ends there with `status: "ok"` (a
+ * terminal event is a normal, successful stopping condition, not a failure).
+ * A model with no declared events, or a stepper
  * with no `interpolant`, integrates exactly as before -- this is
  * unconditional only when both are present. Non-terminal events (e.g.
  * apex) are root-localized the same way and dispatched to `sinks` via
@@ -485,8 +491,26 @@ function* runIntegrationSteps(
       }
       if (earliestTerminalRoot !== undefined) {
         const root = earliestTerminalRoot;
-        out.yNext.set(root.y);
         out.h = root.t - t;
+
+        // "Reflect" (§4.9, P4.11): a terminal event with an `action` (e.g. a
+        // restitution bounce) truncates the step to the event time exactly
+        // like the stopping path below, but instead of ending the solve, the
+        // action's post-event state becomes `current` and the loop continues
+        // -- the event is re-armed automatically since the next iteration's
+        // scan is identical regardless of how the previous one ended.
+        if (root.event.action !== undefined) {
+          root.event.action(root.t, root.y, out.yNext);
+          current.set(out.yNext);
+          if (float32Mode) roundToFloat32(current);
+          t = root.t;
+          for (const sink of sinks) sink.event?.(root);
+          for (const sink of sinks) sink.accept?.(t, current, out);
+          yield;
+          continue;
+        }
+
+        out.yNext.set(root.y);
         current.set(root.y);
         if (float32Mode) roundToFloat32(current);
         t = root.t;

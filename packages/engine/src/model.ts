@@ -10,6 +10,17 @@ export interface EventSpec {
   readonly direction?: "rising" | "falling" | "any";
   /** Whether this event stops integration when it fires; non-terminal if omitted. */
   readonly terminal?: boolean;
+  /**
+   * Optional post-event state transform (§4.9's "stop or reflect", P4.11):
+   * only meaningful on a `terminal` event. When present, firing the event
+   * still truncates the step to the localized crossing, but instead of
+   * ending the solve, the driver writes the reflected state (e.g. a
+   * restitution bounce: v_y ← −e·v_y, v_x ← μ_f·v_x) into `out` and keeps
+   * integrating from there. The event is re-armed for free -- nothing
+   * distinguishes the post-action state from any other, so the same
+   * per-step scan picks this event up again on a later crossing.
+   */
+  action?(t: number, y: Float64Array, out: Float64Array): void;
 }
 
 /** A conserved or monotone quantity of the model, used as a runtime correctness check (§3.8). */

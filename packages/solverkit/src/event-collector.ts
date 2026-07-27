@@ -4,10 +4,12 @@ import type { Sink, SolveReport } from "./types.js";
 /**
  * Collects every localized *non-terminal* event crossing of a solve (§4.9,
  * §5.4 playback "scrub bar with event ticks", P3.13) -- e.g. apex (`v_y`
- * falling through zero). `integrate` calls {@link EventCollector.event} once
- * per crossing, in the order they occur; terminal events (e.g. ground
- * impact) are never dispatched here -- they already end the trajectory
- * normally and appear as its final recorded row (see `ResultStoreState`).
+ * falling through zero) -- plus every *reflecting* terminal crossing (P4.11,
+ * e.g. a restitution bounce): `integrate` calls {@link EventCollector.event}
+ * once per crossing, in the order they occur. A plain terminal event (no
+ * `action`, e.g. a stopping ground impact) is never dispatched here -- it
+ * already ends the trajectory normally and appears as its final recorded
+ * row (see `ResultStoreState`).
  *
  * Mirrors {@link TrajectoryRecorder}'s freeze-on-finish pattern: `events`
  * only becomes readable once the solve concludes, so a caller can never

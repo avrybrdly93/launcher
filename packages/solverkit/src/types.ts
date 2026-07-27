@@ -238,8 +238,12 @@ export interface Sink {
    * (skipping any that fall after an earlier terminal crossing truncates
    * that same step, since the trajectory never actually reaches them) and
    * dispatches each here in the order they were scanned, before the step's
-   * own `accept`. Terminal events are never dispatched here -- they already
-   * end the trajectory normally and appear as its final recorded row.
+   * own `accept`. A plain terminal event (no `action`) is never dispatched
+   * here -- it already ends the trajectory normally and appears as its final
+   * recorded row. A terminal event *with* an `action` (P4.11, e.g. a
+   * restitution bounce) is the one exception: since it doesn't end the
+   * trajectory, its root is dispatched here too, once per crossing, before
+   * that crossing's `accept`.
    */
   event?(root: EventRoot): void;
   /** Called once after the solve concludes, whether it succeeded, failed, or was canceled. */
