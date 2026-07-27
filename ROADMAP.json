@@ -1861,8 +1861,8 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "trajectories diverge as theory predicts (sign test on apex)",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "New packages/solverkit/src/topspin-backspin-curve-comparison.test.ts: same table-tennis-ball rally launch integrated to its apex event with spin as the only variable. Confirms the sign-test theory predicts (§3.6, backspin lifts/topspin dives): apex(backspin=150) > apex(no-spin) > apex(topspin=-150), and the same ordering at a smaller spin magnitude (+-50). Deliberately did not add new entries to the shared PRESET_SCENARIOS library -- several existing tests (scenario-regime-tags.test.ts, scenario-metadata.test.ts, plus UI-layer tests) encode golf-drive as the sole Magnus/spin-bearing preset, and reworking that global invariant was out of scope for this 15-min task; the comparison pair is built directly with existing engine/solverkit pieces instead, mirroring how P4.02/P4.08 validate physics without registering new presets."
     },
     {
       "id": "P4.10",
