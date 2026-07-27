@@ -37,10 +37,15 @@ const PROJECTILE_ASSET_SOURCE: readonly ProjectileSpec[] = [
     mass: 0.43,
     radius: 0.11,
     dragModel: { kind: "constant", cd: 0.25 },
+    liftModel: { kind: "saturating", maxCl: 0.33, slope: 1.5 },
+    spinDecayTime: 20,
     provenance:
       "Mass (410-450 g) and circumference (68-70 cm) per FIFA Laws of the Game 2023/24, Law 2. " +
       "Cd ~= 0.2-0.3 (seam-induced early boundary-layer transition, similar to a golf ball) per Asai, T., Seo, K., " +
-      "Kobayashi, O. & Sakashita, R. (2007) 'Fundamental aerodynamics of the soccer ball', Sports Eng. 10, 101-109.",
+      "Kobayashi, O. & Sakashita, R. (2007) 'Fundamental aerodynamics of the soccer ball', Sports Eng. 10, 101-109. " +
+      "CL(S) saturating fit (maxCl~=0.33 at S gtr~ 0.22) per the spin-parameter curve reported there and by Bray, K. " +
+      "& Kelley, D.G. (2003) 'The trajectories of spinning footballs', Sports Eng. 6, 227-234; same functional form " +
+      "as eq. (3.16) with sport-specific saturation level.",
   },
   {
     id: "baseball",
@@ -48,11 +53,14 @@ const PROJECTILE_ASSET_SOURCE: readonly ProjectileSpec[] = [
     mass: 0.145,
     radius: 0.03645,
     dragModel: { kind: "constant", cd: 0.35 },
+    liftModel: { kind: "saturating", maxCl: 0.35, slope: 1.5 },
     spinDecayTime: 30,
     provenance:
       "Mass (5.125 oz) and circumference (9-9.25 in) per Official Baseball Rules (MLB), Rule 3.01. " +
       "Cd ~= 0.3-0.4 depending on seam orientation, per Adair, R.K. (2002) 'The Physics of Baseball', 3rd ed., " +
-      "HarperCollins, ch. 2.",
+      "HarperCollins, ch. 2. CL(S) rises roughly linearly with slope ~1.5 and saturates near 0.35 for typical " +
+      "MLB spin factors (S up to ~0.3-0.4), per Nathan, A.M. (2008) 'The effect of spin on the flight of a " +
+      "baseball', Am. J. Phys. 76(2), 119-124; same functional form as eq. (3.16) with sport-specific saturation.",
   },
   {
     id: "table-tennis-ball",

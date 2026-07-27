@@ -1817,8 +1817,8 @@
       "estMinutes": 30,
       "difficulty": "M",
       "validation": "schema-valid; values in literature ranges (asserted bounds)",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added sport-specific saturating C_L(S) lift models (maxCl, slope) to soccer-ball and baseball assets (golf already had one, matching the eq. 3.16 default). Cited Asai et al. (2007)/Bray & Kelley (2003) for soccer, Nathan (2008) for baseball. New projectile-assets.test.ts asserts Cd and maxCl fall within literature bounds for golf/soccer/baseball."
     },
     {
       "id": "P4.06",
