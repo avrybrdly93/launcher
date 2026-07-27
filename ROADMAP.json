@@ -1905,8 +1905,8 @@
       "estMinutes": 25,
       "difficulty": "M",
       "validation": "impact event solves y=h(x) on slope; grazing case exercised",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added PchipTerrain (packages/engine/src/terrain.ts): an editable Terrain backed by PchipInterpolator over a set of {x,y} control points, accepted in any order (sorted internally) since an editor drags points independently; rejects <2 points or duplicate x; clamps to nearest endpoint outside the domain. Unit tests in terrain.test.ts cover exact interpolation at knots, order-independence, no-overshoot on a monotone slope, domain clamping, and both rejection cases. Integration-level validation in packages/solverkit/src/terrain-pchip-impact.test.ts drives it through the real integrate()/event-detection stack: one test confirms ground impact localizes onto a sloped PCHIP ramp (yFinal matches h(xFinal) to 1e-6); the grazing test builds a narrow terrain spike entirely inside one coarse fixed macro-step so both step endpoints have g=y-h(x) of the same sign (a naive endpoint check would miss it entirely) and confirms the interior-sample grazing guard still catches it, stopping well short of the far-later flat-ground landing time that would result if the spike were missed. Note: event localization requires a Stepper with dense output (integrate.ts skips events entirely for a stepper with no interpolant), so the grazing test wraps ClassicalRK4Stepper in HermiteDenseOutputStepper -- a bare fixed-step stepper alone silently disables event detection, which is worth remembering for any future terrain/event test."
     },
     {
       "id": "P4.14",
