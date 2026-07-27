@@ -59,6 +59,67 @@ function oscillatorEnergy(omega: number, y: Float64Array): number {
   return 0.5 * y[1]! * y[1]! + 0.5 * omega * omega * y[0]! * y[0]!;
 }
 
+const OSCILLATOR_WITH_SPIN_CHANNELS: readonly ChannelMeta[] = [
+  { name: "x", unit: "m" },
+  { name: "v", unit: "m/s" },
+  { name: "omega", unit: "rad/s" },
+];
+
+/**
+ * P4.10: the harmonic oscillator above (q=[0], p=[1]) plus a third,
+ * unpartitioned scalar channel decaying as omega_dot=-omega/tauOmega --
+ * the same shape the dim-5 spin model (planar-projectile-spin-model.ts,
+ * P4.07) adds to the dim-4 workhorse, but decoupled from q/p so both
+ * channels have independent closed-form solutions to check convergence
+ * order against ({@link oscillatorWithSpinExact}). Exercises exactly the
+ * "partitioned dims with extra scalar state" case VerletStepper's own
+ * docstring describes: the companion step in `stepVelocityVerlet`/
+ * `stepPositionVerlet` advances index 2 the same way it would advance a
+ * spin channel.
+ */
+function createOscillatorWithSpinModel(omega: number, tauOmega: number): Model {
+  const omega2 = omega * omega;
+  return {
+    dim: 3,
+    channels: OSCILLATOR_WITH_SPIN_CHANNELS,
+    partitions: { q: [0], p: [1] },
+    rhs(_t: number, y: Float64Array, out: Float64Array): void {
+      out[0] = y[1]!;
+      out[1] = -omega2 * y[0]!;
+      out[2] = -y[2]! / tauOmega;
+    },
+  };
+}
+
+function oscillatorWithSpinExact(
+  omega: number,
+  tauOmega: number,
+  x0: number,
+  v0: number,
+  omega0: number,
+  t: number,
+): Float64Array {
+  const c = Math.cos(omega * t);
+  const s = Math.sin(omega * t);
+  return new Float64Array([
+    x0 * c + (v0 / omega) * s,
+    -x0 * omega * s + v0 * c,
+    omega0 * Math.exp(-t / tauOmega),
+  ]);
+}
+
+/** L2 error restricted to the (q, p) = (index 0, 1) channels. */
+function qpErrorNorm(numeric: Float64Array, exact: Float64Array): number {
+  const dq = numeric[0]! - exact[0]!;
+  const dp = numeric[1]! - exact[1]!;
+  return Math.sqrt(dq * dq + dp * dp);
+}
+
+/** Error restricted to the unpartitioned omega channel (index 2). */
+function omegaErrorNorm(numeric: Float64Array, exact: Float64Array): number {
+  return Math.abs(numeric[2]! - exact[2]!);
+}
+
 describe("VerletStepper (P2.16)", () => {
   describe("info metadata", () => {
     it("velocity variant: id velocity-verlet, order 2, symplectic, non-FSAL", () => {
@@ -283,5 +344,57 @@ describe("VerletStepper (P2.16)", () => {
       expect(result.slope).toBeGreaterThan(1.9);
       expect(result.slope).toBeLessThan(2.1);
     });
+  });
+
+  describe("partitioned dims with an extra scalar state (P4.10)", () => {
+    const oscOmega = 2 * Math.PI;
+    const tauOmega = 5;
+    const x0 = 1;
+    const v0 = 0;
+    const omega0 = 300;
+    const tspan: readonly [number, number] = [0, 1];
+    const hs = [0.02, 0.01, 0.005, 0.0025, 0.00125];
+
+    for (const variant of ["velocity", "position"] as const) {
+      it(`${variant} variant: the partitioned (q, p) channels retain slope 2 with an extra unpartitioned channel present`, () => {
+        const model = createOscillatorWithSpinModel(oscOmega, tauOmega);
+        const ctx = {} as EvalContext;
+        const y0 = new Float64Array([x0, v0, omega0]);
+
+        const result = measureConvergence(
+          () => new VerletStepper(variant),
+          model,
+          ctx,
+          y0,
+          tspan,
+          (t) => oscillatorWithSpinExact(oscOmega, tauOmega, x0, v0, omega0, t),
+          hs,
+          qpErrorNorm,
+        );
+
+        expect(result.slope).toBeGreaterThan(1.95);
+        expect(result.slope).toBeLessThan(2.05);
+      });
+
+      it(`${variant} variant: the unpartitioned omega channel is advanced by a companion first-order (Euler) step, slope 1`, () => {
+        const model = createOscillatorWithSpinModel(oscOmega, tauOmega);
+        const ctx = {} as EvalContext;
+        const y0 = new Float64Array([x0, v0, omega0]);
+
+        const result = measureConvergence(
+          () => new VerletStepper(variant),
+          model,
+          ctx,
+          y0,
+          tspan,
+          (t) => oscillatorWithSpinExact(oscOmega, tauOmega, x0, v0, omega0, t),
+          hs,
+          omegaErrorNorm,
+        );
+
+        expect(result.slope).toBeGreaterThan(0.9);
+        expect(result.slope).toBeLessThan(1.1);
+      });
+    }
   });
 });

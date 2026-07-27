@@ -1872,8 +1872,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "slope 2 retained; ω channel integrated by companion Euler documented",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "VerletStepper already handled channels outside partitions.q/p via a companion Euler-like step in both variants (its own docstring explicitly named this P4.10), so the implementation pre-existed; this task added the missing validation test. New describe block in verlet-stepper.test.ts: a harmonic-oscillator-plus-decaying-scalar model (q,p harmonic oscillator + an unpartitioned omega channel decaying as -omega/tauOmega, decoupled, both with closed forms) run through measureConvergence with channel-restricted error norms. Confirms slope~2 is retained on the partitioned (q,p) channels despite the extra state, and slope~1 (companion Euler) on the omega channel itself, for both velocity- and position-Verlet variants."
     },
     {
       "id": "P4.11",
