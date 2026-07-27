@@ -1839,8 +1839,8 @@
       "estMinutes": 25,
       "difficulty": "M",
       "validation": "ω(t)=ω₀e^{−t/τ} to 1e-10; extensibility check: zero engine/UI edits beyond registration (§5.5)",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "New packages/engine/src/planar-projectile-spin-model.ts: createPlanarProjectileSpinModel, dim=5 [x,y,vx,vy,omega], domega/dt=-omega/tauOmega. Magnus force refactored in forces.ts into omega-explicit magnusForceAt/magnusPowerAt (shared by MagnusForce and the new model) so the spin model reads live decaying omega from state instead of a constant params.spin, with zero API changes to steppers/UI/viz. Registered in engine index.ts barrel. Test validates omega(t)=omega0*e^(-t/tau) to <1e-10 via a self-contained RK4 (no solverkit import, per L0 layering), decay independence from wired aero forces, live-Magnus decay coupling, and partitions q=[x,y]/p=[vx,vy] for P4.10."
     },
     {
       "id": "P4.08",

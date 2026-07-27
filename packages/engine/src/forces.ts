@@ -73,41 +73,60 @@ export class QuadraticDragForce implements ForceModel {
 }
 
 /**
- * Magnus lift force (eq. 3.15, 2D-specialized form). Spin is a constant
- * scalar on `params.spin`; the spin-ratio S = |omega|*R/|v_rel| ({@link
- * spinParameter}) is clamped to 0 as |v_rel| -> 0 (P1.15) rather than left
- * to divide by zero — the force already vanishes there via the |v_rel|
- * factor, so the clamp only prevents a spurious 0/0 = NaN when both spin
- * and speed are exactly zero.
+ * Magnus lift force math (eq. 3.15, 2D-specialized form) for an explicit
+ * spin `omega`, factored out of {@link MagnusForce} so `omega` can come from
+ * either a constant (`params.spin`, the dim-4 model) or an integrated,
+ * decaying state channel (`planarProjectileSpinModel`'s dim-5 ω, P4.07)
+ * without duplicating the physics. The spin-ratio S = |omega|*R/|v_rel|
+ * ({@link spinParameter}) is clamped to 0 as |v_rel| -> 0 (P1.15) rather
+ * than left to divide by zero — the force already vanishes there via the
+ * |v_rel| factor, so the clamp only prevents a spurious 0/0 = NaN when both
+ * spin and speed are exactly zero.
  */
+export function magnusForceAt(
+  omega: number | undefined,
+  ctx: EvalContext,
+  outForce: MutVec2,
+): void {
+  const liftModel = ctx.params.liftCoefficient;
+  if (!omega || !liftModel) return;
+
+  const spinRatio = spinParameter(omega, ctx.params.radius, ctx.speedRel);
+  const cl = liftModel.cl(spinRatio);
+  const k = 0.5 * ctx.env.rho * cl * ctx.params.area * ctx.speedRel * Math.sign(omega);
+  // ê_z x v_rel = (-v_rel_y, v_rel_x)
+  outForce[0] += -k * ctx.vRel[1];
+  outForce[1] += k * ctx.vRel[0];
+}
+
+/** Instantaneous Magnus power F_M.v_true for an explicit spin `omega` (companion to {@link magnusForceAt}). */
+export function magnusPowerAt(
+  omega: number | undefined,
+  y: Float64Array,
+  ctx: EvalContext,
+): number {
+  const liftModel = ctx.params.liftCoefficient;
+  if (!omega || !liftModel) return 0;
+
+  const spinRatio = spinParameter(omega, ctx.params.radius, ctx.speedRel);
+  const cl = liftModel.cl(spinRatio);
+  const k = 0.5 * ctx.env.rho * cl * ctx.params.area * ctx.speedRel * Math.sign(omega);
+  const fx = -k * ctx.vRel[1];
+  const fy = k * ctx.vRel[0];
+  return fx * y[VX]! + fy * y[VY]!;
+}
+
+/** Magnus lift force (eq. 3.15): spin is the constant scalar `params.spin`. */
 export class MagnusForce implements ForceModel {
   readonly id = "magnus";
 
   /** @inheritDoc */
   accumulate(_t: number, _y: Float64Array, ctx: EvalContext, outForce: MutVec2): void {
-    const omega = ctx.params.spin;
-    const liftModel = ctx.params.liftCoefficient;
-    if (!omega || !liftModel) return;
-
-    const spinRatio = spinParameter(omega, ctx.params.radius, ctx.speedRel);
-    const cl = liftModel.cl(spinRatio);
-    const k = 0.5 * ctx.env.rho * cl * ctx.params.area * ctx.speedRel * Math.sign(omega);
-    // ê_z x v_rel = (-v_rel_y, v_rel_x)
-    outForce[0] += -k * ctx.vRel[1];
-    outForce[1] += k * ctx.vRel[0];
+    magnusForceAt(ctx.params.spin, ctx, outForce);
   }
 
   energyPower(_t: number, y: Float64Array, ctx: EvalContext): number {
-    const omega = ctx.params.spin;
-    const liftModel = ctx.params.liftCoefficient;
-    if (!omega || !liftModel) return 0;
-
-    const spinRatio = spinParameter(omega, ctx.params.radius, ctx.speedRel);
-    const cl = liftModel.cl(spinRatio);
-    const k = 0.5 * ctx.env.rho * cl * ctx.params.area * ctx.speedRel * Math.sign(omega);
-    const fx = -k * ctx.vRel[1];
-    const fy = k * ctx.vRel[0];
-    return fx * y[VX]! + fy * y[VY]!;
+    return magnusPowerAt(ctx.params.spin, y, ctx);
   }
 }
 
