@@ -1817,8 +1817,8 @@
       "estMinutes": 30,
       "difficulty": "M",
       "validation": "schema-valid; values in literature ranges (asserted bounds)",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Sport Cd/Cl asset data already existed (golf/soccer/baseball in projectile-assets.ts) with literature-cited provenance; added liftModel entries for soccer-ball and baseball (previously drag-only) with Asai et al. (2007) and Watts & Ferrer (1987) citations, and a new sport-coefficient-bounds.test.ts asserting Cd/max-Cl values fall within the cited literature ranges per (3.3)/(3.6)."
     },
     {
       "id": "P4.06",

@@ -37,10 +37,14 @@ const PROJECTILE_ASSET_SOURCE: readonly ProjectileSpec[] = [
     mass: 0.43,
     radius: 0.11,
     dragModel: { kind: "constant", cd: 0.25 },
+    liftModel: { kind: "saturating", maxCl: 0.33, slope: 1.0 },
+    spinDecayTime: 25,
     provenance:
       "Mass (410-450 g) and circumference (68-70 cm) per FIFA Laws of the Game 2023/24, Law 2. " +
       "Cd ~= 0.2-0.3 (seam-induced early boundary-layer transition, similar to a golf ball) per Asai, T., Seo, K., " +
-      "Kobayashi, O. & Sakashita, R. (2007) 'Fundamental aerodynamics of the soccer ball', Sports Eng. 10, 101-109.",
+      "Kobayashi, O. & Sakashita, R. (2007) 'Fundamental aerodynamics of the soccer ball', Sports Eng. 10, 101-109. " +
+      "Cl saturating near ~=0.3 over the wind-tunnel spin-ratio range measured in the same study (swerve/knuckle " +
+      "kicks); the sharp reverse-Magnus dip reported only at extreme spin ratios is outside this fit's intended range.",
   },
   {
     id: "baseball",
@@ -48,11 +52,14 @@ const PROJECTILE_ASSET_SOURCE: readonly ProjectileSpec[] = [
     mass: 0.145,
     radius: 0.03645,
     dragModel: { kind: "constant", cd: 0.35 },
+    liftModel: { kind: "saturating", maxCl: 0.4, slope: 1.3 },
     spinDecayTime: 30,
     provenance:
       "Mass (5.125 oz) and circumference (9-9.25 in) per Official Baseball Rules (MLB), Rule 3.01. " +
       "Cd ~= 0.3-0.4 depending on seam orientation, per Adair, R.K. (2002) 'The Physics of Baseball', 3rd ed., " +
-      "HarperCollins, ch. 2.",
+      "HarperCollins, ch. 2. Curveball lift coefficient Cl rising to ~=0.3-0.4 at typical game spin parameters " +
+      "per Watts, R.G. & Ferrer, R. (1987) 'The lateral force on a spinning baseball: aerodynamics of a curveball', " +
+      "Am. J. Phys. 55(1), 40-44.",
   },
   {
     id: "table-tennis-ball",
