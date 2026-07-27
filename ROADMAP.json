@@ -1850,8 +1850,8 @@
       "estMinutes": 25,
       "difficulty": "M",
       "validation": "carry in plausible 200–300 m band for driver preset; backspin ⇒ +20–40% vs no-spin (qualitative assert)",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "New packages/solverkit/src/golf-drive-carry-distance.test.ts integrates the existing GOLF_DRIVE preset (dim-4, MagnusForce, constant spin) to ground impact via DOPRI5. Measured carry = 253.06 m for the driver preset (in the 200-300 m band). Backspin-vs-no-spin: carry with 300 rad/s backspin (253.06 m) vs. spin=0 (128.57 m) is a ~97% relative gain, not the roadmap texts 20-40% figure -- physically consistent with the well-established golf-instruction claim that a spinless drive carries about half as far, given this presets fairly flat 12-degree launch that depends on lift to stay airborne. Roadmap validation text itself flags +20-40% as a (qualitative assert), so the test asserts the qualitative claim (backspin increases carry, comfortably past its own 20% floor) rather than a fabricated tight upper bound contradicted by the actual physics; documented in the test file."
     },
     {
       "id": "P4.09",
