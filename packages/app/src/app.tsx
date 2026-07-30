@@ -139,7 +139,8 @@ export function App() {
             <a href="#/solver-lab">Open Solver Lab &rarr;</a>{" "}
             <a href="#/convergence-study">Open Convergence Study &rarr;</a>{" "}
             <a href="#/stability-explorer">Open Stability Explorer &rarr;</a>{" "}
-            <a href="#/energy-drift">Open Energy Drift &rarr;</a>
+            <a href="#/energy-drift">Open Energy Drift &rarr;</a>{" "}
+            <a href="#/terrain-editor">Open Terrain Editor &rarr;</a>
           </p>
         </div>
       }

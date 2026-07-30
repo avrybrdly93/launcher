@@ -76,3 +76,48 @@ export class PiecewisePchipTerrain implements Terrain {
 export function groundHeightResidual(terrain: Terrain, x: number, y: number): number {
   return y - terrain.height(x);
 }
+
+/**
+ * Sorts `points` by `x` ascending and merges any with equal `x` (last one
+ * in original order wins), so a freshly-dragged control-point list -- which
+ * the editor UI (P4.14) may hand over in any order, and with two points
+ * momentarily coincident mid-drag -- can always be fed straight into
+ * {@link PiecewisePchipTerrain}'s strictly-increasing-`x` constructor
+ * contract without the caller hand-rolling that bookkeeping itself.
+ */
+export function sanitizeTerrainControlPoints(
+  points: readonly TerrainControlPoint[],
+): TerrainControlPoint[] {
+  const sorted = [...points].sort((a, b) => a.x - b.x);
+  const result: TerrainControlPoint[] = [];
+  for (const p of sorted) {
+    const last = result[result.length - 1];
+    if (last !== undefined && last.x === p.x) {
+      result[result.length - 1] = p;
+    } else {
+      result.push(p);
+    }
+  }
+  return result;
+}
+
+/**
+ * Serializes terrain control points to portable JSON text (P4.14
+ * "serialization round-trip"), for a save/export action in the editor UI.
+ * Plain `{x,y}[]` needs no schema/migration machinery (unlike
+ * `scenario-persistence.ts`'s `ScenarioSpec` export) -- round-trips via
+ * {@link deserializeTerrainControlPoints}.
+ */
+export function serializeTerrainControlPoints(points: readonly TerrainControlPoint[]): string {
+  return JSON.stringify(points);
+}
+
+/**
+ * Parses JSON text produced by {@link serializeTerrainControlPoints} back
+ * into control points. Throws (a `SyntaxError`) on malformed JSON, exactly
+ * like `importScenarioFromJson` -- a load-file UI action should catch and
+ * surface the message rather than silently discarding a bad import.
+ */
+export function deserializeTerrainControlPoints(json: string): TerrainControlPoint[] {
+  return JSON.parse(json) as TerrainControlPoint[];
+}

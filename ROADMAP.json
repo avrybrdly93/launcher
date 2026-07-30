@@ -1916,8 +1916,8 @@
       "estMinutes": 30,
       "difficulty": "M",
       "validation": "edited terrain re-solves live; serialization round-trip",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added sanitizeTerrainControlPoints/serializeTerrainControlPoints/deserializeTerrainControlPoints to engine/terrain.ts (drag-order/dedup bookkeeping + JSON round trip). solveTerrainEditorLaunch (@ballista/runtime, terrain-editor.ts) re-solves a fixed representative cannonball launch over the edited PiecewisePchipTerrain -- not routed through ScenarioSpec, since terrain isn't a scenario field yet. TerrainEditorPage (@ballista/ui): SVG ground profile + trajectory + draggable control-point circles (pointer events), each point also editable via a synced x/y numeric-input row (the keyboard-operable path, since dragging an SVG circle has none) plus Add/Remove-point buttons and Export/Import JSON textareas. TerrainEditorRoute (@ballista/app) owns control-point state + useMemo re-solve, registered at #/terrain-editor in main.tsx with a control-dock link in app.tsx. Validation criterion covered directly: terrain-editor-route.test.tsx has a live-re-solve test (editing a point changes the impact readout) and a serialization-round-trip test (Export then Import reproduces the same impact readout). 39 new tests across engine/runtime/ui/app (all passing); pnpm typecheck/lint/lint:deps/format:check clean; pnpm -r build succeeds (note: the root 'pnpm build' script's own 'pnpm -r --workspace-concurrency 1 run build' invocation fails with ERR_PNPM_RECURSIVE_RUN_NO_SCRIPT under this pnpm version -- confirmed pre-existing on unmodified main via git stash, not introduced by this task; 'pnpm -r build' is the working equivalent used to verify this change). One unrelated pre-existing flaky test noted: viz/trajectory-decimation.test.ts's 50k-point performance assertion (<1ms) intermittently reads ~1.0-1.03ms in this sandbox, timing-only, unrelated to this task."
     },
     {
       "id": "P4.15",

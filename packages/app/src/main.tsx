@@ -4,6 +4,7 @@ import { ConvergenceStudyRoute } from "./convergence-study-route.js";
 import { EnergyDriftRoute } from "./energy-drift-route.js";
 import { SolverLabRoute } from "./solver-lab-route.js";
 import { StabilityExplorerRoute } from "./stability-explorer-route.js";
+import { TerrainEditorRoute } from "./terrain-editor-route.js";
 
 /**
  * Minimal hash-based routing (P3.41, extended P3.42): a handful of routes
@@ -24,6 +25,9 @@ function renderRoute(root: HTMLElement): void {
       return;
     case "#/energy-drift":
       render(<EnergyDriftRoute />, root);
+      return;
+    case "#/terrain-editor":
+      render(<TerrainEditorRoute />, root);
       return;
     default:
       render(<App />, root);

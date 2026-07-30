@@ -34,3 +34,5 @@ export * from "./stability-explorer-page.js";
 export * from "./energy-drift-page-logic.js";
 export * from "./energy-drift-page.js";
 export * from "./derivation-panel.js";
+export * from "./terrain-editor-page-logic.js";
+export * from "./terrain-editor-page.js";
