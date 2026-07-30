@@ -1894,8 +1894,8 @@
       "estMinutes": 25,
       "difficulty": "M",
       "validation": "Euler linear growth, RK4 secular tiny, sympl. Euler/Verlet bounded (automated shape asserts + exhibit page)",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added automated shape-assert tests (energy-drift-study.test.ts, 'P4.12 shape asserts' block): Euler linear growth (confirmed), RK4 tiny (confirmed -- essentially machine-precision noise on this exactly-quadratic constant-acceleration trajectory, not a measurable secular trend), Verlet bounded at machine precision (confirmed). Symplectic Euler does NOT show bounded sawtooth on this gravity-only single-arc scenario -- mathematically confirmed (and consistent with semi-implicit-euler-stepper.derivation.md's own documented caveat) that a q-independent constant force gives no periodic recurrence for the shadow-Hamiltonian boundedness argument to exploit, so its drift is linear like explicit Euler's. Test encodes this measured reality rather than the roadmap shorthand. Exhibit page (P3.44) already rendered pinned runs; no production code changes needed, only tests + docstrings."
     },
     {
       "id": "P4.13",

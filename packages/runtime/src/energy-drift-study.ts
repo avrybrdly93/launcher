@@ -1,17 +1,17 @@
 /**
- * Energy-drift dashboard shell harness (§7 P3.44; full content and
- * automated shape assertions are P4.12, blueprint §4.8 "flagship comparison
- * exhibit"). Runs Explicit Euler, Classical RK4, semi-implicit (symplectic)
- * Euler, and velocity Verlet on the gravity-only `DEFAULT_SCENARIO` at a
- * shared *fixed RHS-evaluation budget* (§4.8: "fixed cost budget (equal RHS
- * evaluations)"), each landing at the same `tFinal` (a tight-tolerance
- * DOPRI5 reference solve's own natural landing time, mirroring
- * `solver-lab.ts`'s reference-solve pattern) via a per-method `h` chosen so
- * `nSteps * rhsPerStep === RHS_BUDGET`. Each method's trace is `E(t)/E(0) -
- * 1` (`mechanicalEnergy`, `@ballista/engine`) sampled at every accepted
- * step -- these are genuine solver runs ("pinned runs"), not canned
- * fixture data, so this task's validation criterion ("four-method E(t)
- * traces render from pinned runs") holds by construction.
+ * Energy-drift dashboard harness (§7 P3.44 shell + P4.12 full content,
+ * blueprint §4.8 "flagship comparison exhibit"). Runs Explicit Euler,
+ * Classical RK4, semi-implicit (symplectic) Euler, and velocity Verlet on
+ * the gravity-only `DEFAULT_SCENARIO` at a shared *fixed RHS-evaluation
+ * budget* (§4.8: "fixed cost budget (equal RHS evaluations)"), each landing
+ * at the same `tFinal` (a tight-tolerance DOPRI5 reference solve's own
+ * natural landing time, mirroring `solver-lab.ts`'s reference-solve
+ * pattern) via a per-method `h` chosen so `nSteps * rhsPerStep ===
+ * RHS_BUDGET`. Each method's trace is `E(t)/E(0) - 1` (`mechanicalEnergy`,
+ * `@ballista/engine`) sampled at every accepted step -- these are genuine
+ * solver runs ("pinned runs"), not canned fixture data, so this task's
+ * validation criterion ("four-method E(t) traces render from pinned runs")
+ * holds by construction.
  *
  * Verlet/semi-implicit-Euler are instantiated directly here rather than
  * through `scenario-resolver.ts`'s `resolveStepper` -- per that module's
@@ -20,6 +20,20 @@
  * ever runs the fixed `DEFAULT_SCENARIO` (gravity-only, so
  * `model.partitions`'s q/p split is exact for Verlet regardless), which
  * sidesteps that generality question entirely.
+ *
+ * P4.12's "automated shape asserts" (`energy-drift-study.test.ts`, the
+ * `"P4.12 shape asserts"` block) confirm three of its four expected shapes
+ * exactly (Euler linear growth, RK4 tiny, Verlet bounded at machine
+ * precision) on this single-ballistic-arc scenario. The fourth --
+ * symplectic Euler "bounded sawtooth" -- provably does not hold here: pure
+ * uniform gravity is a q-independent force, so there is no periodic
+ * recurrence in phase space for the shadow-Hamiltonian boundedness argument
+ * to exploit (`semi-implicit-euler-stepper.derivation.md` documents this
+ * same caveat, which is why *that* stepper's own bounded-sawtooth
+ * demonstration uses a harmonic-oscillator fixture instead of a ballistic
+ * arc). On `DEFAULT_SCENARIO`, symplectic Euler's drift is linear, of the
+ * same order as explicit Euler's -- measured and asserted as such rather
+ * than forced to a false "bounded" pass.
  */
 
 import { mechanicalEnergy, type ScenarioSpec } from "@ballista/engine";

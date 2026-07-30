@@ -1,12 +1,13 @@
 /**
- * Energy-drift dashboard (§7 P3.44 shell, blueprint §4.8 "flagship
- * comparison exhibit" -- full content and automated shape assertions are
- * P4.12). Renders one E(t)/E(0)-1 trace per `study.methods` entry (Explicit
- * Euler / Classical RK4 / Symplectic Euler / Velocity Verlet, per
- * `runEnergyDriftStudy`, `@ballista/runtime`), each a genuine pinned solver
- * run at the same fixed rhs-evaluation budget -- this task's validation
- * criterion ("four-method E(t) traces render from pinned runs"). Purely
- * presentational: the caller (the app-level route) owns computing `study`.
+ * Energy-drift dashboard (§7 P3.44 shell + P4.12 full content, blueprint
+ * §4.8 "flagship comparison exhibit"). Renders one E(t)/E(0)-1 trace per
+ * `study.methods` entry (Explicit Euler / Classical RK4 / Symplectic Euler
+ * / Velocity Verlet, per `runEnergyDriftStudy`, `@ballista/runtime`), each
+ * a genuine pinned solver run at the same fixed rhs-evaluation budget --
+ * this task's validation criterion ("four-method E(t) traces render from
+ * pinned runs"). Purely presentational: the caller (the app-level route)
+ * owns computing `study`. P4.12's automated shape assertions live with the
+ * study itself (`energy-drift-study.test.ts`), not here.
  */
 
 import type { EnergyDriftStudy } from "@ballista/runtime";

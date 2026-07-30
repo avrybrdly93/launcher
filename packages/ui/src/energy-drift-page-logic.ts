@@ -1,7 +1,7 @@
 /**
- * Energy-drift dashboard page's non-rendering logic (§7 P3.44 shell; full
- * content is P4.12). Split out from `energy-drift-page.tsx` per this
- * package's established `<feature>-page-logic.ts` convention, mirroring
+ * Energy-drift dashboard page's non-rendering logic (§7 P3.44 shell + P4.12
+ * full content). Split out from `energy-drift-page.tsx` per this package's
+ * established `<feature>-page-logic.ts` convention, mirroring
  * `solver-lab-page-logic.ts`'s split for the same reason: formatting is
  * directly unit-testable without a DOM.
  */
