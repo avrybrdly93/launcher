@@ -1905,8 +1905,8 @@
       "estMinutes": 25,
       "difficulty": "M",
       "validation": "impact event solves y=h(x) on slope; grazing case exercised",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added PiecewisePchipTerrain (terrain.ts) -- the editor data model, wrapping PchipInterpolator over draggable {x,y} control points, shape-preserving so hand-placed points never produce an overhanging surface. Added sloped-terrain-impact.test.ts (solverkit): ground-impact event solves y=h(x) exactly (to 1e-6..1e-9) on both a monotonic incline and a concave PCHIP arc between control points (not the linear secant); plus a genuine grazing-case test -- a narrow bump entirely inside one fixed RK4 step, with g_gnd positive at both step endpoints (invisible to a naive endpoint sign check), correctly caught by the 3-interior-point grazing guard already in scanStepForEvents. No changes needed to the event/integration pipeline itself -- createPlanarProjectileModel already accepted an arbitrary Terrain; this task supplied the missing PCHIP-backed implementation and the end-to-end proof that slope + grazing impacts resolve correctly."
     },
     {
       "id": "P4.14",

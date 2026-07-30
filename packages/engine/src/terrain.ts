@@ -1,11 +1,20 @@
+import { PchipInterpolator } from "./pchip.js";
+
 /**
  * Ground/terrain height, y = h(x) (§3.7, §3.9). Flat ground (h≡0) is the
- * platform default; P4.13 later adds a piecewise-PCHIP editor data model on
- * top of this same interface for sloped/edited terrain.
+ * platform default; {@link PiecewisePchipTerrain} (P4.13) adds a
+ * piecewise-PCHIP editor data model on top of this same interface for
+ * sloped/edited terrain.
  */
 export interface Terrain {
   /** Ground height h(x) at horizontal position x. */
   height(x: number): number;
+}
+
+/** One draggable control point of a {@link PiecewisePchipTerrain} editor. */
+export interface TerrainControlPoint {
+  readonly x: number;
+  readonly y: number;
 }
 
 /** Flat terrain: h(x) = 0 everywhere. */
@@ -23,6 +32,39 @@ export class FunctionTerrain implements Terrain {
   /** @inheritDoc */
   height(x: number): number {
     return this.h(x);
+  }
+}
+
+/**
+ * Terrain editor data model (§7 P4.13): h(x) as a {@link PchipInterpolator}
+ * through a set of user-draggable control points, sorted by `x` so the
+ * editor UI (P4.14) can append/drag points in any order. PCHIP rather than
+ * a natural cubic spline for the same shape-preserving reason as the Cd(Re)
+ * tables (`pchip.ts`'s own doc note): a spline through hand-placed terrain
+ * points can overshoot and put the ground *above* a point that's a local
+ * max, which would silently produce a nonsensical (overhanging) surface;
+ * PCHIP never overshoots the data's own local extrema. Requires at least 2
+ * control points, strictly increasing in `x` (mirrors
+ * `PchipInterpolator`'s own constructor contract) -- the editor UI (P4.14)
+ * is responsible for keeping dragged points sorted and distinct before
+ * constructing this.
+ */
+export class PiecewisePchipTerrain implements Terrain {
+  private readonly interpolator: PchipInterpolator;
+
+  constructor(readonly controlPoints: readonly TerrainControlPoint[]) {
+    if (controlPoints.length < 2) {
+      throw new Error("PiecewisePchipTerrain requires at least 2 control points");
+    }
+    this.interpolator = new PchipInterpolator(
+      controlPoints.map((p) => p.x),
+      controlPoints.map((p) => p.y),
+    );
+  }
+
+  /** @inheritDoc */
+  height(x: number): number {
+    return this.interpolator.evaluate(x);
   }
 }
 
