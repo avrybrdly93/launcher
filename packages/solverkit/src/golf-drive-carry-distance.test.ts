@@ -43,7 +43,7 @@ function forceById(id: string): ForceModel {
 function carryDistance(spec: ScenarioSpec, spinOverride?: number): number {
   const forces = spec.model.forceIds.map(forceById);
   const model = createPlanarProjectileModel(forces);
-  const env = environmentSpecToEnvironment(spec.environment);
+  const env = environmentSpecToEnvironment(spec.environment, spec.seed);
   const spin = spinOverride ?? spec.initialConditions.spin0;
   const params = projectileSpecToParams(spec.projectile, spin);
   const ctx = createEvalContext(env, params);

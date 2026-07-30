@@ -1,4 +1,7 @@
 import { EnvSample } from "./env-sample.js";
+import { generateOuGustPath, type OuGustParams } from "./ou-gust.js";
+import { PchipInterpolator } from "./pchip.js";
+import { PCG32 } from "./random.js";
 import { EARTH_RADIUS_M, G_STD, ISA, sutherlandViscosity } from "./units.js";
 
 /** Fills the thermodynamic fields of an EnvSample (rho, T, p, eta, c) at a point (§3.4). */
@@ -261,6 +264,41 @@ export class GriddedWindField implements WindModel {
     const v0 = v00 * (1 - tx) + v10 * tx;
     const v1 = v01 * (1 - tx) + v11 * tx;
     return v0 * (1 - ty) + v1 * ty;
+  }
+}
+
+/**
+ * Frozen-realization Ornstein-Uhlenbeck gust wind (§3.5 eq. 3.14, P4.17 per
+ * ADR-011). Stochastic wind is never sampled live inside the integration
+ * loop: the constructor draws one full OU sample path up front from the
+ * supplied `rng` (a dedicated PCG32 substream per the scenario's seed --
+ * see `random.ts`'s substream discipline) via `generateOuGustPath`, then
+ * wraps that discrete path in a `PchipInterpolator` over its implicit
+ * uniform time grid `[0, dt, 2*dt, ..., steps*dt]`. From then on `sample`
+ * is an ordinary deterministic function of `t` alone -- repeatable-call-safe
+ * and indistinguishable in interface from `UniformWind` et al., exactly as
+ * ADR-011 requires. Queries at `t` outside `[0, steps*dt]` clamp to the
+ * path's first/last value (`PchipInterpolator`'s own out-of-domain policy).
+ */
+export class FrozenOuGustWind implements WindModel {
+  private readonly interpolant: PchipInterpolator;
+
+  constructor(
+    rng: PCG32,
+    params: OuGustParams,
+    dt: number,
+    steps: number,
+    private readonly wy: number = 0,
+  ) {
+    const path = generateOuGustPath(rng, params, dt, steps);
+    const times = Array.from({ length: steps + 1 }, (_, k) => k * dt);
+    this.interpolant = new PchipInterpolator(times, Array.from(path));
+  }
+
+  /** @inheritDoc */
+  sample(t: number, _x: number, _y: number, out: EnvSample): void {
+    out.wx = this.interpolant.evaluate(t);
+    out.wy = this.wy;
   }
 }
 

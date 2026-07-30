@@ -134,7 +134,7 @@ export function runGoldenTrajectory(
   const spec = presetById(presetId);
   const forces = spec.model.forceIds.map(forceById);
   const model = createPlanarProjectileModel(forces);
-  const env = environmentSpecToEnvironment(spec.environment);
+  const env = environmentSpecToEnvironment(spec.environment, spec.seed);
   const params = projectileSpecToParams(spec.projectile, spec.initialConditions.spin0);
   const ctx = createEvalContext(env, params);
 

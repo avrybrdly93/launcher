@@ -84,7 +84,7 @@ function characteristicDragRelaxationTime(
  */
 export function recommendSolver(spec: ScenarioSpec): SolverAdvisorRecommendation {
   const params = projectileSpecToParams(spec.projectile);
-  const environment = environmentSpecToEnvironment(spec.environment);
+  const environment = environmentSpecToEnvironment(spec.environment, spec.seed);
   const sample = new EnvSample();
   const { x0, y0, vx0, vy0 } = spec.initialConditions;
   environment.sample(0, x0, y0, sample);

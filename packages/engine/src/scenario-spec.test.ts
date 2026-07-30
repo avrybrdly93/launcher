@@ -57,6 +57,11 @@ const ENVIRONMENT_VARIANTS: readonly EnvironmentSpec[] = [
       grid: { x0: 0, y0: 0, dx: 1, dy: 1, nx: 2, ny: 2, wx: [0, 1, 2, 3], wy: [0, 0, 0, 0] },
     },
   },
+  {
+    atmosphere: { kind: "constant" },
+    gravity: {},
+    wind: { kind: "frozen-ou-gust", tau: 2, sigma: 3, dt: 0.05, steps: 200, wy: 0 },
+  },
 ];
 
 describe("scenarioSpecSchema", () => {

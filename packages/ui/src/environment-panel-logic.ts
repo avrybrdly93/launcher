@@ -158,10 +158,12 @@ export const gaussianVortexWindPanelSchema = z.object({
 
 /**
  * The schema-driven params schema for `kind`, or `undefined` for a kind
- * this panel renders no params for: `"zero"` (no params at all) and
+ * this panel renders no params for: `"zero"` (no params at all),
  * `"gridded"` (array grid data, not slider-representable -- mirrors
  * `ProjectilePanel`'s skip of a tabulated-Reynolds drag model's coefficient,
- * see `projectile-panel-logic.ts`).
+ * see `projectile-panel-logic.ts`), and `"frozen-ou-gust"` (P4.17, ADR-011:
+ * a seeded/precomputed sample path, not a live per-field control panel;
+ * building that editor is separate UI-scope work, not part of P4.17).
  */
 export function windParamsSchemaFor(kind: WindSpec["kind"]) {
   switch (kind) {
@@ -175,6 +177,7 @@ export function windParamsSchemaFor(kind: WindSpec["kind"]) {
       return gaussianVortexWindPanelSchema;
     case "zero":
     case "gridded":
+    case "frozen-ou-gust":
       return undefined;
   }
 }
@@ -207,6 +210,7 @@ export function windPanelValues(spec: WindSpec): Record<string, number> | undefi
       };
     case "zero":
     case "gridded":
+    case "frozen-ou-gust":
       return undefined;
   }
 }
@@ -260,5 +264,10 @@ export function toWindSpec(kind: WindSpec["kind"], current: WindSpec): WindSpec 
       return { kind: "gaussian-vortex", circulation: 50, coreRadius: 5, centerX: 0, centerY: 0 };
     case "gridded":
       return { kind: "gridded", grid: DEFAULT_WIND_GRID };
+    case "frozen-ou-gust":
+      // Not in WIND_KINDS yet (no per-field editor panel, see
+      // windParamsSchemaFor), but still a real WindSpec.kind (P4.17,
+      // ADR-011): this switch must stay exhaustive over the full union.
+      return { kind: "frozen-ou-gust", tau: 1, sigma: 2, dt: 0.05, steps: 200, wy };
   }
 }

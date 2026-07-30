@@ -3,6 +3,7 @@ import {
   ConstantAtmosphere,
   Environment,
   ExponentialAtmosphere,
+  FrozenOuGustWind,
   GaussianVortexWind,
   GriddedWindField,
   LogProfileWind,
@@ -15,6 +16,7 @@ import {
   type WindModel,
 } from "./environment.js";
 import { projectileSpecSchema } from "./projectile-spec.js";
+import { PCG32 } from "./random.js";
 
 /** Serializable description of an `Atmosphere` (§3.4). */
 export const atmosphereSpecSchema = z.discriminatedUnion("kind", [
@@ -75,6 +77,18 @@ export const windSpecSchema = z.discriminatedUnion("kind", [
       wx: z.array(z.number()),
       wy: z.array(z.number()),
     }),
+  }),
+  z.object({
+    kind: z.literal("frozen-ou-gust"),
+    /** Correlation time tau (s), §3.5 eq. 3.14. */
+    tau: z.number().positive(),
+    /** Stationary standard deviation sigma (m/s). */
+    sigma: z.number().positive(),
+    /** Uniform time-grid spacing (s) the frozen path is precomputed on. */
+    dt: z.number().positive(),
+    /** Number of grid steps; the frozen path covers t in [0, steps*dt]. */
+    steps: z.number().int().positive(),
+    wy: z.number().optional(),
   }),
 ]);
 /** Parsed type of {@link windSpecSchema}. */
@@ -153,7 +167,17 @@ function toGravity(spec: GravitySpec): GravityModel {
   return new UniformGravity(spec.g0, spec.altitudeDependent);
 }
 
-function toWind(spec: WindSpec): WindModel {
+/**
+ * Fixed PCG32 substream id reserved for the frozen-realization wind path
+ * (P4.17 per ADR-011). A `ScenarioSpec` currently has exactly one
+ * stochastic element -- the wind -- so a single reserved id is sufficient;
+ * a future stochastic element (e.g. P6.16 Monte Carlo replicate variation)
+ * must claim its own distinct substream id rather than reusing this one,
+ * per `random.ts`'s non-overlapping-substream discipline.
+ */
+const WIND_SUBSTREAM_ID = 1n;
+
+function toWind(spec: WindSpec, seed: number): WindModel {
   switch (spec.kind) {
     case "zero":
       return new ZeroWind();
@@ -173,10 +197,31 @@ function toWind(spec: WindSpec): WindModel {
       return new GaussianVortexWind(spec.circulation, spec.coreRadius, spec.centerX, spec.centerY);
     case "gridded":
       return new GriddedWindField(spec.grid);
+    case "frozen-ou-gust": {
+      const rng = new PCG32(BigInt(seed)).substream(WIND_SUBSTREAM_ID);
+      return new FrozenOuGustWind(
+        rng,
+        { tau: spec.tau, sigma: spec.sigma },
+        spec.dt,
+        spec.steps,
+        spec.wy,
+      );
+    }
   }
 }
 
-/** Instantiates the runtime `Environment` (live model instances) described by an `EnvironmentSpec`. */
-export function environmentSpecToEnvironment(spec: EnvironmentSpec): Environment {
-  return new Environment(toAtmosphere(spec.atmosphere), toGravity(spec.gravity), toWind(spec.wind));
+/**
+ * Instantiates the runtime `Environment` (live model instances) described by
+ * an `EnvironmentSpec`. `seed` is the owning `ScenarioSpec`'s seed (P0.11);
+ * it only matters for stochastic wind kinds (`"frozen-ou-gust"`, P4.17) --
+ * every other wind/atmosphere/gravity variant is a pure function of its own
+ * parameters and ignores it. Defaults to 0 for callers that only have an
+ * `EnvironmentSpec` on hand (no stochastic wind in scope there).
+ */
+export function environmentSpecToEnvironment(spec: EnvironmentSpec, seed = 0): Environment {
+  return new Environment(
+    toAtmosphere(spec.atmosphere),
+    toGravity(spec.gravity),
+    toWind(spec.wind, seed),
+  );
 }

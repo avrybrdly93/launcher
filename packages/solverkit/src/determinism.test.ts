@@ -58,7 +58,7 @@ function forceById(id: string): ForceModel {
 function runScenarioToTrajectory(spec: ScenarioSpec): Trajectory {
   const forces = spec.model.forceIds.map(forceById);
   const model = createPlanarProjectileModel(forces);
-  const env = environmentSpecToEnvironment(spec.environment);
+  const env = environmentSpecToEnvironment(spec.environment, spec.seed);
   const params = projectileSpecToParams(spec.projectile);
   const ctx = createEvalContext(env, params);
 
@@ -136,5 +136,43 @@ describe("determinism: same ScenarioSpec => bit-identical trajectory (P2.44)", (
     const changed = runScenarioToTrajectory(perturbed);
 
     expect(hashTrajectory(changed)).not.toBe(hashTrajectory(original));
+  });
+});
+
+describe("determinism: frozen-ou-gust wind (P4.17, ADR-011)", () => {
+  const found = PRESET_SCENARIOS.find(
+    (s) => s.environment.wind.kind === "uniform" && s.environment.wind.wx < 0,
+  );
+  if (!found) throw new Error("expected a headwind preset in PRESET_SCENARIOS");
+  const headwind: ScenarioSpec = found;
+
+  function withFrozenGustWind(seed: number): ScenarioSpec {
+    return {
+      ...headwind,
+      environment: {
+        ...headwind.environment,
+        wind: { kind: "frozen-ou-gust", tau: 1.5, sigma: 3, dt: 0.02, steps: 200, wy: 0 },
+      },
+      seed,
+    };
+  }
+
+  it("same seed => bit-identical trajectory, exercising the stochastic-wind path itself", () => {
+    const first = runScenarioToTrajectory(withFrozenGustWind(123));
+    const second = runScenarioToTrajectory(withFrozenGustWind(123));
+
+    expect(first.nSteps).toBeGreaterThan(1);
+    expect(hashTrajectory(first)).toBe(hashTrajectory(second));
+    for (let c = 0; c < first.channels.length; c++) {
+      expect(second.channels[c]).toEqual(first.channels[c]);
+    }
+    expect(second.t).toEqual(first.t);
+  });
+
+  it("different seeds produce a different frozen wind path and a different trajectory", () => {
+    const a = runScenarioToTrajectory(withFrozenGustWind(123));
+    const b = runScenarioToTrajectory(withFrozenGustWind(456));
+
+    expect(hashTrajectory(a)).not.toBe(hashTrajectory(b));
   });
 });

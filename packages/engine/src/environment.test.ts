@@ -4,6 +4,7 @@ import {
   ConstantAtmosphere,
   Environment,
   ExponentialAtmosphere,
+  FrozenOuGustWind,
   GaussianVortexWind,
   GriddedWindField,
   IsaTroposphereAtmosphere,
@@ -13,6 +14,7 @@ import {
   UniformWind,
   ZeroWind,
 } from "./environment.js";
+import { PCG32 } from "./random.js";
 import { EARTH_RADIUS_M, G_STD, ISA, sutherlandViscosity } from "./units.js";
 
 describe("ConstantAtmosphere", () => {
@@ -346,6 +348,60 @@ describe("GriddedWindField", () => {
     field.sample(0, xMax, yMax, edgeOut);
     expect(out.wx).toBe(edgeOut.wx);
     expect(out.wy).toBe(edgeOut.wy);
+  });
+});
+
+describe("FrozenOuGustWind", () => {
+  const params = { tau: 1.5, sigma: 3 };
+  const dt = 0.02;
+  const steps = 500; // covers t in [0, 10]
+
+  it("same seed => bit-identical sample() across a range of t (P4.17 validation)", () => {
+    const windA = new FrozenOuGustWind(new PCG32(42n).substream(1n), params, dt, steps);
+    const windB = new FrozenOuGustWind(new PCG32(42n).substream(1n), params, dt, steps);
+    const outA = new EnvSample();
+    const outB = new EnvSample();
+    for (const t of [0, 0.005, 0.37, 1.999, 5, 7.7501, 9.999, 10, 50]) {
+      windA.sample(t, 0, 0, outA);
+      windB.sample(t, 0, 0, outB);
+      expect(outA.wx).toBe(outB.wx);
+      expect(outA.wy).toBe(outB.wy);
+    }
+  });
+
+  it("different seeds diverge", () => {
+    const windA = new FrozenOuGustWind(new PCG32(42n).substream(1n), params, dt, steps);
+    const windB = new FrozenOuGustWind(new PCG32(43n).substream(1n), params, dt, steps);
+    const outA = new EnvSample();
+    const outB = new EnvSample();
+    windA.sample(1.234, 0, 0, outA);
+    windB.sample(1.234, 0, 0, outB);
+    expect(outA.wx).not.toBe(outB.wx);
+  });
+
+  it("passes wx through unchanged and holds wy fixed regardless of (x, y)", () => {
+    const wind = new FrozenOuGustWind(new PCG32(1n).substream(1n), params, dt, steps, -0.5);
+    const out = new EnvSample();
+    wind.sample(3, 10, 20, out);
+    const wxAtOrigin = out.wx;
+    wind.sample(3, -999, 999, out);
+    expect(out.wx).toBe(wxAtOrigin); // wind is a pure function of t, not (x, y)
+    expect(out.wy).toBe(-0.5);
+  });
+
+  it("clamps to the path endpoints outside [0, steps*dt], matching PchipInterpolator", () => {
+    const wind = new FrozenOuGustWind(new PCG32(7n).substream(1n), params, dt, steps);
+    const outStart = new EnvSample();
+    const outBefore = new EnvSample();
+    wind.sample(0, 0, 0, outStart);
+    wind.sample(-5, 0, 0, outBefore);
+    expect(outBefore.wx).toBe(outStart.wx);
+
+    const outEnd = new EnvSample();
+    const outAfter = new EnvSample();
+    wind.sample(steps * dt, 0, 0, outEnd);
+    wind.sample(steps * dt + 100, 0, 0, outAfter);
+    expect(outAfter.wx).toBe(outEnd.wx);
   });
 });
 

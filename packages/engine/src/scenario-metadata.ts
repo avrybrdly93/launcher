@@ -26,7 +26,7 @@ export interface ScenarioNondimensionalGroups {
 /** Computes `ScenarioNondimensionalGroups` for a scenario's launch state (§3.6). */
 export function scenarioNondimensionalGroups(spec: ScenarioSpec): ScenarioNondimensionalGroups {
   const params = projectileSpecToParams(spec.projectile);
-  const environment = environmentSpecToEnvironment(spec.environment);
+  const environment = environmentSpecToEnvironment(spec.environment, spec.seed);
   const sample = new EnvSample();
   const { x0, y0, vx0, vy0, spin0 } = spec.initialConditions;
   environment.sample(0, x0, y0, sample);
