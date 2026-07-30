@@ -1927,8 +1927,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "matches R = 2v₀²cosθ sin(θ−α)/(g cos²α) to 1e-9",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "New test file packages/solverkit/src/incline-range-analytic-check.test.ts: drag-free launch (ConstantCd(0), UniformGravity non-altitude-dependent) over a straight FunctionTerrain incline h(x)=x*tan(alpha), integrated with the adaptive DormandPrince54 stepper (rtol=1e-13, atol=1e-14) to the existing ground-impact terminal event (createGroundImpactEvent/groundHeightResidual, already terrain-aware per P4.13). Impact range measured along the slope as xImpact/cos(alpha) and checked against the closed form R=2v0^2 cos(theta) sin(theta-alpha)/(g cos^2(alpha)) to well within the task's 1e-9 relative tolerance (derivation of R and of the slope-distance conversion documented in the file's module comment). Three cases: rising incline (alpha=+15deg), falling incline (alpha=-20deg), and the alpha=0 flat-ground reduction v0^2 sin(2*theta)/g as a sanity cross-check -- all pass. Full verify green: pnpm typecheck/lint/lint:deps/test (175 files, 1106 tests) and pnpm -r build all clean. One pre-existing, unrelated issue noted (not introduced by this task, not touched): 'pnpm format:check' flags CLAUDE.md (last modified in the P3.13 commit, long before this session)."
     },
     {
       "id": "P4.16",
