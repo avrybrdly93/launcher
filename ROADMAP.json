@@ -1938,8 +1938,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "sample ACF matches e^{−t/τ} (χ² test, 1e4 samples)",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "packages/engine/src/ou-gust.ts: ouGustStep (exact OU transition, decay=e^{-Δ/τ}), sampleStationaryOuGust (w0~N(0,σ²)), generateOuGustPath. Raw generator only per ADR-011 -- WindModel wrapping is P4.17. Validation: ou-gust.test.ts draws 2500 i.i.d. stationary realizations per lag (lags 1/2/4/8 steps, disjoint PCG32 substreams) and Fisher-z tests sample corr(w0,w_lag) vs e^{-lagΔ/τ}; chi-square(dof=4) << 30 threshold (critical value 18.47 at α=0.001), confirmed a broken sqrt factor blows it to ~700+."
     },
     {
       "id": "P4.17",
