@@ -1960,8 +1960,8 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "gust profile matches formula; smooth (C¹)",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Added OneCosineGustWind (packages/engine/src/environment.ts) + one-cosine-gust WindSpec kind (scenario-spec.ts) + UI switch-exhaustiveness stubs (environment-panel-logic.ts, not added to WIND_KINDS yet, same as frozen-ou-gust P4.17). Verified formula match, C1 smoothness at both window edges (numerical derivative), and zero outside the window."
     },
     {
       "id": "P4.19",

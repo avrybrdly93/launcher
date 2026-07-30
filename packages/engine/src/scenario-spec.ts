@@ -7,6 +7,7 @@ import {
   GaussianVortexWind,
   GriddedWindField,
   LogProfileWind,
+  OneCosineGustWind,
   SinusoidalGustWind,
   UniformGravity,
   UniformWind,
@@ -77,6 +78,16 @@ export const windSpecSchema = z.discriminatedUnion("kind", [
       wx: z.array(z.number()),
       wy: z.array(z.number()),
     }),
+  }),
+  z.object({
+    kind: z.literal("one-cosine-gust"),
+    /** Gust start time t0 (s). */
+    startTime: z.number(),
+    /** Gust duration T (s), i.e. total window length; peak occurs at t0 + T/2. */
+    duration: z.number().positive(),
+    /** Peak gust magnitude Um (m/s), reached at the window's midpoint. */
+    peakMagnitude: z.number(),
+    wy: z.number().optional(),
   }),
   z.object({
     kind: z.literal("frozen-ou-gust"),
@@ -197,6 +208,8 @@ function toWind(spec: WindSpec, seed: number): WindModel {
       return new GaussianVortexWind(spec.circulation, spec.coreRadius, spec.centerX, spec.centerY);
     case "gridded":
       return new GriddedWindField(spec.grid);
+    case "one-cosine-gust":
+      return new OneCosineGustWind(spec.startTime, spec.duration, spec.peakMagnitude, spec.wy);
     case "frozen-ou-gust": {
       const rng = new PCG32(BigInt(seed)).substream(WIND_SUBSTREAM_ID);
       return new FrozenOuGustWind(

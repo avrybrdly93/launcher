@@ -303,6 +303,39 @@ export class FrozenOuGustWind implements WindModel {
 }
 
 /**
+ * "1-cosine" discrete gust wind (§3.5 case 4, P4.18): the classic
+ * aerospace discrete-gust profile (MIL-HDBK-1797 §3.4.2.1.1) -- a single,
+ * localized wx bump of duration `duration` starting at `startTime` and
+ * peaking at `peakMagnitude` at its midpoint:
+ *
+ *   w(t) = 0                                          t < t0 or t > t0+T
+ *   w(t) = (Um/2) * (1 - cos(2*pi*(t-t0)/T))           t0 <= t <= t0+T
+ *
+ * Zero-valued and zero-derivative at both t0 and t0+T (C1-continuous where
+ * it joins the ambient wind either side), unlike a literal step or ramp
+ * discrete gust -- that smoothness is why this waveform, not those, is the
+ * standard "impulse response" gust test.
+ */
+export class OneCosineGustWind implements WindModel {
+  constructor(
+    private readonly startTime: number, // t0, s
+    private readonly duration: number, // T, s
+    private readonly peakMagnitude: number, // Um, m/s
+    private readonly wy: number = 0,
+  ) {}
+
+  /** @inheritDoc */
+  sample(t: number, _x: number, _y: number, out: EnvSample): void {
+    const dt = t - this.startTime;
+    out.wx =
+      dt < 0 || dt > this.duration
+        ? 0
+        : (this.peakMagnitude / 2) * (1 - Math.cos((2 * Math.PI * dt) / this.duration));
+    out.wy = this.wy;
+  }
+}
+
+/**
  * Composes an Atmosphere + GravityModel + WindModel into the single
  * `Environment` the engine exports (§2.2 module table). `sample` is called
  * exactly once per rhs evaluation (§2.4a); internally it delegates to the

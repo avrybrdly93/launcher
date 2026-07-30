@@ -9,6 +9,7 @@ import {
   GriddedWindField,
   IsaTroposphereAtmosphere,
   LogProfileWind,
+  OneCosineGustWind,
   SinusoidalGustWind,
   UniformGravity,
   UniformWind,
@@ -402,6 +403,78 @@ describe("FrozenOuGustWind", () => {
     wind.sample(steps * dt, 0, 0, outEnd);
     wind.sample(steps * dt + 100, 0, 0, outAfter);
     expect(outAfter.wx).toBe(outEnd.wx);
+  });
+});
+
+describe("OneCosineGustWind", () => {
+  it("matches the formula (Um/2)*(1-cos(2*pi*(t-t0)/T)) inside the gust window (validation criterion)", () => {
+    const t0 = 2;
+    const duration = 3;
+    const peak = 8;
+    const wind = new OneCosineGustWind(t0, duration, peak);
+    const out = new EnvSample();
+    for (const t of [t0, t0 + 0.1, t0 + 0.75, t0 + duration / 2, t0 + 2.4, t0 + duration]) {
+      wind.sample(t, 0, 0, out);
+      const expected = (peak / 2) * (1 - Math.cos((2 * Math.PI * (t - t0)) / duration));
+      expect(out.wx).toBeCloseTo(expected, 12);
+    }
+  });
+
+  it("peaks at exactly Um at the window midpoint", () => {
+    const wind = new OneCosineGustWind(1, 4, 6);
+    const out = new EnvSample();
+    wind.sample(1 + 2, 0, 0, out); // t0 + T/2
+    expect(out.wx).toBeCloseTo(6, 12);
+  });
+
+  it("is zero before the window and after it", () => {
+    const wind = new OneCosineGustWind(5, 2, 10);
+    const out = new EnvSample();
+    wind.sample(4.999, 0, 0, out);
+    expect(out.wx).toBe(0);
+    wind.sample(7.001, 0, 0, out);
+    expect(out.wx).toBe(0);
+    wind.sample(0, 0, 0, out);
+    expect(out.wx).toBe(0);
+  });
+
+  it("is zero-valued and C1 (zero derivative, numerically) at both window edges", () => {
+    const t0 = 0;
+    const duration = 5;
+    const wind = new OneCosineGustWind(t0, duration, 12);
+    const out = new EnvSample();
+    const h = 1e-6;
+
+    for (const edge of [t0, t0 + duration]) {
+      wind.sample(edge, 0, 0, out);
+      expect(out.wx).toBeCloseTo(0, 10);
+
+      wind.sample(edge - h, 0, 0, out);
+      const before = out.wx;
+      wind.sample(edge + h, 0, 0, out);
+      const after = out.wx;
+      // Central difference across the edge: a kink would show up as an
+      // order-1 derivative jump; C1 smoothness keeps this near zero.
+      const derivative = (after - before) / (2 * h);
+      expect(Math.abs(derivative)).toBeLessThan(1e-3);
+    }
+  });
+
+  it("defaults to zero wy", () => {
+    const wind = new OneCosineGustWind(0, 1, 5);
+    const out = new EnvSample();
+    wind.sample(0.5, 0, 0, out);
+    expect(out.wy).toBe(0);
+  });
+
+  it("is independent of x and y (a spatially uniform gust)", () => {
+    const wind = new OneCosineGustWind(0, 4, 7, -1);
+    const outA = new EnvSample();
+    const outB = new EnvSample();
+    wind.sample(2, 0, 0, outA);
+    wind.sample(2, 500, -500, outB);
+    expect(outB.wx).toBe(outA.wx);
+    expect(outB.wy).toBe(outA.wy);
   });
 });
 
