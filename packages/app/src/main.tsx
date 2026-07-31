@@ -3,6 +3,7 @@ import { App } from "./app.js";
 import { ConvergenceStudyRoute } from "./convergence-study-route.js";
 import { EnergyDriftRoute } from "./energy-drift-route.js";
 import { SolverLabRoute } from "./solver-lab-route.js";
+import { NeglectedEffectsRoute } from "./neglected-effects-route.js";
 import { StabilityExplorerRoute } from "./stability-explorer-route.js";
 import { TerrainEditorRoute } from "./terrain-editor-route.js";
 
@@ -28,6 +29,9 @@ function renderRoute(root: HTMLElement): void {
       return;
     case "#/terrain-editor":
       render(<TerrainEditorRoute />, root);
+      return;
+    case "#/neglected-effects":
+      render(<NeglectedEffectsRoute />, root);
       return;
     default:
       render(<App />, root);
