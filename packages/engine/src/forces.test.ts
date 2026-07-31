@@ -6,6 +6,7 @@ import { SaturatingLiftCoefficient } from "./lift-coefficient.js";
 import { createSphericalProjectileParams } from "./projectile-params.js";
 import {
   BuoyancyForce,
+  buoyancyToWeightRatio,
   composeForces,
   createForceRegistry,
   GravityForce,
@@ -14,6 +15,7 @@ import {
   QuadraticDragForce,
   type ForceModel,
 } from "./forces.js";
+import { ISA } from "./units.js";
 import { norm, dot } from "./vec2.js";
 
 function makeContext(overrides: { spin?: number; withLift?: boolean } = {}): {
@@ -149,6 +151,43 @@ describe("BuoyancyForce", () => {
     const ratio = out[1] / weight;
     expect(ratio).toBeGreaterThan(0.01);
     expect(ratio).toBeLessThan(0.016);
+  });
+
+  it("buoyancyToWeightRatio (P4.20) matches BuoyancyForce.accumulate's own ratio, g-independent", () => {
+    const params = createSphericalProjectileParams({
+      mass: 0.43,
+      radius: 0.11,
+      dragCoefficient: new ConstantCd(0.25),
+    });
+    // Two different gravity models -- the ratio must come out identical either way, since |F_b|/|F_g| = rho*V/m has no g term.
+    for (const env of [
+      new Environment(new ConstantAtmosphere(), new UniformGravity()),
+      new Environment(new ConstantAtmosphere(), new UniformGravity(1.62)), // lunar g, sanity-checks g cancels
+    ]) {
+      const ctx = createEvalContext(env, params);
+      const y = new Float64Array([0, 0, 0, 0]);
+      refreshDerived(ctx, env, 0, y);
+      const out: [number, number] = [0, 0];
+      new BuoyancyForce().accumulate(0, y, ctx, out);
+      const weight = ctx.params.mass * ctx.env.g;
+      expect(buoyancyToWeightRatio(params, ctx.env.rho)).toBeCloseTo(out[1] / weight, 15);
+    }
+  });
+
+  it("buoyancyToWeightRatio is smaller for a denser/larger-mass-per-volume preset (baseball vs soccer ball)", () => {
+    const soccerBall = createSphericalProjectileParams({
+      mass: 0.43,
+      radius: 0.11,
+      dragCoefficient: new ConstantCd(0.25),
+    });
+    const baseball = createSphericalProjectileParams({
+      mass: 0.145,
+      radius: 0.03645,
+      dragCoefficient: new ConstantCd(0.35),
+    });
+    expect(buoyancyToWeightRatio(baseball, ISA.rho0)).toBeLessThan(
+      buoyancyToWeightRatio(soccerBall, ISA.rho0),
+    );
   });
 });
 

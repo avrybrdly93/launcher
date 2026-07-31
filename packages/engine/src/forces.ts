@@ -1,5 +1,6 @@
 import { spinParameter } from "./characteristic-scales.js";
 import type { EvalContext } from "./eval-context.js";
+import type { ProjectileParams } from "./projectile-params.js";
 import type { MutVec2 } from "./vec2.js";
 
 /**
@@ -123,6 +124,19 @@ export class BuoyancyForce implements ForceModel {
   energyPower(_t: number, y: Float64Array, ctx: EvalContext): number {
     return ctx.env.rho * ctx.params.volume * ctx.env.g * y[VY]!;
   }
+}
+
+/**
+ * |F_b|/|F_g| = rho_air*V / m -- g cancels, so this is a pure property of
+ * the projectile and the local air density, independent of any gravity
+ * model (uniform or altitude-dependent). This is the one live number the
+ * P4.20 "how big are the effects we ignore?" exercise (§3.4, §5.5 worked
+ * example 1) needs: buoyancy is a real, small, toggleable force (already
+ * wired end-to-end via `BuoyancyForce` above, P1.16), and this ratio is what
+ * "small" means quantitatively for a given preset.
+ */
+export function buoyancyToWeightRatio(params: ProjectileParams, rhoAir: number): number {
+  return (rhoAir * params.volume) / params.mass;
 }
 
 /**
