@@ -12,6 +12,7 @@ import { scenarioNondimensionalGroups } from "./scenario-metadata.js";
 import type { ScenarioSpec } from "./scenario-spec.js";
 import { recommendSolver } from "./solver-advisor.js";
 
+/** One classification `scenarioRegimeTags` can assign to a scenario -- see the module doc comment above for the physics behind each tag. */
 export type RegimeTag = "low-pi" | "high-pi" | "magnus" | "stiff";
 
 /** Every tag {@link scenarioRegimeTags} can produce, in the fixed display order the preset browser's filter chips use. */
