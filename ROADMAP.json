@@ -1993,8 +1993,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "dust-grain solved at h=1 ms stable; Newton iters ≤ 4 avg",
-      "status": "in-progress",
-      "notes": ""
+      "status": "done",
+      "notes": "BackwardEulerStepper gains an opt-in newtonStrategy: \"simplified\" mode (default stays \"full\", unchanged prior behavior): the Jacobian is evaluated once and reused across a step's Newton iterations and, while convergence stays fast, across consecutive steps too, with a one-shot fresh-Jacobian retry if a reused one turns out stale. Validated on the dust-grain preset at h=1ms/200 steps: stable, average Newton iterations well under the 4-avg target."
     },
     {
       "id": "P4.22",
