@@ -1971,8 +1971,8 @@
       "estMinutes": 20,
       "difficulty": "E",
       "validation": "animation does not affect physics hash (determinism guard)",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed. Plan: add a pure/throttle module (packages/viz/src/field-layer-animation.ts) quantizing display time to a 10 Hz tick for FieldLayer resampling, decoupled from both the render loop and integrate()'s own time; determinism-guard test proves the physics trajectory hash is unaffected by driving this ticker at any rate or not at all."
     },
     {
       "id": "P4.20",
