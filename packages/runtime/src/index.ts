@@ -19,3 +19,4 @@ export * from "./convergence-study.js";
 export * from "./stability-explorer.js";
 export * from "./energy-drift-study.js";
 export * from "./terrain-editor.js";
+export * from "./neglected-effects.js";
