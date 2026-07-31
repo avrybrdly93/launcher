@@ -57,3 +57,23 @@ writes `NaN` into `out.yNext`, sets `accepted = false`, and records a typed {@li
 NewtonFailureReason} onto `out.newtonFailureReason` — so a forced non-convergence surfaces
 *why* it failed, not just the NaN/`accepted: false` pair `integrate`'s non-finite-state guard
 would otherwise report on its own.
+
+## Simplified Newton and Jacobian reuse (P4.21)
+
+The scheme above — recomputing $\mathbf J$ (and refactoring $\mathbf I - h\mathbf J$) on
+*every* Newton iteration — is `newtonStrategy: "full"`, the default. It is the most robust
+choice but also the priciest: with the FD fallback, each recomputation costs $2 \times
+\text{dim}$ extra rhs evaluations.
+
+`newtonStrategy: "simplified"` is the classic modified/chord Newton iteration: $\mathbf J$ is
+evaluated once and reused unchanged for the rest of that step's iterations, and — as long as
+convergence keeps arriving in at most a couple of iterations — carried forward as the starting
+Jacobian for the *next* step too, rather than recomputed from scratch each time. $\mathbf I -
+h\mathbf J$ is still rebuilt every iteration (cheap: $O(\text{dim}^2)$, no rhs evaluations)
+since {@link solveLinearSystemInPlace} eliminates it in place, but $\mathbf J$ itself is only
+re-evaluated when the cached value is missing, or when a step's convergence signals it has
+gone stale: either it needed more than a couple of iterations, or an iteration outright failed
+(a singular iteration matrix or an exhausted damping search) while relying on a reused
+Jacobian — that case gets one on-the-spot retry with a freshly evaluated $\mathbf J$ before the
+step is allowed to report failure, so a stale cache only ever costs efficiency, never
+correctness.
