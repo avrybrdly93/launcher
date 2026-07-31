@@ -36,3 +36,5 @@ export * from "./energy-drift-page.js";
 export * from "./derivation-panel.js";
 export * from "./terrain-editor-page-logic.js";
 export * from "./terrain-editor-page.js";
+export * from "./neglected-effects-page-logic.js";
+export * from "./neglected-effects-page.js";
