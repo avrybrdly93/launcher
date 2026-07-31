@@ -226,6 +226,124 @@ describe("BackwardEulerStepper (P2.38)", () => {
     expect(result.slope).toBeLessThan(1.1);
   });
 
+  describe("simplified Newton + Jacobian reuse (P4.21)", () => {
+    it("converges to the same accepted state as full Newton on gravity+quadratic-drag", () => {
+      const params = createSphericalProjectileParams({
+        mass: 0.1,
+        radius: 0.05,
+        dragCoefficient: new ConstantCd(0.47),
+      });
+      const env = new Environment(new ConstantAtmosphere(), new UniformGravity(), new ZeroWind());
+      const ctx = createEvalContext(env, params);
+      const model = createPlanarProjectileModel([new GravityForce(), new QuadraticDragForce()]);
+
+      const y0 = new Float64Array([0, 50, 20, -5]);
+      const h = 0.05;
+
+      const fullStepper = new BackwardEulerStepper({ newtonStrategy: "full" });
+      fullStepper.init(model, ctx);
+      const outFull = createStepResult(4);
+      fullStepper.step(0, y0, h, outFull);
+
+      const simplifiedStepper = new BackwardEulerStepper({ newtonStrategy: "simplified" });
+      simplifiedStepper.init(model, ctx);
+      const outSimplified = createStepResult(4);
+      simplifiedStepper.step(0, y0, h, outSimplified);
+
+      expect(outFull.accepted).toBe(true);
+      expect(outSimplified.accepted).toBe(true);
+      for (let i = 0; i < 4; i++) {
+        expect(outSimplified.yNext[i]).toBeCloseTo(outFull.yNext[i]!, 8);
+      }
+    });
+
+    it("reuses the Jacobian across steps to spend fewer rhs evaluations than full Newton on the same multi-step solve", () => {
+      const params = createDustGrainParams();
+      const env = new Environment(new ConstantAtmosphere(), new UniformGravity(), new ZeroWind());
+      const ctx = createEvalContext(env, params);
+      // FD-fallback jacobian (no analytic one for gravity+linear-drag), so
+      // reuse actually skips real work (2*dim rhs evals per computation)
+      // rather than a cheap analytic call.
+      const model = createPlanarProjectileModel([new GravityForce(), new LinearDragForce()]);
+      const y0 = new Float64Array([0, 0.01, 15, 0]);
+      const h = 1e-3;
+      const nSteps = 50;
+
+      function runTotalRHS(stepper: BackwardEulerStepper): number {
+        stepper.init(model, ctx);
+        const out = createStepResult(4);
+        const y = new Float64Array(y0);
+        let totalRHS = 0;
+        let t = 0;
+        for (let i = 0; i < nSteps; i++) {
+          stepper.step(t, y, h, out);
+          expect(out.accepted).toBe(true);
+          totalRHS += out.nRHS;
+          y.set(out.yNext);
+          t += h;
+        }
+        return totalRHS;
+      }
+
+      const fullRHS = runTotalRHS(new BackwardEulerStepper({ newtonStrategy: "full" }));
+      const simplifiedRHS = runTotalRHS(new BackwardEulerStepper({ newtonStrategy: "simplified" }));
+
+      expect(simplifiedRHS).toBeLessThan(fullRHS);
+    });
+
+    it("P4.21 validation: dust-grain solved at h=1ms stays stable with Newton iterations <= 4 on average", () => {
+      const params = createDustGrainParams();
+      const env = new Environment(new ConstantAtmosphere(), new UniformGravity(), new ZeroWind());
+      const ctx = createEvalContext(env, params);
+      const model = createPlanarProjectileModel([new GravityForce(), new LinearDragForce()]);
+      const y0 = new Float64Array([0, 0.01, 15, 0]); // P1.36 dust-grain preset ICs
+      const h = 1e-3; // the validation's "h = 1 ms"
+      const nSteps = 200;
+
+      const stepper = new BackwardEulerStepper({ newtonStrategy: "simplified" });
+      stepper.init(model, ctx);
+      const out = createStepResult(4);
+      const y = new Float64Array(y0);
+      let t = 0;
+      let totalIterations = 0;
+
+      for (let i = 0; i < nSteps; i++) {
+        stepper.step(t, y, h, out);
+        expect(out.accepted).toBe(true);
+        for (let k = 0; k < 4; k++) expect(Number.isFinite(out.yNext[k]!)).toBe(true);
+        totalIterations += out.newtonIterations;
+        y.set(out.yNext);
+        t += h;
+      }
+
+      expect(totalIterations / nSteps).toBeLessThanOrEqual(4);
+    });
+
+    it("a genuinely (not just stale) singular Jacobian still reports 'singular-jacobian' under simplified Newton", () => {
+      const h = 0.1;
+      const model: Model = {
+        dim: 1,
+        channels: DECAY_CHANNELS,
+        rhs(_t: number, y: Float64Array, out: Float64Array): void {
+          out[0] = -y[0]!;
+        },
+        jacobian(_t: number, _y: Float64Array, _ctx: EvalContext, outJ: Float64Array): void {
+          outJ[0] = 1 / h; // makes (I - h*J) = 0 exactly, at every y
+        },
+      };
+      const ctx = createEvalContextFixture();
+      const stepper = new BackwardEulerStepper({ newtonStrategy: "simplified" });
+      stepper.init(model, ctx);
+
+      const out = createStepResult(1);
+      stepper.step(0, new Float64Array([1]), h, out);
+
+      expect(out.accepted).toBe(false);
+      expect(Number.isNaN(out.yNext[0])).toBe(true);
+      expect(out.newtonFailureReason).toBe("singular-jacobian");
+    });
+  });
+
   describe("Newton diagnostics in StepResult (P2.39)", () => {
     it("records a positive iteration count and no failure reason on an ordinary converged step", () => {
       const model = createDecayModel();

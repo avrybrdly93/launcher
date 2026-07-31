@@ -8,6 +8,32 @@ const DEFAULT_NEWTON_ATOL = 1e-10;
 const DEFAULT_NEWTON_RTOL = 1e-8;
 const DEFAULT_MAX_NEWTON_ITERATIONS = 50;
 const DEFAULT_MAX_DAMPING_HALVINGS = 12;
+const DEFAULT_NEWTON_STRATEGY: NewtonStrategy = "full";
+/**
+ * `"simplified"` mode's cross-step reuse heuristic (P4.21): a step that
+ * needed more than this many Newton iterations to converge -- even with a
+ * reused Jacobian available -- is evidence the cached matrix is drifting
+ * out of date, so the *next* step starts from a fresh one rather than
+ * compounding the staleness. Small because simplified Newton is only a
+ * win while it converges fast; once it doesn't, the FD/analytic
+ * reevaluation this threshold triggers is cheap next to another handful
+ * of poorly-converging iterations.
+ */
+const DEFAULT_JACOBIAN_STALE_ITERATIONS = 2;
+
+/**
+ * Newton strategy for {@link BackwardEulerStepper} (P4.21). `"full"`
+ * recomputes (and refactors) the Jacobian on every Newton iteration of
+ * every step -- P2.38's original, most-robust-but-priciest behavior, and
+ * the default so existing callers see no change. `"simplified"` is the
+ * classic modified/chord Newton: the Jacobian is evaluated once and then
+ * reused, both across the iterations of a single step and, as long as
+ * convergence stays fast, across consecutive steps too -- the "Jacobian
+ * reuse" half of this task, valuable because an FD Jacobian costs `2*dim`
+ * extra rhs evaluations per evaluation (`computeJacobian`) while
+ * rebuilding `I - h*J` from an already-known `J` costs none.
+ */
+export type NewtonStrategy = "full" | "simplified";
 
 /** Constructor options for {@link BackwardEulerStepper}'s Newton iteration. */
 export interface BackwardEulerOptions {
@@ -19,6 +45,14 @@ export interface BackwardEulerOptions {
   readonly maxNewtonIterations?: number;
   /** Backtracking-line-search halvings tried per Newton iteration before giving up. */
   readonly maxDampingHalvings?: number;
+  /**
+   * `"full"` (default) or `"simplified"` -- see {@link NewtonStrategy}.
+   * Simplified/modified Newton with Jacobian reuse across iterations and
+   * steps (P4.21's "productionizing"): fewer Jacobian evaluations for the
+   * same converged trajectory, at the cost of a slightly larger (but
+   * still typically small) Newton iteration count per step.
+   */
+  readonly newtonStrategy?: NewtonStrategy;
 }
 
 /**
@@ -59,6 +93,19 @@ export interface BackwardEulerOptions {
  * forced non-convergence surfaces *why* it failed rather than only the
  * NaN/`accepted: false` pair.
  *
+ * `newtonStrategy: "simplified"` (P4.21) reuses the Jacobian instead of
+ * recomputing it every iteration: within a step, `J` is evaluated once
+ * (at that step's initial guess $\mathbf y_k$) and every iteration only
+ * rebuilds $\mathbf I - h\mathbf J$ from the cached value and re-solves --
+ * cheap, since it costs no rhs evaluations, unlike re-evaluating `J`
+ * itself. The cached `J` then carries into the *next* step's first
+ * iteration too, and is only refreshed when a step needed more than a
+ * couple of iterations to converge (a sign it's drifting stale) or failed
+ * outright -- a failed/slow iteration
+ * that was relying on a reused Jacobian gets one on-the-spot retry with a
+ * freshly evaluated one before it's allowed to fail the step, so a stale
+ * cache degrades efficiency, never correctness.
+ *
  * See the [derivation](./backward-euler-stepper.derivation.md) for the A-stability proof
  * and the damped-Newton iteration this stepper runs each step.
  */
@@ -69,10 +116,14 @@ export class BackwardEulerStepper implements Stepper {
   private readonly newtonRtol: number;
   private readonly maxNewtonIterations: number;
   private readonly maxDampingHalvings: number;
+  private readonly newtonStrategy: NewtonStrategy;
 
   private model: Model | undefined;
   private ctx: EvalContext | undefined;
   private dim = 0;
+
+  /** `"simplified"` mode only: whether `this.jac` holds a usable (possibly stale-but-untested) Jacobian carried from a previous evaluation. */
+  private jacobianValid = false;
 
   private yGuess: Float64Array | undefined;
   private candidate: Float64Array | undefined;
@@ -92,6 +143,7 @@ export class BackwardEulerStepper implements Stepper {
     this.newtonRtol = options.newtonRtol ?? DEFAULT_NEWTON_RTOL;
     this.maxNewtonIterations = options.maxNewtonIterations ?? DEFAULT_MAX_NEWTON_ITERATIONS;
     this.maxDampingHalvings = options.maxDampingHalvings ?? DEFAULT_MAX_DAMPING_HALVINGS;
+    this.newtonStrategy = options.newtonStrategy ?? DEFAULT_NEWTON_STRATEGY;
   }
 
   /** @inheritDoc */
@@ -100,6 +152,7 @@ export class BackwardEulerStepper implements Stepper {
     this.ctx = ctx;
     const dim = model.dim;
     this.dim = dim;
+    this.jacobianValid = false;
     this.yGuess = new Float64Array(dim);
     this.candidate = new Float64Array(dim);
     this.fEval = new Float64Array(dim);
@@ -182,6 +235,14 @@ export class BackwardEulerStepper implements Stepper {
     let iterations = 0;
     let failureReason: NewtonFailureReason | undefined;
 
+    const simplified = this.newtonStrategy === "simplified";
+    // "full" mode always needs a fresh Jacobian, so this is always true for it
+    // (jacobianValid is only ever set by simplified mode -- see below). In
+    // simplified mode, a still-valid cached Jacobian (from an earlier
+    // iteration of *this* step, or carried over from the previous step) is
+    // reused instead, until something below invalidates it.
+    let jacobianRefreshedThisStep = false;
+
     while (err > 1) {
       if (iterations >= this.maxNewtonIterations) {
         failureReason = "max-iterations";
@@ -189,7 +250,15 @@ export class BackwardEulerStepper implements Stepper {
       }
       iterations++;
 
-      nRHS += this.computeJacobian(tNext, yGuess);
+      if (!simplified || !this.jacobianValid) {
+        nRHS += this.computeJacobian(tNext, yGuess);
+        this.jacobianValid = true;
+        jacobianRefreshedThisStep = true;
+      }
+      // Rebuilt every iteration regardless of whether `jac` itself was just
+      // recomputed: solveLinearSystemInPlace eliminates `iterMatrix` in
+      // place, and this reassembly costs O(dim^2) with no rhs evaluations,
+      // negligible next to a Jacobian evaluation's O(dim) rhs calls.
       for (let i = 0; i < dim; i++) {
         for (let j = 0; j < dim; j++) {
           iterMatrix[i * dim + j] = (i === j ? 1 : 0) - h * jac[i * dim + j]!;
@@ -198,6 +267,15 @@ export class BackwardEulerStepper implements Stepper {
       }
 
       if (!solveLinearSystemInPlace(iterMatrix, delta, dim)) {
+        if (simplified && !jacobianRefreshedThisStep) {
+          // The *reused* Jacobian produced a singular iteration matrix --
+          // not necessarily a genuinely singular system, just a stale one.
+          // Force a fresh evaluation and retry this same iteration before
+          // declaring failure.
+          this.jacobianValid = false;
+          iterations--;
+          continue;
+        }
         failureReason = "singular-jacobian";
         break;
       }
@@ -230,6 +308,14 @@ export class BackwardEulerStepper implements Stepper {
       }
 
       if (!accepted) {
+        if (simplified && !jacobianRefreshedThisStep) {
+          // Same staleness fallback as the singular-matrix branch above: a
+          // reused Jacobian that can't even find a decreasing direction is
+          // more likely stale than the step being genuinely unsolvable.
+          this.jacobianValid = false;
+          iterations--;
+          continue;
+        }
         failureReason = "damping-exhausted";
         break;
       }
@@ -237,6 +323,13 @@ export class BackwardEulerStepper implements Stepper {
 
     if (failureReason === undefined && !Number.isFinite(err)) {
       failureReason = "non-finite-residual";
+    }
+
+    if (simplified) {
+      // Carry the Jacobian into the next step only if this one both
+      // succeeded and converged fast -- see DEFAULT_JACOBIAN_STALE_ITERATIONS.
+      this.jacobianValid =
+        failureReason === undefined && iterations <= DEFAULT_JACOBIAN_STALE_ITERATIONS;
     }
 
     out.newtonIterations = iterations;
