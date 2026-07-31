@@ -1993,7 +1993,7 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "dust-grain solved at h=1 ms stable; Newton iters ≤ 4 avg",
-      "status": "todo",
+      "status": "in-progress",
       "notes": ""
     },
     {
