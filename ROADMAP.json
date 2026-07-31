@@ -1982,8 +1982,8 @@
       "estMinutes": 20,
       "difficulty": "E",
       "validation": "§5.5 worked example 1 satisfied: single-module diff",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "BuoyancyForce (P1.16) was already fully auto-UI wired (Forces panel toggle, energyPower for the energy channel) -- the missing piece was the exercise page itself. Added buoyancyToWeightRatio(params, rhoAir) to forces.ts (the same single module P1.16 touched; ratio = rho*V/m, g cancels algebraically, verified against BuoyancyForce.accumulate's own ratio under two different gravity models in forces.test.ts). New packages/runtime/src/neglected-effects.ts: computeNeglectedEffects() resolves the soccer-ball preset from PROJECTILE_ASSETS (single source of truth, via the existing projectileSpecToParams) and returns mass/radius/volume/rhoAir/ratio. New packages/ui/src/neglected-effects-page(-logic).tsx: presentational page showing those quantities plus a static documentation note that added-mass effects are deliberately not modeled at all (relevant only for rho_body ~ rho_air, far from any preset here) -- mirrors energy-drift-page's split. New packages/app/src/neglected-effects-route.tsx registered at #/neglected-effects (main.tsx) with a control-dock link (app.tsx), mirroring energy-drift-route's no-picker/useMemo-once pattern. 15 new tests across engine/runtime/ui/app (all passing); pnpm typecheck/lint/lint:deps/format:check clean; pnpm test: 181 files/1149 tests; pnpm --filter @ballista/app build succeeds (55.7 kB gzipped, within the 300 kB budget) -- the root 'pnpm build' script's known pre-existing ERR_PNPM_RECURSIVE_RUN_NO_SCRIPT issue (noted since P4.14/P4.19) is unrelated and untouched."
     },
     {
       "id": "P4.21",
