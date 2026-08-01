@@ -1993,8 +1993,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "dust-grain solved at h=1 ms stable; Newton iters ≤ 4 avg",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed. Plan: add an opt-in newtonMode: 'simplified' option to BackwardEulerStepper (default stays 'full', unchanged behavior) implementing the classical simplified/modified-Newton (chord) method: the Jacobian and iteration matrix (I - h*J) are evaluated once at the step's initial guess (y_k) and reused unfactored across every Newton iteration of that step (copied into the elimination scratch buffer each iteration, not recomputed), instead of the current full-Newton path's per-iteration Jacobian re-evaluation. Validate on the dust-grain scenario (gravity+linear-drag, FD-jacobian path) at h=1ms: stays stable/finite over many steps, average Newton iterations per step <= 4; also assert simplified mode's nRHS is lower than full mode's on a multi-iteration step (proving the Jacobian-reuse cost saving is real, not just an unused option)."
     },
     {
       "id": "P4.22",
