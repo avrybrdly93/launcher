@@ -1,9 +1,11 @@
+import { spinParameter } from "./characteristic-scales.js";
 import type { EvalContext } from "./eval-context.js";
 import { createForceRegistry, type ForceModel } from "./forces.js";
 import type { EventSpec, InvariantSpec, Model } from "./model.js";
 import { restitutionBounceAction, type RestitutionParams } from "./restitution.js";
 import type { ChannelMeta } from "./schema.js";
 import { FlatTerrain, type Terrain } from "./terrain.js";
+import type { Vec3 } from "./vec3.js";
 
 /**
  * State-channel metadata for {@link createSpatialProjectileModel}: [x, y, z,
@@ -31,17 +33,34 @@ const VZ = 5;
 const DIM = 6;
 
 /**
- * Force ids this dim-6 "groundwork" model knows how to generalize to 3D
- * directly from their existing 2D closed forms (§3.2-§3.5): gravity and
- * buoyancy act on the y-component only (unchanged from 2D, z untouched);
- * quadratic and linear drag generalize their `u`/`|u|` to the full 3D
- * relative-velocity vector, with lateral wind (`wz`) treated as always 0 --
- * `EnvSample` has no `wz` field yet, that's presumably a later crosswind task
- * (P4.25). Any other force id (in particular "magnus": full 3D Magnus with a
- * general spin-axis parameter is explicitly P4.24, not this task) makes
- * construction throw rather than silently produce wrong physics.
+ * Force ids this dim-6 model knows how to generalize to 3D directly from
+ * their existing 2D closed forms (§3.2-§3.6): gravity and buoyancy act on
+ * the y-component only (unchanged from 2D, z untouched); quadratic and
+ * linear drag generalize their `u`/`|u|` to the full 3D relative-velocity
+ * vector, with lateral wind (`wz`) treated as always 0 -- `EnvSample` has no
+ * `wz` field yet, that's presumably a later crosswind task (P4.25); Magnus
+ * (P4.24) generalizes (3.15)'s implemented form to a full ω̂×v_rel cross
+ * product with an arbitrary unit spin axis (`ProjectileParams.spinAxis`,
+ * defaulting to ê_z -- see {@link DEFAULT_SPIN_AXIS}), not just the
+ * z-axis-only 2D case. Any other force id makes construction throw rather
+ * than silently produce wrong physics.
  */
-const SUPPORTED_FORCE_IDS = new Set(["gravity", "buoyancy", "drag-quadratic", "drag-linear"]);
+const SUPPORTED_FORCE_IDS = new Set([
+  "gravity",
+  "buoyancy",
+  "drag-quadratic",
+  "drag-linear",
+  "magnus",
+]);
+
+/**
+ * Default spin axis when `ProjectileParams.spinAxis` is omitted: ê_z, the
+ * axis the 2D `MagnusForce` (`forces.ts`) always implicitly uses. With this
+ * default, the 3D Magnus term below reduces exactly to the 2D formula
+ * (backspin/topspin only -- see `spatial-projectile-model.test.ts`'s
+ * "z=0 slice" tests for the same reduction on the other forces).
+ */
+const DEFAULT_SPIN_AXIS: Vec3 = [0, 0, 1];
 
 /**
  * Force ids whose contribution to df/dy the analytic jacobian below accounts
@@ -168,14 +187,14 @@ function createGroundImpactEvent(terrain: Terrain, restitution?: RestitutionPara
 }
 
 /**
- * Builds the dim-6 spatial (3D) projectile `Model` (P4.23 groundwork):
- * gravity/buoyancy/quadratic-drag/linear-drag generalized directly to 3D
- * (not by calling into `composeForces`/`forces.ts`'s `ForceModel.accumulate`,
- * which are inherently 2D). `forces` is used only to select which physics is
- * active (by id) -- the actual 3D force math lives in this file. Any
- * unsupported force id (in particular "magnus": full 3D Magnus is P4.24)
- * throws at construction time rather than silently integrating wrong
- * physics.
+ * Builds the dim-6 spatial (3D) projectile `Model` (P4.23 groundwork,
+ * extended with full 3D Magnus in P4.24):
+ * gravity/buoyancy/quadratic-drag/linear-drag/magnus generalized directly to
+ * 3D (not by calling into `composeForces`/`forces.ts`'s
+ * `ForceModel.accumulate`, which are inherently 2D). `forces` is used only
+ * to select which physics is active (by id) -- the actual 3D force math
+ * lives in this file. Any unsupported force id throws at construction time
+ * rather than silently integrating wrong physics.
  *
  * With z0=vz0=0 and no lateral wind, this model's rhs reduces exactly to
  * `createPlanarProjectileModel`'s for the shared (x, y, vx, vy) channels --
@@ -258,6 +277,36 @@ export function createSpatialProjectileModel(
           case "gravity":
             fy += -ctx.params.mass * ctx.env.g;
             break;
+          case "magnus": {
+            // Full 3D generalization of (3.15)'s implemented form,
+            // F_M = 0.5*rho*C_L(S)*A*|v_rel|*(ω̂ x v_rel): 2D's `MagnusForce`
+            // hardcodes ω̂ = sign(omega)*ê_z and inlines
+            // ê_z x v_rel = (-v_rel_y, v_rel_x); this generalizes to an
+            // arbitrary unit axis via the full cross product (`vec3.cross`'s
+            // algebra, inlined here with scalars -- no allocation on this
+            // hot path, per ADR-004). `spin`/`liftCoefficient` guards mirror
+            // `MagnusForce.accumulate` exactly (no spin or no lift model
+            // wired -> zero contribution, not a construction-time error).
+            const omega = ctx.params.spin;
+            const liftModel = ctx.params.liftCoefficient;
+            if (!omega || !liftModel) break;
+
+            const spinRatio = spinParameter(omega, ctx.params.radius, speedRel);
+            const cl = liftModel.cl(spinRatio);
+            const k = 0.5 * ctx.env.rho * cl * ctx.params.area * speedRel * Math.sign(omega);
+
+            const axis = ctx.params.spinAxis ?? DEFAULT_SPIN_AXIS;
+            const axisNorm = Math.hypot(axis[0], axis[1], axis[2]);
+            if (axisNorm === 0) break; // degenerate zero axis: no well-defined direction, no force
+
+            const ax = axis[0] / axisNorm;
+            const ay = axis[1] / axisNorm;
+            const az = axis[2] / axisNorm;
+            fx += k * (ay * uz - az * uy);
+            fy += k * (az * ux - ax * uz);
+            fz += k * (ax * uy - ay * ux);
+            break;
+          }
           default:
             // unreachable: validated against SUPPORTED_FORCE_IDS at construction time
             break;
