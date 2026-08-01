@@ -37,13 +37,13 @@ const DIM = 6;
  * their existing 2D closed forms (§3.2-§3.6): gravity and buoyancy act on
  * the y-component only (unchanged from 2D, z untouched); quadratic and
  * linear drag generalize their `u`/`|u|` to the full 3D relative-velocity
- * vector, with lateral wind (`wz`) treated as always 0 -- `EnvSample` has no
- * `wz` field yet, that's presumably a later crosswind task (P4.25); Magnus
- * (P4.24) generalizes (3.15)'s implemented form to a full ω̂×v_rel cross
- * product with an arbitrary unit spin axis (`ProjectileParams.spinAxis`,
- * defaulting to ê_z -- see {@link DEFAULT_SPIN_AXIS}), not just the
- * z-axis-only 2D case. Any other force id makes construction throw rather
- * than silently produce wrong physics.
+ * vector, with lateral wind (`wz`, P4.25) subtracted the same way `wx`/`wy`
+ * already are: `uz = vz - ctx.env.wz`; Magnus (P4.24) generalizes (3.15)'s
+ * implemented form to a full ω̂×v_rel cross product with an arbitrary unit
+ * spin axis (`ProjectileParams.spinAxis`, defaulting to ê_z -- see
+ * {@link DEFAULT_SPIN_AXIS}), not just the z-axis-only 2D case. Any other
+ * force id makes construction throw rather than silently produce wrong
+ * physics.
  */
 const SUPPORTED_FORCE_IDS = new Set([
   "gravity",
@@ -101,8 +101,8 @@ export function spatialMomentumZ(y: Float64Array, ctx: EvalContext): number {
 /**
  * Analytic df/dy for gravity + quadratic drag in 3D (direct generalization of
  * `planar-projectile-model.ts`'s `planarGravityQuadraticDragJacobian` to a
- * full 3D `u`): with u = v - w (w constant, wz always 0) and Cd frozen at its
- * current (re, mach), only the velocity block is nonzero:
+ * full 3D `u`): with u = v - w (w constant, including lateral `wz`, P4.25)
+ * and Cd frozen at its current (re, mach), only the velocity block is nonzero:
  *   d(v_i')/d(v_j) = -kd*(u_i*u_j + delta_ij*u^2)/u,  kd = rho*Cd*A/(2m)
  * At u=0 the drag force has a genuine kink (as in 2D), so the drag block is
  * left at zero there.
@@ -123,7 +123,7 @@ function spatialGravityQuadraticDragJacobian(
   ctx.environment.sample(t, y[X]!, y[Y]!, ctx.env);
   const ux = y[VX]! - ctx.env.wx;
   const uy = y[VY]! - ctx.env.wy;
-  const uz = y[VZ]!; // no lateral wind (wz) modeled yet
+  const uz = y[VZ]! - ctx.env.wz;
   const u = Math.hypot(ux, uy, uz);
   if (u < JACOBIAN_SPEED_EPS) return;
 
@@ -241,7 +241,7 @@ export function createSpatialProjectileModel(
 
       const ux = vx - ctx.env.wx;
       const uy = vy - ctx.env.wy;
-      const uz = vz; // no lateral wind (wz) modeled yet -- always 0
+      const uz = vz - ctx.env.wz;
       const speedRel = Math.hypot(ux, uy, uz);
       ctx.speedRel = speedRel;
       ctx.re = (ctx.env.rho * speedRel * (2 * ctx.params.radius)) / ctx.env.eta;

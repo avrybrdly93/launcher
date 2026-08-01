@@ -12,5 +12,6 @@ export class EnvSample {
   c = 0; // m/s (speed of sound)
   wx = 0; // m/s (wind x)
   wy = 0; // m/s (wind y)
+  wz = 0; // m/s (wind z, lateral/crosswind -- P4.25)
   g = 0; // m/s^2 (local gravity magnitude)
 }

@@ -16,9 +16,9 @@ export interface GravityModel {
   sample(x: number, y: number, out: EnvSample): void;
 }
 
-/** Fills the wind fields (wx, wy) of an EnvSample at a point and time (§3.5). */
+/** Fills the wind fields (wx, wy, wz) of an EnvSample at a point and time (§3.5, wz added P4.25). */
 export interface WindModel {
-  /** Writes wx, wy into `out` at time `t` and world position (x, y). */
+  /** Writes wx, wy, wz into `out` at time `t` and world position (x, y). */
   sample(t: number, x: number, y: number, out: EnvSample): void;
 }
 
@@ -112,26 +112,33 @@ export class UniformGravity implements GravityModel {
   }
 }
 
-/** Default no-wind model: wx = wy = 0 everywhere (§3.5 case 1 with w = 0). */
+/** Default no-wind model: wx = wy = wz = 0 everywhere (§3.5 case 1 with w = 0). */
 export class ZeroWind implements WindModel {
   /** @inheritDoc */
   sample(_t: number, _x: number, _y: number, out: EnvSample): void {
     out.wx = 0;
     out.wy = 0;
+    out.wz = 0;
   }
 }
 
-/** Uniform steady wind (§3.5 case 1): w = (wx, wy), constant in time and space. */
+/**
+ * Uniform steady wind (§3.5 case 1): w = (wx, wy, wz), constant in time and
+ * space. `wz` (P4.25) is the lateral/crosswind component -- the same
+ * constructor a pure crosswind scenario uses, e.g. `new UniformWind(0, 0, wz)`.
+ */
 export class UniformWind implements WindModel {
   constructor(
     private readonly wx: number,
     private readonly wy: number = 0,
+    private readonly wz: number = 0,
   ) {}
 
   /** @inheritDoc */
   sample(_t: number, _x: number, _y: number, out: EnvSample): void {
     out.wx = this.wx;
     out.wy = this.wy;
+    out.wz = this.wz;
   }
 }
 
@@ -150,6 +157,7 @@ export class LogProfileWind implements WindModel {
     private readonly frictionVelocity: number, // u*, m/s
     private readonly roughnessLength: number = 0.01, // yr, m
     private readonly wy: number = 0,
+    private readonly wz: number = 0,
   ) {}
 
   /** @inheritDoc */
@@ -159,6 +167,7 @@ export class LogProfileWind implements WindModel {
       (this.frictionVelocity / LogProfileWind.KAPPA) *
       Math.log((yEff + this.roughnessLength) / this.roughnessLength);
     out.wy = this.wy;
+    out.wz = this.wz;
   }
 }
 
@@ -174,12 +183,14 @@ export class SinusoidalGustWind implements WindModel {
     private readonly angularFrequency: number, // Omega, rad/s
     private readonly phase: number = 0, // phi, rad
     private readonly wy: number = 0,
+    private readonly wz: number = 0,
   ) {}
 
   /** @inheritDoc */
   sample(t: number, _x: number, _y: number, out: EnvSample): void {
     out.wx = this.mean + this.amplitude * Math.sin(this.angularFrequency * t + this.phase);
     out.wy = this.wy;
+    out.wz = this.wz;
   }
 }
 
@@ -205,6 +216,7 @@ export class GaussianVortexWind implements WindModel {
     if (r === 0) {
       out.wx = 0;
       out.wy = 0;
+      out.wz = 0;
       return;
     }
     const vTheta =
@@ -212,6 +224,7 @@ export class GaussianVortexWind implements WindModel {
       (1 - Math.exp(-(r * r) / (this.coreRadius * this.coreRadius)));
     out.wx = -vTheta * (dy / r);
     out.wy = vTheta * (dx / r);
+    out.wz = 0; // purely a 2D (x,y)-plane circulation; no lateral component
   }
 }
 
@@ -245,6 +258,7 @@ export class GriddedWindField implements WindModel {
   sample(_t: number, x: number, y: number, out: EnvSample): void {
     out.wx = this.bilinear(x, y, this.grid.wx);
     out.wy = this.bilinear(x, y, this.grid.wy);
+    out.wz = 0; // no lateral component in the grid data yet
   }
 
   private bilinear(x: number, y: number, values: readonly number[]): number {
@@ -289,6 +303,7 @@ export class FrozenOuGustWind implements WindModel {
     dt: number,
     steps: number,
     private readonly wy: number = 0,
+    private readonly wz: number = 0,
   ) {
     const path = generateOuGustPath(rng, params, dt, steps);
     const times = Array.from({ length: steps + 1 }, (_, k) => k * dt);
@@ -299,6 +314,7 @@ export class FrozenOuGustWind implements WindModel {
   sample(t: number, _x: number, _y: number, out: EnvSample): void {
     out.wx = this.interpolant.evaluate(t);
     out.wy = this.wy;
+    out.wz = this.wz;
   }
 }
 
@@ -322,6 +338,7 @@ export class OneCosineGustWind implements WindModel {
     private readonly duration: number, // T, s
     private readonly peakMagnitude: number, // Um, m/s
     private readonly wy: number = 0,
+    private readonly wz: number = 0,
   ) {}
 
   /** @inheritDoc */
@@ -332,6 +349,7 @@ export class OneCosineGustWind implements WindModel {
         ? 0
         : (this.peakMagnitude / 2) * (1 - Math.cos((2 * Math.PI * dt) / this.duration));
     out.wy = this.wy;
+    out.wz = this.wz;
   }
 }
 
