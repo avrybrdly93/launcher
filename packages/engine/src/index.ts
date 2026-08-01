@@ -1,4 +1,9 @@
 export * from "./vec2.js";
+// Vec3's ops share their (deliberately vec2-mirroring) names with vec2's, so
+// it's re-exported under its own namespace to avoid a barrel collision;
+// internal engine modules import straight from "./vec3.js" instead (the same
+// convention planar-projectile-model.ts already uses for vec2).
+export * as vec3 from "./vec3.js";
 export * from "./units.js";
 export * from "./random.js";
 export * from "./ou-gust.js";
