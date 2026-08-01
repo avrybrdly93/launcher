@@ -9,6 +9,25 @@ const DEFAULT_NEWTON_RTOL = 1e-8;
 const DEFAULT_MAX_NEWTON_ITERATIONS = 50;
 const DEFAULT_MAX_DAMPING_HALVINGS = 12;
 
+/**
+ * Newton strategy used by a step's iteration (P4.21): `"full"` re-evaluates
+ * `df/dy` (and rebuilds the `(I - h*J)` iteration matrix) at every Newton
+ * iterate -- quadratic convergence, but the most expensive Jacobian source
+ * (this stepper's FD fallback) costs `2*dim` extra rhs evaluations *per
+ * iteration*. `"simplified"` (the classical chord/modified-Newton method,
+ * Hairer & Wanner) evaluates the Jacobian once per step, at the initial
+ * guess `y_k`, and reuses that same (unfactored) iteration matrix for every
+ * iteration of the step -- linear rather than quadratic convergence, so it
+ * can take a few more iterations to reach the same tolerance, but each
+ * extra iteration only re-solves the cached matrix against a fresh
+ * residual (cheap: `solveLinearSystemInPlace`'s O(dim^3) elimination is
+ * negligible for this platform's small state dimensions) instead of paying
+ * for another Jacobian evaluation. Worthwhile whenever the Jacobian
+ * evaluation dominates the per-iteration cost, which is exactly the FD-
+ * fallback case.
+ */
+export type NewtonMode = "full" | "simplified";
+
 /** Constructor options for {@link BackwardEulerStepper}'s Newton iteration. */
 export interface BackwardEulerOptions {
   /** Absolute part of the Newton convergence tolerance (eq. 4.9-style scaling). */
@@ -19,6 +38,8 @@ export interface BackwardEulerOptions {
   readonly maxNewtonIterations?: number;
   /** Backtracking-line-search halvings tried per Newton iteration before giving up. */
   readonly maxDampingHalvings?: number;
+  /** {@link NewtonMode} for this stepper's Newton iteration; default `"full"` (unchanged pre-P4.21 behavior). */
+  readonly newtonMode?: NewtonMode;
 }
 
 /**
@@ -42,7 +63,10 @@ export interface BackwardEulerOptions {
  * `Stepper.step` call must allocate nothing per ADR-004) otherwise. The
  * initial guess is $\mathbf y_k$ itself (not an explicit-Euler predictor):
  * robust regardless of $h$'s magnitude, which matters exactly at the huge
- * step sizes this method exists to take.
+ * step sizes this method exists to take. {@link BackwardEulerOptions.newtonMode}
+ * (P4.21) controls whether $\mathbf J$ is re-evaluated every iteration
+ * (`"full"`, the default) or once per step and reused (`"simplified"`) --
+ * see {@link NewtonMode}'s doc for the tradeoff.
  *
  * Damping: each Newton correction is applied with a backtracking step size
  * $\lambda \in \{1, \tfrac12, \tfrac14, \dots\}$, halved until the
@@ -69,6 +93,7 @@ export class BackwardEulerStepper implements Stepper {
   private readonly newtonRtol: number;
   private readonly maxNewtonIterations: number;
   private readonly maxDampingHalvings: number;
+  private readonly newtonMode: NewtonMode;
 
   private model: Model | undefined;
   private ctx: EvalContext | undefined;
@@ -82,6 +107,8 @@ export class BackwardEulerStepper implements Stepper {
   private candidateResidual: Float64Array | undefined;
   private jac: Float64Array | undefined;
   private iterMatrix: Float64Array | undefined;
+  /** `"simplified"` mode's cached, unfactored `(I - h*J)` -- evaluated once per step, copied into `iterMatrix` (which `solveLinearSystemInPlace` then destroys) fresh each Newton iteration. Unused in `"full"` mode. */
+  private iterMatrixBase: Float64Array | undefined;
   private delta: Float64Array | undefined;
   private fdYPerturbed: Float64Array | undefined;
   private fdFPlus: Float64Array | undefined;
@@ -92,6 +119,7 @@ export class BackwardEulerStepper implements Stepper {
     this.newtonRtol = options.newtonRtol ?? DEFAULT_NEWTON_RTOL;
     this.maxNewtonIterations = options.maxNewtonIterations ?? DEFAULT_MAX_NEWTON_ITERATIONS;
     this.maxDampingHalvings = options.maxDampingHalvings ?? DEFAULT_MAX_DAMPING_HALVINGS;
+    this.newtonMode = options.newtonMode ?? "full";
   }
 
   /** @inheritDoc */
@@ -108,6 +136,7 @@ export class BackwardEulerStepper implements Stepper {
     this.candidateResidual = new Float64Array(dim);
     this.jac = new Float64Array(dim * dim);
     this.iterMatrix = new Float64Array(dim * dim);
+    this.iterMatrixBase = new Float64Array(dim * dim);
     this.delta = new Float64Array(dim);
     this.fdYPerturbed = new Float64Array(dim);
     this.fdFPlus = new Float64Array(dim);
@@ -165,11 +194,13 @@ export class BackwardEulerStepper implements Stepper {
     const fEval = this.fEval!;
     const residual = this.residual!;
     const iterMatrix = this.iterMatrix!;
+    const iterMatrixBase = this.iterMatrixBase!;
     const jac = this.jac!;
     const delta = this.delta!;
     const candidate = this.candidate!;
     const fCandidate = this.fCandidate!;
     const candidateResidual = this.candidateResidual!;
+    const simplified = this.newtonMode === "simplified";
 
     let nRHS = 0;
 
@@ -178,6 +209,19 @@ export class BackwardEulerStepper implements Stepper {
     nRHS++;
     for (let i = 0; i < dim; i++) residual[i] = yGuess[i]! - y[i]! - h * fEval[i]!;
     let err = scaledErrorNorm(residual, y, yGuess, this.newtonRtol, this.newtonAtol);
+
+    // Simplified/modified-Newton (chord) mode (P4.21): the Jacobian is
+    // evaluated once here, at the step's initial guess y_k, before any
+    // iteration runs -- iterMatrixBase is then reused unfactored by every
+    // iteration below instead of being recomputed each time.
+    if (simplified && err > 1) {
+      nRHS += this.computeJacobian(tNext, yGuess);
+      for (let i = 0; i < dim; i++) {
+        for (let j = 0; j < dim; j++) {
+          iterMatrixBase[i * dim + j] = (i === j ? 1 : 0) - h * jac[i * dim + j]!;
+        }
+      }
+    }
 
     let iterations = 0;
     let failureReason: NewtonFailureReason | undefined;
@@ -189,11 +233,21 @@ export class BackwardEulerStepper implements Stepper {
       }
       iterations++;
 
-      nRHS += this.computeJacobian(tNext, yGuess);
-      for (let i = 0; i < dim; i++) {
-        for (let j = 0; j < dim; j++) {
-          iterMatrix[i * dim + j] = (i === j ? 1 : 0) - h * jac[i * dim + j]!;
+      if (simplified) {
+        // solveLinearSystemInPlace overwrites its matrix argument with the
+        // eliminated form, so the reusable base has to be re-copied into
+        // the scratch buffer every iteration; iterMatrixBase itself never
+        // changes within this step.
+        iterMatrix.set(iterMatrixBase);
+      } else {
+        nRHS += this.computeJacobian(tNext, yGuess);
+        for (let i = 0; i < dim; i++) {
+          for (let j = 0; j < dim; j++) {
+            iterMatrix[i * dim + j] = (i === j ? 1 : 0) - h * jac[i * dim + j]!;
+          }
         }
+      }
+      for (let i = 0; i < dim; i++) {
         delta[i] = -residual[i]!;
       }
 
