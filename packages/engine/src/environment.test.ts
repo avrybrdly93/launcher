@@ -146,7 +146,7 @@ describe("IsaTroposphereAtmosphere", () => {
 
 describe("UniformWind", () => {
   it("returns a constant w everywhere in space and time (validation criterion)", () => {
-    const wind = new UniformWind(5, -1.5);
+    const wind = new UniformWind(5, -1.5, 2.5);
     const out = new EnvSample();
     for (const [t, x, y] of [
       [0, 0, 0],
@@ -156,15 +156,26 @@ describe("UniformWind", () => {
       wind.sample(t, x, y, out);
       expect(out.wx).toBe(5);
       expect(out.wy).toBe(-1.5);
+      expect(out.wz).toBe(2.5);
     }
   });
 
-  it("defaults wy to 0 for a purely horizontal wind", () => {
+  it("defaults wy and wz to 0 for a purely horizontal (downrange-only) wind", () => {
     const wind = new UniformWind(3);
     const out = new EnvSample();
     wind.sample(0, 0, 0, out);
     expect(out.wx).toBe(3);
     expect(out.wy).toBe(0);
+    expect(out.wz).toBe(0);
+  });
+
+  it("supports a pure crosswind (wx=wy=0, wz set) -- P4.25's constructor shape", () => {
+    const wind = new UniformWind(0, 0, 4);
+    const out = new EnvSample();
+    wind.sample(0, 0, 0, out);
+    expect(out.wx).toBe(0);
+    expect(out.wy).toBe(0);
+    expect(out.wz).toBe(4);
   });
 });
 
@@ -185,6 +196,15 @@ describe("LogProfileWind", () => {
     wind.sample(0, 0, 0, out);
     expect(Number.isFinite(out.wx)).toBe(true);
     expect(out.wx).toBe(0);
+  });
+
+  it("supports a wz crosswind offset independent of the sheared wx profile", () => {
+    const wind = new LogProfileWind(2.5, 0.01, 0, 1.2);
+    const out = new EnvSample();
+    wind.sample(0, 0, 5, out);
+    expect(out.wz).toBe(1.2);
+    wind.sample(0, 0, 50, out);
+    expect(out.wz).toBe(1.2); // constant with height, unlike wx
   });
 
   it("clamps to the y=0 value below ground instead of producing NaN/Infinity", () => {
@@ -224,12 +244,13 @@ describe("SinusoidalGustWind", () => {
     }
   });
 
-  it("defaults to zero phase and zero wy", () => {
+  it("defaults to zero phase and zero wy/wz", () => {
     const wind = new SinusoidalGustWind(0, 2, 1);
     const out = new EnvSample();
     wind.sample(0, 0, 0, out);
     expect(out.wx).toBeCloseTo(0, 14);
     expect(out.wy).toBe(0);
+    expect(out.wz).toBe(0);
     wind.sample(Math.PI / 2, 0, 0, out);
     expect(out.wx).toBeCloseTo(2, 14);
   });
@@ -272,6 +293,14 @@ describe("GaussianVortexWind", () => {
     wind.sample(0, 0, 0, out);
     expect(out.wx).toBe(0);
     expect(out.wy).toBe(0);
+    expect(out.wz).toBe(0);
+  });
+
+  it("has no lateral (wz) component anywhere -- purely a 2D (x,y)-plane circulation", () => {
+    const wind = new GaussianVortexWind(5, 0.5);
+    const out = new EnvSample();
+    wind.sample(0, 3, -2, out);
+    expect(out.wz).toBe(0);
   });
 
   it("is purely tangential: velocity is perpendicular to the radial direction from the center", () => {
@@ -328,6 +357,7 @@ describe("GriddedWindField", () => {
       field.sample(0, x, y, out);
       expect(out.wx).toBeCloseTo(wxOf(x, y), 10);
       expect(out.wy).toBeCloseTo(wyOf(x, y), 10);
+      expect(out.wz).toBe(0); // no lateral component in the grid data yet
     }
   });
 
@@ -380,14 +410,15 @@ describe("FrozenOuGustWind", () => {
     expect(outA.wx).not.toBe(outB.wx);
   });
 
-  it("passes wx through unchanged and holds wy fixed regardless of (x, y)", () => {
-    const wind = new FrozenOuGustWind(new PCG32(1n).substream(1n), params, dt, steps, -0.5);
+  it("passes wx through unchanged and holds wy/wz fixed regardless of (x, y)", () => {
+    const wind = new FrozenOuGustWind(new PCG32(1n).substream(1n), params, dt, steps, -0.5, 1.1);
     const out = new EnvSample();
     wind.sample(3, 10, 20, out);
     const wxAtOrigin = out.wx;
     wind.sample(3, -999, 999, out);
     expect(out.wx).toBe(wxAtOrigin); // wind is a pure function of t, not (x, y)
     expect(out.wy).toBe(-0.5);
+    expect(out.wz).toBe(1.1);
   });
 
   it("clamps to the path endpoints outside [0, steps*dt], matching PchipInterpolator", () => {
@@ -460,21 +491,24 @@ describe("OneCosineGustWind", () => {
     }
   });
 
-  it("defaults to zero wy", () => {
+  it("defaults to zero wy and wz", () => {
     const wind = new OneCosineGustWind(0, 1, 5);
     const out = new EnvSample();
     wind.sample(0.5, 0, 0, out);
     expect(out.wy).toBe(0);
+    expect(out.wz).toBe(0);
   });
 
   it("is independent of x and y (a spatially uniform gust)", () => {
-    const wind = new OneCosineGustWind(0, 4, 7, -1);
+    const wind = new OneCosineGustWind(0, 4, 7, -1, 0.6);
     const outA = new EnvSample();
     const outB = new EnvSample();
     wind.sample(2, 0, 0, outA);
     wind.sample(2, 500, -500, outB);
     expect(outB.wx).toBe(outA.wx);
     expect(outB.wy).toBe(outA.wy);
+    expect(outB.wz).toBe(outA.wz);
+    expect(outA.wz).toBe(0.6);
   });
 });
 
@@ -508,6 +542,7 @@ describe("Environment", () => {
     expect(out.g).toBe(G_STD);
     expect(out.wx).toBe(0);
     expect(out.wy).toBe(0);
+    expect(out.wz).toBe(0);
   });
 
   it("samples the environment exactly once per call (spy count == 1)", () => {

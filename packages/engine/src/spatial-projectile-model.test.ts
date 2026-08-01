@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { createEvalContext, type EvalContext } from "./eval-context.js";
-import { ConstantAtmosphere, Environment, UniformGravity, ZeroWind } from "./environment.js";
+import {
+  ConstantAtmosphere,
+  Environment,
+  UniformGravity,
+  UniformWind,
+  ZeroWind,
+} from "./environment.js";
 import { ConstantCd } from "./drag-coefficient.js";
 import { SaturatingLiftCoefficient } from "./lift-coefficient.js";
 import { createSphericalProjectileParams } from "./projectile-params.js";
@@ -168,13 +174,17 @@ describe("createSpatialProjectileModel", () => {
     expect(apex.g(0, new Float64Array([0, 10, 0, 5, 3, 0]))).toBe(3);
   });
 
-  it("gravity+quadratic-drag analytic jacobian matches central finite differences to 1e-7 at several 3D states", () => {
+  it("gravity+quadratic-drag analytic jacobian matches central finite differences to 1e-7 at several 3D states, with a crosswind active (P4.25: exercises wz in the analytic block)", () => {
     const cd = new ConstantCd(0.47);
     const mass = 0.145;
     const radius = 0.0366;
 
     const model = createSpatialProjectileModel([new GravityForce(), new QuadraticDragForce()]);
-    const env = new Environment(new ConstantAtmosphere(), new UniformGravity(), new ZeroWind());
+    const env = new Environment(
+      new ConstantAtmosphere(),
+      new UniformGravity(),
+      new UniformWind(1, 0, -2.5),
+    );
     const params = createSphericalProjectileParams({ mass, radius, dragCoefficient: cd });
     const ctx = createEvalContext(env, params);
 
@@ -305,6 +315,41 @@ describe("createSpatialProjectileModel", () => {
         expect(sp[4]).toBe(p[3]);
       }
     });
+  });
+
+  it("P4.25: quadratic drag reads uz = vz - wz, matching wx/wy's existing treatment", () => {
+    const mass = 0.145;
+    const radius = 0.0366;
+    const model = createSpatialProjectileModel([new GravityForce(), new QuadraticDragForce()]);
+    const env = new Environment(
+      new ConstantAtmosphere(),
+      new UniformGravity(),
+      new UniformWind(0, 0, 6),
+    );
+    const params = createSphericalProjectileParams({
+      mass,
+      radius,
+      dragCoefficient: new ConstantCd(0.47),
+    });
+    const ctx = createEvalContext(env, params);
+
+    // vz == wz: relative lateral velocity uz is exactly 0, so drag pushes
+    // purely in x/y (matching a same-state run with no crosswind and no vz)
+    // -- direct evidence wz is actually subtracted, not merely accepted and
+    // ignored.
+    const yMatchedDrift = new Float64Array([0, 10, 0, 20, -5, 6]);
+    const outMatched = new Float64Array(6);
+    model.rhs(0, yMatchedDrift, outMatched, ctx);
+
+    const envNoWind = new Environment(new ConstantAtmosphere(), new UniformGravity());
+    const ctxNoWind = createEvalContext(envNoWind, params);
+    const yNoWind = new Float64Array([0, 10, 0, 20, -5, 0]);
+    const outNoWind = new Float64Array(6);
+    model.rhs(0, yNoWind, outNoWind, ctxNoWind);
+
+    expect(outMatched[3]).toBeCloseTo(outNoWind[3]!, 15); // ax unaffected either way
+    expect(outMatched[4]).toBeCloseTo(outNoWind[4]!, 15); // ay unaffected either way
+    expect(outMatched[5]).toBeCloseTo(0, 15); // uz=0 -> no lateral drag force
   });
 
   it("nonzero z0/vz0 with gravity+buoyancy only (no drag): z drifts as pure inertial motion z(t) = z0 + vz0*t", () => {
