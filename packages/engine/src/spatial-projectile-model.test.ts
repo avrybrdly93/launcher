@@ -2,8 +2,15 @@ import { describe, expect, it } from "vitest";
 import { createEvalContext, type EvalContext } from "./eval-context.js";
 import { ConstantAtmosphere, Environment, UniformGravity, ZeroWind } from "./environment.js";
 import { ConstantCd } from "./drag-coefficient.js";
+import { SaturatingLiftCoefficient } from "./lift-coefficient.js";
 import { createSphericalProjectileParams } from "./projectile-params.js";
-import { BuoyancyForce, GravityForce, MagnusForce, QuadraticDragForce } from "./forces.js";
+import {
+  BuoyancyForce,
+  GravityForce,
+  MagnusForce,
+  QuadraticDragForce,
+  type ForceModel,
+} from "./forces.js";
 import { createPlanarProjectileModel } from "./planar-projectile-model.js";
 import {
   createSpatialProjectileModel,
@@ -69,9 +76,15 @@ describe("createSpatialProjectileModel", () => {
     expect(model.channels.map((c) => c.name)).toEqual(["x", "y", "z", "vx", "vy", "vz"]);
   });
 
-  it("throws at construction for an unsupported force id (magnus is P4.24)", () => {
-    expect(() => createSpatialProjectileModel([new GravityForce(), new MagnusForce()])).toThrow(
-      /magnus/,
+  it("throws at construction for an unsupported force id", () => {
+    const fakeForce: ForceModel = {
+      id: "wind-shear",
+      accumulate: () => {
+        /* never reached: construction throws first */
+      },
+    };
+    expect(() => createSpatialProjectileModel([new GravityForce(), fakeForce])).toThrow(
+      /wind-shear/,
     );
   });
 
@@ -322,5 +335,205 @@ describe("createSpatialProjectileModel", () => {
       expect(states[s]![5]).toBe(vz0); // vz never changes
       expect(states[s]![2]).toBeCloseTo(z0 + vz0 * t, 10);
     }
+  });
+
+  describe("P4.24: full 3D Magnus (ω̂ x v_rel, spin-axis param)", () => {
+    const mass = 0.145;
+    const radius = 0.0366;
+
+    it("with the default spin axis (ê_z), matches the 2D MagnusForce exactly on a z=0 slice", () => {
+      // Same reduction the other P4.23 forces already satisfy: omitting
+      // `spinAxis` defaults to ê_z, which is exactly the axis the 2D
+      // `MagnusForce` always implicitly uses -- so with z0=vz0=0 the two
+      // models must agree bit-for-bit on x/y/vx/vy, per (3.15).
+      const cd = new ConstantCd(0.3);
+      const liftCoefficient = new SaturatingLiftCoefficient();
+      const spin = 180; // rad/s, backspin
+
+      const planarModel = createPlanarProjectileModel([
+        new GravityForce(),
+        new QuadraticDragForce(),
+        new MagnusForce(),
+      ]);
+      const spatialModel = createSpatialProjectileModel([
+        new GravityForce(),
+        new QuadraticDragForce(),
+        new MagnusForce(),
+      ]);
+
+      const env2d = new Environment(new ConstantAtmosphere(), new UniformGravity(), new ZeroWind());
+      const env3d = new Environment(new ConstantAtmosphere(), new UniformGravity(), new ZeroWind());
+      const params2d = createSphericalProjectileParams({
+        mass,
+        radius,
+        dragCoefficient: cd,
+        liftCoefficient,
+        spin,
+      });
+      const params3d = createSphericalProjectileParams({
+        mass,
+        radius,
+        dragCoefficient: cd,
+        liftCoefficient,
+        spin,
+        // spinAxis omitted deliberately: exercises the ê_z default.
+      });
+      const ctx2d = createEvalContext(env2d, params2d);
+      const ctx3d = createEvalContext(env3d, params3d);
+
+      const y0planar = new Float64Array([0, 1, 30, 15]);
+      const y0spatial = new Float64Array([0, 1, 0, 30, 15, 0]);
+      const h = 0.005;
+      const steps = 300;
+
+      const planarStates = integrateRk4(planarModel, ctx2d, y0planar, h, steps);
+      const spatialStates = integrateRk4(spatialModel, ctx3d, y0spatial, h, steps);
+
+      for (let s = 0; s < planarStates.length; s++) {
+        const p = planarStates[s]!;
+        const sp = spatialStates[s]!;
+        expect(sp[0]).toBe(p[0]);
+        expect(sp[1]).toBe(p[1]);
+        expect(sp[2]).toBe(0); // no sidespin -> no lateral force -> z stays exactly 0
+        expect(sp[3]).toBe(p[2]);
+        expect(sp[4]).toBe(p[3]);
+        expect(sp[5]).toBe(0);
+      }
+    });
+
+    it("sidespin (spin axis = ŷ, vertical) deflects laterally in z, sign flipping with spin sign (slice/hook)", () => {
+      // Backlog validation criterion for P4.24. Spin axis along ŷ with
+      // motion along x means ω̂ x v_rel points purely along ±z (no x/y
+      // component -- see the derivation in spatial-projectile-model.ts's
+      // "magnus" rhs case), an unambiguous, purely-lateral deflection: the
+      // 2D model has no way to express this at all, since its spin axis is
+      // pinned to ê_z.
+      const liftCoefficient = new SaturatingLiftCoefficient();
+      const vx0 = 30;
+      const h = 0.01;
+      const steps = 80;
+
+      function finalStateWithSpin(spin: number): Float64Array {
+        const model = createSpatialProjectileModel([new MagnusForce()]);
+        const env = new Environment(new ConstantAtmosphere(), new UniformGravity(), new ZeroWind());
+        const params = createSphericalProjectileParams({
+          mass,
+          radius,
+          dragCoefficient: new ConstantCd(0), // isolate Magnus: no drag, and...
+          liftCoefficient,
+          spin,
+          spinAxis: [0, 1, 0], // ...spin about the vertical axis (sidespin)
+        });
+        const ctx = createEvalContext(env, params); // ...gravity off (UniformGravity default g still
+        // applies, but no GravityForce is in the registry, so it never enters the rhs)
+        const y0 = new Float64Array([0, 0, 0, vx0, 0, 0]);
+        const states = integrateRk4(model, ctx, y0, h, steps);
+        return states[states.length - 1]!;
+      }
+
+      const noSpin = finalStateWithSpin(0);
+      const positiveSpin = finalStateWithSpin(50);
+      const negativeSpin = finalStateWithSpin(-50);
+
+      // No spin -> no Magnus contribution at all (the `!omega` guard) -> z
+      // stays exactly 0, pure inertial straight-line motion.
+      expect(noSpin[2]).toBe(0);
+      expect(noSpin[5]).toBe(0);
+
+      // y/vy are untouched exactly, for any spin: with axis=(0,1,0), the
+      // rhs's fy = k*(az*ux - ax*uz) is identically 0 whenever ax=az=0 --
+      // true regardless of vz, so v never leaves the x-z plane.
+      expect(positiveSpin[1]).toBe(0);
+      expect(positiveSpin[4]).toBe(0);
+      expect(negativeSpin[1]).toBe(0);
+      expect(negativeSpin[4]).toBe(0);
+
+      // The two spins are mirror images: at t=0, F_z = -k*vx0 with
+      // k ∝ sign(omega), so opposite spins push z in opposite directions
+      // from the first instant -- and since the ideal Magnus force is
+      // always exactly perpendicular to v_rel (F_M . u = 0 identically, a
+      // vector-triple-product identity, true for *any* axis, not just ê_z),
+      // it does no work: |v| is conserved, so this is exact uniform
+      // circular motion in the x-z plane with a small rotation angle over
+      // this short horizon, meaning the initial-instant sign of the
+      // deflection persists all the way to `steps*h` with no sign
+      // reversal. A genuine slice/hook pair, not just "some" asymmetric
+      // deviation.
+      expect(positiveSpin[2]).toBeLessThan(0);
+      expect(negativeSpin[2]).toBeGreaterThan(0);
+      expect(negativeSpin[2]).toBeCloseTo(-positiveSpin[2]!, 9);
+      expect(negativeSpin[5]).toBeCloseTo(-positiveSpin[5]!, 9);
+
+      // Speed (and hence kinetic energy) is conserved to RK4's own local
+      // truncation error, confirming F_M did no net work over the run --
+      // the 3D generalization of blueprint §3.8's "(ii) with Magnus only, E
+      // is conserved" runtime check.
+      const speed0Sq = vx0 * vx0;
+      const speedFinalSq =
+        positiveSpin[3]! * positiveSpin[3]! + positiveSpin[5]! * positiveSpin[5]!;
+      expect(speedFinalSq).toBeCloseTo(speed0Sq, 6);
+    });
+
+    it("no Magnus contribution when spin is unset, mirroring MagnusForce.accumulate's own guard", () => {
+      const liftCoefficient = new SaturatingLiftCoefficient();
+      const model = createSpatialProjectileModel([new MagnusForce()]);
+      const env = new Environment(new ConstantAtmosphere(), new UniformGravity(), new ZeroWind());
+      const params = createSphericalProjectileParams({
+        mass,
+        radius,
+        dragCoefficient: new ConstantCd(0),
+        liftCoefficient,
+        // spin omitted entirely
+        spinAxis: [0, 1, 0],
+      });
+      const ctx = createEvalContext(env, params);
+      const y = new Float64Array([0, 0, 0, 20, 0, 0]);
+      const out = new Float64Array(6);
+      model.rhs(0, y, out, ctx);
+      expect(out[3]).toBe(0);
+      expect(out[4]).toBe(0);
+      expect(out[5]).toBe(0);
+    });
+
+    it("no Magnus contribution when no liftCoefficient model is wired, even with spin set", () => {
+      const model = createSpatialProjectileModel([new MagnusForce()]);
+      const env = new Environment(new ConstantAtmosphere(), new UniformGravity(), new ZeroWind());
+      const params = createSphericalProjectileParams({
+        mass,
+        radius,
+        dragCoefficient: new ConstantCd(0),
+        spin: 100,
+        spinAxis: [0, 1, 0],
+        // liftCoefficient omitted entirely
+      });
+      const ctx = createEvalContext(env, params);
+      const y = new Float64Array([0, 0, 0, 20, 0, 0]);
+      const out = new Float64Array(6);
+      model.rhs(0, y, out, ctx);
+      expect(out[3]).toBe(0);
+      expect(out[4]).toBe(0);
+      expect(out[5]).toBe(0);
+    });
+
+    it("a degenerate zero spin axis produces no force rather than NaN", () => {
+      const liftCoefficient = new SaturatingLiftCoefficient();
+      const model = createSpatialProjectileModel([new MagnusForce()]);
+      const env = new Environment(new ConstantAtmosphere(), new UniformGravity(), new ZeroWind());
+      const params = createSphericalProjectileParams({
+        mass,
+        radius,
+        dragCoefficient: new ConstantCd(0),
+        liftCoefficient,
+        spin: 100,
+        spinAxis: [0, 0, 0],
+      });
+      const ctx = createEvalContext(env, params);
+      const y = new Float64Array([0, 0, 0, 20, 0, 0]);
+      const out = new Float64Array(6);
+      model.rhs(0, y, out, ctx);
+      expect(out[3]).toBe(0);
+      expect(out[4]).toBe(0);
+      expect(out[5]).toBe(0);
+    });
   });
 });
