@@ -319,4 +319,128 @@ describe("BackwardEulerStepper (P2.38)", () => {
       expect(out.newtonIterations).toBe(1);
     });
   });
+
+  describe("Newton mode: simplified/reused Jacobian (P4.21)", () => {
+    const CUBIC_DIM = 8;
+    const CUBIC_CHANNELS: readonly ChannelMeta[] = Array.from({ length: CUBIC_DIM }, (_, i) => ({
+      name: `y${i}`,
+      unit: "1",
+    }));
+    const CUBIC_H = 0.02;
+
+    /**
+     * ydot_i = -y_i^3 for i in 0..7, decoupled (diagonal jacobian), no
+     * analytic jacobian declared: genuinely nonlinear (unlike
+     * DECAY_CHANNELS' ydot=-y, which is affine and always converges in one
+     * Newton iteration regardless of mode), so backward Euler needs more
+     * than one full-Newton iteration at CUBIC_H -- exactly the case P4.21's
+     * Jacobian reuse targets. dim=8 (not 1) matters for the nRHS-savings
+     * test below: the FD fallback's per-evaluation cost is `2*dim`, so it
+     * has to be large enough to dominate the extra iterations simplified
+     * mode's slower (linear, not quadratic) convergence needs.
+     */
+    function createCubicDecayModel(): Model {
+      return {
+        dim: CUBIC_DIM,
+        channels: CUBIC_CHANNELS,
+        rhs(_t: number, y: Float64Array, out: Float64Array): void {
+          for (let i = 0; i < CUBIC_DIM; i++) out[i] = -(y[i]! * y[i]! * y[i]!);
+        },
+      };
+    }
+
+    function cubicY0(): Float64Array {
+      return new Float64Array(CUBIC_DIM).fill(5);
+    }
+
+    it("full mode needs more than one Newton iteration on the cubic model at CUBIC_H", () => {
+      const model = createCubicDecayModel();
+      const ctx = createEvalContextFixture();
+      const stepper = new BackwardEulerStepper({ newtonMode: "full" });
+      stepper.init(model, ctx);
+
+      const out = createStepResult(CUBIC_DIM);
+      stepper.step(0, cubicY0(), CUBIC_H, out);
+
+      expect(out.accepted).toBe(true);
+      expect(out.newtonIterations).toBeGreaterThan(1);
+    });
+
+    it("simplified mode converges to the same yNext as full mode on the cubic model", () => {
+      const model = createCubicDecayModel();
+      const ctx = createEvalContextFixture();
+
+      const fullStepper = new BackwardEulerStepper({ newtonMode: "full" });
+      fullStepper.init(model, ctx);
+      const fullOut = createStepResult(CUBIC_DIM);
+      fullStepper.step(0, cubicY0(), CUBIC_H, fullOut);
+
+      const simplifiedStepper = new BackwardEulerStepper({ newtonMode: "simplified" });
+      simplifiedStepper.init(model, ctx);
+      const simplifiedOut = createStepResult(CUBIC_DIM);
+      simplifiedStepper.step(0, cubicY0(), CUBIC_H, simplifiedOut);
+
+      expect(fullOut.accepted).toBe(true);
+      expect(simplifiedOut.accepted).toBe(true);
+      // Both converge to within their own Newton tolerance of the true
+      // root, not to bitwise agreement with each other -- 1e-6 comfortably
+      // separates "same root" from a real divergence while still being far
+      // tighter than either mode's own newtonAtol/newtonRtol default.
+      for (let i = 0; i < CUBIC_DIM; i++) {
+        expect(simplifiedOut.yNext[i]).toBeCloseTo(fullOut.yNext[i]!, 6);
+      }
+    });
+
+    it("simplified mode consumes fewer rhs evaluations than full mode on the same multi-iteration step (the FD-jacobian-reuse saving)", () => {
+      const model = createCubicDecayModel();
+      const ctx = createEvalContextFixture();
+
+      const fullStepper = new BackwardEulerStepper({ newtonMode: "full" });
+      fullStepper.init(model, ctx);
+      const fullOut = createStepResult(CUBIC_DIM);
+      fullStepper.step(0, cubicY0(), CUBIC_H, fullOut);
+
+      const simplifiedStepper = new BackwardEulerStepper({ newtonMode: "simplified" });
+      simplifiedStepper.init(model, ctx);
+      const simplifiedOut = createStepResult(CUBIC_DIM);
+      simplifiedStepper.step(0, cubicY0(), CUBIC_H, simplifiedOut);
+
+      // full mode pays for a fresh FD jacobian (2*dim=16 rhs evals) on
+      // every one of its Newton iterations; simplified mode pays for it
+      // exactly once and reuses it -- at dim=8 that saving dominates
+      // simplified mode's extra iterations from slower (linear, not
+      // quadratic) convergence, the whole point of P4.21's Jacobian reuse.
+      expect(fullOut.newtonIterations).toBeGreaterThan(1);
+      expect(simplifiedOut.accepted).toBe(true);
+      expect(simplifiedOut.nRHS).toBeLessThan(fullOut.nRHS);
+    });
+
+    it("P4.21 validation: dust-grain (gravity+linear-drag, FD-jacobian) at h=1ms stays stable with average Newton iterations per step <= 4", () => {
+      const params = createDustGrainParams();
+      const env = new Environment(new ConstantAtmosphere(), new UniformGravity(), new ZeroWind());
+      const ctx = createEvalContext(env, params);
+      const model = createPlanarProjectileModel([new GravityForce(), new LinearDragForce()]);
+
+      const stepper = new BackwardEulerStepper({ newtonMode: "simplified" });
+      stepper.init(model, ctx);
+
+      const h = 0.001; // 1 ms, per P4.21's validation criterion
+      const nSteps = 50;
+      const y = new Float64Array([0, 0.01, 15, 0]); // P1.36 dust-grain preset ICs
+      const out = createStepResult(4);
+      let t = 0;
+      let totalIterations = 0;
+
+      for (let i = 0; i < nSteps; i++) {
+        stepper.step(t, y, h, out);
+        expect(out.accepted).toBe(true);
+        for (let c = 0; c < 4; c++) expect(Number.isFinite(out.yNext[c]!)).toBe(true);
+        totalIterations += out.newtonIterations;
+        y.set(out.yNext);
+        t += h;
+      }
+
+      expect(totalIterations / nSteps).toBeLessThanOrEqual(4);
+    });
+  });
 });
