@@ -2004,8 +2004,8 @@
       "estMinutes": 25,
       "difficulty": "M",
       "validation": "crossover point visible and documented",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed. Plan: reuse P2.19's measureWorkPrecision/nRHSAtTargetError (packages/solverkit/src/work-precision-harness.ts) + P4.21's BackwardEulerStepper (simplified-Newton) vs ClassicalRK4Stepper on the dust-grain gravity+linear-drag stiff scenario (same construction as P4.21's and P2.38's tests), which has a closed-form linear-drag reference solution. Following the established 'exhibit = well-documented solverkit test module' pattern (P4.09 topspin-backspin-curve-comparison.test.ts), not a new UI route -- P3.30's buildWorkPrecisionFigure (packages/viz/src/lazy-plotly-pane.ts) already generically renders any WorkPrecisionCurve[], nothing scenario-specific needed there."
     },
     {
       "id": "P4.23",
