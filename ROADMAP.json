@@ -2026,8 +2026,8 @@
       "estMinutes": 25,
       "difficulty": "H",
       "validation": "sidespin produces lateral deviation (slice/hook sign test)",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Extended createSpatialProjectileModel (P4.23) with full 3D Magnus: ProjectileParams gained an optional spinAxis (Vec3, unit direction, defaults to e_z for exact 2D-formula parity). rhs case magnus computes the general omega_hat x v_rel cross product inline (no allocation, ADR-004). Validated: (1) default-axis reduction matches the 2D MagnusForce bit-for-bit on a z=0 slice; (2) sidespin (axis=(0,1,0)) produces lateral z deflection whose sign flips with spin sign (slice/hook criterion) and is a mirror-symmetric pair; (3) ideal Magnus does no work in the general 3D case (speed conserved); (4) spin/liftCoefficient/zero-axis guards mirror the 2D force exactly. 16 tests in spatial-projectile-model.test.ts, all green; full pnpm verify (typecheck+lint+lint:deps+test) and app build clean."
     },
     {
       "id": "P4.25",
