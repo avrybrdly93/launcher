@@ -2048,8 +2048,8 @@
       "estMinutes": 30,
       "difficulty": "M",
       "validation": "trajectory consistent across views; picking works per-view",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "Implemented as pure functions in packages/viz/src/orthographic-views.ts on top of the existing Camera2D/fitCameraToBounds/pickNearestTrajectoryPoint trio (3D rendering stays deferred to Phase 7+ Three.js per blueprint §6.4). Generalized hover-picking.ts to take a channel pair (pickNearestTrajectoryPointOnChannels) so each view picks independently. App-level 3-pane wiring into app/ is left for a later UI task (no existing task wires TrajectoryLayer into the live canvas yet). Noted during this task: trajectory-decimation.test.ts (P3.10, draws-under-1ms budget) is flaky under this sandbox's CPU contention when the full viz suite runs concurrently -- confirmed pre-existing and unrelated to this change (reproduces with P4.26 changes stashed out too); not fixed here, flagged for awareness."
     },
     {
       "id": "P4.27",
