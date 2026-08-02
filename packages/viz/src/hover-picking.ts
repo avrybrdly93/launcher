@@ -38,20 +38,27 @@ export const DEFAULT_MAX_PICK_DISTANCE_PX = 20;
 
 /**
  * Index of the recorded row whose screen position (under `camera`/
- * `viewport`) is nearest `cursor`, or `null` if every row is farther than
+ * `viewport`, projecting channel `xChannel` to screen-x and `yChannel` to
+ * screen-y) is nearest `cursor`, or `null` if every row is farther than
  * `maxDistancePx` (default {@link DEFAULT_MAX_PICK_DISTANCE_PX}) or the
  * trajectory has no rows. Ties favor the earlier index (first row wins a
  * dead-even tie, `<` not `<=` below).
+ *
+ * The channel-pair parameters are what let `three-view.ts` (P4.26) reuse
+ * this exact distance-in-screen-space logic for the xz/yz projections, not
+ * just the xy pair {@link pickNearestTrajectoryPoint} hardcodes.
  */
-export function pickNearestTrajectoryPoint(
+export function pickNearestByChannels(
   camera: Camera2DState,
   viewport: Viewport,
   trajectory: Trajectory,
+  xChannel: number,
+  yChannel: number,
   cursor: { readonly x: number; readonly y: number },
   maxDistancePx: number = DEFAULT_MAX_PICK_DISTANCE_PX,
 ): number | null {
-  const xs = trajectory.channels[X_CHANNEL];
-  const ys = trajectory.channels[Y_CHANNEL];
+  const xs = trajectory.channels[xChannel];
+  const ys = trajectory.channels[yChannel];
   if (!xs || !ys || trajectory.nSteps === 0) return null;
 
   let bestIndex = -1;
@@ -70,6 +77,31 @@ export function pickNearestTrajectoryPoint(
 
   const maxDistanceSq = maxDistancePx * maxDistancePx;
   return bestDistanceSq <= maxDistanceSq ? bestIndex : null;
+}
+
+/**
+ * Index of the recorded row whose screen position (under `camera`/
+ * `viewport`) is nearest `cursor`, or `null` if every row is farther than
+ * `maxDistancePx` (default {@link DEFAULT_MAX_PICK_DISTANCE_PX}) or the
+ * trajectory has no rows. Thin wrapper over {@link pickNearestByChannels}
+ * fixed to the `[x, y, ...]` channel convention.
+ */
+export function pickNearestTrajectoryPoint(
+  camera: Camera2DState,
+  viewport: Viewport,
+  trajectory: Trajectory,
+  cursor: { readonly x: number; readonly y: number },
+  maxDistancePx: number = DEFAULT_MAX_PICK_DISTANCE_PX,
+): number | null {
+  return pickNearestByChannels(
+    camera,
+    viewport,
+    trajectory,
+    X_CHANNEL,
+    Y_CHANNEL,
+    cursor,
+    maxDistancePx,
+  );
 }
 
 /** One channel's labeled value at a picked row -- the "full state" a tooltip lists. */
