@@ -2048,8 +2048,8 @@
       "estMinutes": 30,
       "difficulty": "M",
       "validation": "trajectory consistent across views; picking works per-view",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "packages/viz/src/orthographic-view.ts adds the xy/xz/yz view definitions (channel-pair selection over the existing SPATIAL_CHANNELS position channels); hover-picking.ts's pickNearestTrajectoryPoint takes optional horizontalChannel/verticalChannel so it works per-view, defaulting to xy for backward compat. Validated at the pure-viz-layer via orthographic-view.test.ts (buildTrajectoryPath + pickNearestTrajectoryPoint against a synthetic 3D trajectory), matching how trajectory-layer.ts/hover-picking.ts (P3.09/P3.17, both done) were themselves validated -- no app-level canvas wiring exists yet for ANY view (packages/app/canvas-viewport.tsx is still an unwired bootstrap stub per its own doc comment), so a view-picker UI is out of this task's scope until that base wiring lands as its own task; same precedent as P3.08/P3.09/P3.17 shipping unwired. pnpm verify: typecheck/lint/lint:deps green, 1203/1204 tests green -- the one failure (trajectory-decimation.test.ts's P3.10 50k-pt <1ms perf budget, measured ~1.05ms under full-suite load) is unrelated to this task (that file untouched), reproduces under `pnpm test` but passes cleanly in isolation (`vitest run` on just that file), so it's this sandbox's CPU contention under the full 186-file suite, not a regression -- flagging rather than silently ignoring or loosening the budget to force green."
     },
     {
       "id": "P4.27",
