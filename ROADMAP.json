@@ -2048,8 +2048,8 @@
       "estMinutes": 30,
       "difficulty": "M",
       "validation": "trajectory consistent across views; picking works per-view",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed: viz-layer three-view orthographic projections (xy/xz/yz) + per-plane picking, reusing existing Camera2D/auto-fit-camera/hover-picking machinery. No three.js/perspective camera -- explicitly gated to Phase 7+ per blueprint section 6.4."
     },
     {
       "id": "P4.27",
