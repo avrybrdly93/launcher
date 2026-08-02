@@ -5,6 +5,7 @@ import { IDENTITY_CAMERA, worldToScreen, zoomAtScreenPoint, type Viewport } from
 import {
   DEFAULT_MAX_PICK_DISTANCE_PX,
   pickNearestTrajectoryPoint,
+  pickNearestTrajectoryPointOnChannels,
   trajectoryPointTooltip,
 } from "./hover-picking.js";
 
@@ -99,6 +100,39 @@ describe("pickNearestTrajectoryPoint", () => {
     expect(pickNearestTrajectoryPoint(IDENTITY_CAMERA, VIEWPORT, isolated, nudged)).toBe(0);
     expect(DEFAULT_MAX_PICK_DISTANCE_PX).toBeGreaterThanOrEqual(15);
     expect(pickNearestTrajectoryPoint(IDENTITY_CAMERA, VIEWPORT, isolated, nudged, 10)).toBeNull();
+  });
+});
+
+describe("pickNearestTrajectoryPointOnChannels (P4.26: channel pair as a parameter, for per-view picking)", () => {
+  const trajectory = makeTrajectory([
+    [0, 0, 10, 10],
+    [10, 5, 10, 5],
+    [20, 8, 10, 0],
+    [30, 5, 10, -5],
+    [40, 0, 10, -10],
+  ]);
+
+  it("with the default [0, 1] channel pair, matches pickNearestTrajectoryPoint exactly", () => {
+    const cursor = worldToScreen(IDENTITY_CAMERA, VIEWPORT, { x: 20, y: 8 });
+    expect(
+      pickNearestTrajectoryPointOnChannels(IDENTITY_CAMERA, VIEWPORT, trajectory, cursor, 0, 1),
+    ).toBe(pickNearestTrajectoryPoint(IDENTITY_CAMERA, VIEWPORT, trajectory, cursor));
+  });
+
+  it("picks against an arbitrary channel pair (e.g. channels 2/3, an unrelated 'view' of the same trajectory)", () => {
+    // channels 2/3 here are constant-x (10) descending-y (10..-10) -- picking
+    // near (10, -5) should resolve to row 3, unrelated to where that row's
+    // (x, y) = (30, 5) would place it under the default channel pair.
+    const cursor = worldToScreen(IDENTITY_CAMERA, VIEWPORT, { x: 10, y: -5 });
+    const index = pickNearestTrajectoryPointOnChannels(
+      IDENTITY_CAMERA,
+      VIEWPORT,
+      trajectory,
+      cursor,
+      2,
+      3,
+    );
+    expect(index).toBe(3);
   });
 });
 

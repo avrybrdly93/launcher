@@ -38,20 +38,28 @@ export const DEFAULT_MAX_PICK_DISTANCE_PX = 20;
 
 /**
  * Index of the recorded row whose screen position (under `camera`/
- * `viewport`) is nearest `cursor`, or `null` if every row is farther than
- * `maxDistancePx` (default {@link DEFAULT_MAX_PICK_DISTANCE_PX}) or the
- * trajectory has no rows. Ties favor the earlier index (first row wins a
- * dead-even tie, `<` not `<=` below).
+ * `viewport`, projecting `trajectory.channels[xChannel]`/`[yChannel]`) is
+ * nearest `cursor`, or `null` if every row is farther than `maxDistancePx`
+ * (default {@link DEFAULT_MAX_PICK_DISTANCE_PX}) or the trajectory has no
+ * rows. Ties favor the earlier index (first row wins a dead-even tie, `<`
+ * not `<=` below).
+ *
+ * The channel pair is a parameter (P4.26: "picking works per-view") so each
+ * orthographic view (`orthographic-views.ts`) can pick against its own
+ * channel pair and camera independently -- `pickNearestTrajectoryPoint`
+ * below is just this with the original xy-only pair baked in.
  */
-export function pickNearestTrajectoryPoint(
+export function pickNearestTrajectoryPointOnChannels(
   camera: Camera2DState,
   viewport: Viewport,
   trajectory: Trajectory,
   cursor: { readonly x: number; readonly y: number },
+  xChannel: number,
+  yChannel: number,
   maxDistancePx: number = DEFAULT_MAX_PICK_DISTANCE_PX,
 ): number | null {
-  const xs = trajectory.channels[X_CHANNEL];
-  const ys = trajectory.channels[Y_CHANNEL];
+  const xs = trajectory.channels[xChannel];
+  const ys = trajectory.channels[yChannel];
   if (!xs || !ys || trajectory.nSteps === 0) return null;
 
   let bestIndex = -1;
@@ -70,6 +78,29 @@ export function pickNearestTrajectoryPoint(
 
   const maxDistanceSq = maxDistancePx * maxDistancePx;
   return bestDistanceSq <= maxDistanceSq ? bestIndex : null;
+}
+
+/**
+ * {@link pickNearestTrajectoryPointOnChannels} restricted to the original
+ * `[x, y]` channel pair (channels 0/1) -- unchanged behavior/signature for
+ * every existing caller.
+ */
+export function pickNearestTrajectoryPoint(
+  camera: Camera2DState,
+  viewport: Viewport,
+  trajectory: Trajectory,
+  cursor: { readonly x: number; readonly y: number },
+  maxDistancePx: number = DEFAULT_MAX_PICK_DISTANCE_PX,
+): number | null {
+  return pickNearestTrajectoryPointOnChannels(
+    camera,
+    viewport,
+    trajectory,
+    cursor,
+    X_CHANNEL,
+    Y_CHANNEL,
+    maxDistancePx,
+  );
 }
 
 /** One channel's labeled value at a picked row -- the "full state" a tooltip lists. */
