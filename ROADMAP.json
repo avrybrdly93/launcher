@@ -2048,8 +2048,8 @@
       "estMinutes": 30,
       "difficulty": "M",
       "validation": "trajectory consistent across views; picking works per-view",
-      "status": "in-progress",
-      "notes": "Claimed: viz-layer three-view orthographic projections (xy/xz/yz) + per-plane picking, reusing existing Camera2D/auto-fit-camera/hover-picking machinery. No three.js/perspective camera -- explicitly gated to Phase 7+ per blueprint section 6.4."
+      "status": "done",
+      "notes": "packages/viz/src/three-view.ts: ViewPlane ('xy'|'xz'|'yz') over the dim-6 spatial model's [x,y,z,...] channels; computeBoundsForPlane/fitThreeViewCameras (independent per-plane auto-fit camera); pickNearestTrajectoryPointInPlane, built on a new pickNearestByChannels extracted from hover-picking.ts's existing pickNearestTrajectoryPoint. Validation: 'trajectory consistent across views' -- all three views read the same trajectory.channels array and every pick resolves to a row index, so a pick in one plane and an equivalent pick in another resolve to the identical index (asserted directly in three-view.test.ts); 'picking works per-view' -- pickNearestTrajectoryPointInPlane exercised for all three planes via it.each. No three.js/perspective camera added -- explicitly gated to Phase 7+ per blueprint section 6.4; existing buildTrajectoryPath (trajectory-layer.ts) already renders any plane unmodified since it takes generic channel arrays. 13 new tests (three-view.test.ts), full pnpm verify green (typecheck/lint/lint:deps/test 1207 passed/test, app build)."
     },
     {
       "id": "P4.27",
