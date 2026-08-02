@@ -29,7 +29,7 @@ import type { Trajectory } from "@ballista/solverkit";
 import type { Camera2DState, Viewport } from "./camera2d.js";
 import { worldToScreen } from "./camera2d.js";
 
-/** Column indices shared with `projectile-layer.ts`/`trajectory-layer.ts`'s `[x, y, ...]` convention. */
+/** Column indices shared with `projectile-layer.ts`/`trajectory-layer.ts`'s `[x, y, ...]` convention -- the default `channels` pair below, for the single-view 2D callers that predate P4.26's multi-view picking. */
 const X_CHANNEL = 0;
 const Y_CHANNEL = 1;
 
@@ -42,6 +42,12 @@ export const DEFAULT_MAX_PICK_DISTANCE_PX = 20;
  * `maxDistancePx` (default {@link DEFAULT_MAX_PICK_DISTANCE_PX}) or the
  * trajectory has no rows. Ties favor the earlier index (first row wins a
  * dead-even tie, `<` not `<=` below).
+ *
+ * `channels` selects which two of `trajectory`'s channels are treated as
+ * this pick's world x/y (default `[0, 1]`, this module's original 2D-only
+ * pair) -- P4.26's orthographic 3-view reuses this same function per view
+ * (`orthographic-views.ts#pickInView`) by passing e.g. `[0, 2]` for the xz
+ * plane, rather than a second picking implementation.
  */
 export function pickNearestTrajectoryPoint(
   camera: Camera2DState,
@@ -49,9 +55,11 @@ export function pickNearestTrajectoryPoint(
   trajectory: Trajectory,
   cursor: { readonly x: number; readonly y: number },
   maxDistancePx: number = DEFAULT_MAX_PICK_DISTANCE_PX,
+  channels: readonly [number, number] = [X_CHANNEL, Y_CHANNEL],
 ): number | null {
-  const xs = trajectory.channels[X_CHANNEL];
-  const ys = trajectory.channels[Y_CHANNEL];
+  const [aChannel, bChannel] = channels;
+  const xs = trajectory.channels[aChannel];
+  const ys = trajectory.channels[bChannel];
   if (!xs || !ys || trajectory.nSteps === 0) return null;
 
   let bestIndex = -1;

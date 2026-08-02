@@ -100,6 +100,24 @@ describe("pickNearestTrajectoryPoint", () => {
     expect(DEFAULT_MAX_PICK_DISTANCE_PX).toBeGreaterThanOrEqual(15);
     expect(pickNearestTrajectoryPoint(IDENTITY_CAMERA, VIEWPORT, isolated, nudged, 10)).toBeNull();
   });
+
+  it("picks against a custom `channels` pair instead of the default [0, 1] (P4.26)", () => {
+    // Reuse this suite's own 4-channel trajectory, but pick against channels
+    // [2, 3] (vx, vy) instead of [0, 1] (x, y) -- the same mechanism
+    // orthographic-views.ts#pickInView uses for the xz/yz planes.
+    const cursor = worldToScreen(IDENTITY_CAMERA, VIEWPORT, { x: 10, y: -5 });
+    const index = pickNearestTrajectoryPoint(
+      IDENTITY_CAMERA,
+      VIEWPORT,
+      trajectory,
+      cursor,
+      DEFAULT_MAX_PICK_DISTANCE_PX,
+      [2, 3],
+    );
+    // Row 3 is [30, 5, 10, -5] -- vx=10, vy=-5 matches the cursor exactly,
+    // even though its x/y (30, 5) is nowhere near (10, -5).
+    expect(index).toBe(3);
+  });
 });
 
 describe("trajectoryPointTooltip", () => {
