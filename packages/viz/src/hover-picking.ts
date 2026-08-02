@@ -22,6 +22,12 @@
  * `hud-readout.ts`/`force-glyphs.ts`, which need a live `Model`/`EvalContext`
  * for genuinely derived quantities (E, Re, S, Π) that aren't themselves
  * recorded channels.
+ *
+ * `pickNearestTrajectoryPoint`'s `horizontalChannel`/`verticalChannel`
+ * default to the base `[x, y, ...]` convention but are overridable (P4.26)
+ * so the same picker works against any `OrthographicView`'s channel pair
+ * (`orthographic-view.ts`) -- picking always happens in the screen space of
+ * whichever plane is currently rendered, not always the xy plane.
  */
 
 import type { ChannelMeta } from "@ballista/engine";
@@ -29,7 +35,7 @@ import type { Trajectory } from "@ballista/solverkit";
 import type { Camera2DState, Viewport } from "./camera2d.js";
 import { worldToScreen } from "./camera2d.js";
 
-/** Column indices shared with `projectile-layer.ts`/`trajectory-layer.ts`'s `[x, y, ...]` convention. */
+/** Default column indices: `projectile-layer.ts`/`trajectory-layer.ts`'s `[x, y, ...]` convention (the `xy` `OrthographicView`). */
 const X_CHANNEL = 0;
 const Y_CHANNEL = 1;
 
@@ -41,7 +47,11 @@ export const DEFAULT_MAX_PICK_DISTANCE_PX = 20;
  * `viewport`) is nearest `cursor`, or `null` if every row is farther than
  * `maxDistancePx` (default {@link DEFAULT_MAX_PICK_DISTANCE_PX}) or the
  * trajectory has no rows. Ties favor the earlier index (first row wins a
- * dead-even tie, `<` not `<=` below).
+ * dead-even tie, `<` not `<=` below). `horizontalChannel`/`verticalChannel`
+ * select which recorded channels are treated as screen-x/screen-y (default
+ * `[x, y]`, channels 0/1) -- pass an `OrthographicView`'s
+ * `horizontalChannel`/`verticalChannel` (`orthographic-view.ts`) to pick
+ * correctly against the `xz`/`yz` views, whose plotted plane isn't `[x, y]`.
  */
 export function pickNearestTrajectoryPoint(
   camera: Camera2DState,
@@ -49,9 +59,11 @@ export function pickNearestTrajectoryPoint(
   trajectory: Trajectory,
   cursor: { readonly x: number; readonly y: number },
   maxDistancePx: number = DEFAULT_MAX_PICK_DISTANCE_PX,
+  horizontalChannel: number = X_CHANNEL,
+  verticalChannel: number = Y_CHANNEL,
 ): number | null {
-  const xs = trajectory.channels[X_CHANNEL];
-  const ys = trajectory.channels[Y_CHANNEL];
+  const xs = trajectory.channels[horizontalChannel];
+  const ys = trajectory.channels[verticalChannel];
   if (!xs || !ys || trajectory.nSteps === 0) return null;
 
   let bestIndex = -1;
