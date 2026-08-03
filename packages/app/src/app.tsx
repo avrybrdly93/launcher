@@ -141,7 +141,8 @@ export function App() {
             <a href="#/stability-explorer">Open Stability Explorer &rarr;</a>{" "}
             <a href="#/energy-drift">Open Energy Drift &rarr;</a>{" "}
             <a href="#/terrain-editor">Open Terrain Editor &rarr;</a>{" "}
-            <a href="#/neglected-effects">Open Neglected Effects &rarr;</a>
+            <a href="#/neglected-effects">Open Neglected Effects &rarr;</a>{" "}
+            <a href="#/density-altitude">Open Density Altitude &rarr;</a>
           </p>
         </div>
       }
