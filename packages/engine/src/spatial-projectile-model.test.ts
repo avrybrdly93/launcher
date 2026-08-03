@@ -12,6 +12,7 @@ import { SaturatingLiftCoefficient } from "./lift-coefficient.js";
 import { createSphericalProjectileParams } from "./projectile-params.js";
 import {
   BuoyancyForce,
+  CoriolisForce,
   GravityForce,
   MagnusForce,
   QuadraticDragForce,
@@ -25,6 +26,7 @@ import {
   spatialMomentumZ,
 } from "./spatial-projectile-model.js";
 import type { Model } from "./model.js";
+import { EARTH_ANGULAR_VELOCITY_RAD_S } from "./units.js";
 
 /**
  * A tiny, self-contained fixed-step classical RK4 integrator, used only by
@@ -579,6 +581,110 @@ describe("createSpatialProjectileModel", () => {
       expect(out[3]).toBe(0);
       expect(out[4]).toBe(0);
       expect(out[5]).toBe(0);
+    });
+  });
+
+  describe("P4.27: Coriolis force (-2m*Omega x v, latitude param)", () => {
+    const mass = 0.145;
+    const radius = 0.0366;
+    const latitudeRad = Math.PI / 4; // 45 deg N
+
+    it("throws at construction when the coriolis force is present but latitudeRad is omitted", () => {
+      expect(() => createSpatialProjectileModel([new GravityForce(), new CoriolisForce()])).toThrow(
+        /latitudeRad/,
+      );
+    });
+
+    it("does not throw when latitudeRad is given but coriolis isn't in the force list (unused, not an error)", () => {
+      expect(() =>
+        createSpatialProjectileModel([new GravityForce()], undefined, undefined, { latitudeRad }),
+      ).not.toThrow();
+    });
+
+    it("matches the hand-derived force at a specific state (vx, vy, vz all nonzero)", () => {
+      const model = createSpatialProjectileModel(
+        [new GravityForce(), new CoriolisForce()],
+        undefined,
+        undefined,
+        {
+          latitudeRad,
+        },
+      );
+      const env = new Environment(new ConstantAtmosphere(), new UniformGravity(), new ZeroWind());
+      const params = createSphericalProjectileParams({
+        mass,
+        radius,
+        dragCoefficient: new ConstantCd(0),
+      });
+      const ctx = createEvalContext(env, params);
+      const vx = 10;
+      const vy = -5;
+      const vz = 3;
+      const y = new Float64Array([0, 0, 0, vx, vy, vz]);
+      const out = new Float64Array(6);
+      model.rhs(0, y, out, ctx);
+
+      const omega = EARTH_ANGULAR_VELOCITY_RAD_S;
+      const sinLat = Math.sin(latitudeRad);
+      const cosLat = Math.cos(latitudeRad);
+      const fxCoriolis = -2 * mass * omega * sinLat * vz;
+      const fyCoriolis = 2 * mass * omega * cosLat * vz;
+      const fzCoriolis = 2 * mass * omega * (sinLat * vx - cosLat * vy);
+      const fyGravity = -mass * 9.80665;
+
+      expect(out[3]).toBeCloseTo(fxCoriolis / mass, 15);
+      expect(out[4]).toBeCloseTo((fyCoriolis + fyGravity) / mass, 15);
+      expect(out[5]).toBeCloseTo(fzCoriolis / mass, 15);
+    });
+
+    it("does no net work: the Coriolis contribution alone is exactly perpendicular to v", () => {
+      // Isolate Coriolis (no gravity) so out.(vx,vy,vz) IS the pure
+      // acceleration; F.v = 0 for any v is a vector-triple-product identity
+      // for -2*Omega x v, not specific to this state.
+      const model = createSpatialProjectileModel([new CoriolisForce()], undefined, undefined, {
+        latitudeRad,
+      });
+      const env = new Environment(new ConstantAtmosphere(), new UniformGravity(), new ZeroWind());
+      const params = createSphericalProjectileParams({
+        mass,
+        radius,
+        dragCoefficient: new ConstantCd(0),
+      });
+      const ctx = createEvalContext(env, params);
+      const vx = 7;
+      const vy = -11;
+      const vz = 4;
+      const y = new Float64Array([0, 0, 0, vx, vy, vz]);
+      const out = new Float64Array(6);
+      model.rhs(0, y, out, ctx);
+      const power = mass * (out[3]! * vx + out[4]! * vy + out[5]! * vz);
+      expect(power).toBeCloseTo(0, 9);
+    });
+
+    it("vanishes entirely at the equator when v is purely vertical (sinLat=0 term only survives via fz, which also needs cosLat*vy)", () => {
+      // At the equator (lat=0): sinLat=0, cosLat=1. For a purely vertical
+      // v=(0, vy, 0): fx=0, fy=0, fz=2*m*omega*(0 - vy) = -2*m*omega*vy,
+      // nonzero -- the classic equatorial eastward-deflection-of-a-drop case
+      // (validated end-to-end in solverkit's coriolis-deflection.test.ts).
+      // This test isolates just the fx/fy channels, which the derivation
+      // above says must be exactly zero for this state at any latitude
+      // (vz=0), independent of lat.
+      const model = createSpatialProjectileModel([new CoriolisForce()], undefined, undefined, {
+        latitudeRad: 0,
+      });
+      const env = new Environment(new ConstantAtmosphere(), new UniformGravity(), new ZeroWind());
+      const params = createSphericalProjectileParams({
+        mass,
+        radius,
+        dragCoefficient: new ConstantCd(0),
+      });
+      const ctx = createEvalContext(env, params);
+      const y = new Float64Array([0, 0, 0, 0, -20, 0]);
+      const out = new Float64Array(6);
+      model.rhs(0, y, out, ctx);
+      expect(out[3]).toBe(0);
+      expect(out[4]).toBe(0);
+      expect(out[5]).not.toBe(0);
     });
   });
 });
