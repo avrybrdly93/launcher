@@ -8,6 +8,7 @@ import {
   BuoyancyForce,
   buoyancyToWeightRatio,
   composeForces,
+  CoriolisForce,
   createForceRegistry,
   GravityForce,
   LinearDragForce,
@@ -188,6 +189,37 @@ describe("BuoyancyForce", () => {
     expect(buoyancyToWeightRatio(baseball, ISA.rho0)).toBeLessThan(
       buoyancyToWeightRatio(soccerBall, ISA.rho0),
     );
+  });
+});
+
+describe("CoriolisForce", () => {
+  it("is a registered id, but throws rather than silently omitting the lateral deflection a 2D model can't represent", () => {
+    const force = new CoriolisForce();
+    expect(force.id).toBe("coriolis");
+    const y = new Float64Array([0, 0, 0, 0]);
+    const params = createSphericalProjectileParams({
+      mass: 1,
+      radius: 0.05,
+      dragCoefficient: new ConstantCd(0),
+    });
+    const env = new Environment(new ConstantAtmosphere(), new UniformGravity());
+    const ctx = createEvalContext(env, params);
+    const out: [number, number] = [0, 0];
+    expect(() => force.accumulate(0, y, ctx, out)).toThrow(/3D-only/);
+  });
+
+  it("composeForces surfaces the same throw (not swallowed by the registry loop)", () => {
+    const params = createSphericalProjectileParams({
+      mass: 1,
+      radius: 0.05,
+      dragCoefficient: new ConstantCd(0),
+    });
+    const env = new Environment(new ConstantAtmosphere(), new UniformGravity());
+    const ctx = createEvalContext(env, params);
+    const y = new Float64Array([0, 0, 0, 0]);
+    expect(() =>
+      composeForces([new GravityForce(), new CoriolisForce()], 0, y, ctx, [0, 0]),
+    ).toThrow(/3D-only/);
   });
 });
 

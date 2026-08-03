@@ -4,6 +4,7 @@ import {
   ConstantAtmosphere,
   Environment,
   UniformGravity,
+  UniformRotation,
   UniformWind,
   ZeroWind,
 } from "./environment.js";
@@ -12,6 +13,7 @@ import { SaturatingLiftCoefficient } from "./lift-coefficient.js";
 import { createSphericalProjectileParams } from "./projectile-params.js";
 import {
   BuoyancyForce,
+  CoriolisForce,
   GravityForce,
   MagnusForce,
   QuadraticDragForce,
@@ -25,6 +27,7 @@ import {
   spatialMomentumZ,
 } from "./spatial-projectile-model.js";
 import type { Model } from "./model.js";
+import { EARTH_ANGULAR_VELOCITY } from "./units.js";
 
 /**
  * A tiny, self-contained fixed-step classical RK4 integrator, used only by
@@ -579,6 +582,114 @@ describe("createSpatialProjectileModel", () => {
       expect(out[3]).toBe(0);
       expect(out[4]).toBe(0);
       expect(out[5]).toBe(0);
+    });
+  });
+
+  describe("P4.27: Coriolis force (-2m*Omega x v)", () => {
+    const mass = 1;
+    const radius = 0.05;
+
+    function coriolisContext(omega: number, latitudeRad: number): EvalContext {
+      const env = new Environment(
+        new ConstantAtmosphere(),
+        new UniformGravity(),
+        new ZeroWind(),
+        new UniformRotation(latitudeRad, omega),
+      );
+      const params = createSphericalProjectileParams({
+        mass,
+        radius,
+        dragCoefficient: new ConstantCd(0),
+      });
+      return createEvalContext(env, params);
+    }
+
+    it("with omega=0 (NoRotation default), contributes nothing regardless of velocity", () => {
+      const model = createSpatialProjectileModel([new GravityForce(), new CoriolisForce()]);
+      const env = new Environment(new ConstantAtmosphere(), new UniformGravity(), new ZeroWind());
+      const params = createSphericalProjectileParams({
+        mass,
+        radius,
+        dragCoefficient: new ConstantCd(0),
+      });
+      const ctx = createEvalContext(env, params);
+      const y = new Float64Array([0, 100, 0, 12, -30, 7]);
+      const out = new Float64Array(6);
+      model.rhs(0, y, out, ctx);
+      expect(out[3]).toBe(0);
+      expect(out[4]).toBeCloseTo(-ctx.env.g, 15); // gravity only
+      expect(out[5]).toBe(0);
+    });
+
+    it("matches F = -2m*(Omega x v) component-wise at an arbitrary state (direct formula check)", () => {
+      const omega = 1.3; // rad/s, deliberately not Earth's real rate -- exercises the general formula
+      const latitude = (37 * Math.PI) / 180;
+      const model = createSpatialProjectileModel([new CoriolisForce()]);
+      const ctx = coriolisContext(omega, latitude);
+      const vx = 40;
+      const vy = -12;
+      const vz = 8;
+      const y = new Float64Array([0, 0, 0, vx, vy, vz]);
+      const out = new Float64Array(6);
+      model.rhs(0, y, out, ctx);
+
+      const cosPhi = Math.cos(latitude);
+      const sinPhi = Math.sin(latitude);
+      const expectedAx = -2 * omega * sinPhi * vz;
+      const expectedAy = 2 * omega * cosPhi * vz;
+      const expectedAz = -2 * omega * cosPhi * vy + 2 * omega * sinPhi * vx;
+      expect(out[3]).toBeCloseTo(expectedAx, 15);
+      expect(out[4]).toBeCloseTo(expectedAy, 15);
+      expect(out[5]).toBeCloseTo(expectedAz, 15);
+    });
+
+    it("a pure vertical drop (vx=vz=0) feels only the lateral (z) component -- the eastward-deflection term", () => {
+      const model = createSpatialProjectileModel([new CoriolisForce()]);
+      const ctx = coriolisContext(EARTH_ANGULAR_VELOCITY, Math.PI / 4);
+      const y = new Float64Array([0, 100, 0, 0, -25, 0]); // falling, vy<0
+      const out = new Float64Array(6);
+      model.rhs(0, y, out, ctx);
+      expect(out[3]).toBe(0); // ax = -2*Omega*sin(phi)*vz = 0 (vz=0)
+      expect(out[4]).toBe(0); // ay =  2*Omega*cos(phi)*vz = 0 (vz=0)
+      expect(out[5]).toBeGreaterThan(0); // az = -2*Omega*cos(phi)*vy > 0 since vy<0
+    });
+
+    it("at the poles (phi=+-90deg), a vertical drop feels zero deflection (cos(phi)=0)", () => {
+      const model = createSpatialProjectileModel([new CoriolisForce()]);
+      const ctxNorthPole = coriolisContext(EARTH_ANGULAR_VELOCITY, Math.PI / 2);
+      const ctxSouthPole = coriolisContext(EARTH_ANGULAR_VELOCITY, -Math.PI / 2);
+      const y = new Float64Array([0, 100, 0, 0, -25, 0]);
+      const out = new Float64Array(6);
+      model.rhs(0, y, out, ctxNorthPole);
+      expect(out[5]).toBeCloseTo(0, 12);
+      model.rhs(0, y, out, ctxSouthPole);
+      expect(out[5]).toBeCloseTo(0, 12);
+    });
+
+    it("a vertical drop deflects the same way (east) in both hemispheres -- cos(phi) is even", () => {
+      // Distinct from P4.28's hemisphere sign-flip (that one is the sin(phi)
+      // term, dominant for horizontal-velocity motion, not this cos(phi) term).
+      const model = createSpatialProjectileModel([new CoriolisForce()]);
+      const y = new Float64Array([0, 100, 0, 0, -25, 0]);
+      const out = new Float64Array(6);
+
+      model.rhs(0, y, out, coriolisContext(EARTH_ANGULAR_VELOCITY, Math.PI / 4)); // 45N
+      const north = out[5]!;
+      model.rhs(0, y, out, coriolisContext(EARTH_ANGULAR_VELOCITY, -Math.PI / 4)); // 45S
+      const south = out[5]!;
+
+      expect(north).toBeGreaterThan(0);
+      expect(south).toBeCloseTo(north, 15);
+    });
+
+    it("throws at construction if passed to createPlanarProjectileModel's registry the way other 3D-shared forces are (2D has no lateral channel)", () => {
+      // createPlanarProjectileModel has no SUPPORTED_FORCE_IDS allowlist (it
+      // calls composeForces unconditionally), so the failure surfaces from
+      // CoriolisForce.accumulate itself, not from a construction-time guard
+      // -- verified directly against CoriolisForce in forces.test.ts; this
+      // test only confirms createSpatialProjectileModel's allowlist accepts
+      // the id (the complementary, 3D-side half of that same contract).
+      expect(() => createSpatialProjectileModel([new CoriolisForce()])).not.toThrow();
     });
   });
 });

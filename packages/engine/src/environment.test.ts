@@ -9,14 +9,22 @@ import {
   GriddedWindField,
   IsaTroposphereAtmosphere,
   LogProfileWind,
+  NoRotation,
   OneCosineGustWind,
   SinusoidalGustWind,
   UniformGravity,
+  UniformRotation,
   UniformWind,
   ZeroWind,
 } from "./environment.js";
 import { PCG32 } from "./random.js";
-import { EARTH_RADIUS_M, G_STD, ISA, sutherlandViscosity } from "./units.js";
+import {
+  EARTH_ANGULAR_VELOCITY,
+  EARTH_RADIUS_M,
+  G_STD,
+  ISA,
+  sutherlandViscosity,
+} from "./units.js";
 
 describe("ConstantAtmosphere", () => {
   it("returns ISA sea-level density everywhere", () => {
@@ -533,6 +541,45 @@ describe("UniformGravity", () => {
   });
 });
 
+describe("NoRotation", () => {
+  it("zeroes omega and latitude (default: Coriolis contributes nothing)", () => {
+    const rotation = new NoRotation();
+    const out = new EnvSample();
+    out.omega = 999;
+    out.latitude = 999;
+    rotation.sample(out);
+    expect(out.omega).toBe(0);
+    expect(out.latitude).toBe(0);
+  });
+});
+
+describe("UniformRotation", () => {
+  it("defaults omega to Earth's sidereal rate", () => {
+    const rotation = new UniformRotation(0.5);
+    const out = new EnvSample();
+    rotation.sample(out);
+    expect(out.omega).toBe(EARTH_ANGULAR_VELOCITY);
+    expect(out.latitude).toBe(0.5);
+  });
+
+  it("supports an explicit omega override", () => {
+    const rotation = new UniformRotation(-0.3, 1.0);
+    const out = new EnvSample();
+    rotation.sample(out);
+    expect(out.omega).toBe(1.0);
+    expect(out.latitude).toBe(-0.3);
+  });
+
+  it("is constant regardless of how many times sample() is called", () => {
+    const rotation = new UniformRotation(0.7);
+    const out = new EnvSample();
+    rotation.sample(out);
+    const first = out.latitude;
+    rotation.sample(out);
+    expect(out.latitude).toBe(first);
+  });
+});
+
 describe("Environment", () => {
   it("composes atmosphere + gravity + wind into one sample call", () => {
     const env = new Environment(new ConstantAtmosphere(), new UniformGravity(), new ZeroWind());
@@ -543,6 +590,27 @@ describe("Environment", () => {
     expect(out.wx).toBe(0);
     expect(out.wy).toBe(0);
     expect(out.wz).toBe(0);
+  });
+
+  it("defaults rotation to NoRotation (omega=0) when not supplied", () => {
+    const env = new Environment(new ConstantAtmosphere(), new UniformGravity());
+    const out = new EnvSample();
+    env.sample(0, 0, 0, out);
+    expect(out.omega).toBe(0);
+    expect(out.latitude).toBe(0);
+  });
+
+  it("composes a supplied RotationModel into the same sample call", () => {
+    const env = new Environment(
+      new ConstantAtmosphere(),
+      new UniformGravity(),
+      new ZeroWind(),
+      new UniformRotation(0.6),
+    );
+    const out = new EnvSample();
+    env.sample(0, 0, 0, out);
+    expect(out.omega).toBe(EARTH_ANGULAR_VELOCITY);
+    expect(out.latitude).toBe(0.6);
   });
 
   it("samples the environment exactly once per call (spy count == 1)", () => {
