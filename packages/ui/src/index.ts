@@ -38,3 +38,5 @@ export * from "./terrain-editor-page-logic.js";
 export * from "./terrain-editor-page.js";
 export * from "./neglected-effects-page-logic.js";
 export * from "./neglected-effects-page.js";
+export * from "./density-altitude-page-logic.js";
+export * from "./density-altitude-page.js";
