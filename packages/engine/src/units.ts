@@ -30,6 +30,13 @@ export function sutherlandViscosity(temperatureK: number): number {
 /** Mean Earth radius, m (used by altitude-dependent gravity, §3.2). */
 export const EARTH_RADIUS_M = 6.371e6;
 
+/**
+ * Earth's mean sidereal rotation rate, rad/s (2*pi / 86164.0905 s, the
+ * sidereal day -- the physically-relevant period for Coriolis effects, not
+ * the 86400 s solar day). Used by the Coriolis force option (P4.27).
+ */
+export const EARTH_ANGULAR_VELOCITY_RAD_S = 7.292115e-5;
+
 /** Degrees to radians. */
 export function degToRad(deg: number): number {
   return (deg * Math.PI) / 180;

@@ -127,6 +127,34 @@ export class BuoyancyForce implements ForceModel {
 }
 
 /**
+ * Coriolis force, F = -2m*Omega x v (§3.2, P4.27). A genuine id-carrier only
+ * here in the 2D model: the 2D (x, y) state has no lateral (z/vz) channel,
+ * and with the local-frame decomposition {@link createSpatialProjectileModel}
+ * uses (Omega = Omega_E*(cos(lat), sin(lat), 0), i.e. no East component),
+ * the in-plane (x, y) contribution to F is proportional to vz -- identically
+ * zero on every 2D-confined trajectory, since vz is always 0 there by
+ * construction. That is the true value on this model's vz=0 slice, not an
+ * approximation: the only nonzero Coriolis component for planar motion is
+ * the out-of-plane (z) term, which the 2D model has no channel to receive,
+ * exactly the same "extra dimension of physics, out of this model's scope"
+ * situation `spatial-projectile-model.ts` already notes for full 3D Magnus.
+ * The dim-6 spatial model implements the real (nonzero) force directly; see
+ * that file for the derivation and the latitude parameter.
+ */
+export class CoriolisForce implements ForceModel {
+  readonly id = "coriolis";
+
+  /** @inheritDoc */
+  accumulate(_t: number, _y: Float64Array, _ctx: EvalContext, _outForce: MutVec2): void {
+    // vz === 0 always in the 2D state -> both in-plane components vanish.
+  }
+
+  energyPower(_t: number, _y: Float64Array, _ctx: EvalContext): number {
+    return 0; // Coriolis is always perpendicular to v: F.v = -2m*(Omega x v).v = 0 identically.
+  }
+}
+
+/**
  * |F_b|/|F_g| = rho_air*V / m -- g cancels, so this is a pure property of
  * the projectile and the local air density, independent of any gravity
  * model (uniform or altitude-dependent). This is the one live number the

@@ -5,6 +5,7 @@ import type { EventSpec, InvariantSpec, Model } from "./model.js";
 import { restitutionBounceAction, type RestitutionParams } from "./restitution.js";
 import type { ChannelMeta } from "./schema.js";
 import { FlatTerrain, type Terrain } from "./terrain.js";
+import { EARTH_ANGULAR_VELOCITY_RAD_S } from "./units.js";
 import type { Vec3 } from "./vec3.js";
 
 /**
@@ -41,9 +42,11 @@ const DIM = 6;
  * already are: `uz = vz - ctx.env.wz`; Magnus (P4.24) generalizes (3.15)'s
  * implemented form to a full ω̂×v_rel cross product with an arbitrary unit
  * spin axis (`ProjectileParams.spinAxis`, defaulting to ê_z -- see
- * {@link DEFAULT_SPIN_AXIS}), not just the z-axis-only 2D case. Any other
- * force id makes construction throw rather than silently produce wrong
- * physics.
+ * {@link DEFAULT_SPIN_AXIS}), not just the z-axis-only 2D case; Coriolis
+ * (P4.27, {@link CoriolisParams}) is genuinely 3D-only -- see its switch
+ * case below for why it can't be represented in the 2D model at all. Any
+ * other force id makes construction throw rather than silently produce
+ * wrong physics.
  */
 const SUPPORTED_FORCE_IDS = new Set([
   "gravity",
@@ -51,7 +54,28 @@ const SUPPORTED_FORCE_IDS = new Set([
   "drag-quadratic",
   "drag-linear",
   "magnus",
+  "coriolis",
 ]);
+
+/**
+ * Configures the `"coriolis"` force (P4.27, §3.2): F = -2m*Omega x v, using
+ * the true (ground-relative) velocity (vx, vy, vz) -- a frame-fictitious
+ * force depends on velocity relative to the rotating Earth frame, unlike
+ * drag/Magnus's use of the air-relative `u = v - w`. Earth's rotation
+ * vector is decomposed in this model's local (x, y, z) axes by treating
+ * them as (North, Up, East) -- consistent with the model's own right-handed
+ * convention e_x×e_y=e_z (`SPATIAL_CHANNELS`'s doc), since standard ENU
+ * satisfies e_N×e_U=e_E -- giving Omega_local = Omega_E*(cos(lat), sin(lat),
+ * 0) (no East component: Earth's axis lies in the North-Up/meridian plane).
+ * This assumes the scenario's downrange axis (x) points due north; a
+ * heading/azimuth parameter for an arbitrarily-oriented firing direction is
+ * out of this task's scope (not needed by the P4.27 validation scenario, a
+ * due-north-relative vertical drop).
+ */
+export interface CoriolisParams {
+  /** Latitude, radians. Positive = Northern hemisphere. */
+  readonly latitudeRad: number;
+}
 
 /**
  * Default spin axis when `ProjectileParams.spinAxis` is omitted: ê_z, the
@@ -208,6 +232,7 @@ export function createSpatialProjectileModel(
   forces: readonly ForceModel[],
   terrain: Terrain = new FlatTerrain(),
   restitution?: RestitutionParams,
+  coriolis?: CoriolisParams,
 ): Model {
   const registry = createForceRegistry(forces);
   for (const f of registry) {
@@ -219,8 +244,19 @@ export function createSpatialProjectileModel(
       );
     }
   }
+  const hasCoriolis = registry.some((f) => f.id === "coriolis");
+  if (hasCoriolis && !coriolis) {
+    throw new Error(
+      `createSpatialProjectileModel: "coriolis" force requires the latitudeRad param (4th arg).`,
+    );
+  }
   const hasQuadraticDrag = registry.some((f) => f.id === "drag-quadratic");
   const supportsAnalyticJacobian = registry.every((f) => ANALYTIC_JACOBIAN_FORCE_IDS.has(f.id));
+  // Precomputed once (not per rhs call): sin/cos of a construction-time-fixed
+  // latitude, same "compute the invariant-across-calls part once" shape as
+  // hasQuadraticDrag/supportsAnalyticJacobian above (ADR-004 hot-path budget).
+  const sinLat = coriolis ? Math.sin(coriolis.latitudeRad) : 0;
+  const cosLat = coriolis ? Math.cos(coriolis.latitudeRad) : 0;
 
   return {
     dim: DIM,
@@ -277,6 +313,20 @@ export function createSpatialProjectileModel(
           case "gravity":
             fy += -ctx.params.mass * ctx.env.g;
             break;
+          case "coriolis": {
+            // F = -2m*Omega x v, Omega_local = Omega_E*(cosLat, sinLat, 0)
+            // (see CoriolisParams's doc for the axis-convention derivation).
+            // Uses the true velocity (vx, vy, vz), not the wind-relative
+            // (ux, uy, uz) drag/Magnus use -- a frame-fictitious force
+            // depends on velocity relative to the rotating frame, not the
+            // air.
+            const omegaE = EARTH_ANGULAR_VELOCITY_RAD_S;
+            const m = ctx.params.mass;
+            fx += -2 * m * omegaE * sinLat * vz;
+            fy += 2 * m * omegaE * cosLat * vz;
+            fz += 2 * m * omegaE * (sinLat * vx - cosLat * vy);
+            break;
+          }
           case "magnus": {
             // Full 3D generalization of (3.15)'s implemented form,
             // F_M = 0.5*rho*C_L(S)*A*|v_rel|*(ω̂ x v_rel): 2D's `MagnusForce`
