@@ -1,6 +1,7 @@
 /**
  * Reusable buffer for a point sample of the environment: air density,
- * temperature, pressure, viscosity, speed of sound, wind, and local gravity.
+ * temperature, pressure, viscosity, speed of sound, wind, local gravity, and
+ * planetary rotation (rate + latitude, Coriolis force -- P4.27).
  * `Environment.sample` writes into a caller-owned instance rather than
  * returning a new object, so the rhs hot path stays allocation-free (ADR-004).
  */
@@ -14,4 +15,6 @@ export class EnvSample {
   wy = 0; // m/s (wind y)
   wz = 0; // m/s (wind z, lateral/crosswind -- P4.25)
   g = 0; // m/s^2 (local gravity magnitude)
+  omega = 0; // rad/s (planetary rotation rate, Coriolis force -- P4.27; 0 = no rotation)
+  latitude = 0; // rad (launch-site latitude, Coriolis force -- P4.27)
 }

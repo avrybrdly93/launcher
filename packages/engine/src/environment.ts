@@ -2,7 +2,13 @@ import { EnvSample } from "./env-sample.js";
 import { generateOuGustPath, type OuGustParams } from "./ou-gust.js";
 import { PchipInterpolator } from "./pchip.js";
 import { PCG32 } from "./random.js";
-import { EARTH_RADIUS_M, G_STD, ISA, sutherlandViscosity } from "./units.js";
+import {
+  EARTH_ANGULAR_VELOCITY,
+  EARTH_RADIUS_M,
+  G_STD,
+  ISA,
+  sutherlandViscosity,
+} from "./units.js";
 
 /** Fills the thermodynamic fields of an EnvSample (rho, T, p, eta, c) at a point (§3.4). */
 export interface Atmosphere {
@@ -20,6 +26,47 @@ export interface GravityModel {
 export interface WindModel {
   /** Writes wx, wy, wz into `out` at time `t` and world position (x, y). */
   sample(t: number, x: number, y: number, out: EnvSample): void;
+}
+
+/**
+ * Fills the planetary-rotation fields (omega, latitude) of an EnvSample --
+ * the Coriolis force's (P4.27) only inputs beyond velocity/mass. Unlike
+ * Atmosphere/GravityModel/WindModel this has no `(t, x, y)` dependence: a
+ * launch site's latitude and Earth's rotation rate are the same constant for
+ * every point/time in a single scenario, so `sample` takes no arguments
+ * beyond the output buffer.
+ */
+export interface RotationModel {
+  /** Writes omega, latitude into `out`. */
+  sample(out: EnvSample): void;
+}
+
+/** Default: no planetary rotation (omega=0), i.e. Coriolis contributes nothing even if registered. */
+export class NoRotation implements RotationModel {
+  /** @inheritDoc */
+  sample(out: EnvSample): void {
+    out.omega = 0;
+    out.latitude = 0;
+  }
+}
+
+/**
+ * Constant rotation rate + launch-site latitude for the Coriolis force
+ * (P4.27). `latitudeRad` follows the usual geographic convention: positive
+ * = Northern Hemisphere, negative = Southern Hemisphere, in radians
+ * (`degToRad`, units.ts, converts from degrees).
+ */
+export class UniformRotation implements RotationModel {
+  constructor(
+    private readonly latitudeRad: number,
+    private readonly omega: number = EARTH_ANGULAR_VELOCITY,
+  ) {}
+
+  /** @inheritDoc */
+  sample(out: EnvSample): void {
+    out.omega = this.omega;
+    out.latitude = this.latitudeRad;
+  }
 }
 
 /** ISA sea-level atmosphere, uniform with altitude (§3.4 default). */
@@ -354,22 +401,24 @@ export class OneCosineGustWind implements WindModel {
 }
 
 /**
- * Composes an Atmosphere + GravityModel + WindModel into the single
- * `Environment` the engine exports (§2.2 module table). `sample` is called
- * exactly once per rhs evaluation (§2.4a); internally it delegates to the
- * three components against the same shared EnvSample buffer.
+ * Composes an Atmosphere + GravityModel + WindModel + RotationModel into the
+ * single `Environment` the engine exports (§2.2 module table). `sample` is
+ * called exactly once per rhs evaluation (§2.4a); internally it delegates to
+ * the four components against the same shared EnvSample buffer.
  */
 export class Environment {
   constructor(
     private readonly atmosphere: Atmosphere,
     private readonly gravity: GravityModel,
     private readonly wind: WindModel = new ZeroWind(),
+    private readonly rotation: RotationModel = new NoRotation(),
   ) {}
 
-  /** Samples atmosphere, gravity, and wind into `out` at time `t`, position (x, y). */
+  /** Samples atmosphere, gravity, wind, and rotation into `out` at time `t`, position (x, y). */
   sample(t: number, x: number, y: number, out: EnvSample): void {
     this.atmosphere.sample(x, y, out);
     this.gravity.sample(x, y, out);
     this.wind.sample(t, x, y, out);
+    this.rotation.sample(out);
   }
 }

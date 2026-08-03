@@ -41,9 +41,10 @@ const DIM = 6;
  * already are: `uz = vz - ctx.env.wz`; Magnus (P4.24) generalizes (3.15)'s
  * implemented form to a full ω̂×v_rel cross product with an arbitrary unit
  * spin axis (`ProjectileParams.spinAxis`, defaulting to ê_z -- see
- * {@link DEFAULT_SPIN_AXIS}), not just the z-axis-only 2D case. Any other
- * force id makes construction throw rather than silently produce wrong
- * physics.
+ * {@link DEFAULT_SPIN_AXIS}), not just the z-axis-only 2D case; Coriolis
+ * (P4.27) is genuinely new to 3D -- see the "coriolis" rhs switch case below
+ * for its derivation. Any other force id makes construction throw rather
+ * than silently produce wrong physics.
  */
 const SUPPORTED_FORCE_IDS = new Set([
   "gravity",
@@ -51,6 +52,7 @@ const SUPPORTED_FORCE_IDS = new Set([
   "drag-quadratic",
   "drag-linear",
   "magnus",
+  "coriolis",
 ]);
 
 /**
@@ -188,9 +190,9 @@ function createGroundImpactEvent(terrain: Terrain, restitution?: RestitutionPara
 
 /**
  * Builds the dim-6 spatial (3D) projectile `Model` (P4.23 groundwork,
- * extended with full 3D Magnus in P4.24):
- * gravity/buoyancy/quadratic-drag/linear-drag/magnus generalized directly to
- * 3D (not by calling into `composeForces`/`forces.ts`'s
+ * extended with full 3D Magnus in P4.24 and Coriolis in P4.27):
+ * gravity/buoyancy/quadratic-drag/linear-drag/magnus/coriolis generalized
+ * directly to 3D (not by calling into `composeForces`/`forces.ts`'s
  * `ForceModel.accumulate`, which are inherently 2D). `forces` is used only
  * to select which physics is active (by id) -- the actual 3D force math
  * lives in this file. Any unsupported force id throws at construction time
@@ -213,9 +215,8 @@ export function createSpatialProjectileModel(
   for (const f of registry) {
     if (!SUPPORTED_FORCE_IDS.has(f.id)) {
       throw new Error(
-        `createSpatialProjectileModel does not support force "${f.id}" yet -- full 3D Magnus ` +
-          `(and any other force needing a genuine 3D vector law beyond gravity/buoyancy/drag) ` +
-          `is P4.24, not this task's scope.`,
+        `createSpatialProjectileModel does not support force "${f.id}" yet -- see ` +
+          `SUPPORTED_FORCE_IDS for the forces this model currently generalizes to 3D.`,
       );
     }
   }
@@ -305,6 +306,39 @@ export function createSpatialProjectileModel(
             fx += k * (ay * uz - az * uy);
             fy += k * (az * ux - ax * uz);
             fz += k * (ax * uy - ay * ux);
+            break;
+          }
+          case "coriolis": {
+            // F = -2m*Omega x v (P4.27). Uses the *true* velocity (vx, vy,
+            // vz), not the wind-relative (ux, uy, uz) every other force here
+            // uses -- Coriolis is a pseudo-force from Earth's rotation, felt
+            // by anything moving relative to the rotating frame regardless
+            // of the air's own motion.
+            //
+            // Omega at latitude phi, in this model's (downrange=x, up=y,
+            // lateral=z) axes, is the standard ENU decomposition with zero
+            // East (z) component: Omega = (Omega*cos(phi), Omega*sin(phi), 0)
+            // -- cos(phi) along local North (=downrange=x), sin(phi) along
+            // local Up (=y), matching `vec3.ts`'s e_x x e_y = e_z convention
+            // (unit tests: spatial-projectile-model.test.ts "coriolis").
+            // Expanding F = -2m*(Omega x v) component-wise:
+            //   Fx = -2*m*Omega*sin(phi)*vz
+            //   Fy =  2*m*Omega*cos(phi)*vz
+            //   Fz = -2*m*Omega*cos(phi)*vy + 2*m*Omega*sin(phi)*vx
+            // For a vertical drop (vx=vz=0, vy=-g*t to leading order), only
+            // Fz survives: Fz = 2*m*Omega*cos(phi)*g*t, integrating twice to
+            // the classic eastward deflection z(t) = (1/3)*Omega*g*t^3*cos(phi)
+            // -- this task's validation criterion
+            // (coriolis-drop-deflection.test.ts, @ballista/solverkit).
+            const omega = ctx.env.omega;
+            if (omega === 0) break; // NoRotation default: zero contribution, no trig cost
+            const phi = ctx.env.latitude;
+            const cosPhi = Math.cos(phi);
+            const sinPhi = Math.sin(phi);
+            const twoMOmega = 2 * ctx.params.mass * omega;
+            fx += -twoMOmega * sinPhi * vz;
+            fy += twoMOmega * cosPhi * vz;
+            fz += -twoMOmega * cosPhi * vy + twoMOmega * sinPhi * vx;
             break;
           }
           default:

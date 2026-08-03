@@ -127,6 +127,35 @@ export class BuoyancyForce implements ForceModel {
 }
 
 /**
+ * Coriolis pseudo-force, F = -2m*Omega x v (P4.27). Genuinely 3D: written out
+ * in the (downrange=x, up=y, lateral=z) axes this model uses, with Omega at
+ * latitude phi expressed as (Omega*cos(phi), Omega*sin(phi), 0) -- the
+ * standard ENU decomposition (zero East component, cos(phi) component along
+ * the local North/downrange direction, sin(phi) component along local
+ * Up/vertical) -- its dominant term for a vertical drop is exactly the
+ * lateral (z) component, which a 2D model has no channel to receive. See
+ * `spatial-projectile-model.ts`'s "coriolis" switch case for the actual 3D
+ * force law and the derivation of why that reduces to the classic
+ * eastward-deflection formula; this class exists only as a registry id
+ * marker there (same role `GravityForce`/`QuadraticDragForce` already play
+ * when passed to `createSpatialProjectileModel`). `accumulate` throws rather
+ * than silently omitting the one component that is this force's entire
+ * point, matching `createSpatialProjectileModel`'s own "throw rather than
+ * silently produce wrong physics" policy for unsupported force ids.
+ */
+export class CoriolisForce implements ForceModel {
+  readonly id = "coriolis";
+
+  /** @inheritDoc */
+  accumulate(_t: number, _y: Float64Array, _ctx: EvalContext, _outForce: MutVec2): void {
+    throw new Error(
+      "CoriolisForce is 3D-only (createSpatialProjectileModel): its dominant deflection " +
+        "component is lateral (z), which a 2D model has no channel to receive.",
+    );
+  }
+}
+
+/**
  * |F_b|/|F_g| = rho_air*V / m -- g cancels, so this is a pure property of
  * the projectile and the local air density, independent of any gravity
  * model (uniform or altitude-dependent). This is the one live number the
