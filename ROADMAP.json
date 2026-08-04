@@ -2092,8 +2092,8 @@
       "estMinutes": 20,
       "difficulty": "E",
       "validation": "switching model regenerates channels/controls",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed; exploring scenario-spec.ts, scenario-resolver.ts, the three model files, and forces-panel/environment-panel UI pattern before implementing."
     },
     {
       "id": "P4.31",
