@@ -18,6 +18,8 @@ export * from "./forces-panel-logic.js";
 export * from "./forces-panel.js";
 export * from "./solver-panel-logic.js";
 export * from "./solver-panel.js";
+export * from "./model-picker-logic.js";
+export * from "./model-picker.js";
 export * from "./advisor-hint-panel.js";
 export * from "./compare-legend.js";
 export * from "./preset-browser-logic.js";
