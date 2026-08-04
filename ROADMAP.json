@@ -2092,8 +2092,8 @@
       "estMinutes": 20,
       "difficulty": "E",
       "validation": "switching model regenerates channels/controls",
-      "status": "in-progress",
-      "notes": ""
+      "status": "done",
+      "notes": "scenario-resolver.ts's resolveModel() was hardcoded to createPlanarProjectileModel, silently ignoring ScenarioSpec.model.id (already in the schema but never consumed) -- added MODEL_FACTORIES (id -> {model,y0} factory, same registry pattern as FORCE_FACTORIES/STEPPER_FACTORIES) dispatching on it, plus KNOWN_MODEL_IDS. New ids: 'planar-projectile-spin' (createPlanarProjectileSpinModel, tauOmega=25s default -- no per-scenario field for it yet), 'spatial-projectile' (createSpatialProjectileModel, z0/vz0 seeded at 0 -- matches that model's own doc comment that z0=vz0=0 reduces exactly to the planar model, so this is a faithful 2D-in-3D seed, not arbitrary). Added ModelPicker (packages/ui, model-picker.tsx + model-picker-logic.ts, mirrors SolverPanel's split) offering the 3 ids via a <select>; standalone/tested only, same as SolverPanel/PresetBrowser/ForcesPanel -- NOT wired into packages/app's control dock, which doesn't compose any panel yet (that's a separate, not-yet-reached task). Added to accessibility.test.tsx's panel audit (axe-clean). Tests: scenario-resolver.test.ts +6 (incl. the literal 'switching model regenerates channels' assertion), model-picker-logic.test.ts (4), model-picker.test.tsx (5, incl. an end-to-end resolveModel assertion). Full suite: typecheck/lint/lint:deps clean, 1259/1259 tests, full `pnpm -r run build` green (root `pnpm build` script itself errors on this pnpm 11.9.0 install with --workspace-concurrency -- pre-existing environment issue, unrelated to this task, worth its own backlog item). Deferred, not this task's scope: a dedicated tauOmega/z0/vz0 authoring UI (needs new optional ScenarioSpec.initialConditions fields + a schema-driven Model panel, mirroring SolverPanel's fixed/adaptive split) and wiring ModelPicker (plus every other existing panel) into packages/app's real control dock."
     },
     {
       "id": "P4.31",
