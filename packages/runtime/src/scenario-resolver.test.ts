@@ -3,6 +3,7 @@ import { PRESET_SCENARIOS } from "@ballista/engine";
 import { ClassicalRK4Stepper, integrate, TrajectoryRecorder } from "@ballista/solverkit";
 import {
   KNOWN_FORCE_IDS,
+  KNOWN_MODEL_IDS,
   resolveForce,
   resolveModel,
   resolveSolverConfig,
@@ -39,6 +40,75 @@ describe("resolveForce / resolveModel", () => {
         model: { id: "planar-projectile", forceIds: ["not-a-real-force"] },
       }),
     ).toThrow(/not-a-real-force/);
+  });
+});
+
+describe("KNOWN_MODEL_IDS / model switching (P4.30)", () => {
+  it("resolves every known model id against the reference preset without throwing", () => {
+    const base = PRESET_SCENARIOS[0]!;
+    for (const id of KNOWN_MODEL_IDS) {
+      expect(() => resolveModel({ ...base, model: { ...base.model, id } })).not.toThrow();
+    }
+  });
+
+  it("switching model id regenerates channels (this task's validation criterion)", () => {
+    const base = PRESET_SCENARIOS[0]!;
+    const planar = resolveModel({ ...base, model: { ...base.model, id: "planar-projectile" } });
+    const spin = resolveModel({
+      ...base,
+      model: { ...base.model, id: "planar-projectile-spin" },
+    });
+    const spatial = resolveModel({
+      ...base,
+      model: { ...base.model, id: "spatial-projectile" },
+    });
+
+    expect(planar.model.channels).not.toEqual(spin.model.channels);
+    expect(planar.model.channels).not.toEqual(spatial.model.channels);
+    expect(spin.model.channels).not.toEqual(spatial.model.channels);
+  });
+
+  it("each model's y0 length matches its own dim", () => {
+    const base = PRESET_SCENARIOS[0]!;
+    for (const id of KNOWN_MODEL_IDS) {
+      const { model, y0 } = resolveModel({ ...base, model: { ...base.model, id } });
+      expect(y0.length).toBe(model.dim);
+    }
+  });
+
+  it("planar-projectile-spin seeds its omega state from initialConditions.spin0", () => {
+    const base = PRESET_SCENARIOS[0]!;
+    const { y0 } = resolveModel({
+      ...base,
+      model: { ...base.model, id: "planar-projectile-spin" },
+      initialConditions: { ...base.initialConditions, spin0: 12.5 },
+    });
+    expect(y0[y0.length - 1]).toBe(12.5);
+  });
+
+  it("spatial-projectile seeds z0/vz0 at 0 and matches the planar model on the shared x/y/vx/vy channels", () => {
+    const base = PRESET_SCENARIOS[0]!;
+    const planar = resolveModel({ ...base, model: { ...base.model, id: "planar-projectile" } });
+    const spatial = resolveModel({
+      ...base,
+      model: { ...base.model, id: "spatial-projectile" },
+    });
+    // spatial y0 layout is [x, y, z, vx, vy, vz]; planar is [x, y, vx, vy].
+    expect(Array.from(spatial.y0)).toEqual([
+      planar.y0[0],
+      planar.y0[1],
+      0,
+      planar.y0[2],
+      planar.y0[3],
+      0,
+    ]);
+  });
+
+  it("throws a descriptive error for an unknown model id", () => {
+    const base = PRESET_SCENARIOS[0]!;
+    expect(() =>
+      resolveModel({ ...base, model: { ...base.model, id: "not-a-real-model" } }),
+    ).toThrow(/not-a-real-model/);
   });
 });
 

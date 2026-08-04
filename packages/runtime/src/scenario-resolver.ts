@@ -6,10 +6,13 @@ import {
   QuadraticDragForce,
   createEvalContext,
   createPlanarProjectileModel,
+  createPlanarProjectileSpinModel,
+  createSpatialProjectileModel,
   environmentSpecToEnvironment,
   projectileSpecToParams,
   type EvalContext,
   type ForceModel,
+  type InitialConditions,
   type Model,
   type ScenarioSpec,
 } from "@ballista/engine";
@@ -71,16 +74,68 @@ export interface ResolvedModel {
   readonly forces: readonly ForceModel[];
 }
 
+/**
+ * Spin-decay time constant (s) `planar-projectile-spin` integrates with
+ * (`createPlanarProjectileSpinModel`'s `tauOmega` -- omega_dot =
+ * -omega/tauOmega). `ScenarioSpec.initialConditions` has no per-scenario
+ * field for it yet (only `spin0`, the *initial* rate) -- a documented
+ * simplification (P4.30), not an oversight: a dedicated tauOmega control is
+ * a natural follow-up once a Model panel (mirroring `SolverPanel`'s
+ * schema-driven params) exists to expose it. Matches the representative
+ * value `planar-projectile-spin-model.test.ts` integrates with.
+ */
+const DEFAULT_SPIN_DECAY_TAU = 25;
+
+/**
+ * Model-id -> live-instance resolver (§5.2 registry pattern, P4.30), same
+ * shape as `FORCE_FACTORIES`/`STEPPER_FACTORIES` above. Each factory also
+ * builds `y0` since the three models disagree on `dim`/channel order
+ * (planar: [x,y,vx,vy]; spin: [x,y,vx,vy,omega]; spatial: [x,y,z,vx,vy,vz]).
+ * `spatial-projectile` seeds z0/vz0 at 0 -- `ScenarioSpec.initialConditions`
+ * has no z0/vz0 fields yet, and `spatial-projectile-model.ts`'s own doc
+ * comment confirms z0=vz0=0 reduces its rhs exactly to the planar model's on
+ * the shared four channels, so this is a faithful (not fabricated) 2D-in-3D
+ * seeding, not an arbitrary default. Full z0/vz0/tauOmega authoring is a
+ * follow-up once a Model panel exists (same simplification as above).
+ */
+const MODEL_FACTORIES: Readonly<
+  Record<
+    string,
+    (forces: readonly ForceModel[], ic: InitialConditions) => { model: Model; y0: Float64Array }
+  >
+> = {
+  "planar-projectile": (forces, ic) => ({
+    model: createPlanarProjectileModel(forces),
+    y0: new Float64Array([ic.x0, ic.y0, ic.vx0, ic.vy0]),
+  }),
+  "planar-projectile-spin": (forces, ic) => ({
+    model: createPlanarProjectileSpinModel(forces, DEFAULT_SPIN_DECAY_TAU),
+    y0: new Float64Array([ic.x0, ic.y0, ic.vx0, ic.vy0, ic.spin0 ?? 0]),
+  }),
+  "spatial-projectile": (forces, ic) => ({
+    model: createSpatialProjectileModel(forces),
+    y0: new Float64Array([ic.x0, ic.y0, 0, ic.vx0, ic.vy0, 0]),
+  }),
+};
+
+/**
+ * Every model id `resolveModel` knows how to build, in this registry's own
+ * declared order -- the canonical list a Model panel/picker (P4.30)
+ * enumerates options from, rather than a separately maintained id list
+ * drifting out of sync with `MODEL_FACTORIES`.
+ */
+export const KNOWN_MODEL_IDS: readonly string[] = Object.keys(MODEL_FACTORIES);
+
 /** Builds a fresh Model/EvalContext/initial-state triple from a `ScenarioSpec` (mirrors `golden-trajectory-store.ts`'s pipeline). */
 export function resolveModel(spec: ScenarioSpec): ResolvedModel {
   const forces = spec.model.forceIds.map(resolveForce);
-  const model = createPlanarProjectileModel(forces);
+  const factory = MODEL_FACTORIES[spec.model.id];
+  if (!factory) throw new Error(`Unknown model id "${spec.model.id}"`);
+  const { model, y0 } = factory(forces, spec.initialConditions);
+
   const env = environmentSpecToEnvironment(spec.environment, spec.seed);
   const params = projectileSpecToParams(spec.projectile, spec.initialConditions.spin0);
   const ctx = createEvalContext(env, params);
-
-  const ic = spec.initialConditions;
-  const y0 = new Float64Array([ic.x0, ic.y0, ic.vx0, ic.vy0]);
 
   return { model, ctx, y0, forces };
 }

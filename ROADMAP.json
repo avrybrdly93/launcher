@@ -2092,7 +2092,7 @@
       "estMinutes": 20,
       "difficulty": "E",
       "validation": "switching model regenerates channels/controls",
-      "status": "todo",
+      "status": "in-progress",
       "notes": ""
     },
     {
