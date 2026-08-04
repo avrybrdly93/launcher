@@ -27,6 +27,7 @@ import { EnvironmentPanel } from "./environment-panel.js";
 import { ForcesPanel } from "./forces-panel.js";
 import type { LaunchSpec } from "./launch-schema.js";
 import { LaunchPanel } from "./launch-panel.js";
+import { ModelPickerPanel } from "./model-picker-panel.js";
 import { PresetBrowser } from "./preset-browser.js";
 import { ProjectilePanel } from "./projectile-panel.js";
 import { CUSTOM_PROJECTILE_ID } from "./projectile-panel-logic.js";
@@ -136,6 +137,26 @@ describe("Accessibility audit (P3.34 validation criterion: axe-core, no critical
     );
   });
 
+  it("ModelPickerPanel: planar (no extra param controls)", async () => {
+    await auditNoCriticalViolations(
+      <ModelPickerPanel
+        model={GOLF_DRIVE.model}
+        initialConditions={GOLF_DRIVE.initialConditions}
+        onChange={vi.fn()}
+      />,
+    );
+  });
+
+  it("ModelPickerPanel: spatial (z0/vz0 controls shown)", async () => {
+    await auditNoCriticalViolations(
+      <ModelPickerPanel
+        model={{ ...GOLF_DRIVE.model, kind: "spatial" }}
+        initialConditions={{ ...GOLF_DRIVE.initialConditions, z0: 0, vz0: 0 }}
+        onChange={vi.fn()}
+      />,
+    );
+  });
+
   it("SolverPanel: fixed-step", async () => {
     await auditNoCriticalViolations(<SolverPanel solver={FIXED_SOLVER} onChange={vi.fn()} />);
   });
@@ -165,6 +186,11 @@ describe("Accessibility audit (P3.34 validation criterion: axe-core, no critical
         <ProjectilePanel projectile={GOLF_BALL} onChange={vi.fn()} />
         <EnvironmentPanel environment={ENVIRONMENT} onChange={vi.fn()} />
         <ForcesPanel forceIds={GOLF_DRIVE.model.forceIds} glyphSet={undefined} onChange={vi.fn()} />
+        <ModelPickerPanel
+          model={GOLF_DRIVE.model}
+          initialConditions={GOLF_DRIVE.initialConditions}
+          onChange={vi.fn()}
+        />
         <SolverPanel solver={ADAPTIVE_SOLVER} onChange={vi.fn()} />
         <PresetBrowser selectedTag={null} onSelectTag={vi.fn()} onSelectPreset={vi.fn()} />
         <CompareLegend entries={COMPARE_ENTRIES} onUnpin={vi.fn()} />
@@ -182,6 +208,11 @@ describe("Keyboard operability: every interactive control is natively tabbable",
         <ProjectilePanel projectile={CUSTOM_PROJECTILE} onChange={vi.fn()} />
         <EnvironmentPanel environment={ENVIRONMENT} onChange={vi.fn()} />
         <ForcesPanel forceIds={GOLF_DRIVE.model.forceIds} glyphSet={undefined} onChange={vi.fn()} />
+        <ModelPickerPanel
+          model={GOLF_DRIVE.model}
+          initialConditions={GOLF_DRIVE.initialConditions}
+          onChange={vi.fn()}
+        />
         <SolverPanel solver={ADAPTIVE_SOLVER} onChange={vi.fn()} />
         <PresetBrowser selectedTag={null} onSelectTag={vi.fn()} onSelectPreset={vi.fn()} />
         <CompareLegend entries={COMPARE_ENTRIES} onUnpin={vi.fn()} />

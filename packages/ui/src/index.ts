@@ -40,3 +40,5 @@ export * from "./neglected-effects-page-logic.js";
 export * from "./neglected-effects-page.js";
 export * from "./density-altitude-page-logic.js";
 export * from "./density-altitude-page.js";
+export * from "./model-picker-logic.js";
+export * from "./model-picker-panel.js";
