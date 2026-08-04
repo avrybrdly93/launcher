@@ -5,6 +5,7 @@ import { EnergyDriftRoute } from "./energy-drift-route.js";
 import { SolverLabRoute } from "./solver-lab-route.js";
 import { NeglectedEffectsRoute } from "./neglected-effects-route.js";
 import { DensityAltitudeRoute } from "./density-altitude-route.js";
+import { ModelRegistryRoute } from "./model-registry-route.js";
 import { StabilityExplorerRoute } from "./stability-explorer-route.js";
 import { TerrainEditorRoute } from "./terrain-editor-route.js";
 
@@ -36,6 +37,9 @@ function renderRoute(root: HTMLElement): void {
       return;
     case "#/density-altitude":
       render(<DensityAltitudeRoute />, root);
+      return;
+    case "#/model-registry":
+      render(<ModelRegistryRoute />, root);
       return;
     default:
       render(<App />, root);
