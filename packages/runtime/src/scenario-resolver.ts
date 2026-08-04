@@ -6,6 +6,8 @@ import {
   QuadraticDragForce,
   createEvalContext,
   createPlanarProjectileModel,
+  createPlanarProjectileSpinModel,
+  createSpatialProjectileModel,
   environmentSpecToEnvironment,
   projectileSpecToParams,
   type EvalContext,
@@ -71,18 +73,69 @@ export interface ResolvedModel {
   readonly forces: readonly ForceModel[];
 }
 
-/** Builds a fresh Model/EvalContext/initial-state triple from a `ScenarioSpec` (mirrors `golden-trajectory-store.ts`'s pipeline). */
+/**
+ * Spin-decay time constant seeded when `spec.model.tauOmega` is omitted for
+ * a `"planar-spin"` model (P4.30) -- matches the value
+ * `planar-projectile-spin-model.test.ts` exercises throughout as its own
+ * representative decay rate, not a physically-derived default (this dim-5
+ * model's own doc comments don't prescribe one).
+ */
+export const DEFAULT_TAU_OMEGA = 25;
+
+/**
+ * Model-kind -> live-`Model`-instance resolver (§5.2 registry pattern,
+ * P4.30 "model registry UI"): the counterpart to `resolveForce`/
+ * `resolveStepper` above, one level up the pipeline. `spec.model.kind`
+ * (optional, defaults to `"planar"` -- see `scenario-spec.ts`'s own doc
+ * comment on why this is safe for every pre-P4.30 spec) selects which of
+ * the three P4.30-registered model constructors builds `model`, and which
+ * shape `y0` takes (dim 4/5/6 respectively) -- this is the mechanism behind
+ * this task's "switching model regenerates channels/controls" validation
+ * criterion: a different `kind` means a genuinely different `Model`
+ * instance with its own `channels`/`partitions`, not a UI-side relabeling
+ * of the same dim-4 state.
+ *
+ * `createSpatialProjectileModel` throws a descriptive error (naming the
+ * offending force id) for any force id outside its own `SUPPORTED_FORCE_IDS`
+ * (`spatial-projectile-model.ts`) -- deliberately left uncaught here, the
+ * same "let the already-descriptive throw propagate" choice `resolveForce`/
+ * `resolveStepper` make for their own unknown-id cases, rather than
+ * swallowing it into a vaguer error. In practice this resolver's own
+ * `FORCE_FACTORIES` registry is currently a strict subset of
+ * `SUPPORTED_FORCE_IDS` (gravity/drag-linear/drag-quadratic/magnus/buoyancy
+ * all generalize to 3D; only "coriolis", not resolvable via `resolveForce`
+ * at all yet, does not), so no `forceIds` combination reachable through
+ * this resolver today can actually trigger that throw -- it is preserved as
+ * forward-compatible failure behavior (documented, not exercised by a test
+ * that would have to bypass `resolveForce` to construct one) for whenever a
+ * future 2D-only force is registered.
+ */
 export function resolveModel(spec: ScenarioSpec): ResolvedModel {
   const forces = spec.model.forceIds.map(resolveForce);
-  const model = createPlanarProjectileModel(forces);
+  const kind = spec.model.kind ?? "planar";
   const env = environmentSpecToEnvironment(spec.environment, spec.seed);
   const params = projectileSpecToParams(spec.projectile, spec.initialConditions.spin0);
   const ctx = createEvalContext(env, params);
-
   const ic = spec.initialConditions;
-  const y0 = new Float64Array([ic.x0, ic.y0, ic.vx0, ic.vy0]);
 
-  return { model, ctx, y0, forces };
+  switch (kind) {
+    case "planar": {
+      const model = createPlanarProjectileModel(forces);
+      const y0 = new Float64Array([ic.x0, ic.y0, ic.vx0, ic.vy0]);
+      return { model, ctx, y0, forces };
+    }
+    case "planar-spin": {
+      const tauOmega = spec.model.tauOmega ?? DEFAULT_TAU_OMEGA;
+      const model = createPlanarProjectileSpinModel(forces, tauOmega);
+      const y0 = new Float64Array([ic.x0, ic.y0, ic.vx0, ic.vy0, ic.spin0 ?? 0]);
+      return { model, ctx, y0, forces };
+    }
+    case "spatial": {
+      const model = createSpatialProjectileModel(forces);
+      const y0 = new Float64Array([ic.x0, ic.y0, ic.z0 ?? 0, ic.vx0, ic.vy0, ic.vz0 ?? 0]);
+      return { model, ctx, y0, forces };
+    }
+  }
 }
 
 /**
