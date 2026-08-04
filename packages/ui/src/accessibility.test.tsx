@@ -27,6 +27,7 @@ import { EnvironmentPanel } from "./environment-panel.js";
 import { ForcesPanel } from "./forces-panel.js";
 import type { LaunchSpec } from "./launch-schema.js";
 import { LaunchPanel } from "./launch-panel.js";
+import { ModelPicker } from "./model-picker.js";
 import { PresetBrowser } from "./preset-browser.js";
 import { ProjectilePanel } from "./projectile-panel.js";
 import { CUSTOM_PROJECTILE_ID } from "./projectile-panel-logic.js";
@@ -150,6 +151,10 @@ describe("Accessibility audit (P3.34 validation criterion: axe-core, no critical
     );
   });
 
+  it("ModelPicker", async () => {
+    await auditNoCriticalViolations(<ModelPicker scenario={GOLF_DRIVE} onChange={vi.fn()} />);
+  });
+
   it("CompareLegend", async () => {
     await auditNoCriticalViolations(<CompareLegend entries={COMPARE_ENTRIES} onUnpin={vi.fn()} />);
   });
@@ -166,6 +171,7 @@ describe("Accessibility audit (P3.34 validation criterion: axe-core, no critical
         <EnvironmentPanel environment={ENVIRONMENT} onChange={vi.fn()} />
         <ForcesPanel forceIds={GOLF_DRIVE.model.forceIds} glyphSet={undefined} onChange={vi.fn()} />
         <SolverPanel solver={ADAPTIVE_SOLVER} onChange={vi.fn()} />
+        <ModelPicker scenario={GOLF_DRIVE} onChange={vi.fn()} />
         <PresetBrowser selectedTag={null} onSelectTag={vi.fn()} onSelectPreset={vi.fn()} />
         <CompareLegend entries={COMPARE_ENTRIES} onUnpin={vi.fn()} />
         <AdvisorHintPanel scenario={GOLF_DRIVE} />
@@ -183,6 +189,7 @@ describe("Keyboard operability: every interactive control is natively tabbable",
         <EnvironmentPanel environment={ENVIRONMENT} onChange={vi.fn()} />
         <ForcesPanel forceIds={GOLF_DRIVE.model.forceIds} glyphSet={undefined} onChange={vi.fn()} />
         <SolverPanel solver={ADAPTIVE_SOLVER} onChange={vi.fn()} />
+        <ModelPicker scenario={GOLF_DRIVE} onChange={vi.fn()} />
         <PresetBrowser selectedTag={null} onSelectTag={vi.fn()} onSelectPreset={vi.fn()} />
         <CompareLegend entries={COMPARE_ENTRIES} onUnpin={vi.fn()} />
       </div>,
