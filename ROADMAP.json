@@ -2103,8 +2103,8 @@
       "estMinutes": 25,
       "difficulty": "M",
       "validation": "period vs amplitude curve matches elliptic-integral reference to 1e-6",
-      "status": "in-progress",
-      "notes": "Claimed by scheduled session."
+      "status": "done",
+      "notes": "createPendulumModel in packages/engine/src/pendulum-model.ts. Validated: period vs amplitude matches T(theta0)=4*sqrt(L/g)*K(sin(theta0/2)) (K via AGM) to 1e-6 relative across theta0 in [0.05, 2.8] rad."
     },
     {
       "id": "P4.32",
