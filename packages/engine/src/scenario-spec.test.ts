@@ -116,6 +116,64 @@ describe("scenarioSpecSchema", () => {
   });
 });
 
+describe("scenarioSpecSchema: model.kind (P4.30 model registry)", () => {
+  it("accepts a scenario with no model.kind at all (every pre-P4.30 spec, incl. every PRESET_SCENARIOS entry)", () => {
+    const spec = baseScenario(ENVIRONMENT_VARIANTS[0]!);
+    expect(spec.model.kind).toBeUndefined();
+    expect(() => parseWithSchema(scenarioSpecSchema, spec)).not.toThrow();
+  });
+
+  it("accepts each of the three registered model kinds, with kind-specific params", () => {
+    const planarSpin = {
+      ...baseScenario(ENVIRONMENT_VARIANTS[0]!),
+      model: {
+        id: "planar-projectile-spin",
+        forceIds: ["gravity"],
+        kind: "planar-spin",
+        tauOmega: 12,
+      },
+    };
+    expect(parseWithSchema(scenarioSpecSchema, planarSpin).model).toEqual(planarSpin.model);
+
+    const spatial = {
+      ...baseScenario(ENVIRONMENT_VARIANTS[0]!),
+      model: { id: "spatial-projectile", forceIds: ["gravity"], kind: "spatial" },
+      initialConditions: { x0: 0, y0: 1.5, vx0: 30, vy0: 20, z0: 2, vz0: -1 },
+    };
+    const parsedSpatial = parseWithSchema(scenarioSpecSchema, spatial);
+    expect(parsedSpatial.model.kind).toBe("spatial");
+    expect(parsedSpatial.initialConditions.z0).toBe(2);
+    expect(parsedSpatial.initialConditions.vz0).toBe(-1);
+
+    const planar = {
+      ...baseScenario(ENVIRONMENT_VARIANTS[0]!),
+      model: { id: "planar-projectile", forceIds: ["gravity"], kind: "planar" },
+    };
+    expect(parseWithSchema(scenarioSpecSchema, planar).model.kind).toBe("planar");
+  });
+
+  it("rejects an unrecognized model kind", () => {
+    const corrupt = {
+      ...baseScenario(ENVIRONMENT_VARIANTS[0]!),
+      model: { id: "planar-projectile", forceIds: ["gravity"], kind: "pendulum" },
+    };
+    expect(() => parseWithSchema(scenarioSpecSchema, corrupt)).toThrow(SchemaValidationError);
+  });
+
+  it("rejects a non-positive tauOmega", () => {
+    const corrupt = {
+      ...baseScenario(ENVIRONMENT_VARIANTS[0]!),
+      model: {
+        id: "planar-projectile-spin",
+        forceIds: ["gravity"],
+        kind: "planar-spin",
+        tauOmega: 0,
+      },
+    };
+    expect(() => parseWithSchema(scenarioSpecSchema, corrupt)).toThrow(SchemaValidationError);
+  });
+});
+
 describe("environmentSpecToEnvironment", () => {
   it("builds a live Environment that samples finite values for every wind variant", () => {
     for (const environment of ENVIRONMENT_VARIANTS) {

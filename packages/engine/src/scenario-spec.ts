@@ -126,6 +126,20 @@ export const initialConditionsSchema = z.object({
    * include "magnus"; omit (or 0) for spin-free scenarios.
    */
   spin0: z.number().optional(),
+  /**
+   * Lateral (out-of-plane) launch position, m (P4.23's axis convention:
+   * z = lateral, right-handed with e_x x e_y = e_z). Meaningful only when
+   * `model.kind` is `"spatial"` (P4.30); `resolveModel`
+   * (`@ballista/runtime`) defaults to 0 when omitted, which is also every
+   * planar/planar-spin scenario's implicit value (they have no z channel
+   * to carry it in at all).
+   */
+  z0: z.number().optional(),
+  /**
+   * Lateral launch velocity, m/s -- the `vz0` counterpart to {@link z0}.
+   * Same "spatial-only, defaults to 0" scope.
+   */
+  vz0: z.number().optional(),
 });
 /** Parsed type of {@link initialConditionsSchema}. */
 export type InitialConditions = z.infer<typeof initialConditionsSchema>;
@@ -144,6 +158,40 @@ export const solverConfigSpecSchema = z.object({
 export type SolverConfigSpec = z.infer<typeof solverConfigSpecSchema>;
 
 /**
+ * The three P4.30 "model registry" entries a `ScenarioSpec` can resolve to
+ * (`scenario-resolver.ts`'s `resolveModel`, `@ballista/runtime`): the dim-4
+ * planar workhorse, the dim-5 planar-with-decaying-spin variant (P4.07), and
+ * the dim-6 spatial (3D) model (P4.23+).
+ */
+export const MODEL_KIND_VALUES = ["planar", "planar-spin", "spatial"] as const;
+
+/**
+ * Serializable description of which physics `Model` a scenario resolves to
+ * (§5.2 registry pattern) plus that model's own extra construction params
+ * (§3.7's "variable-dimension design"). `kind` is optional and defaults to
+ * `"planar"` (`resolveModel`) -- an additive field, not a `schemaVersion`
+ * bump, the same precedent each new `windSpecSchema` variant was added
+ * under (P4.16-P4.18): every scenario spec written before this field
+ * existed (every `PRESET_SCENARIOS` entry, every golden-trajectory fixture)
+ * still resolves to exactly the model it always did, with no migration
+ * step needed.
+ */
+export const modelSpecSchema = z.object({
+  id: z.string().min(1),
+  forceIds: z.array(z.string().min(1)).min(1),
+  kind: z.enum(MODEL_KIND_VALUES).optional(),
+  /**
+   * Spin-decay time constant tau_omega, s (`createPlanarProjectileSpinModel`'s
+   * omega_dot = -omega/tauOmega, P4.07) -- meaningful only when `kind` is
+   * `"planar-spin"`. `resolveModel` defaults to its own `DEFAULT_TAU_OMEGA`
+   * when omitted.
+   */
+  tauOmega: z.number().positive().optional(),
+});
+/** Parsed type of {@link modelSpecSchema}. */
+export type ModelSpec = z.infer<typeof modelSpecSchema>;
+
+/**
  * The single source of truth for a scenario (§2.3): physics model + force
  * composition, projectile, initial conditions, environment, solver config,
  * and RNG seed. `schemaVersion` is a literal so a mismatched version fails
@@ -152,10 +200,7 @@ export type SolverConfigSpec = z.infer<typeof solverConfigSpecSchema>;
  */
 export const scenarioSpecSchema = z.object({
   schemaVersion: z.literal(1),
-  model: z.object({
-    id: z.string().min(1),
-    forceIds: z.array(z.string().min(1)).min(1),
-  }),
+  model: modelSpecSchema,
   projectile: projectileSpecSchema,
   initialConditions: initialConditionsSchema,
   environment: environmentSpecSchema,
