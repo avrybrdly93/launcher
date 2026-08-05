@@ -2114,8 +2114,8 @@
       "estMinutes": 20,
       "difficulty": "E",
       "validation": "Euler spiral vs Verlet closed orbit visible (automated area-growth assert)",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed. Phase-portrait plot pane: q vs p for the P4.31 pendulum, y vs v_y for projectile models. Validation criterion is the automated area-growth assert (explicit Euler spirals outward / Verlet stays closed)."
     },
     {
       "id": "P4.33",
