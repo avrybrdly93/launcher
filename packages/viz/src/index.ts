@@ -14,6 +14,7 @@ export * from "./static-layer-cache.js";
 export * from "./projectile-layer.js";
 export * from "./scrub-bar.js";
 export * from "./force-glyphs.js";
+export * from "./force-share-series.js";
 export * from "./field-layer.js";
 export * from "./field-layer-animation.js";
 export * from "./streamline-layer.js";
