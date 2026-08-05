@@ -2125,8 +2125,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "eccentric orbit: RK4 drifts, Verlet bounded (invariant asserts)",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed. Plan: createKeplerModel(mu) in packages/engine/src/kepler-model.ts (dim 4: rx, ry, vx, vy; inverse-square attraction toward a fixed primary), with two InvariantSpecs -- specific orbital energy and specific angular momentum -- plus partitions {q:[rx,ry], p:[vx,vy]} so the symplectic Verlet stepper applies. Conservative system (no drag/damping), which is the precondition for symplectic integration. Validation (\"eccentric orbit: RK4 drifts, Verlet bounded\") goes in solverkit, where both real steppers and the engine model are importable."
     },
     {
       "id": "P4.34",
