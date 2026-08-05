@@ -53,9 +53,25 @@ forcing a fallback to commit timestamps.
      cancellation-damaged (`|ΣF|` yields a meaningless ~0.28). `max_i |F_i|` is not, and
      `ForceShareBand.magnitude` was added to carry it.
 - **Test results** (all run locally at this commit, none estimated): `pnpm typecheck` clean,
-  `pnpm lint` clean, `pnpm lint:deps` **no violations** (1176 modules, 3176 dependencies),
-  `pnpm test` **1352 passed across 201 files**, `pnpm --filter @ballista/app build` succeeded,
-  `check-bundle-size` **60.1 kB gzipped within the 300 kB budget**.
+  `pnpm lint` clean, `pnpm lint:deps` **no violations**, `pnpm test` **1352 passed across 201
+  files**, `pnpm --filter @ballista/app build` succeeded, `check-bundle-size` **60.1 kB gzipped
+  within the 300 kB budget**. The new module's own 16 tests passed on every run.
+- **One pre-existing flaky test was found while gating this work, and is reported rather than
+  touched.** `packages/solverkit/src/chunked-integration.test.ts` → "a 1e6-step run stays
+  within a small, bounded wall-clock budget per slice (cooperative-yield target: 10 ms)"
+  (line 318, `expect(maxSliceMs).toBeLessThan(10)`) **failed 3 of 5 full-suite runs** and
+  passed **6 of 6** when that file was run in isolation. It is a wall-clock assertion competing
+  with ~200 other test files across parallel workers, so it measures machine contention as much
+  as the chunking behaviour it targets.
+  - **It is not caused by P4.35.** Verified by checking out the pre-change base commit
+    `ccfda28` and re-running the full suite there: the same test failed **1 of 2 runs** at
+    **1336 tests** (this session's work adds 16). `solverkit` also cannot import `viz` — the
+    dependency direction is the other way and `lint:deps` enforces it — so a new viz module has
+    no path to affect it beyond total suite load.
+  - **Deliberately not weakened, skipped, or deleted.** Raising the threshold or marking it
+    flaky would erase the only signal for a real chunking regression. A human should decide
+    whether to re-express it against a work-per-slice count rather than wall-clock, which would
+    make it contention-proof without losing the guarantee.
 - **Discovered, not fixed** (scope discipline — filed here rather than actioned, and
   deliberately _not_ added to `ROADMAP.json`, whose tasks come from the blueprint):
   1. The **root `pnpm build` script is broken** — `pnpm -r --workspace-concurrency 1 run build`
