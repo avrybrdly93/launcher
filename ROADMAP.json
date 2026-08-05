@@ -2147,8 +2147,8 @@
       "estMinutes": 20,
       "difficulty": "E",
       "validation": "shares sum to |ΣF| within 1e-12",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed this session. Plan: a new `packages/viz/src/force-share-series.ts` data model deriving every wired force's share of the resultant across a whole trajectory through `force-glyphs.ts`'s `computeForceGlyphs` (one source of truth for per-force vectors), then stacking those shares into cumulative plot bands. Shares are signed projections onto the resultant's own direction, so they sum to |ΣF| identically rather than approximately -- that is what makes the 1e-12 validation criterion a float-roundoff check instead of a modelling tolerance. Naive |F_i| magnitudes cannot satisfy it (triangle inequality)."
     },
     {
       "id": "P4.36",
