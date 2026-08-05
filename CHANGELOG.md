@@ -15,6 +15,65 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-05 — P4.34 (C⁰-vs-C¹ Cd(Re) convergence degradation exhibit)
+
+- **Done: P4.34** — `packages/solverkit/src/cd-table-smoothness-convergence.test.ts`
+  (8 tests). Exhibit as a documented solverkit test module, the P4.09/P4.22 pattern; no new
+  UI route was needed. One scenario run twice with **only the `C_d` interpolant differing** —
+  the shipped C¹ PCHIP `TabulatedReynoldsCd` against a test-local piecewise-linear interpolant
+  over the same `SMOOTH_SPHERE_CD_TABLE` data — same launch state, same `ClassicalRK4Stepper`,
+  same step sizes, each measured against its own 2^20-step reference. Full notes in
+  `ROADMAP.json` under P4.34.
+- **Validation criterion met** ("measured order drop with non-smooth table documented"), on a
+  size-5 football (0.43 kg, 0.11 m) launched at 90 m/s / 0.35 rad over 2 s, its Reynolds number
+  sweeping **1.356e6 → 4.533e5** and crossing the table's `Re = 1e6` node (asserted, so the
+  comparison cannot quietly go vacuous). Fitted log-log order over h ∈ [0.0025, 0.02]:
+  **3.68 (C¹) vs 2.15 (C⁰), a drop of 1.53** — RK4 reduced to roughly second-order behaviour
+  while still paying four stages per step. Per-h error ratios C⁰/C¹: 47, 958, 683, 537, 12075,
+  1182, 2215.
+- **Refinement stops being reliable under the C⁰ table**: 2 of the 6 refinements make the error
+  _worse_ (1.59e-5 → 1.73e-5, 3.29e-6 → 4.41e-6), and the fit's R² falls 0.92 → 0.85. Where a
+  node crossing lands relative to the step grid matters as much as h does, so the error curve is
+  no longer a clean power law.
+- **Two things are stated rather than rounded off.** The C¹ order is 3.68, _not_ 4: PCHIP is C¹
+  but not C², so the fourth-order Taylor argument is not fully available even on the shipped
+  path. And the C¹ error curve is not perfectly monotone either (1 non-monotone refinement
+  against the C⁰ table's 2), which makes that particular test descriptive rather than
+  discriminating — the asserted claim is comparative.
+- **A configuration was measured and rejected**: aiming the trajectory through the drag-crisis
+  node cluster (40 m/s, 4 s, crossing `Re = 4e5`) also shows the drop (3.06 vs 1.69) but degrades
+  the C¹ baseline too, muddying the headline comparison. The single mild `Re = 1e6` crossing is
+  the cleaner exhibit.
+- **The C⁰ interpolant is deliberately test-local.** §3.3 prescribes PCHIP for the production
+  path; exporting a knowingly-inferior interpolant from `@ballista/engine` would invite exactly
+  the mistake this exhibit exists to warn about.
+- **Verified non-vacuous by mutation**: substituting `TabulatedReynoldsCd` for the piecewise-linear
+  model fails exactly the three discriminating tests (order drop, per-h error ratio, work
+  comparison) and leaves the five describing interpolant properties or the C¹ path alone passing.
+- **Integrator discipline**: dissipative scenario (quadratic drag is the point of it), so classical
+  RK4 throughout — no symplectic method appears in the diff, and no stepper, force, or
+  golden-trajectory code was touched. The diff is one new test file.
+- **Tests**: `pnpm test` **200 files / 1336 tests, all passing** (up from P4.33's 199/1328: +1 file,
+  +8 tests). `pnpm typecheck`, `pnpm lint`, `pnpm lint:deps` (1170 modules, 3154 dependencies, no
+  violations) all clean. Engine and solverkit `docs` clean. `pnpm --filter @ballista/app build`
+  succeeds; `check-bundle-size` 60.1 kB gzipped against the 300 kB budget, unchanged — a test-only
+  diff cannot move it.
+- **Not re-run** (cannot be affected by a test-only diff that touches no stepper, force, or
+  cross-engine path; same reasoning P4.28/P4.30/P4.32/P4.33 recorded): `pnpm bench:solverkit`,
+  `pnpm check:cross-engine-drift`.
+- **Known pre-existing, not introduced here**: `pnpm format:check` flags `CLAUDE.md` (it is not a
+  CI step; CI runs typecheck/lint/lint:deps/test/docs/build/bundle-size). The per-package
+  `--filter @ballista/viz test` "No test files found" failure documented in P4.30 is also still
+  present; root `pnpm test` — CI's own Test step — was used throughout.
+- **Next session**: take **P4.35** (force-magnitude stacked-area plot over flight: F_g, F_d, F_M
+  shares) — it is the next `todo` in `seq` order and nothing in Phase 4 is `in-progress` or
+  `review`. It is self-contained viz work. P4.36 (scenario library v2 curation) and P4.37 (golden
+  store v2 + tolerance review) follow; P4.37 touches goldens, so it needs the explanatory
+  commit-message note the blueprint's §8.4 requires. Do not reorder phases or skip ahead to the
+  P4.38 stretch item.
+
+---
+
 ## 2026-08-05 — P4.33 (two-body/Kepler model registration)
 
 - **Done: P4.33** — `createKeplerModel(mu)` in `packages/engine/src/kepler-model.ts`
