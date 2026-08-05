@@ -15,6 +15,67 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-05 — P4.35 (force-magnitude stacked-area plot over flight)
+
+- **Done: P4.35** — `packages/viz/src/force-share-series.ts` +
+  `force-share-series.test.ts` (16 tests), exported from the viz barrel. Full notes in
+  `ROADMAP.json` under P4.35. `computeForceShareSeries` derives every wired force's share of
+  the resultant at every recorded row and stacks them into plot bands;
+  `drawForceShareStack` fills them through `plot-pane.ts`'s existing screen mapping, so the
+  pane shares its axes and its one-screen-point-per-recorded-row guarantee with every other
+  plot in the panel.
+- **Validation criterion met** ("shares sum to |ΣF| within 1e-12"): worst-case residual
+  **~2e-25 absolute** across shot put, golf drive and dust grain, asserted **row by row**
+  rather than only through the aggregate helper, so a single bad row cannot hide behind a
+  maximum. A relative check lands at **~1e-17**.
+- **The criterion is what forced the design.** A share is the signed scalar projection
+  `F_i·n̂` onto the resultant's own direction, not `|F_i|`. Then
+  `Σ_i share_i = (Σ_i F_i)·n̂ = |ΣF|` is an _exact_ identity, so 1e-12 measures floating-point
+  roundoff rather than a modelling tolerance. Naive magnitudes cannot satisfy it at all — the
+  triangle inequality gives `Σ|F_i| >= |ΣF|`, and a test pins that gap at **>1e-6 N** on the
+  shot put so the choice does not read as arbitrary later.
+- **Three findings that contradicted the first guess**, each now pinned by a test:
+  1. **Drag's share flips sign one step _after_ apex, not at it.** Climbing, drag and gravity
+     both project _positively_ onto the resultant they jointly make — the initial assumption
+     that drag opposes it on the way up was simply wrong. Just past apex the vertical drag
+     component is still ~0 while the horizontal one still dominates, and that one always
+     projects positively because the resultant's x-component _is_ drag's x-component (gravity
+     has none). Measured: apex row 83, flip row 84, exactly one sign change.
+  2. **The dust grain diverges under explicit RK4 at h = 0.01** — `|ΣF|` overflows to
+     `Infinity`. It is solved here with backward Euler instead (implicit but **not** symplectic,
+     so the standing dissipative-path constraint holds). The diverged RK4 run is _kept_ as a
+     test: shares go `NaN` rather than zeroing, since zeroing would report a tidy `Σ share = 0`
+     against an infinite resultant and make a diverged solve look converged.
+  3. **The relative-closure check can normalize by neither `|ΣF|` nor `Σ|share_i|`.** At
+     terminal velocity drag cancels gravity to ~1e-64, far under the ~1e-27 rounding floor of
+     the ~1e-11 forces involved, and the resultant turns purely horizontal so gravity's
+     projection is exactly 0 while `|F_g|` is still `mg`. Both denominators are
+     cancellation-damaged (`|ΣF|` yields a meaningless ~0.28). `max_i |F_i|` is not, and
+     `ForceShareBand.magnitude` was added to carry it.
+- **Test results** (all run locally at this commit, none estimated): `pnpm typecheck` clean,
+  `pnpm lint` clean, `pnpm lint:deps` **no violations** (1176 modules, 3176 dependencies),
+  `pnpm test` **1352 passed across 201 files**, `pnpm --filter @ballista/app build` succeeded,
+  `check-bundle-size` **60.1 kB gzipped within the 300 kB budget**.
+- **Discovered, not fixed** (scope discipline — filed here rather than actioned, and
+  deliberately _not_ added to `ROADMAP.json`, whose tasks come from the blueprint):
+  1. The **root `pnpm build` script is broken** — `pnpm -r --workspace-concurrency 1 run build`
+     exits `ERR_PNPM_RECURSIVE_RUN_NO_SCRIPT` because no workspace package defines a `build`
+     script under that name. This is pre-existing and does **not** affect CI, which builds via
+     `pnpm --filter @ballista/app build` (the command used for this session's gate). A human
+     should decide whether to repair or remove the root script.
+  2. `plotly.min` is still statically bundled at **4.84 MB** (1.47 MB gzipped), as the build
+     output shows. That is the known lazy-loading backlog item and remains unclaimed.
+- **Next session**: take **P4.36** (seq 189, 30m, E) — "Scenario library v2 curation: 20
+  scenarios spanning regimes with teaching notes", validation "each note links exhibit; CI
+  validates all specs". With P4.35 done, Phase 4 has **5 tasks left** — P4.36, P4.37 (golden
+  store v2 + tolerance review), P4.38 (stretch SDIRK2/TR-BDF2 — note it is marked stretch and
+  difficulty H), P4.39 (rotational-dynamics ADR), P4.40 (docs pass) — i.e. 35 of 40 complete.
+  Note P4.35 added a new viz export,
+  so P4.37's golden review should confirm nothing in the golden store moved (nothing should —
+  this task added a read-only derivation and touched no solver path).
+
+---
+
 ## 2026-08-05 — P4.34 (C⁰-vs-C¹ Cd(Re) convergence degradation exhibit)
 
 - **Done: P4.34** — `packages/solverkit/src/cd-table-smoothness-convergence.test.ts`
