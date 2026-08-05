@@ -15,6 +15,73 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-05 — P4.33 (two-body/Kepler model registration)
+
+- **Done: P4.33** — `createKeplerModel(mu)` in `packages/engine/src/kepler-model.ts`
+  (+ `kepler-model.test.ts`, 13 tests), exported from `packages/engine/src/index.ts`, plus
+  `packages/solverkit/src/kepler-invariant-drift.test.ts` (5 tests) carrying the validation
+  criterion. Planar two-body problem in fixed-primary form, `r'' = -mu*r/|r|^3`, dim 4
+  (`rx, ry, vx, vy`), `partitions {q:[rx,ry], p:[vx,vy]}`. The second non-projectile `Model`
+  after P4.31's pendulum and the first with **two** invariants — specific orbital energy and
+  specific angular momentum — which is the substance of the task rather than a detail: they
+  fail differently under a given integrator, so the pair discriminates where either alone
+  would not. Full design/verification notes in `ROADMAP.json` under P4.33.
+- **Validation criterion met** ("eccentric orbit: RK4 drifts, Verlet bounded (invariant
+  asserts)"), measured on an `a = 1e7 m`, `e = 0.6`, `mu = 3.986e14 m^3/s^2` ellipse released
+  at periapsis, 60 orbits at 2000 steps/orbit, identical setup for both runs with only the
+  stepper differing. Relative energy error: classical RK4's six block means march
+  **-9.30e-10 → -4.26e-9**, monotone, one-signed, with a near-constant per-block increment
+  (~6.66e-10, equal to within 5%) — linear in time, the defining shape of a secular term.
+  The entire last orbit's band lies strictly outside the entire first orbit's with **no
+  overlap** ([-4.59e-9, -3.93e-9] vs [-6.59e-10, -1.0e-12]). Velocity Verlet is **bounded**:
+  first- and last-orbit bands agree to 5 significant figures (**7.3134e-5** both) and all six
+  block means agree to within 1%, while still oscillating across essentially the full band
+  within each orbit. Angular momentum is the control and both steppers hold it (RK4 4.4e-10,
+  Verlet 1.6e-14) — it follows from the force being _central_, not from Hamiltonian structure.
+- **The comparison is stated honestly**: a dedicated test asserts RK4's error magnitude is
+  ~4 orders _smaller_ than Verlet's throughout (order 4 vs order 2). The claim is about the
+  **shape** of the error over time, not about Verlet being the more accurate method, and the
+  test pins that ordering so a later reader cannot mistake the story.
+- **Assertions were measured, not guessed.** Two first-draft thresholds failed against the
+  real integrators and were replaced by what the runs actually show: a block-mean ratio guess
+  (>5, actual 4.58) became the much stronger constant-increment + band-separation pair, and an
+  "error takes both signs" assumption was simply wrong — Verlet's band here is one-signed and
+  offset from zero, which is still bounded, which is all the property claims. An argmax-location
+  assertion was also tried and discarded: Verlet's band is flat to ~5 significant figures across
+  all 60 orbits, so the argmax is decided by last-bit noise (it landed in orbit 44).
+- **Verified non-vacuous by mutation**: substituting `ClassicalRK4Stepper` for `VerletStepper`
+  throughout the validation file fails exactly the two bounded-error tests and leaves the two
+  integrator-agnostic ones (eccentricity fixture, angular momentum) passing — the expected
+  pattern, since only those two discriminate integrators.
+- **Integrator discipline**: the two-body problem is conservative (no drag, no damping, no
+  dissipative path), which is the precondition for the symplectic Verlet stepper used in the
+  comparison. No dissipative system is integrated symplectically in this diff; no stepper,
+  force, or golden-trajectory code was touched — the diff is two new files plus one export line.
+- **Tests**: `pnpm test` **199 files / 1328 tests, all passing** (up from P4.32's 197/1310:
+  +2 files, +18 tests). `pnpm typecheck`, `pnpm lint`, `pnpm lint:deps` (1167 modules, 3143
+  dependencies, no violations) all clean. Engine and solverkit `docs` clean.
+  `pnpm --filter @ballista/app build` succeeds; `check-bundle-size` 60.1 kB gzipped against the
+  300 kB budget, unchanged — the new model is not imported by the app yet, the same status
+  `pendulum-model.ts` has had since P4.31.
+- **Not re-run** (cannot be affected by this diff — no stepper touched, no cross-engine physics
+  path; same reasoning P4.28/P4.30/P4.32 recorded): `pnpm bench:solverkit`,
+  `pnpm check:cross-engine-drift`.
+- **Known pre-existing, not introduced here**: `pnpm --filter @ballista/viz test` fails with
+  "No test files found" (vitest's root include glob does not resolve under a per-package cwd,
+  documented in P4.30's notes); the same affects `--filter @ballista/engine`. Root `pnpm test` —
+  CI's own Test step — was used throughout.
+- **Next session**: take **P4.34** (Solver Lab exhibit: C⁰-vs-C¹ `C_d(Re)` convergence
+  degradation demo, §3.3) — it is the next `todo` in `seq` order and nothing in Phase 4 is
+  `in-progress` or `review`. Note it is a _dissipative_ (drag) exhibit, so the standing
+  constraint applies directly: use standard RK schemes there, not the symplectic path this
+  session exercised. Two ready follow-ons if it proves too large for one session: P4.35
+  (force-magnitude stacked-area plot) is self-contained viz work, and the Kepler model landed
+  here is now available to `phasePortraitSeries` (P4.32) with no new plumbing — its `partitions`
+  give pair 0 = (rx, vx) and pair 1 = (ry, vy). Do not reorder phases or skip ahead to the
+  P4.38 stretch item.
+
+---
+
 ## 2026-08-05 — P4.32 (phase-portrait plot pane)
 
 - **Done: P4.32** — phase-portrait pane, `packages/viz/src/phase-portrait.ts`
