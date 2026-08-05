@@ -2136,8 +2136,8 @@
       "estMinutes": 25,
       "difficulty": "M",
       "validation": "measured order drop with non-smooth table documented",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed. Plan: exhibit as a documented solverkit test module (the established pattern, per P4.09/P4.22), packages/solverkit/src/cd-table-smoothness-convergence.test.ts. Compare measured ClassicalRK4 convergence order on one projectile scenario whose Reynolds number sweeps down through SMOOTH_SPHERE_CD_TABLE's drag-crisis nodes, run twice with only the Cd interpolant differing: the shipped C1 TabulatedReynoldsCd (PCHIP) vs a test-local C0 piecewise-linear interpolant over the same table. The C0 comparator stays test-local deliberately -- the blueprint (3.3) prescribes PCHIP for the production path, and shipping a knowingly-inferior interpolant in the engine API would invite misuse. Dissipative scenario (drag), so standard RK schemes only, never the symplectic path. Order figures to be measured before any threshold is written."
     },
     {
       "id": "P4.35",
