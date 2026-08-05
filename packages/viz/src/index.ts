@@ -18,6 +18,7 @@ export * from "./field-layer.js";
 export * from "./field-layer-animation.js";
 export * from "./streamline-layer.js";
 export * from "./plot-pane.js";
+export * from "./phase-portrait.js";
 export * from "./lazy-plotly-pane.js";
 export * from "./derivation-markdown.js";
 export * from "./lazy-katex-pane.js";
