@@ -15,6 +15,79 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-06 — P4.37 (golden store v2 + tolerance review)
+
+- **Done: P4.37** — `packages/validation/src/golden-trajectory-store.ts` gains a v2 scenario
+  runner over the P4.36 curated library plus a tolerance-review harness;
+  `golden-trajectories.json` goes to `schemaVersion: 2` with 11 new entries; 24 new tests. Full
+  notes in `ROADMAP.json` under P4.37.
+- **The "diffs from v1" the validation criterion asks about: there are none.** All 12 v1 entries
+  (6 `PRESET_SCENARIOS` × {RK4 fixed, DOPRI5}, P2.52) were re-recorded and every one is
+  bit-identical — same hash, `nSteps`, `finalState`, and full `t`/`channels` arrays for the
+  smooth-sphere/RK4 entry. The entire body of Phase 4 work — ISA atmosphere, altitude-dependent
+  gravity, the η(T)/c(T) wiring, Mach-dependent C_d, the dim-5 and dim-6 models, six new wind
+  kinds — moved no pre-existing golden. The fixture diff is **128 added lines and 2 changed**
+  (`schemaVersion`, `provenance`), which is the claim in a form that can be read off the diff
+  rather than taken on trust.
+- **v2 adds 11 entries, one per capability v1 could not reach**, sourced from the P4.36 library
+  rather than newly invented: ISA + transonic C_d(M) (`cannonball-muzzle`), the steep C_d(Re)
+  drag-crisis feature, the dim-5 spin model, the dim-6 spatial model, log-profile wind shear,
+  the 1-cosine gust, the seeded frozen-OU realisation, a position-dependent vortex field,
+  exponential atmosphere + altitude-dependent gravity, buoyancy, and a fixed-step RK4 entry.
+- **The main finding is about which solver a golden is recorded with.** Nearly every library spec
+  carries `REFERENCE_SOLVER` at rtol=1e-6 — correct for an interactive app, wrong for a
+  regression store. Measured: at rtol=1e-6, a **7.11e-15** change in `frozen-ou-gust`'s `vx0`
+  moves its final state by **8.07e-5** relative — an amplification of **3.6e11**, because the
+  adaptive step sequence itself reorders. A golden recorded that way cannot detect a physics
+  regression smaller than its own solver noise. v2 therefore takes the library's _physics_ and
+  pairs it with v1's regression-grade DOPRI5 (rtol=1e-10/atol=1e-12), which drops that
+  amplification by three decades to 2.59e8. `energy-drift-gravity-only` is the one documented
+  exception and keeps its fixed-step library solver — being fixed-step is that entry's subject.
+- **Tolerance review, measured rather than guessed.** v1 applied one global 1e-13 to every entry.
+  v2 keeps 1e-13 as a floor and derives each entry's tolerance by perturbing each non-zero `y0`
+  component by one relative EPS, re-integrating, and rounding the implied bound up to a decade.
+  Result: **8 of 11 entries are well-conditioned** (amplification 2.7 → 4.5e2) and keep the
+  floor; three need more — `table-tennis-topspin-decay` 1.62e4 → **1e-11**, `one-cosine-gust`
+  4.52e2 → **1e-12**, `frozen-ou-gust` 2.59e8 → **1e-7**. So v1's single global tolerance was
+  defensible for the entries it covered, and would have been misleading for three of the new ones.
+- **Why frozen-OU is the outlier, and why it was not "fixed".** Its wind is a PCHIP interpolant
+  over 501 sampled points, so the right-hand side is only C¹ in `t` — the second derivative jumps
+  at every knot — and a 5(4) embedded pair's error control degrades there; the measurement
+  confirms the step sequence genuinely reorders under the perturbation. This is the same
+  order-degradation mechanism P4.34's C⁰-vs-C¹ exhibit demonstrates in the state variable, showing
+  up in time instead. It is a property of P4.17's wind model, not a defect in this store, so it is
+  recorded and left alone rather than fixed under a golden-store task.
+- **Two anti-fabrication tests**, added because a tolerance is exactly the kind of number a future
+  session could quietly widen to make a red suite green: one pins each recorded tolerance to be
+  exactly its recorded amplification's decade, and one **re-measures** conditioning at test time
+  and fails if the implied tolerance has grown (one decade of slack, since the measurement is
+  platform-dependent and `frozen-ou-gust` sits just under a decade boundary).
+- **Negative-controlled**, not just observed green: relaxing the v2 solver's rtol 1e-10 → 1e-9
+  failed **11 of the new tests** (10 hash mismatches plus one conditioning check) while all 12 v1
+  tests stayed green, then it was restored. Without that check the new assertions could have been
+  passing vacuously.
+- **Test results, all run locally at this session's HEAD**: `pnpm test` **1404/1404 across 204
+  files** (was 1380/204 at session start — +24 tests, no new files, no regressions); `pnpm
+typecheck` clean; `pnpm lint` clean; `pnpm lint:deps` clean (1191 modules, 3220 dependencies, no
+  violations); `pnpm --filter @ballista/app build` green, bundle **64.94 kB gzipped** against the
+  300 kB budget.
+- **Pre-existing issue, still NOT fixed and still needing a human** (unchanged from P4.36, restated
+  because it has now survived two sessions): the **root `pnpm build` script is broken under pnpm
+  11** — `pnpm -r --workspace-concurrency 1 run build` fails with
+  `ERR_PNPM_RECURSIVE_RUN_NO_SCRIPT` because pnpm 11 reads `run` as the script name. Confirmed
+  again this session. CI is unaffected (`ci.yml` builds via `pnpm --filter @ballista/app build`,
+  which passes), but `CLAUDE.md` tells every session to run the build locally before pushing, so
+  each session hits it. The fix is a one-word `package.json` change (`run build` → `build`), which
+  is why it keeps being left alone: it is a repo-config decision, not part of any claimed task.
+- **Next session**: P4.38 is the next `todo` in seq order — "(Stretch) SDIRK2/TR-BDF2 stepper",
+  30m/H, validation "L-stability demo; slope 2". Note it is marked _stretch_; if it is skipped,
+  P4.39 (rotational-dynamics ADR, 15m/E) and P4.40 (physics reference docs regenerated from §3
+  sources, 25m/E) are both small and unblocked, and clearing them finishes Phase 4 and opens
+  Phase 5 (P5.01, the observable framework). Do not extend symplectic integration to the
+  dissipative paths P4.38 touches — the standing constraint still holds.
+
+---
+
 ## 2026-08-06 — P4.36 (scenario library v2 curation)
 
 - **Done: P4.36** — `packages/engine/src/scenario-library.ts` (20 curated scenarios: id, title,
