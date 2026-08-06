@@ -1,6 +1,6 @@
 {
-  "schemaVersion": 1,
-  "provenance": "Recorded via `UPDATE_GOLDENS=1 pnpm run update-goldens` (P2.52, blueprint §8.4). Any intentional numerical change requires re-running that command with a commit message explaining *why* results moved -- never hand-edit this file.",
+  "schemaVersion": 2,
+  "provenance": "Recorded via `UPDATE_GOLDENS=1 pnpm run update-goldens` (P2.52 for `entries`, P4.37 for `v2Entries`; blueprint §8.4). Any intentional numerical change requires re-running that command with a commit message explaining *why* results moved -- never hand-edit this file. `amplification` is a measured quantity and will vary slightly across platforms; `tolerance` is it rounded up to a decade, which is why a re-record on a different machine should not move the tolerances.",
   "entries": [
     {
       "presetId": "smooth-sphere",
@@ -554,6 +554,132 @@
       "nSteps": 40,
       "hash": "444965be72d9d0d2325d22402918fc62e6e6bd226a4f62b02bc1a526e5ddef4a",
       "finalState": [52.75670770600479, 10.623317373798594, 19.24709100428299, -5.35365858381211]
+    }
+  ],
+  "v2Entries": [
+    {
+      "scenarioId": "cannonball-muzzle",
+      "tFinal": 2,
+      "nSteps": 16,
+      "stateDim": 4,
+      "hash": "8b0a0fdbebacd5ffa681f0c4e74cb237e272168ab967afbf356b6c8ed6d44bde",
+      "finalState": [409.82190183729347, 219.68728344293413, 194.2657528142115, 93.54698870323938],
+      "amplification": 2.7365926316678433,
+      "tolerance": 1e-13
+    },
+    {
+      "scenarioId": "smooth-sphere-drag-crisis",
+      "tFinal": 2,
+      "nSteps": 59,
+      "stateDim": 4,
+      "hash": "97172e4b122d03c6775c5ec5517456493cfd16994f0a79cee136c696d74b0c64",
+      "finalState": [147.815415140733, 132.78497770669998, 55.50156186197252, 40.255071504931784],
+      "amplification": 370.43779684189803,
+      "tolerance": 1e-13
+    },
+    {
+      "scenarioId": "table-tennis-topspin-decay",
+      "tFinal": 2,
+      "nSteps": 59,
+      "stateDim": 5,
+      "hash": "732f19ecd982526f47de29a4d5ca2f12ae2181737b1e114e40192e763adecdb7",
+      "finalState": [
+        3.5972917811169856, 3.2959746043559335e-17, 13.448046370189404, -6.576820789111345,
+        -396.13259574936393
+      ],
+      "amplification": 16195.516945781319,
+      "tolerance": 1e-11
+    },
+    {
+      "scenarioId": "lateral-launch-3d",
+      "tFinal": 2,
+      "nSteps": 36,
+      "stateDim": 6,
+      "hash": "b8e38b5e240d865d0d5534aebd5d8ec1a100b4631d70b7f6ba753dbdb47f23f3",
+      "finalState": [
+        59.23420614568557, 11.272587770532933, 13.07237652870302, 24.64229852626653,
+        -5.029686837499944, 5.43830036441744
+      ],
+      "amplification": 9.543337696916907,
+      "tolerance": 1e-13
+    },
+    {
+      "scenarioId": "log-profile-boundary-layer",
+      "tFinal": 2,
+      "nSteps": 47,
+      "stateDim": 4,
+      "hash": "1372ce57550a56e3a716a9756beba7ab40a53b3b0014bdc93a322fbf8c6e81e1",
+      "finalState": [
+        52.518881905098155, 4.0351815743174715, 19.947214098474298, -7.8018435937867805
+      ],
+      "amplification": 13.87793807258151,
+      "tolerance": 1e-13
+    },
+    {
+      "scenarioId": "one-cosine-gust",
+      "tFinal": 2,
+      "nSteps": 58,
+      "stateDim": 4,
+      "hash": "b78b5ed829b91601599c037a4a76bc0aea085adb13a4add89a900b8195a4d316",
+      "finalState": [57.96087333248756, 11.300332337844464, 22.56767355956223, -5.0361601186529805],
+      "amplification": 451.6194357871899,
+      "tolerance": 1e-12
+    },
+    {
+      "scenarioId": "frozen-ou-gust",
+      "tFinal": 2,
+      "nSteps": 367,
+      "stateDim": 4,
+      "hash": "9d3be3c71213c91f69c343fc86d64bc589d551e45733bd1d830fe68655bc0139",
+      "finalState": [58.9051642865036, 11.23575974332098, 24.62668503339092, -5.041093521588094],
+      "amplification": 259384877.47880203,
+      "tolerance": 1e-7
+    },
+    {
+      "scenarioId": "vortex-crossing",
+      "tFinal": 2,
+      "nSteps": 112,
+      "stateDim": 4,
+      "hash": "4090f2fb08995cc0d1ad408cda368aa84dad118917a9a2706498dea4c7232d4a",
+      "finalState": [
+        8.220742256543506, -2.7885679876327174e-16, 4.210602500145378, -5.963935312285772
+      ],
+      "amplification": 2.919444406725755,
+      "tolerance": 1e-13
+    },
+    {
+      "scenarioId": "density-altitude-2000m",
+      "tFinal": 2,
+      "nSteps": 34,
+      "stateDim": 4,
+      "hash": "437d5ff5b88ee4144a58d45a4e58b97280674b080f2d86543b8a3e61b01b927f",
+      "finalState": [
+        35.219195687981305, 2003.0338902571375, 14.559571507173356, -8.004290856647524
+      ],
+      "amplification": 3.997855721775044,
+      "tolerance": 1e-13
+    },
+    {
+      "scenarioId": "buoyancy-visible",
+      "tFinal": 2,
+      "nSteps": 57,
+      "stateDim": 4,
+      "hash": "ac1004fe2371d0db0d9b770a213df1e160a7e7bc57360cbbdc42339bc224de0c",
+      "finalState": [
+        5.741072356281876, 1.734723475976807e-17, 4.758085337584713, -4.055188208774007
+      ],
+      "amplification": 3.4836697325571944,
+      "tolerance": 1e-13
+    },
+    {
+      "scenarioId": "energy-drift-gravity-only",
+      "tFinal": 2,
+      "nSteps": 401,
+      "stateDim": 4,
+      "hash": "0a0013510bce380ef7c1283b3449d1411c1c31f8f8ae9fac47dc3cc8eb6bb900",
+      "finalState": [42.42600000000061, 24.91269999999973, 21.213, 1.5996999999995936],
+      "amplification": 10.00187535163095,
+      "tolerance": 1e-13
     }
   ]
 }
