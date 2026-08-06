@@ -15,6 +15,58 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-06 — P4.36 (scenario library v2 curation)
+
+- **Done: P4.36** — `packages/engine/src/scenario-library.ts` (20 curated scenarios: id, title,
+  teaching note, exhibit link, `ScenarioSpec`) exported from the engine barrel, plus
+  `packages/app/src/routes.ts`, the exhibit-id → hash-route mapping extracted from `main.tsx`.
+  28 new tests across three packages. Full notes in `ROADMAP.json` under P4.36.
+- **Both halves of the validation criterion met.** "CI validates all specs" is enforced twice, on
+  purpose: the engine test proves every spec _parses_ and JSON-round-trips bit-equal, and the
+  runtime test proves every spec _resolves and runs_ — correct state dimension for its model kind
+  (4/5/6), force ids present in `KNOWN_FORCE_IDS`, stepper id resolvable, and a 0.05 s integration
+  reaching status `ok` with finite final state. These are genuinely different properties: a spec
+  naming an unregistered force id parses perfectly and throws only at `resolveForce`. "Each note
+  links exhibit" is asserted against `main.tsx`'s own source in both directions — every exhibit id
+  maps to a hash the router really dispatches on, and every hash it dispatches on is declared.
+- **The exhibit-link test was negative-controlled**, not just observed green: dropping
+  `#/model-registry` from the route table failed 2 of the 5 route tests, then it was restored.
+  Without that check the assertion could have been passing vacuously.
+- **Measured spread across the 20 entries** — Π from 8.70e-3 (shot put) to 5.27e+2 (dust grain),
+  **4.78 decades**; Re from 1.03e+1 (Stokes regime) to 1.71e+6 (cannonball at muzzle speed),
+  **5.2 decades**; Mach to **0.735**, inside P4.04's transonic C_d(M) rise; spin ratio 0 → 0.32.
+  All four regime tags, all three registered model kinds, all five resolvable force ids, both
+  atmosphere variants plus altitude-dependent gravity, six of the eight wind kinds, and both
+  adaptive and fixed-step solvers are exercised. All nine exhibits are reached by ≥1 entry.
+- **Curation, not new physics.** The seven P1.36 `PRESET_SCENARIOS` are carried by _reference_, and
+  a test asserts object identity, so the preset list and the library cannot drift apart.
+- **Three things the spec format genuinely cannot express**, each handled by narrowing the claim
+  rather than by faking it: Coriolis has no `FORCE_FACTORIES` id (such a spec would parse, then
+  throw on resolve), the pendulum/Kepler Stage-B seeds are unreachable through `modelSpecSchema`'s
+  `kind` enum, and a `uniform` wind carries only wx/wy — so the 3D entry is a lateral _launch_
+  (vz0), not a crosswind, and its note says exactly that.
+- **Test results, all run locally at this session's HEAD**: `pnpm test` **1380/1380 across 204
+  files** (was 1352/201 at the start of the session — +28 tests, +3 files, no regressions);
+  `pnpm typecheck` clean; `pnpm lint` clean; `pnpm lint:deps` clean (1191 modules, 3220
+  dependencies, no violations); `pnpm --filter @ballista/app build` green; bundle size **63.4 kB
+  gzipped** against the 300 kB budget; engine typedoc generated. The chunked-integration timing
+  flake noted in the P4.35 entry did not reproduce in either full run this session.
+- **Issue found, NOT fixed here** (scope discipline — it needs a human decision, and it is not a
+  P4.36 change): the **root `pnpm build` script is broken under pnpm 11**.
+  `pnpm -r --workspace-concurrency 1 run build` fails with `ERR_PNPM_RECURSIVE_RUN_NO_SCRIPT`
+  ("None of the selected packages has a \"run\" script") — pnpm 11 reads `run` as the script name.
+  Every workspace package _does_ have a `build` script. This is **pre-existing and unrelated to this
+  task**: `package.json` has not been touched since P4.25. CI is unaffected because `ci.yml` builds
+  via `pnpm --filter @ballista/app build`, which passes — but `CLAUDE.md` instructs each session to
+  run the root build before pushing, so a session following that instruction sees a spurious red.
+  Likely fix is dropping the redundant `run` (`pnpm -r --workspace-concurrency 1 build`), unverified.
+- **Next session**: P4.37 (Golden store v2 + tolerance review) is next in `seq` order and is the
+  natural follow-on — the 13 new specs added here are exactly the candidates a golden store v2 would
+  pin, and several (the frozen-OU entry especially) will need a tolerance decision. Before starting
+  it, decide the root-`pnpm build` question above, since P4.37 will want a working build gate.
+
+---
+
 ## 2026-08-05 — P4.35 (force-magnitude stacked-area plot over flight)
 
 - **Done: P4.35** — `packages/viz/src/force-share-series.ts` +
