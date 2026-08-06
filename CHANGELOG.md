@@ -98,8 +98,17 @@ forcing a fallback to commit timestamps.
   `pull_request` only, with no `workflow_dispatch`. Adding one is a one-line change and the obvious
   first move, but it is a workflow-config change outside P4.39 and is left for a task that claims
   it. Root cause not determined from here — this run could not distinguish a GitHub-side
-  Actions/webhook problem from push-authorship suppression (the mechanism BUG-004-style
-  actions-authored pushes hit), and says so rather than guessing.
+  Actions/webhook problem from push-authorship suppression, and says so rather than guessing.
+- **Sharpened at the very end of the run, because the first version of the bullet above overstated
+  what was measured.** Two pushes were cited as producing no CI run; only one of them is evidence.
+  `31089ce` was committed **18:47:09Z** and still had no `ci.yml` run at **23:02Z** — **4h15m**,
+  which no plausible queue lag explains and which stands. This session's own push `0b57bf2`
+  (22:57:36Z) was checked only ~4 minutes later, far too soon to conclude anything, and citing it
+  was a mistake. **The claim that holds is the narrower one**: `main` has had no CI run since
+  `4e407f6` at 14:48Z, so `31089ce` and everything after it — including this session's P4.39 work —
+  has landed with the local gate as its only verification. Runs may yet appear late; a session that
+  wants certainty should check the age of the newest run rather than whether its own push has one
+  yet.
 - **Next session**: **P4.40** — "Docs pass: physics reference pages regenerated from §3 sources",
   25m/E, validation "all equations render; cross-links valid". It is the **last task in Phase 4**;
   clearing it opens Phase 5 (P5.01, the observable framework). Note that its cross-link half pairs
