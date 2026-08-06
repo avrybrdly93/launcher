@@ -87,6 +87,19 @@ forcing a fallback to commit timestamps.
   `package.json` change (`run build` → `build`); it keeps being left alone because it is a
   repo-config decision, not part of any claimed task. **Four sessions is long enough that this
   should be claimed rather than re-noted.**
+- **Found at close-out, and it matters more than anything else in this entry: `ci.yml` has not run
+  on `main` since `4e407f6` (2026-08-06 14:48 UTC).** Session 2's push (through `31089ce`, committed
+  18:47 UTC) produced **no CI run at all**, and neither did this session's push (`0b57bf2`), checked
+  via the Actions API several minutes after it landed. Verified by listing `ci.yml`'s runs, not
+  inferred from a red badge. **CLAUDE.md's "CI still runs on every push to `main` as a backstop" is
+  therefore not currently true** — the local gate each session runs is the only gate, and two
+  sessions of work have now landed on `main` with no hosted verification whatsoever.
+  **`ci.yml` cannot be triggered by hand to compensate**: its `on:` block is `push` +
+  `pull_request` only, with no `workflow_dispatch`. Adding one is a one-line change and the obvious
+  first move, but it is a workflow-config change outside P4.39 and is left for a task that claims
+  it. Root cause not determined from here — this run could not distinguish a GitHub-side
+  Actions/webhook problem from push-authorship suppression (the mechanism BUG-004-style
+  actions-authored pushes hit), and says so rather than guessing.
 - **Next session**: **P4.40** — "Docs pass: physics reference pages regenerated from §3 sources",
   25m/E, validation "all equations render; cross-links valid". It is the **last task in Phase 4**;
   clearing it opens Phase 5 (P5.01, the observable framework). Note that its cross-link half pairs
