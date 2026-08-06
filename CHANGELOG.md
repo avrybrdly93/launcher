@@ -15,6 +15,75 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-06 (2nd run) — P4.38 (SDIRK2 stepper)
+
+- **Done: P4.38** — `packages/solverkit/src/sdirk2-stepper.ts` adds Alexander's two-stage SDIRK2
+  (singly diagonally implicit, stiffly accurate, $\gamma = 1 - 1/\sqrt2$), its derivation page, and
+  16 tests. Full notes in `ROADMAP.json` under P4.38. This clears the last _stretch_ item in Phase 4;
+  P4.39 (rotational-dynamics ADR) and P4.40 (physics reference docs) are what remain before Phase 5.
+- **SDIRK2 rather than TR-BDF2** — the task names either. SDIRK2 reaches the same L-stability at
+  second order in **two** stages rather than three, and its $\gamma$ falls out of the order
+  conditions rather than being chosen: $\sum b_i c_i = \tfrac12$ _is_ $\gamma^2 - 2\gamma + \tfrac12
+  = 0$, whose root in $(0,1)$ is $1 - 1/\sqrt2$.
+- **Both halves of the validation criterion are measured from the stepper, not asserted about the
+  formula.** Slope: `measureConvergence` on the linear-drag benchmark (§3.6–3.7) against its closed
+  form gives a slope inside (1.9, 2.1). L-stability: the stepper's own one-step amplification on the
+  Dahlquist equation matches $R(z) = (1+(1-2\gamma)z)/(1-\gamma z)^2$ to 10 digits across
+  $z \in \{-0.5, -1, -5, -50, -10^3, -10^6, 0.5, 1\}$, so a tableau that drifted from the derived one
+  would fail rather than pass quietly.
+- **The demo, in one number**: at $h = 10^4 \times h_\text{crit}$(explicit Euler) — $\lambda = -10^4$,
+  $h = 2$, $z = -2\times10^4$, where explicit Euler amplifies by $2\times10^4$ _per step_ — one SDIRK2
+  step damps by **4144×**, to $|y| = 2.4131\times10^{-4}$. The contrast case is the trapezoidal rule,
+  A-stable but **not** L-stable: over the same $z$ values its $|R|$ _climbs toward_ 1 (0.9608 at
+  $z=-10^2$, 0.9999999996 at $z=-10^{10}$) where SDIRK2's falls below $10^{-10}$. It is asserted on
+  its $R(z)$, not on a stepper — SolverKit has no trapezoidal stepper and this run did not add one.
+- **Two claims that were wrong when first written, and are now assertions of the truth.** (1) SDIRK2's
+  $R(z)$ **is negative** for $z < -1/(1-2\gamma) = -2.414$, so it does _not_ avoid the stiff sign
+  flip; what it avoids is the flipped component keeping its magnitude. The first version of the test
+  asserted "no sign flip", failed, and now asserts that _both_ methods flip. (2) A 20-step stiff run
+  was expected to reach $R^{20} \approx 5\times10^{-61}$ and instead stalled at $5.89\times10^{-16}$.
+- **That stall is a real, pre-existing platform property, now pinned in a test.** `scaledErrorNorm`'s
+  absolute term means a stage's _initial_ residual already scores $\le 1$ once $|y|$ falls to roughly
+  `newtonAtol`; Newton then exits at iteration 0 and returns its initial guess, so the step becomes a
+  no-op and the solution stops decaying. Measured: 20 steps at $z=-5000$ stall at
+  $5.89\times10^{-16}$ with the default `newtonAtol = 1e-10` and reach $4.79\times10^{-61}$ with
+  `1e-300`. **This belongs to the shared Newton stopping rule, not to this tableau — it applies to
+  `BackwardEulerStepper` identically** — and it only bites on a solution decaying toward zero in
+  absolute terms, i.e. the Dahlquist test problem, not a trajectory. It is recorded rather than
+  "fixed" because changing a convergence criterion is not part of a stepper task.
+- **Negative-controlled**, not just observed green: perturbing $\gamma$ from 0.29289 to 0.3 drops the
+  measured convergence slope from **2.00 to 0.49** and fails both order-condition tests. Without that
+  check the new assertions could have been passing vacuously.
+- **Not done, deliberately**: no embedded error estimator, so SDIRK2 is fixed-step and
+  `errorEstimate` stays 0 (the adaptive companion is an ESDIRK pair, a different tableau); and no
+  solver-panel dropdown or advisor entry, since P4.38's validation criterion is numerical and UI
+  exposure was not claimed.
+- **Test results, all run locally at this session's HEAD**: `pnpm test` **1421/1421 across 205 files**
+  (was 1404/204 at session start — +16 SDIRK2 tests and +1 derivation-link test, no regressions);
+  `pnpm typecheck` clean; `pnpm lint` clean; `pnpm lint:deps` clean (1197 modules, 3245 dependencies,
+  no violations); `pnpm --filter @ballista/app build` green, app bundle **67.19 kB gzipped**.
+- **One flake worth knowing about**: the first full-suite run failed
+  `packages/app/src/canvas-viewport.test.ts` with `Hook timed out in 60000ms`. Run alone it passes in
+  **48.6 s** — its `beforeAll` builds the app with vite and launches Chromium, which under the load
+  of a parallel 205-file suite crosses the 60 s `hookTimeout`. The immediate re-run was fully green.
+  Not caused by this session's change (solverkit-only), but it is a genuine margin-of-2 timeout that
+  will keep flaking; raising that file's hook timeout would be a small, separate fix.
+- **Pre-existing issue, still NOT fixed and still needing a human** (unchanged from P4.36/P4.37, now
+  surviving three sessions): the **root `pnpm build` script is broken under pnpm 11** —
+  `pnpm -r --workspace-concurrency 1 run build` fails with `ERR_PNPM_RECURSIVE_RUN_NO_SCRIPT` because
+  pnpm 11 reads `run` as the script name. Confirmed again this session. CI is unaffected (`ci.yml`
+  builds via `pnpm --filter @ballista/app build`, which passes). The fix is a one-word `package.json`
+  change (`run build` → `build`); it keeps being left alone because it is a repo-config decision, not
+  part of any claimed task.
+- **Next session**: P4.39 — "Rotational-dynamics ADR: scope Euler rigid-body eqs as future work",
+  15m/E, validation "ADR merged with decision + revisit trigger". Then P4.40 (physics reference docs
+  regenerated from §3 sources, 25m/E). Clearing both finishes Phase 4 and opens Phase 5 (P5.01, the
+  observable framework). The standing constraint still holds: symplectic integration stays on
+  conservative dynamics only — SDIRK2 is an implicit RK method for dissipative/stiff paths and does
+  not change that.
+
+---
+
 ## 2026-08-06 — P4.37 (golden store v2 + tolerance review)
 
 - **Done: P4.37** — `packages/validation/src/golden-trajectory-store.ts` gains a v2 scenario
