@@ -23,6 +23,7 @@ export const STEPPER_DERIVATION_DOCS: Readonly<Record<string, string>> = {
   "velocity-verlet": "verlet-stepper.derivation.md",
   "position-verlet": "verlet-stepper.derivation.md",
   "backward-euler": "backward-euler-stepper.derivation.md",
+  sdirk2: "sdirk2-stepper.derivation.md",
 };
 
 /** The derivation page filename for `stepperId`, or `undefined` for an id with no known page. */

@@ -20,6 +20,7 @@ const STEPPER_SOURCE_FILES = [
   "dormand-prince-54",
   "verlet-stepper",
   "backward-euler-stepper",
+  "sdirk2-stepper",
 ];
 
 describe("stepper derivation pages (P2.51)", () => {

@@ -37,4 +37,5 @@ export * from "./hermite-dense-output.js";
 export * from "./invariant-monitor.js";
 export * from "./dense-linear-solve.js";
 export * from "./backward-euler-stepper.js";
+export * from "./sdirk2-stepper.js";
 export * from "./stepper-derivation-docs.js";
