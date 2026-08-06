@@ -15,6 +15,86 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-06 (3rd run) — P4.39 (rotational-dynamics ADR)
+
+- **Done: P4.39** — `docs/adr/ADR-015-rotational-dynamics-scope.md` (Accepted) plus five assertions
+  in `packages/engine/src/adr-rotational-dynamics-scope.test.ts`. Full decision text and revisit
+  trigger in `ROADMAP.json` under P4.39. **Only P4.40 now stands between this repo and Phase 5.**
+- **ADR-015, not 016 or 018**: the blueprint reserves 017 for P5.31, 019 for P6.30 and 023 for
+  P7.27, and 001/004/007/011/014 already exist, so 015 is the next free number with no forward
+  collision. The blueprint's own §7 list of ADRs ends in "…" and was **not** edited — it is the
+  source of truth for architecture, and this run did not change scope, only record it.
+- **The validation criterion is machine-checked rather than asserted in prose.** "ADR merged with
+  decision + revisit trigger" is documentary, which normally means a session marks it done and
+  nothing can ever contradict that. Instead: the tests assert the file exists and is `Accepted`,
+  that it carries both a `## Decision` and a `## Revisit trigger` section, and that the trigger
+  section holds **≥3 concrete bulleted conditions** rather than an empty heading.
+- **The fourth and fifth assertions are the ones that will catch a real regression**: no _projectile_
+  model declares an orientation channel, with `PLANAR_CHANNELS`, `SPATIAL_CHANNELS` and
+  `PLANAR_SPIN_CHANNELS` pinned exactly and `omega`'s unit pinned to `rad/s` — a rate, not an angle.
+  Adding an attitude state without reopening the ADR now fails a test instead of passing silently.
+  **Pendulum and Kepler are deliberately excluded** from that check: their `theta` is a generalized
+  coordinate of a different system, not projectile attitude, and sweeping them in would have made
+  the assertion wrong rather than strict.
+- **Negative-controlled**, not just observed green: renaming the `## Revisit trigger` heading and
+  adding a `pitch` channel to `PLANAR_SPIN_CHANNELS` failed **4 of the 5** tests; both were then
+  restored. Without that check the new assertions could have been passing vacuously.
+- **One claim in the ADR was corrected against the code before it was written.** The first draft
+  described spin as scalar-only. `ProjectileParams.spinAxis` exists — an optional constant
+  $\hat{\boldsymbol\omega}$ read only by the dim-6 spatial model's 3D Magnus term (P4.24),
+  defaulting to $\hat{\mathbf e}_z$. It is still **kinematic** (a fixed input direction, not an
+  orientation that evolves), so the decision is unchanged, but the ADR now says so explicitly and
+  its "no implicit attitude" constraint names `spinAxis` as something that must never be integrated.
+- **Symplectic constraint unaffected and reaffirmed**: spin decay is dissipative and stays on
+  standard RK. The ADR notes for the deferred case that $\boldsymbol\omega \times \mathbf I
+  \boldsymbol\omega$ would be conservative but $\mathbf M_{\text{aero}}$ is not, so the existing
+  conservative-dynamics-only rule already covers rigid-body attitude if it is ever built.
+- **Doc + test only.** No engine, solverkit, app or viz behaviour changed.
+- **Measured at this session's HEAD**: `pnpm typecheck` clean; `pnpm lint` clean; `pnpm lint:deps`
+  clean — **no violations, 1200 modules / 3264 dependencies** cruised;
+  `pnpm --filter @ballista/app build` green, app bundle **67.19 kB gzipped**.
+- **Test results, and the full-suite record is mixed — read this before quoting a number.**
+  `pnpm test` at this HEAD is **1426 tests across 206 files** (was 1421/205 at session start: +5
+  tests, +1 file, no regressions). Across **six** full-suite runs this session it went green **three
+  times** and red **three times**, and the failure was the **same single assertion** every time:
+  `packages/solverkit/src/chunked-integration.test.ts` — "a 1e6-step run stays within a small,
+  bounded wall-clock budget per slice", **max slice 12.97 ms and 15.88 ms against a 10 ms budget**.
+  That file passes **alone** in 173–214 ms on every attempt.
+- **What was measured about that flake, and what was not.** At the **pre-session** HEAD (`31089ce`)
+  the full suite ran green **3 times out of 3** (1421/1421). The first two reds appeared immediately
+  after this session added a 206th test file, which pointed at contention from one more parallel
+  worker — so the assertions were folded into the existing `planar-projectile-spin-model.test.ts` to
+  get back to 205 files and the suite was re-run: **still 1 red in 3**. That falsifies the
+  extra-file explanation, so the fold was reverted and the standalone file kept (it matches the
+  `docs-derivation-links.test.ts` precedent and is more discoverable). The likelier reading is that
+  this container's available CPU drifted over a session that ran ten-plus full suites back to back —
+  **but that is inference, not a measurement, and it is not proven.** What _is_ solid: this session
+  changed no solverkit code and nothing `chunked-integration.test.ts` imports.
+- **The test was not weakened, skipped, or re-budgeted.** Raising the 10 ms figure is a change to a
+  performance assertion and is not part of P4.39.
+- **Issue filed, NOT fixed** (scope discipline): this repo now has **three** marginal timing
+  assertions in one parallel suite — `chunked-integration`'s 10 ms slice budget (new to the record
+  this session) alongside `canvas-viewport.test.ts` (48.6 s against a 60 s hook timeout) and
+  `lazy-plotly-pane.bundle.test.ts` (22.1 s against 30 s), both recorded in the P4.38 entry. They
+  are one problem, not three, and a task that claims "make suite timing assertions robust under
+  parallel load" should handle all of them together rather than a session raising one number at a
+  time to get its own run green.
+- **Pre-existing issue, still NOT fixed and still needing a human** (unchanged from P4.36/P4.37/P4.38,
+  now surviving four sessions): the **root `pnpm build` script is broken under pnpm 11** —
+  `pnpm -r --workspace-concurrency 1 run build` fails with `ERR_PNPM_RECURSIVE_RUN_NO_SCRIPT`
+  because pnpm 11 reads `run` as the script name. Confirmed again this session. CI is unaffected
+  (`ci.yml` builds via `pnpm --filter @ballista/app build`, which passes). The fix is a one-word
+  `package.json` change (`run build` → `build`); it keeps being left alone because it is a
+  repo-config decision, not part of any claimed task. **Four sessions is long enough that this
+  should be claimed rather than re-noted.**
+- **Next session**: **P4.40** — "Docs pass: physics reference pages regenerated from §3 sources",
+  25m/E, validation "all equations render; cross-links valid". It is the **last task in Phase 4**;
+  clearing it opens Phase 5 (P5.01, the observable framework). Note that its cross-link half pairs
+  naturally with the existing `docs-derivation-links.test.ts` pattern. The standing constraint holds
+  unchanged: symplectic integration stays on conservative dynamics only.
+
+---
+
 ## 2026-08-06 (2nd run) — P4.38 (SDIRK2 stepper)
 
 - **Done: P4.38** — `packages/solverkit/src/sdirk2-stepper.ts` adds Alexander's two-stage SDIRK2
