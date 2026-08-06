@@ -14,6 +14,11 @@ import { TerrainEditorRoute } from "./terrain-editor-route.js";
  * beyond the default simulator, so a full router is unwarranted -- this
  * dispatches on `location.hash` and re-renders on `hashchange`, mirroring
  * the granularity of the rest of `main.tsx`'s bootstrap responsibility.
+ *
+ * The route *hashes* this switch handles are also declared in `routes.ts`
+ * (P4.36), which the scenario library's exhibit links resolve against;
+ * `routes.test.ts` asserts the two stay in step, since nothing else would
+ * catch a case added here but not there.
  */
 function renderRoute(root: HTMLElement): void {
   switch (window.location.hash) {
