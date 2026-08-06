@@ -60,8 +60,11 @@ forcing a fallback to commit timestamps.
   exposure was not claimed.
 - **Test results, all run locally at this session's HEAD**: `pnpm test` **1421/1421 across 205 files**
   (was 1404/204 at session start — +16 SDIRK2 tests and +1 derivation-link test, no regressions);
-  `pnpm typecheck` clean; `pnpm lint` clean; `pnpm lint:deps` clean (1197 modules, 3245 dependencies,
-  no violations); `pnpm --filter @ballista/app build` green, app bundle **67.19 kB gzipped**.
+  `pnpm typecheck` clean; `pnpm lint` clean; `pnpm lint:deps` clean — no violations, over 1136
+  modules / 3074 dependencies on the final run (an earlier run in the same session cruised
+  1197/3245: the count depends on which build artifacts are on disk at the time, so treat the
+  violation count as the signal and the module count as incidental);
+  `pnpm --filter @ballista/app build` green, app bundle **67.19 kB gzipped**.
 - **One flake worth knowing about**: the first full-suite run failed
   `packages/app/src/canvas-viewport.test.ts` with `Hook timed out in 60000ms`. Run alone it passes in
   **48.6 s** — its `beforeAll` builds the app with vite and launches Chromium, which under the load
