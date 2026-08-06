@@ -2169,8 +2169,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "regression green; diffs from v1 explained in changelog",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed this session. Scope: extend the golden store from v1's 12 entries (6 PRESET_SCENARIOS x {RK4 fixed, DOPRI5}, P2.52) to a v2 that also covers the Phase-4 physics v1 predates -- ISA atmosphere (P4.01), altitude-dependent gravity (P4.02), Mach-dependent C_d (P4.04), the dim-5 planar-spin (P4.07) and dim-6 spatial (P4.23) models, and the wind kinds added in P4.16-P4.19 -- sourced from the P4.36 curated library rather than from newly invented scenarios. Second half of the task is the tolerance review: v1 applies a single 1e-13 relative tolerance to every entry's final state; v2 must establish per-entry tolerances from a measurement rather than a guess. Remaining work: everything."
     },
     {
       "id": "P4.38",
