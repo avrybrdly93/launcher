@@ -2191,8 +2191,8 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "ADR merged with decision + revisit trigger",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed 2026-08-06 (3rd run). Plan: write docs/adr/ADR-015-rotational-dynamics-scope.md. Number: blueprint §7 prose (the /docs/adr/ list) names 001/004/007/011/014 as existing, and 017/019/023 are reserved by P5.31/P6.30/P7.27, so 015 is the next free number with no forward collision. Decision to record: rotational dynamics stay kinematic — ω constant, or first-order exponential spin decay ω̇ = −ω/τ_ω (§3.6), shipped as planarProjectileSpinModel in P4.07 — and full Euler rigid-body attitude (quaternion + I ω̇ + ω × I ω = M_aero, §11 'Beyond Phase 4') is scoped OUT of the roadmap as future work. Must carry an explicit revisit trigger per the validation criterion. Doc-only task: no engine/solverkit change."
     },
     {
       "id": "P4.40",
