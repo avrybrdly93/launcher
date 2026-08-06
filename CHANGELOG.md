@@ -59,6 +59,7 @@ forcing a fallback to commit timestamps.
   solver-panel dropdown or advisor entry, since P4.38's validation criterion is numerical and UI
   exposure was not claimed.
 - **Test results, all run locally at this session's HEAD**: `pnpm test` **1421/1421 across 205 files**
+  on its best run — read the flake bullet below before quoting that as "the suite is green"
   (was 1404/204 at session start — +16 SDIRK2 tests and +1 derivation-link test, no regressions);
   `pnpm typecheck` clean; `pnpm lint` clean; `pnpm lint:deps` clean — no violations, over 1136
   modules / 3074 dependencies on the final run (an earlier run in the same session cruised
