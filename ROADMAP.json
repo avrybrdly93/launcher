@@ -2158,8 +2158,8 @@
       "estMinutes": 30,
       "difficulty": "E",
       "validation": "each note links exhibit; CI validates all specs",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed 2026-08-06. PLAN: new `packages/engine/src/scenario-library.ts` exporting a `CuratedScenario[]` of 20 entries -- id, title, a teaching note, an `exhibit` route id, and the `ScenarioSpec` itself -- built by reusing the 7 existing `PRESET_SCENARIOS` rather than redefining them, plus 13 new specs chosen to fill the regime gaps the current set leaves (altitude-dependent atmosphere/gravity, OU + 1-cosine gusts, Coriolis, terrain/slope, bounce restitution, pendulum and Kepler Stage-B models, transonic Mach). VALIDATION ('each note links exhibit; CI validates all specs'): (a) `scenario-library.test.ts` parses every spec against `scenarioSpecSchema`, asserts JSON round-trip bit-equality, unique ids, non-empty notes, and regime spread via `scenarioRegimeTags`/`scenarioNondimensionalGroups`; (b) every `exhibit` id is asserted against the app's real `#/...` hash routes from `main.tsx` in a test in the `app` package, so a note cannot link an exhibit that does not exist. Exhibit ids live in `engine` as a string union; `app` depends on `engine` already, so the dependency direction is unchanged."
     },
     {
       "id": "P4.37",
