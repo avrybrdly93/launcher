@@ -32,6 +32,7 @@ export * from "./scenario-spec.js";
 export * from "./characteristic-scales.js";
 export * from "./solver-advisor.js";
 export * from "./scenario-migration.js";
+export * from "./scenario-library.js";
 export * from "./scenario-metadata.js";
 export * from "./scenario-presets.js";
 export * from "./scenario-regime-tags.js";
