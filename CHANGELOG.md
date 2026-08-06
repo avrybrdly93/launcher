@@ -65,12 +65,19 @@ forcing a fallback to commit timestamps.
   1197/3245: the count depends on which build artifacts are on disk at the time, so treat the
   violation count as the signal and the module count as incidental);
   `pnpm --filter @ballista/app build` green, app bundle **67.19 kB gzipped**.
-- **One flake worth knowing about**: the first full-suite run failed
-  `packages/app/src/canvas-viewport.test.ts` with `Hook timed out in 60000ms`. Run alone it passes in
-  **48.6 s** — its `beforeAll` builds the app with vite and launches Chromium, which under the load
-  of a parallel 205-file suite crosses the 60 s `hookTimeout`. The immediate re-run was fully green.
-  Not caused by this session's change (solverkit-only), but it is a genuine margin-of-2 timeout that
-  will keep flaking; raising that file's hook timeout would be a small, separate fix.
+- **The full suite is flaky in this environment, and the honest record is 1 green run in 4.** Four
+  `pnpm test` runs: one fully green (1421/1421), and three where exactly one **build-heavy** test
+  timed out — `packages/app/src/canvas-viewport.test.ts` (`Hook timed out in 60000ms`) once, and
+  `packages/viz/src/lazy-plotly-pane.bundle.test.ts` (`Test timed out in 30000ms`) twice. Both pass
+  run alone, and the margins are why they flake: canvas-viewport takes **48.6 s against a 60 s**
+  hook timeout (it vite-builds the app _and_ launches Chromium), the Plotly bundle test **22.1 s
+  against a 30 s** timeout (it vite-builds the 4.8 MB Plotly bundle). Under a parallel 205-file suite
+  both cross their limits. Neither can be caused by this session's change, which is solverkit-only
+  and touches nothing either test imports; the solverkit suite itself (89 files, 604 tests) was green
+  in every run. Previous sessions reported a green suite, so this looks like contention specific to
+  this container rather than a new regression. **A small separate fix would raise both timeouts** —
+  they are timeouts, not assertions, so raising them weakens nothing — but that is a change to test
+  configuration outside P4.38 and was left for a task that claims it.
 - **Pre-existing issue, still NOT fixed and still needing a human** (unchanged from P4.36/P4.37, now
   surviving three sessions): the **root `pnpm build` script is broken under pnpm 11** —
   `pnpm -r --workspace-concurrency 1 run build` fails with `ERR_PNPM_RECURSIVE_RUN_NO_SCRIPT` because
