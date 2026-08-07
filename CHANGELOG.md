@@ -79,6 +79,12 @@ forcing a fallback to commit timestamps.
   `packages/viz/src/lazy-plotly-pane.bundle.test.ts`, which runs a real vite build and is
   timing-sensitive under the same load. Both passed in the two green runs. **Neither was weakened,
   skipped or deleted.**
+- **Hosted CI is green at this HEAD.** Run **`31189458511`** at `b25bcd6` (push-triggered) passed
+  **all 16 steps** in 3m39s: typecheck, lint, import boundaries, **`pnpm test` in 1m46s**,
+  benchmark and cross-engine-drift soft checks, both typedoc steps, app build and bundle-size
+  budget. Notably the hosted runner's `pnpm test` was green in one attempt — including both
+  tests that flaked locally — which is further evidence those two are load-sensitive rather
+  than regressions.
 - **Analysis package only.** No engine, solverkit, runtime, viz, ui or app behaviour changed;
   `packages/analysis` went from a package skeleton to its first real module.
 - **Next session: P5.02** — "Target model: point / ring / raised-platform with hit predicate + miss
