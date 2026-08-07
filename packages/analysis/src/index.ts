@@ -1,4 +1,6 @@
 // L1 analysis: inverse problems (shooting), Monte Carlo ensembles, sensitivity
-// indices. Implementation begins in later phases (§7); this is the Phase 0
-// package skeleton.
+// indices. Phase 5 (§7) opens with the observable framework below; the rest of
+// the surface is still the Phase 0 package skeleton.
 export const ANALYSIS_PACKAGE = "@ballista/analysis";
+
+export * from "./observables.js";
