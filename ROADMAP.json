@@ -2235,8 +2235,8 @@
       "estMinutes": 25,
       "difficulty": "M",
       "validation": "recovers both analytic roots θ=½asin(gR*/v₀²) and complement to 1e-10",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed 2026-08-07 (4th run). Plan: packages/analysis/src/range-root.ts — a bracketed scalar root problem range(θ) − R* = 0 solved with solverkit's existing brentRoot, not a new root finder. Both arcs are found by bracketing on either side of the range-maximizing angle rather than by returning the analytic complement, so the same call works for a range function that is not symmetric about π/4 (P5.06 onward). Validation to be run against BOTH the closed-form drag-free range and an independently integrated drag-free trajectory, so the test is not the closed form checking its own inverse."
     },
     {
       "id": "P5.04",
