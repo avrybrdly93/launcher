@@ -15,6 +15,99 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-07 (4th run) — P5.03 (scalar range root)
+
+- **Done: P5.03.** `packages/analysis/src/range-root.ts` exports `RangeFunction`,
+  `DRAG_FREE_PEAK_ANGLE`, `dragFreeRange`, `solveRangeRoot` (explicit bracket)
+  and `solveRangeRoots` (both arcs plus reachability). **Next task is P5.04**
+  (shooting residual `F(θ,v₀) = r_impact − r*` from the event state, which
+  consumes P5.02's `missVector` directly).
+- **No new root finder was written.** The residual `range(θ) − R*` is handed to
+  solverkit's existing `brentRoot`, whose own doc comment already names P5.03 as
+  the caller it was made generic for. What this task adds is the _problem_:
+  choosing the residual, bracketing each arc, and saying when there is no answer.
+- **Range is not monotone in θ, and that is the entire difficulty.** It rises
+  from zero, peaks, and falls back to zero, so a reachable `R*` below the maximum
+  has two solutions — the flat arc and the lofted one — and a bracketing method
+  has to be told which side of the peak to look on.
+- **The two arcs are bracketed separately rather than solved once and
+  reflected**, and this is the one decision in the task worth arguing. Reflection
+  about the peak is exact for the drag-free `sin(2θ)` the criterion is written
+  against, and it is shorter. It is also a property of that particular function
+  rather than of the problem: with drag the range curve is not symmetric about
+  its peak, so a reflected "root" comes back with a residual that is merely small.
+  **A negative control that implements reflection passes all twelve drag-free
+  root assertions and fails only 3 of 39** — so the drag-free criterion alone
+  cannot distinguish the two designs, which is precisely why the file carries an
+  asymmetric range curve (peak at `atan(1/√2)` ≈ 35.3°, where drag puts it) whose
+  reflected low root misses by more than 1e-3.
+- **Validation met, and checked against two independent references.** Both roots
+  land within **1e-10 rad** of `½asin(gR*/v₀²)` and its complement to π/2, across
+  4 closed-form cases **and** 2 cases where the range function is a real
+  Dormand–Prince 5(4) integration to ground impact (`rtol` 1e-13, `atol` 1e-14)
+  read through P5.01's `range` observable. The second path evaluates no inverse
+  trig at all, so the closed form is an outside reference there rather than the
+  same three lines of algebra checking themselves — which the closed-form-only
+  version of this test would have been.
+- **Negative-controlled three ways.** Perturbing the residual by 1e-8 relative
+  fails **17** assertions, including every integrated one (so those tests are not
+  vacuously passing); the reflection control fails **3**; **loosening the Brent
+  stopping tolerance from 1e-12 to 1e-6 fails nothing at all.** That third result
+  is the informative one and is recorded in `ROADMAP.json` for later tasks:
+  Brent's final interpolation lands far inside its own bracket width, so
+  `angleTol` is not the knob that controls achieved accuracy, and a future task
+  must not reach for it as if it were.
+- **`peakAngle` is data, not a constant.** It defaults to π/4, which is correct
+  only for a drag-free ground launch; a raised launch peaks below it and a drag
+  launch lower still. Computing it in general is P5.09's envelope sweep and
+  P5.13's 1D minimizer, so it is deliberately **not** done here — callers with
+  drag pass their own until those tasks land. `low`/`high` are independently
+  nullable for the same reason a bound is real: a launcher that cannot depress
+  below 30° loses the flat arc to a near target but keeps the lofted one.
+- **A floating-point case is pinned rather than left to be discovered.** A target
+  of exactly `0` has a low-arc root at exactly `0` and **no** high-arc root,
+  because `dragFreeRange` at π/2 evaluates `sin(Math.PI)` = 1.22e-16, not zero.
+  That asymmetry is arithmetic, not physics, and a test states it.
+- **Full local gate green at this HEAD** (Node 22.22.2, pnpm **10.33.0**):
+  `typecheck` clean · `lint` clean · `lint:deps` **no violations** (1219 modules,
+  3308 dependencies) · `pnpm test` **1586/1586 across 210 files** in 114s ·
+  `pnpm --filter @ballista/app build` ✓ in 45.6s · bundle size **65.6 kB gzipped**
+  against the 300 kB §2.6 budget · both typedoc jobs ✓. Nothing was skipped,
+  weakened or retried. **The `chunked-integration.test.ts` slice-budget assertion
+  passed locally this run**, but see below — that is not evidence the CI problem
+  is gone.
+- **Root `pnpm build` fails in this sandbox, and it is not this change.**
+  `pnpm -r --workspace-concurrency 1 run build` exits
+  `ERR_PNPM_RECURSIVE_RUN_NO_SCRIPT`. Verified pre-existing by running it in a
+  clean worktree at `34036f9`, the commit before this session's first: identical
+  failure. The repo pins `pnpm@11.9.0` via `packageManager` and this sandbox has
+  **10.33.0**, and CI never invokes the root script — it runs
+  `pnpm --filter @ballista/app build`, which passes. Recorded as an environment
+  mismatch, not filed as a repo bug, and not worked around.
+
+### ⚠️ CI on `main` is still red, and the decision from the 3rd run is still open
+
+**Nothing about the previous entry's finding has changed, and this session did
+not attempt to resolve it** — it is a change to a performance contract, which
+`ROADMAP.json`'s quality policy puts outside what a session that trips over it
+may decide. The timing assertion passing locally this run is exactly the
+load-sensitivity that entry documented (three of four _hosted_ attempts red on
+two commits, one of them docs-only), so it is not evidence of a fix and is not
+recorded as one.
+
+The consequence for this session is worth stating plainly: **P5.03's own CI
+result cannot be interpreted.** A red run here may be the known flake or a real
+failure, and there is no way to tell them apart from the outside while the flake
+stands. The local gate above is therefore the strongest honest statement
+available about this change, and it is a full one.
+
+The options and the recommendation are unchanged from the 3rd run's entry —
+assert on work per slice (steps, `nRHS`) rather than wall-clock is still the one
+that makes the assertion mean the same thing on every machine. **A human needs
+to pick one.**
+
+---
+
 ## 2026-08-07 (3rd run) — P5.02 (target model)
 
 - **Done: P5.02.** `packages/analysis/src/targets.ts` exports `Target =
