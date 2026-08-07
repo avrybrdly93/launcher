@@ -2213,8 +2213,8 @@
       "estMinutes": 25,
       "difficulty": "M",
       "validation": "drag-free observables match analytics to 1e-9",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed 2026-08-07 (2nd run). Observable framework lands in packages/analysis (L1) as pure Trajectory->scalar functions: timeOfFlight, range, apexHeight, apexTime, impactSpeed, missDistance. Remaining: implement observables.ts, add drag-free analytic tests to 1e-9, export from the package index."
     },
     {
       "id": "P5.02",
