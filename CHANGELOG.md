@@ -15,6 +15,67 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-07 (3rd run) — P5.02 (target model)
+
+- **Done: P5.02.** `packages/analysis/src/targets.ts` exports `Target =
+PointTarget | RingTarget | PlatformTarget` with `validateTarget`,
+  `nearestPointOn`, `missVector`, `missMagnitude`, `isHit`, and the
+  trajectory-level `impactMissVector` / `impactIsHit`. **Next task is P5.03**
+  (scalar root problem: `range(θ) = R*` at fixed `v₀` via Brent).
+- **The three shapes are point _sets_, not three cases.** Every operation
+  derives from one nearest-point routine — the miss vector is
+  `impact − nearestPointOn(target)` — so "zero exactly when the shot hits" is a
+  consequence rather than three separately-maintained special cases, and the
+  residual P5.04 drives to zero stays continuous across the target boundary,
+  which is precisely where a kind-specific formula would introduce a kink.
+- **Sign convention is impact minus target**, so for a point target the miss
+  vector _is_ P5.04's `F = r_impact − r*` and a Newton step consumes it with no
+  sign to remember at the call site. A dedicated test pins the sign; no
+  magnitude assertion can.
+- **The platform has zero vertical extent on purpose.** It models landing _on
+  top of_ a pad, so a shot at the right downrange distance but the wrong height
+  hit the side and gets a purely vertical miss vector — the exact case
+  `observables.missDistance`'s doc comment singles out.
+- **A floating-point detail is load-bearing.** Interior components are copied
+  into the nearest point rather than reconstructed as
+  `centre + (point − centre) * scale` with `scale === 1`: that identity does not
+  hold in binary floating point (`10.1 + (30.3 − 10.1)` is `30.300000000000004`)
+  and would leave a ~1e-15 miss where the criterion demands an exact zero. The
+  test that catches it uses coordinates chosen to break the round-trip.
+- **Validation is bit-exact, not approximate.** P5.02's criterion is "miss
+  vector zero at exact hit (constructed)", so all 33 cases assert `toBe(0)` plus
+  an `Object.is(−0)` sign check rather than a tolerance — a routine that
+  reconstructs an interior point arithmetically lands within an ulp of it, and
+  `toBeCloseTo` cannot tell that apart from correct. Miss cases are checked
+  against closed-form geometry (radial overshoot `r − radius`, per-axis box
+  clamp), never against a prior run of this code.
+- **Negative-controlled.** Flipping the miss sign failed **12** assertions;
+  forcing the scaling path in the ring interior failed **exactly** the
+  non-round-tripping-coordinates case; letting the platform ignore the vertical
+  axis failed **3**. The middle one is the informative control: it passed on the
+  first version of that test, which is how the round-trip case got its
+  adversarial coordinates.
+- **A finding the next task needs.** A flat target with tolerance `0` is never
+  hit by a _solved_ trajectory, only by a constructed point: all three shapes
+  have zero vertical extent, and event localization puts a ground impact's
+  vertical coordinate at ~6e-15 m rather than 0. This is asserted directly
+  rather than worked around, and the tolerance doc comment now says so. P5.04–06
+  should drive `missVector`, which is unaffected, rather than consult `isHit`.
+- **Measured at this session's HEAD**: `pnpm typecheck` clean; `pnpm lint`
+  clean; `pnpm lint:deps` no violations; `pnpm --filter @ballista/app build`
+  green; `check-bundle-size` **65.6 kB gzipped** against the 300 kB §2.6 budget,
+  **unchanged** from the previous run.
+- **Test results.** `pnpm test` at this HEAD is **1547 tests across 209 files**
+  (was 1514/208: **+33 tests, +1 file**, no regressions). One full-suite run this
+  session, **fully green** — the load-sensitive flakes the P4.39/P4.40 and P5.01
+  entries document (`chunked-integration.test.ts`'s wall-clock assertion and
+  `lazy-plotly-pane.bundle.test.ts`'s real vite build) did not fire. Nothing was
+  weakened, skipped, or retried to get there.
+- **Not done, and not claimed:** the CI run at this HEAD. Pushed and left to the
+  hosted runner; a future entry should record it as the P5.01 entry did.
+
+---
+
 ## 2026-08-07 (2nd run) — P5.01 (observable framework) — **Phase 5 opens**
 
 - **Done: P5.01**, the first task of Phase 5 (optimization and inverse problems).
