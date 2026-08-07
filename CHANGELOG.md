@@ -82,6 +82,18 @@ forcing a fallback to commit timestamps.
   but not `tsc -b` under `noUncheckedIndexedAccess`). It was **fixed forward** in `a49de3d` rather
   than by rewriting history. Recorded here because `policy.commitRules` asks every commit to build,
   and quietly amending would have hidden a real deviation.
+- **Hosted CI is green at this HEAD.** Run **`31155906382`** at `0f4310e` (push-triggered, arriving
+  within seconds of the push) passed **all 16 steps** in 3m37s: typecheck, lint, import boundaries,
+  **`pnpm test` in 1m44s**, benchmark and cross-engine-drift soft checks, both typedoc steps, app
+  build and bundle-size budget. The local test results above are therefore corroborated on a
+  hosted runner too — including the `chunked-integration` timing assertion, which passed there.
+- **Correcting the P4.39 entry: `ci.yml` _has_ been running on `main`.** That entry says it "has
+  not run on main since `4e407f6`". The API shows push runs at `65c6119` (**success**), `0b57bf2`
+  (**success**) and `7c08b7b` (**failure**) after `4e407f6`, all on 2026-08-06. The claim was
+  wrong, and left standing it would have sent a future session hunting a nonexistent trigger
+  problem. What is true is that one run did conclude `failure` — at `7c08b7b`, which is consistent
+  with the known `chunked-integration` flake, though **that specific run's logs were not inspected
+  this session**, so this is stated as consistency, not as a diagnosis.
 - **Doc, script and test only.** No engine, solverkit, app or viz behaviour changed.
 - **Next session: P5.01** — "Observable framework: pure functions Trajectory→scalar (range, apex,
   ToF, impact speed, miss distance to target)", validation "unit tests vs analytic values". This
