@@ -63,6 +63,32 @@ function requireRows(traj: Trajectory, min: number, what: string): void {
 }
 
 /**
+ * Throws unless *every* channel the layout names exists on the trajectory.
+ *
+ * Checking the whole layout up front, rather than relying on {@link at} to
+ * catch a missing channel when it is read, is the difference between failing
+ * and failing silently. Pairing `SPATIAL_LAYOUT` with a planar solve is the
+ * realistic mistake, and a planar trajectory has *enough* channels to satisfy
+ * some of what the spatial layout asks for: `range` would skip the vertical
+ * axis, read channels 0 and 2, find `vx` sitting where it expected `z`, and
+ * return a confidently wrong number rather than throwing. A lazy per-read
+ * guard cannot see that; a whole-layout guard can.
+ */
+function requireLayout(traj: Trajectory, layout: TrajectoryLayout, what: string): void {
+  const needed = Math.max(...layout.position, ...layout.velocity) + 1;
+  if (traj.channels.length < needed) {
+    throw new Error(
+      `${what}: layout spans ${needed} channel(s), but the trajectory has only ${traj.channels.length}`,
+    );
+  }
+  if (layout.vertical < 0 || layout.vertical >= layout.position.length) {
+    throw new Error(
+      `${what}: layout vertical axis ${layout.vertical} is outside its ${layout.position.length} position axes`,
+    );
+  }
+}
+
+/**
  * Index of the final recorded row -- **the impact row**, for any solve that
  * ended on a terminal ground event.
  *
@@ -118,6 +144,7 @@ export function timeOfFlight(traj: Trajectory): number {
  */
 export function range(traj: Trajectory, layout: TrajectoryLayout = PLANAR_LAYOUT): number {
   requireRows(traj, 1, "range");
+  requireLayout(traj, layout, "range");
   const last = lastRow(traj);
   let sum = 0;
   for (let axis = 0; axis < layout.position.length; axis++) {
@@ -132,6 +159,7 @@ export function range(traj: Trajectory, layout: TrajectoryLayout = PLANAR_LAYOUT
 /** Speed $|\mathbf v|$ at the impact row (§9.1). */
 export function impactSpeed(traj: Trajectory, layout: TrajectoryLayout = PLANAR_LAYOUT): number {
   requireRows(traj, 1, "impactSpeed");
+  requireLayout(traj, layout, "impactSpeed");
   return speedAt(traj, layout, lastRow(traj));
 }
 
@@ -153,6 +181,7 @@ export function missDistance(
   layout: TrajectoryLayout = PLANAR_LAYOUT,
 ): number {
   requireRows(traj, 1, "missDistance");
+  requireLayout(traj, layout, "missDistance");
   if (target.length !== layout.position.length) {
     throw new Error(
       `missDistance target has ${target.length} component(s); layout expects ${layout.position.length}`,
@@ -204,6 +233,7 @@ export function apex(
   layout: TrajectoryLayout = PLANAR_LAYOUT,
 ): { readonly t: number; readonly height: number } {
   requireRows(traj, 1, "apex");
+  requireLayout(traj, layout, "apex");
   const yChannel = layout.position[layout.vertical]!;
   const vyChannel = layout.velocity[layout.vertical]!;
   const last = lastRow(traj);
