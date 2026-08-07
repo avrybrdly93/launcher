@@ -1,0 +1,353 @@
+{
+  "$comment": [
+    "Curated map from blueprint section-3 subsections to the code that implements them.",
+    "Hand-maintained: the generator (scripts/generate-physics-docs.mjs) reads this file and",
+    "renders the 'Implementation' table on each page. Keeping it here rather than inside the",
+    "generated Markdown is what lets the pages be regenerated from the blueprint without",
+    "losing the mapping.",
+    "Every 'file' must exist and every 'symbol' must appear as a named export in that file --",
+    "packages/validation/src/physics-docs.test.ts enforces both, so a rename that breaks a",
+    "link fails the suite instead of rotting silently."
+  ],
+  "sections": {
+    "3.1": [
+      {
+        "symbol": "ForceModel",
+        "file": "packages/engine/src/forces.ts",
+        "note": "Common interface every force term conforms to — Eq. (3.2) composability."
+      },
+      {
+        "symbol": "composeForces",
+        "file": "packages/engine/src/forces.ts",
+        "note": "Sums contributions into a preallocated accumulator (no allocation in the hot path, ADR-004)."
+      },
+      {
+        "symbol": "createForceRegistry",
+        "file": "packages/engine/src/forces.ts",
+        "note": "Builds the toggleable force inventory of Eq. (3.2)."
+      },
+      {
+        "symbol": "Model",
+        "file": "packages/engine/src/model.ts",
+        "note": "Carries the RHS that Eq. (3.1) becomes once reduced to first order."
+      }
+    ],
+    "3.2": [
+      {
+        "symbol": "GravityForce",
+        "file": "packages/engine/src/forces.ts",
+        "note": "Eq. (3.2) gravity term; delegates the field strength to a GravityModel."
+      },
+      {
+        "symbol": "UniformGravity",
+        "file": "packages/engine/src/environment.ts",
+        "note": "Uniform g default (9.80665 m/s^2), user-adjustable per body."
+      },
+      {
+        "symbol": "GravityModel",
+        "file": "packages/engine/src/environment.ts",
+        "note": "Seam the altitude-dependent model of Eq. (3.3) plugs into."
+      }
+    ],
+    "3.3": [
+      {
+        "symbol": "LinearDragForce",
+        "file": "packages/engine/src/forces.ts",
+        "note": "Eq. (3.5), Stokes regime."
+      },
+      {
+        "symbol": "QuadraticDragForce",
+        "file": "packages/engine/src/forces.ts",
+        "note": "Eq. (3.8); reads v_rel, never v — the T-VAL-09 invariant."
+      },
+      {
+        "symbol": "DragCoefficientModel",
+        "file": "packages/engine/src/drag-coefficient.ts",
+        "note": "The one interface all four C_d fidelities sit behind."
+      },
+      {
+        "symbol": "ConstantCd",
+        "file": "packages/engine/src/drag-coefficient.ts",
+        "note": "C_d = 0.47 smooth-sphere default."
+      },
+      {
+        "symbol": "TabulatedReynoldsCd",
+        "file": "packages/engine/src/drag-coefficient.ts",
+        "note": "Re-dependent C_d covering the drag crisis."
+      },
+      {
+        "symbol": "SMOOTH_SPHERE_CD_TABLE",
+        "file": "packages/engine/src/drag-coefficient.ts",
+        "note": "Tabulated (Re, C_d) data for the smooth sphere."
+      },
+      {
+        "symbol": "TabulatedMachCd",
+        "file": "packages/engine/src/drag-coefficient.ts",
+        "note": "Mach-dependent C_d with transonic rise (Phase 4)."
+      },
+      {
+        "symbol": "TRANSONIC_MACH_CD_TABLE",
+        "file": "packages/engine/src/drag-coefficient.ts",
+        "note": "Tabulated (M, C_d) transonic data."
+      },
+      {
+        "symbol": "PchipInterpolator",
+        "file": "packages/engine/src/pchip.ts",
+        "note": "Monotone cubic interpolation that keeps C_d(Re) smooth enough not to degrade observed convergence order."
+      },
+      {
+        "symbol": "reynoldsNumber",
+        "file": "packages/engine/src/characteristic-scales.ts",
+        "note": "Eq. (3.9), Re."
+      },
+      {
+        "symbol": "machNumber",
+        "file": "packages/engine/src/characteristic-scales.ts",
+        "note": "Eq. (3.9), M."
+      },
+      {
+        "symbol": "terminalVelocityQuadratic",
+        "file": "packages/engine/src/characteristic-scales.ts",
+        "note": "Eq. (3.10)."
+      },
+      {
+        "symbol": "dragRelaxationTimeLinear",
+        "file": "packages/engine/src/characteristic-scales.ts",
+        "note": "tau = m/b from Eq. (3.6)."
+      }
+    ],
+    "3.4": [
+      {
+        "symbol": "Atmosphere",
+        "file": "packages/engine/src/environment.ts",
+        "note": "Returns (rho, T, p, eta, c) at a query point."
+      },
+      {
+        "symbol": "ConstantAtmosphere",
+        "file": "packages/engine/src/environment.ts",
+        "note": "ISA sea level default, rho = 1.225 kg/m^3."
+      },
+      {
+        "symbol": "ExponentialAtmosphere",
+        "file": "packages/engine/src/environment.ts",
+        "note": "Isothermal exponential, rho(y) = rho_0 exp(-y/H)."
+      },
+      {
+        "symbol": "IsaTroposphereAtmosphere",
+        "file": "packages/engine/src/environment.ts",
+        "note": "Eq. (3.11) lapse-rate model plus Eq. (3.12) Sutherland viscosity."
+      },
+      {
+        "symbol": "BuoyancyForce",
+        "file": "packages/engine/src/forces.ts",
+        "note": "F_b = rho V g e_y, toggleable."
+      },
+      {
+        "symbol": "buoyancyToWeightRatio",
+        "file": "packages/engine/src/forces.ts",
+        "note": "Powers the 'how big are the effects we ignore?' exercise."
+      }
+    ],
+    "3.5": [
+      {
+        "symbol": "WindModel",
+        "file": "packages/engine/src/environment.ts",
+        "note": "w(t, r) -> R^d; wind enters only through Eq. (3.4)."
+      },
+      { "symbol": "ZeroWind", "file": "packages/engine/src/environment.ts", "note": "Still air." },
+      {
+        "symbol": "UniformWind",
+        "file": "packages/engine/src/environment.ts",
+        "note": "Uniform steady wind."
+      },
+      {
+        "symbol": "LogProfileWind",
+        "file": "packages/engine/src/environment.ts",
+        "note": "Eq. (3.13) logarithmic boundary layer."
+      },
+      {
+        "symbol": "SinusoidalGustWind",
+        "file": "packages/engine/src/environment.ts",
+        "note": "Smooth analytic gust, safe for convergence studies."
+      },
+      {
+        "symbol": "GaussianVortexWind",
+        "file": "packages/engine/src/environment.ts",
+        "note": "Analytic vortex structure."
+      },
+      {
+        "symbol": "GriddedWindField",
+        "file": "packages/engine/src/environment.ts",
+        "note": "Rectilinear grid + interpolation; seam for imported/CFD fields."
+      },
+      {
+        "symbol": "FrozenOuGustWind",
+        "file": "packages/engine/src/environment.ts",
+        "note": "Eq. (3.14) realized as a precomputed frozen sample path — ADR-011, keeps SolverKit deterministic."
+      },
+      {
+        "symbol": "OneCosineGustWind",
+        "file": "packages/engine/src/environment.ts",
+        "note": "Discrete '1-cosine' gust event."
+      },
+      {
+        "symbol": "generateOuGustPath",
+        "file": "packages/engine/src/ou-gust.ts",
+        "note": "Seeded Ornstein-Uhlenbeck path generation feeding FrozenOuGustWind."
+      },
+      {
+        "symbol": "ouGustStep",
+        "file": "packages/engine/src/ou-gust.ts",
+        "note": "One exact OU update step."
+      }
+    ],
+    "3.6": [
+      {
+        "symbol": "MagnusForce",
+        "file": "packages/engine/src/forces.ts",
+        "note": "Eq. (3.15) in its implemented (non-normalized) form — no singularity as omega x v_rel -> 0."
+      },
+      {
+        "symbol": "LiftCoefficientModel",
+        "file": "packages/engine/src/lift-coefficient.ts",
+        "note": "C_L(S) interface."
+      },
+      {
+        "symbol": "SaturatingLiftCoefficient",
+        "file": "packages/engine/src/lift-coefficient.ts",
+        "note": "Eq. (3.16), min(0.6, 1.6 S) smooth-saturating fit."
+      },
+      {
+        "symbol": "spinParameter",
+        "file": "packages/engine/src/characteristic-scales.ts",
+        "note": "Spin ratio S = omega R / |v_rel|, clamped near stagnation (T-VAL-14)."
+      },
+      {
+        "symbol": "StatefulSpinMagnusForce",
+        "file": "packages/engine/src/planar-projectile-spin-model.ts",
+        "note": "Magnus term reading the spin state component when spin decay is enabled."
+      },
+      {
+        "symbol": "PLANAR_SPIN_CHANNELS",
+        "file": "packages/engine/src/planar-projectile-spin-model.ts",
+        "note": "The extra omega channel; its unit is rad/s — a rate, not an angle (ADR-015)."
+      }
+    ],
+    "3.7": [
+      {
+        "symbol": "Model",
+        "file": "packages/engine/src/model.ts",
+        "note": "The interface quoted in this section: dim, channels, rhs, invariants, events, jacobian, partitions."
+      },
+      {
+        "symbol": "EventSpec",
+        "file": "packages/engine/src/model.ts",
+        "note": "g(t,y)=0 crossings — ground, apex."
+      },
+      {
+        "symbol": "InvariantSpec",
+        "file": "packages/engine/src/model.ts",
+        "note": "Conserved quantities where defined."
+      },
+      {
+        "symbol": "createPlanarProjectileModel",
+        "file": "packages/engine/src/planar-projectile-model.ts",
+        "note": "Eq. (3.18) planar RHS, dim 4."
+      },
+      {
+        "symbol": "PLANAR_CHANNELS",
+        "file": "packages/engine/src/planar-projectile-model.ts",
+        "note": "(x, y, v_x, v_y) channel metadata."
+      },
+      {
+        "symbol": "createPlanarProjectileSpinModel",
+        "file": "packages/engine/src/planar-projectile-spin-model.ts",
+        "note": "dim 5 — the first model-dependent state dimension."
+      },
+      {
+        "symbol": "createSpatialProjectileModel",
+        "file": "packages/engine/src/spatial-projectile-model.ts",
+        "note": "3D model, dim 6."
+      },
+      {
+        "symbol": "SPATIAL_CHANNELS",
+        "file": "packages/engine/src/spatial-projectile-model.ts",
+        "note": "3D channel metadata."
+      }
+    ],
+    "3.8": [
+      {
+        "symbol": "mechanicalEnergy",
+        "file": "packages/engine/src/planar-projectile-model.ts",
+        "note": "E = m|v|^2/2 + mgy, the quantity Eq. (3.19) differentiates."
+      },
+      {
+        "symbol": "totalForcePower",
+        "file": "packages/engine/src/forces.ts",
+        "note": "F_aero . v — the RHS of Eq. (3.19) and the integrand of the energy residual."
+      },
+      {
+        "symbol": "dimensionlessPi",
+        "file": "packages/engine/src/characteristic-scales.ts",
+        "note": "Pi = rho C_d A v_0^2 / (2mg) = (v_0/v_T)^2."
+      },
+      {
+        "symbol": "apexHeightEstimate",
+        "file": "packages/engine/src/characteristic-scales.ts",
+        "note": "Drag-free apex scale for the characteristic-scales readout."
+      },
+      {
+        "symbol": "recommendSolver",
+        "file": "packages/engine/src/solver-advisor.ts",
+        "note": "Turns the parameter-induced stiffness scales of this section into a solver recommendation."
+      },
+      {
+        "symbol": "groundHeightResidual",
+        "file": "packages/engine/src/terrain.ts",
+        "note": "g_gnd(t) = y - y_terrain(x), the ground-impact event root."
+      },
+      {
+        "symbol": "finiteDifferenceJacobian",
+        "file": "packages/engine/src/finite-difference-jacobian.ts",
+        "note": "Numerical J = df/dy where a model declares no analytic Jacobian."
+      }
+    ],
+    "3.9": [
+      {
+        "symbol": "projectileSpecSchema",
+        "file": "packages/engine/src/projectile-spec.ts",
+        "note": "zod schema validating (m, R or A, C_d model, C_L model, tau_omega, provenance)."
+      },
+      {
+        "symbol": "projectileSpecToParams",
+        "file": "packages/engine/src/projectile-spec.ts",
+        "note": "Spec -> runtime ProjectileParams."
+      },
+      {
+        "symbol": "PROJECTILE_ASSETS",
+        "file": "packages/engine/src/projectile-assets.ts",
+        "note": "The shipped asset set — sphere, golf, soccer, baseball, table tennis, cannonball, shot put, custom."
+      },
+      {
+        "symbol": "loadProjectileAssets",
+        "file": "packages/engine/src/asset-loader.ts",
+        "note": "Build-time schema validation of the data assets."
+      },
+      {
+        "symbol": "scenarioSpecSchema",
+        "file": "packages/engine/src/scenario-spec.ts",
+        "note": "Projectile + environment + initial conditions + solver config."
+      },
+      {
+        "symbol": "SCENARIO_LIBRARY",
+        "file": "packages/engine/src/scenario-library.ts",
+        "note": "Regime-spanning curated presets with teaching notes."
+      },
+      {
+        "symbol": "findCuratedScenario",
+        "file": "packages/engine/src/scenario-library.ts",
+        "note": "Lookup by scenario id."
+      }
+    ]
+  }
+}
