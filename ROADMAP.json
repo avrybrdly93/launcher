@@ -2224,8 +2224,8 @@
       "estMinutes": 20,
       "difficulty": "E",
       "validation": "miss vector zero at exact hit (constructed)",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed 2026-08-07 (3rd run). Plan: packages/analysis/src/targets.ts, a discriminated union over point / ring (horizontal disc or annulus) / raised platform (horizontal rectangular pad at height), with missVector(target, point, layout) returning impact MINUS the nearest point of the target set -- the sign convention P5.04's residual F = r_impact - r* already uses -- plus an isHit predicate. Remaining: implementation, tests against the constructed-exact-hit criterion, ROADMAP/CHANGELOG updates."
     },
     {
       "id": "P5.03",
