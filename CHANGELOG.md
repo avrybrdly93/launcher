@@ -71,26 +71,57 @@ PointTarget | RingTarget | PlatformTarget` with `validateTarget`,
   entries document (`chunked-integration.test.ts`'s wall-clock assertion and
   `lazy-plotly-pane.bundle.test.ts`'s real vite build) did not fire. Nothing was
   weakened, skipped, or retried to get there.
-- **CI at this HEAD: red on attempt 1, green on attempt 2** — run **31207518775**
-  on `1c3a8e1`. The first attempt failed on **one** assertion, and it was the
-  known one: `chunked-integration.test.ts`'s wall-clock slice budget,
-  **`maxSliceMs` 17.49 against `< 10`**, with 1546/1547 passing. Re-running the
-  failed job on the same commit went green through all 16 steps. Nothing was
-  changed between the two attempts.
-- **That flake has now turned `main` red for the first time**, which is a change
-  in kind rather than degree — until this run it had only ever failed in local
-  sessions. The P4.39 entry's position stands and is not being revisited here:
-  the 10 ms budget is a performance assertion, raising it is not part of any
-  task that happens to trip over it, and this repo has **three** marginal timing
-  assertions in one parallel suite (`chunked-integration`'s 10 ms slice budget,
-  `canvas-viewport.test.ts` at 48.6 s against a 60 s hook timeout, and
-  `lazy-plotly-pane.bundle.test.ts` at 22.1 s against 30 s) that are one problem
-  and want one fix. **No test was weakened, skipped or re-budgeted to get this
-  green**; the second attempt is the same code passing the same assertion.
-- **This session did not touch solverkit** or anything
-  `chunked-integration.test.ts` imports — the change is a new pure-geometry
-  module and its tests in `packages/analysis`. The failure is load, not
-  regression.
+
+### ⚠️ CI on `main` is red, and it needs a human — read this before the next session
+
+**`main` is red at the time of writing, and this session could not honestly make
+it green.** The four hosted CI attempts this session, in order:
+
+| Run         | Commit                    | Attempt    | Result  | `maxSliceMs` |
+| ----------- | ------------------------- | ---------- | ------- | ------------ |
+| 31207518775 | `1c3a8e1` (P5.02 code)    | 1          | **red** | 17.49        |
+| 31207518775 | `1c3a8e1`                 | 2 (re-run) | green   | —            |
+| 31209114428 | `37dbdb6` (**docs only**) | 1          | **red** | 11.80        |
+| 31209114428 | `37dbdb6`                 | 2 (re-run) | **red** | 13.02        |
+
+Every failure is the **same single assertion** —
+`packages/solverkit/src/chunked-integration.test.ts:318`, "a 1e6-step run stays
+within a small, bounded wall-clock budget per slice", `maxSliceMs < 10` — with
+**1546 of 1547 passing** in each case. Three of four attempts red, on two
+different commits, one of which changed nothing but a markdown file.
+
+**What that tally means.** The P4.39/P4.40/P5.01 entries recorded this as a
+load-sensitive local flake. It is no longer only that: it now fails on the
+hosted runner more often than it passes, on commits that touch neither
+`solverkit` nor anything `chunked-integration.test.ts` imports. The `main`
+branch's CI signal is currently unreliable in the worst direction — a red that
+carries no information, which is how a real red gets ignored.
+
+**What was deliberately not done.** The 10 ms figure was not raised, the test
+was not skipped, and no retry was configured. `ROADMAP.json`'s quality policy
+and the P4.39 entry both say a performance assertion is not something a session
+that trips over it gets to re-budget, and a session doing it to turn its own run
+green is exactly the failure mode that rule exists to prevent. Getting green by
+re-running until the runner cooperates would be the same thing wearing a
+different hat.
+
+**What a human needs to decide**, because it is a change to a performance
+contract and no blueprint task covers it: this repo has **three** marginal
+timing assertions sharing one parallel suite — `chunked-integration`'s 10 ms
+slice budget, `canvas-viewport.test.ts` (35.9 s in the run above, against a 60 s
+hook timeout) and `lazy-plotly-pane.bundle.test.ts` (a real vite build against
+30 s). They are one problem. The plausible fixes, none of which is a session's
+call to make alone: run the timing assertions in a non-parallel project so they
+are not measuring contention; assert on _work per slice_ (steps, `nRHS`) rather
+than wall-clock, which is what the cooperative-yield property actually cares
+about; or raise the budget with a documented measurement of what the runner
+actually delivers. The middle one looks strongest — it is the only one that
+makes the assertion mean the same thing on every machine — but that is a
+recommendation, not a decision.
+
+**The code itself is fine.** `1c3a8e1` passed all 16 steps on its second
+attempt, and the P5.02 change is a new pure-geometry module plus its tests in
+`packages/analysis`. This is a test-harness problem, not a regression.
 
 ---
 
