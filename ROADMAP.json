@@ -2202,8 +2202,8 @@
       "estMinutes": 25,
       "difficulty": "E",
       "validation": "all equations render; cross-links valid",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed 2026-08-07 (routine run). Plan: (1) add scripts/generate-physics-docs.mjs that regenerates docs/physics/*.md verbatim from blueprint section 3 subsections 3.1-3.9 -- the blueprint stays the source of truth and is not edited; (2) pair each page with a curated implementation map (docs/physics/implementation-map.json) linking each equation to the engine symbol that implements it; (3) machine-check the validation criterion in packages/validation/src/physics-docs.test.ts -- docs byte-identical to a fresh regeneration, every $/$$ delimiter balanced, every equation tag (3.1)-(3.19) present, every cross-link target file/anchor/export resolving. 'All equations render; cross-links valid' is otherwise documentary and unfalsifiable."
     },
     {
       "id": "P5.01",
