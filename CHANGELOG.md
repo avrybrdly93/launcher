@@ -58,9 +58,19 @@ forcing a fallback to commit timestamps.
   `format:check`, but that is pre-existing** — verified by stashing this session's work — and
   `format:check` is not a CI step, so it was left alone rather than swept up as a drive-by fix.
 - **Measured at this session's HEAD**: `pnpm typecheck` clean; `pnpm lint` clean; `pnpm lint:deps`
-  clean — no violations, **1203 modules / 3267 dependencies** cruised; `pnpm --filter @ballista/app
-build` green with the bundle at **65.6 kB gzipped** against the 300 kB §2.6 budget; typedoc for
-  both `engine` and `solverkit` green.
+  clean — **no violations**; `pnpm --filter @ballista/app build` green with the bundle at
+  **65.6 kB gzipped** against the 300 kB §2.6 budget; typedoc for both `engine` and `solverkit`
+  green.
+- **A caveat on the `lint:deps` module count, because the P4.39 entry quotes one as if it were
+  stable.** This run measured **1203 modules / 3267 dependencies** before building the app and
+  **1152 / 3096** after — reproducibly 1152/3096 across three consecutive runs at the end. The
+  cause is that `.dependency-cruiser.cjs` sets only `doNotFollow: node_modules` and does **not**
+  exclude `dist/`, so build artifacts are cruised: `tsc -b` emits many per-file outputs into
+  `packages/*/dist`, and `vite build` then empties `packages/app/dist` and replaces them with a
+  few bundled chunks. **The "no violations" result is invariant; the counts are not**, so they
+  should not be compared across sessions without knowing the build state. Filed as an observation
+  only — excluding `dist/` from the cruise would be a real improvement but is a scope change, not
+  this task.
 - **Test results, stated with the flake record.** `pnpm test` at this HEAD is **1475 tests across
   207 files** (was 1426/206 at session start: **+49 tests, +1 file**, no regressions). Three
   full-suite runs this session: **two fully green, one red**. The red was the **same known flake the
