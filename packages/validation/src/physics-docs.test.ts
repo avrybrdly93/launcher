@@ -22,9 +22,25 @@ import { fileURLToPath } from "node:url";
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const DOCS_DIR = join(REPO_ROOT, "docs", "physics");
 
+interface BlueprintSection {
+  number: string;
+  title: string;
+  body: string;
+}
+
+/**
+ * The generator is plain ESM outside any tsconfig project, so it carries no declarations.
+ * This is the contract the test relies on; if the script's exports drift from it, the
+ * `buildPages`/`extractSection3` calls below fail at runtime and the suite goes red.
+ */
+interface PhysicsDocsGenerator {
+  extractSection3(blueprintText: string): BlueprintSection[];
+  buildPages(blueprintText: string, map: unknown): Record<string, string>;
+}
+
 const generator = (await import(
   join(REPO_ROOT, "scripts", "generate-physics-docs.mjs")
-)) as typeof import("../../../scripts/generate-physics-docs.mjs");
+)) as unknown as PhysicsDocsGenerator;
 
 const blueprintText = readFileSync(join(REPO_ROOT, "ballista-technical-blueprint.md"), "utf8");
 const map = JSON.parse(readFileSync(join(DOCS_DIR, "implementation-map.json"), "utf8"));
@@ -33,6 +49,17 @@ const pageNames = Object.keys(expectedPages);
 
 /** Markdown pages actually committed under docs/physics/. */
 const onDisk = readdirSync(DOCS_DIR).filter((f) => f.endsWith(".md"));
+
+/**
+ * Expected contents of a generated page. Throws rather than returning undefined so a typo in
+ * a page name fails loudly instead of silently asserting against `undefined`
+ * (the repo builds with `noUncheckedIndexedAccess`).
+ */
+function page(name: string): string {
+  const contents = expectedPages[name];
+  if (contents === undefined) throw new Error(`no generated page named ${name}`);
+  return contents;
+}
 
 /** Strip fenced code blocks and HTML comments before looking at math delimiters. */
 function mathText(source: string): string {
@@ -60,23 +87,21 @@ describe("physics docs are a faithful regeneration of blueprint §3", () => {
 
   it.each(pageNames)("%s is byte-identical to a fresh regeneration", (name) => {
     const actual = readFileSync(join(DOCS_DIR, name), "utf8");
-    expect(actual).toBe(expectedPages[name]);
+    expect(actual).toBe(page(name));
   });
 
   it("copies the blueprint prose through verbatim rather than paraphrasing it", () => {
     // If the generator ever starts rewriting the source, this catches it: the §3.2 body must
     // appear in the page exactly as the blueprint has it.
-    const gravity = generator
-      .extractSection3(blueprintText)
-      .find((s: { number: string }) => s.number === "3.2")!;
-    const page = readFileSync(join(DOCS_DIR, "gravity.md"), "utf8");
-    expect(page).toContain(gravity.body);
+    const gravity = generator.extractSection3(blueprintText).find((s) => s.number === "3.2")!;
+    const pageText = readFileSync(join(DOCS_DIR, "gravity.md"), "utf8");
+    expect(pageText).toContain(gravity.body);
   });
 });
 
 describe("all equations render", () => {
   it.each(pageNames)("%s has balanced math delimiters", (name) => {
-    const text = mathText(expectedPages[name]);
+    const text = mathText(page(name));
 
     const displayCount = (text.match(/\$\$/g) ?? []).length;
     expect(displayCount % 2, `unbalanced $$ in ${name}`).toBe(0);
@@ -88,7 +113,7 @@ describe("all equations render", () => {
   });
 
   it.each(pageNames)("%s has balanced LaTeX grouping inside each math block", (name) => {
-    const text = mathText(expectedPages[name]);
+    const text = mathText(page(name));
     const blocks = [
       ...(text.match(/\$\$[\s\S]*?\$\$/g) ?? []),
       ...(text.replace(/\$\$[\s\S]*?\$\$/g, "").match(/\$[^$\n]+\$/g) ?? []),
@@ -113,7 +138,7 @@ describe("all equations render", () => {
   it("carries every numbered equation from §3 into the pages", () => {
     const section3 = generator
       .extractSection3(blueprintText)
-      .map((s: { body: string }) => s.body)
+      .map((s) => s.body)
       .join("\n");
     const tags = [...section3.matchAll(/\\tag\{(3\.\d+)\}/g)].map((m) => m[1]);
 
@@ -121,7 +146,7 @@ describe("all equations render", () => {
     // whole check would pass vacuously.
     expect(tags.length).toBeGreaterThanOrEqual(19);
 
-    const allPages = pageNames.map((n) => expectedPages[n]).join("\n");
+    const allPages = pageNames.map((n) => page(n)).join("\n");
     for (const tag of tags) {
       expect(allPages, `equation (${tag}) missing from generated pages`).toContain(`\\tag{${tag}}`);
     }
@@ -129,7 +154,7 @@ describe("all equations render", () => {
 
   it("leaves no unrendered placeholder or generator artifact on a page", () => {
     for (const name of pageNames) {
-      const text = mathText(expectedPages[name]);
+      const text = mathText(page(name));
       expect(text, `${name} contains a TODO`).not.toMatch(/\bTODO\b|\bFIXME\b/);
       // What a broken generator actually emits — a missing map entry or a bad interpolation.
       // (A `{{…}}` check would be wrong here: `}}` occurs constantly in legitimate LaTeX,
@@ -144,13 +169,13 @@ describe("all equations render", () => {
 describe("cross-links valid", () => {
   /** [text, target] for every inline Markdown link on a page. */
   function links(source: string): Array<[string, string]> {
-    return [...source.matchAll(/\[([^\]]+)\]\(([^)]+)\)/g)].map((m) => [m[1], m[2]]);
+    return [...source.matchAll(/\[([^\]]+)\]\(([^)]+)\)/g)].map((m) => [m[1] ?? "", m[2] ?? ""]);
   }
 
   function headingAnchors(source: string): Set<string> {
     return new Set(
       [...source.matchAll(/^#{1,6} (.+?)\s*$/gm)].map((m) =>
-        m[1]
+        (m[1] ?? "")
           .toLowerCase()
           .replace(/[^\w\s-]/g, "")
           .trim()
@@ -160,7 +185,7 @@ describe("cross-links valid", () => {
   }
 
   it("every page is reachable from the index", () => {
-    const index = expectedPages["README.md"];
+    const index = page("README.md");
     for (const name of pageNames) {
       if (name === "README.md") continue;
       expect(index, `${name} is not linked from the index`).toContain(`(./${name})`);
@@ -168,14 +193,14 @@ describe("cross-links valid", () => {
   });
 
   it.each(pageNames)("%s: every relative link resolves", (name) => {
-    for (const [, target] of links(expectedPages[name])) {
+    for (const [, target] of links(page(name))) {
       if (/^https?:/.test(target)) continue;
 
-      const [pathPart, anchor] = target.split("#");
+      const [pathPart = "", anchor] = target.split("#");
       if (pathPart === "") {
         // Pure in-page anchor.
         expect(
-          headingAnchors(expectedPages[name]),
+          headingAnchors(page(name)),
           `${name}: in-page anchor #${anchor} has no matching heading`,
         ).toContain(anchor);
         continue;
