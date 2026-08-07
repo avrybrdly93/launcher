@@ -15,6 +15,79 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-07 (2nd run) — P5.01 (observable framework) — **Phase 5 opens**
+
+- **Done: P5.01**, the first task of Phase 5 (optimization and inverse problems).
+  `packages/analysis/src/observables.ts` exports `timeOfFlight`, `range`, `apexHeight`, `apexTime`,
+  `apex` (the `{t, height}` pair), `impactSpeed` and `missDistance` — all pure functions of a
+  `Trajectory`, which is what P5.03–P5.06 will drive to zero. **Next task is P5.02** (target model).
+- **Channel indices come from a layout table, not from hard-coded constants.** `TrajectoryLayout`
+  (`PLANAR_LAYOUT`, `SPATIAL_LAYOUT`) names which channels hold position and velocity, so one
+  implementation serves both shipped projectile models and whatever Stage B (§2.4) adds. Its
+  `vertical` field indexes _into_ position/velocity rather than into `channels`, so a caller
+  reading horizontal components never needs the absolute numbering.
+- **The impact observables do no interpolation, and that is the point.** `integrate` root-localizes
+  every terminal crossing and dispatches the _localized_ state to its sinks before returning
+  (`integrate.ts` ~line 517), so the recorder's final row already sits on the event surface.
+  Range, ToF, impact speed and miss distance therefore **inherit** their accuracy from event
+  localization rather than producing it — stated in the module doc along with the corollary that a
+  solve which ended by exhausting `tspan` or `maxSteps` has a perfectly ordinary final row these
+  functions will happily, and meaninglessly, report as an impact.
+- **Apex is the one observable that does real numerical work.** It rarely coincides with a step
+  boundary, so the row-wise maximum it replaces is only $O(h^2)$ — nowhere near 1e-9 at any step
+  size a solver would actually use. Each **downward** $v_y$ zero-crossing is refined with the cubic
+  Hermite basis of §4.9, using the recorded $v_y$ channel as the derivative — free here, since
+  $\dot y = v_y$ is a state channel and needs no extra `rhs` call. The derivative of that cubic is
+  a quadratic, solved in closed form with the sign-stable
+  $q = -\tfrac12(b + \mathrm{sign}(b)\sqrt{b^2-4ac})$ root rather than the textbook formula,
+  whose cancellation costs digits in exactly the near-degenerate case a small step produces.
+- **Drag-free exactness is by construction, not by luck.** There $y(t)$ is a quadratic and $v_y(t)$
+  is linear; a cubic Hermite reproduces any cubic exactly, so the interpolant _is_ the true arc and
+  its stationary point _is_ the true apex. Under drag it degrades to $O(h^4)$ near the apex rather
+  than $O(h^2)$.
+- **Every crossing is scanned, not just the first**, with the recorded endpoints kept as
+  candidates. That covers a bouncing trajectory (P4.11), whose later arcs each have their own apex,
+  and the two monotonic cases with no interior crossing at all — a downward launch (apex = launch
+  point) and a solve cut off while still climbing (apex = final row).
+- **Validation is against closed forms, never against a prior run of this code.** 39 assertions
+  over five drag-free launches. **Two of the five launch from height on purpose**: at $y_0 = 0$ the
+  flight time collapses to $2v_{y0}/g$ and the apex sits exactly halfway, so a sign error or a
+  factor-of-two can cancel itself — a raised launch breaks that symmetry. Impact speed is checked
+  against $\sqrt{v_0^2 + 2gy_0}$, which is energy conservation and therefore **independent** of the
+  flight-time formula rather than an algebraic restatement of it.
+- **Negative-controlled.** Disabling the apex refinement failed **12** assertions; including the
+  vertical axis in `range` failed **3**; making `timeOfFlight` absolute failed **1**. The `range`
+  control is the informative one: it fails _only_ the raised-launch and 3D cases, because the three
+  $y_0 = 0$ cases land at $y \approx 0$ and literally cannot see that bug — which is precisely why
+  the raised launches are in the table. The coarse-step apex test also carries an anti-vacuity floor
+  (row-wise error must exceed 1e-6) so it cannot pass by the apex happening to land on a boundary.
+- **A guard-rail test found a real gap and the implementation moved to meet it, rather than the
+  test being adjusted to fit.** Validating channels lazily on read was not enough: a planar
+  trajectory has _enough_ channels to partly satisfy `SPATIAL_LAYOUT`, so `range` would skip the
+  vertical axis, read `vx` as if it were `z`, and return a confidently wrong number instead of
+  throwing. `requireLayout` now validates the whole layout up front.
+- **Measured at this session's HEAD**: `pnpm typecheck` clean; `pnpm lint` clean; `pnpm lint:deps`
+  **no violations**; `pnpm --filter @ballista/app build` green with the bundle at **65.6 kB
+  gzipped** against the 300 kB §2.6 budget; typedoc for both `engine` and `solverkit` green.
+  (Per the P4.40 entry's caveat, the `lint:deps` module counts are build-state dependent and are
+  deliberately not quoted here; the no-violations result is the invariant part.)
+- **Test results, stated with the flake record.** `pnpm test` at this HEAD is **1514 tests across
+  208 files** (was 1475/207 at session start: **+39 tests, +1 file**, no regressions). Three
+  full-suite runs this session: **two fully green, one red**. The red run was the **known
+  load-sensitive flake the P4.39/P4.40 entries document** — `chunked-integration.test.ts`'s
+  wall-clock assertion, `maxSliceMs` **14.41** against a <10 ms budget — plus a 30 s timeout in
+  `packages/viz/src/lazy-plotly-pane.bundle.test.ts`, which runs a real vite build and is
+  timing-sensitive under the same load. Both passed in the two green runs. **Neither was weakened,
+  skipped or deleted.**
+- **Analysis package only.** No engine, solverkit, runtime, viz, ui or app behaviour changed;
+  `packages/analysis` went from a package skeleton to its first real module.
+- **Next session: P5.02** — "Target model: point / ring / raised-platform with hit predicate + miss
+  vector", validation "miss vector zero at exact hit (constructed)". It builds directly on
+  `missDistance` above, which deliberately stops at the scalar magnitude: the signed miss _vector_
+  and the point/ring/platform predicates are P5.02's job, and the module doc says so. Read §9.1
+  before starting. The standing constraint still applies: **symplectic integrators are for
+  conservative dynamics only** — any dissipative path stays on standard RK.
+
 ## 2026-08-07 (1st run) — P4.40 (physics reference docs) — **Phase 4 complete**
 
 - **Done: P4.40**, and it was the last Phase 4 task — **all 40 Phase-4 tasks are now `done` and
