@@ -71,8 +71,26 @@ PointTarget | RingTarget | PlatformTarget` with `validateTarget`,
   entries document (`chunked-integration.test.ts`'s wall-clock assertion and
   `lazy-plotly-pane.bundle.test.ts`'s real vite build) did not fire. Nothing was
   weakened, skipped, or retried to get there.
-- **Not done, and not claimed:** the CI run at this HEAD. Pushed and left to the
-  hosted runner; a future entry should record it as the P5.01 entry did.
+- **CI at this HEAD: red on attempt 1, green on attempt 2** — run **31207518775**
+  on `1c3a8e1`. The first attempt failed on **one** assertion, and it was the
+  known one: `chunked-integration.test.ts`'s wall-clock slice budget,
+  **`maxSliceMs` 17.49 against `< 10`**, with 1546/1547 passing. Re-running the
+  failed job on the same commit went green through all 16 steps. Nothing was
+  changed between the two attempts.
+- **That flake has now turned `main` red for the first time**, which is a change
+  in kind rather than degree — until this run it had only ever failed in local
+  sessions. The P4.39 entry's position stands and is not being revisited here:
+  the 10 ms budget is a performance assertion, raising it is not part of any
+  task that happens to trip over it, and this repo has **three** marginal timing
+  assertions in one parallel suite (`chunked-integration`'s 10 ms slice budget,
+  `canvas-viewport.test.ts` at 48.6 s against a 60 s hook timeout, and
+  `lazy-plotly-pane.bundle.test.ts` at 22.1 s against 30 s) that are one problem
+  and want one fix. **No test was weakened, skipped or re-budgeted to get this
+  green**; the second attempt is the same code passing the same assertion.
+- **This session did not touch solverkit** or anything
+  `chunked-integration.test.ts` imports — the change is a new pure-geometry
+  module and its tests in `packages/analysis`. The failure is load, not
+  regression.
 
 ---
 
