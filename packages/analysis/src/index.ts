@@ -4,4 +4,5 @@
 export const ANALYSIS_PACKAGE = "@ballista/analysis";
 
 export * from "./observables.js";
+export * from "./range-root.js";
 export * from "./targets.js";
