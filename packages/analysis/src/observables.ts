@@ -156,6 +156,21 @@ export function range(traj: Trajectory, layout: TrajectoryLayout = PLANAR_LAYOUT
   return Math.sqrt(sum);
 }
 
+/**
+ * Position components at the impact row, in layout axis order.
+ *
+ * Added for P5.02, whose target model needs the impact *point* rather than a
+ * scalar derived from it. Carries {@link lastRow}'s caveat unchanged: this is
+ * the final recorded row, which is the event-localized impact state only for
+ * a solve that ended on a terminal event.
+ */
+export function impactPoint(traj: Trajectory, layout: TrajectoryLayout = PLANAR_LAYOUT): number[] {
+  requireRows(traj, 1, "impactPoint");
+  requireLayout(traj, layout, "impactPoint");
+  const last = lastRow(traj);
+  return layout.position.map((channel) => at(traj, channel, last));
+}
+
 /** Speed $|\mathbf v|$ at the impact row (§9.1). */
 export function impactSpeed(traj: Trajectory, layout: TrajectoryLayout = PLANAR_LAYOUT): number {
   requireRows(traj, 1, "impactSpeed");
