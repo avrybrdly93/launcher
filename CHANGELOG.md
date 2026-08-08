@@ -15,6 +15,74 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-09 (8th run) — P5.07 (smart initializer: drag-free closed-form aim)
+
+- **Done: P5.07.** `packages/analysis/src/smart-init.ts` exports `dragFreeAim`,
+  `SmartInitOptions` and `smartInitialAim`. **Next task is P5.08** (low/high arc
+  reporting), which owns the arc selection this task deliberately left out.
+- **Validation met: 20 of 20 library targets, success rate 100%.** Each of engine's
+  20 `SCENARIO_LIBRARY` entries becomes a shooting problem whose target is the impact of
+  its _own_ launch aim — reachable by construction, so the measurement is of the basin and
+  not of the target. `newtonShooting` converges from the closed-form init on **every one**,
+  in **at most 5 iterations**: 0 for the two drag-free entries (`drag-free-reference`,
+  `energy-drift-gravity-only`), where the closed form is already the answer to solver
+  tolerance, and 5 for `smooth-sphere-drag-crisis` and `density-altitude-2000m`.
+- **The initial miss is large, and that is the criterion working as intended.** 1040 m for
+  `cannonball-muzzle`, 225 m for `smooth-sphere-drag-crisis`, 116 m for `golf-drive`. A
+  drag-free guess undershoots badly in a drag-dominated regime; a _basin_ criterion asks
+  whether Newton recovers, not whether the guess was close. It does, in ≤ 5.
+- **The real design decision was which solution to return, not how to compute it.** The
+  drag-free reachability condition for a point is one equation in two unknowns — the same
+  degeneracy P5.05 measured as a rank-1 Jacobian — so a closed form must pick a point on a
+  curve. This picks the **minimum-speed** one (`θ = π/4 + φ/2`, `v₀ = √(g(Δy + R))`) because
+  it is the only point the geometry alone determines; every alternative needs a muzzle speed
+  or an elevation supplied from outside, and choosing between the arcs that result **is
+  P5.08**. No drag correction was added: it would be either a fitted constant or the Newton
+  iteration this feeds.
+- **A cancellation defect was found and fixed while testing, not shipped and noted.**
+  `Δy + R` is a difference of nearly equal magnitudes for a target _below_ the launcher —
+  a 1 m offset 400 m down gives `Δy = −400`, `R = 400.00125` — and keeps about 3 of the 16
+  digits it was formed from. Since `R² − Δy² = Δx²` exactly, the `Δy < 0` branch evaluates
+  the identical `Δx²/(R − Δy)`, where nothing cancels. **Measured on the test's own grid:
+  relative error `4.0e-11` before, `4.2e-16` after** — the naive form was not wrong, it was
+  four orders looser than its own arithmetic. The test's bound is `1e-14`, which only the
+  fixed branch meets.
+- **Gravity is sampled, not assumed.** From the problem's own environment at the launch
+  point, into a _fresh_ `EnvSample` rather than `ctx.env` (the rhs hot-path scratch buffer,
+  ADR-004; a test pins that it is left untouched). The library ships
+  `density-altitude-2000m` with altitude-dependent gravity, which a hard-coded `G_STD`
+  would have silently misjudged.
+- **P5.06's own criterion can now be re-measured, and this run did not do it.** P5.06 says
+  "≤ 8 iters from smart init" and was measured from hand-chosen aims because no initializer
+  existed, so its 3 was recorded as an upper bound. The harness here shows ≤ 5 with drag and
+  wind from the real initializer, inside P5.06's 8 — but against targets this task chose,
+  not against P5.06's own. **Re-running P5.06's criterion with `smartInitialAim` is a
+  one-session follow-up and was left out of this run on scope discipline.**
+- **Full local gate green at this HEAD** (Node 22.22.2, pnpm 11.9.0): `typecheck` clean ·
+  `lint` clean · `lint:deps` **no violations (1245 modules, 3406 dependencies)** ·
+  `pnpm test` **1664/1664 across 214 files** (up from 1644/213) · engine and solverkit
+  typedoc green · app build 29.8s · bundle **65.6 kB gzipped** against the 300 kB budget.
+- **One flaky failure is reported rather than buried.** The first full-suite run failed
+  `packages/solverkit/src/chunked-integration.test.ts` — "a 1e6-step run stays within a small,
+  bounded wall-clock budget per slice", **11.02 ms against its 10 ms budget**. It is a
+  wall-clock assertion on a shared sandbox CPU, in a package this run does not touch; it
+  passed 3/3 in isolation and passed on the immediate re-run of the full suite, which is the
+  1664/1664 quoted above. **Nothing was changed to make it pass** — no test was weakened,
+  skipped or retried in the repo. Filing it as a backlog item (an under-load timing
+  assertion in CI) would be reasonable and this run did not do so.
+- **Observed, not acted on** (scope discipline — no drive-by fixes):
+  - **The root `pnpm build` script still does not run**, exactly as the 7th run recorded:
+    `ERR_PNPM_RECURSIVE_RUN_NO_SCRIPT` under pnpm 11.9.0, the flag before `run` being eaten.
+    CI does not use it (`pnpm --filter @ballista/app build`), which is what this run used.
+    One flag-order edit fixes it; it is a claimable item, not a drive-by.
+  - `CLAUDE.md` still fails `prettier --check`, pre-existing and untouched — the 6th and 7th
+    runs recorded the same. Note for future runs: `pnpm format` **writes** and will
+    reformat it as a side effect; this run reverted that hunk to keep the diff to P5.07.
+  - Plotly.js is still bundled statically at **4.84 MB** (1.47 MB gzipped) in `dist/assets`.
+    Lazy-loading it remains a legitimate backlog item to claim, not a drive-by change.
+
+---
+
 ## 2026-08-09 (7th run) — P5.06 (Newton shooting with a rank-aware step)
 
 - **Done: P5.06.** `packages/analysis/src/newton-shooting.ts` exports
