@@ -2279,8 +2279,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "init within basin for all library targets (measured success rate 100%)",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "CLAIMED 2026-08-09 (8th run), not yet implemented. Plan: packages/analysis/src/smart-init.ts -- the closed-form drag-free aim P5.06's criterion already refers to as 'smart init' but which did not exist, so P5.06 measured its iteration count from hand-chosen rough aims instead. TWO UNKNOWNS, ONE EQUATION: the drag-free reachability condition for a point pins only a curve in (theta, v0), so a closed form has to choose a point on it. Plan is the MINIMUM-SPEED (minimum-energy) solution, which is the unique point determined by the geometry alone: with phi = atan2(dy, dx) and R = hypot(dx, dy), theta = pi/4 + phi/2 and v0 = sqrt(g (dy + R)). Fixed-speed and fixed-angle variants select between low and high arcs and belong to P5.08, not here. Validation is 'init within basin for all library targets': plan is to build one shooting problem per entry of engine's SCENARIO_LIBRARY (20 entries), derive each target as the impact of that scenario's own launch aim so it is reachable by construction, then measure the fraction that converge from the closed-form init. Remaining if this run stops here: the module, its tests, the library-target harness and the measured success rate."
     },
     {
       "id": "P5.08",
