@@ -2257,8 +2257,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "Jacobian FD convergence plateau documented; no tolerance-noise blowup",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed 2026-08-08 (6th run). Plan: packages/analysis/src/shooting-jacobian.ts -- finite-difference Jacobian of P5.04's ResidualFunction with respect to the aim (columns d/dtheta, d/dv0; rows the residual components), forward and central schemes, per-variable SCALED steps because theta ~ 1 rad and v0 ~ 60 m/s share no step size. The task's 'noise control' is the design centre: FD amplifies the residual's noise floor by 1/h (forward) or 1/(2h) (central), so the usable step is set by how accurately the INNER solve reproduces the residual, not by machine epsilon. Fixed-step or tight-tol inner solves put that floor near eps; a loose adaptive tolerance puts it near rtol and the FD error blows up orders of magnitude earlier. Validation to measure: sweep the FD step over decades against an analytic drag-free reference Jacobian, document the V-curve (truncation down, noise up) and its plateau, and show a loose-rtol inner solve blowing up on the identical sweep as the negative control."
     },
     {
       "id": "P5.06",
