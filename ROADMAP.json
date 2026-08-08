@@ -2268,8 +2268,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "hits target with drag+wind in ≤ 8 iters from smart init",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "CLAIMED 2026-08-09 (7th run), not yet implemented. Plan: packages/analysis/src/newton-shooting.ts -- Gauss-Newton on P5.04's residual using P5.05's FD Jacobian, with an Armijo backtracking line search on the merit ||F||. THE STEP MUST BE RANK-AWARE: P5.05 measured the Jacobian's vertical row as structurally zero (<1e-8), because a ground-impact terminal event pins y_impact for every aim, so J is rank 1 and an unguarded 2x2 solve divides by a near-zero pivot. Plan is a truncated-SVD minimum-norm least-squares step in COLUMN-SCALED variables (theta ~ 1 rad and v0 ~ 60 m/s share no norm), which generalizes the changelog's 'lock v0 and solve theta' by letting the data pick the direction rather than hard-coding which unknown is expendable. Levenberg-Marquardt is P5.26 and stays out of scope. Remaining if this run stops here: the module, its tests, and the drag+wind iteration-count measurement."
     },
     {
       "id": "P5.07",
