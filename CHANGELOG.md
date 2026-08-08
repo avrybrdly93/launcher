@@ -15,6 +15,77 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-09 (7th run) — P5.06 (Newton shooting with a rank-aware step)
+
+- **Done: P5.06.** `packages/analysis/src/newton-shooting.ts` exports
+  `NewtonShootingStatus`, `NewtonShootingStep`, `NewtonShootingOptions`,
+  `NewtonShootingResult`, `MinimumNormStep`, `minimumNormStep` and `newtonShooting`.
+  **Next task is P5.07** (drag-free closed-form smart initializer) — and it owns half of
+  P5.06's own validation criterion, see the caveat below.
+- **Validation met: drag + wind, 3 iterations.** Quadratic drag (`C_d` 0.47, 1 kg, 0.05 m)
+  with a 6 m/s headwind, point target at `x = 236.1502 m`, started from a deliberately
+  rough `θ = 0.45 rad`, `v₀ = 65 m/s`. `‖F‖` runs
+  **`2.270e+1 → 4.598e-1 → 2.007e-4 → 3.860e-11 m`** at `α = 1` every step — digit-doubling,
+  not linear decay. Three other starts (0.3/70, 0.45/65, 0.95/60) all land inside 8.
+- **The criterion says "from smart init" and that initializer is P5.07, which does not
+  exist yet.** Every solve here starts from a hand-chosen rough aim instead, which makes 3
+  an _upper bound_ on what a smart init would need rather than a measurement of it. P5.07
+  should re-run this criterion with the real initializer rather than inherit the number.
+- **The rank-1 prediction from P5.05 was measured, and it is worse than "ill-conditioned".**
+  On the real drag+wind Jacobian: downrange row `~1.996e+2`, vertical row `~2.779e-11`,
+  ratio **`1.39e-13`**. Drag-free the ratio is **exactly 0** — the vertical row is not small,
+  it is zero in floating point. A negative control runs that matrix through solverkit's
+  `solveLinearSystemInPlace`, which **refuses it** at its `1e-12` pivot threshold: an
+  unguarded Newton step here does not merely lose accuracy, it has no answer.
+- **So the step is a truncated-SVD minimum-norm least-squares solve.** Singular values below
+  `rankTolerance · σ_max` are discarded and the step lands in the row space of what survives.
+  Chosen over the previous entry's suggested "lock `v₀` and solve `θ`" deliberately: it lets
+  the matrix pick the expendable direction rather than hard-coding which unknown is, and
+  keeps working if a later task adds a terminal event that does not pin the vertical
+  component. Levenberg–Marquardt is **P5.26 and was not built**.
+- **Two things that are decisions rather than defaults.** _Columns are scaled before the step
+  is taken_, and the step norm is measured in the scaled variables — `θ ~ 1 rad` and
+  `v₀ ~ 60 m/s`, so "minimum norm" in raw units resolves the rank-1 ambiguity by declining to
+  move the angle, for no reason but the unit it happens to be measured in. And _the Armijo
+  condition compares against the linear model's predicted reduction_ `‖F‖ − ‖F + JΔ‖`, not
+  against `(1 − cα)‖F‖`. The textbook form assumes the step can remove all of `‖F‖`, which is
+  false here: with an irreducible residual component it is unsatisfiable for every `α` once
+  the reducible part is gone, so the line search would report failure at the exact moment the
+  solver had done everything the problem allows. A raised-platform test (12 m up, ground
+  impact) pins the corrected behaviour: status `stalled`, `|F_x| < 1e-6 m`, `F_y = −12 m`.
+- **`rankTolerance` defaults to `1e-7` and is constrained from below, not picked.**
+  `minimumNormStep` takes its singular values from the eigenvalues of the `2×2` Gram matrix
+  `JᵀJ`, which squares the ratio being tested, so any threshold under `√ε ≈ 1.5e-8` asks a
+  `double` to resolve a Gram eigenvalue below its own rounding. `1e-7` sits an order above
+  that floor and four orders above the `1e-11`–`1e-13` deficiency it must catch. The cost is
+  stated in-file: a caller needing to resolve a genuine `1e-9` singular value needs a
+  Golub–Kahan SVD, not this.
+- **Line search exercised on a real overshoot, not a contrived one.** Target 240 m from
+  `v₀ = 25 m/s`, where quadratic drag makes range _concave_ in `v₀` so the linear model
+  overpromises: `α` sequence `0.5/0.5/1/1/1/1/1`, 7 iterations, every accepted step a strict
+  decrease. Found by sweeping a grid of starts rather than guessed — the first candidate
+  (start near `θ = π/2`) took full steps throughout and measured nothing.
+- **Full local gate green at this HEAD** (Node 22.22.2, pnpm 11.9.0): `typecheck` clean ·
+  `lint` clean · `lint:deps` **no violations (1239 modules, 3380 dependencies)** ·
+  `pnpm test` **1644/1644 across 213 files** (up from 1626/212) · engine and solverkit
+  typedoc green · app build 46.6s · bundle **65.6 kB gzipped** against the 300 kB budget.
+- **Observed, not acted on** (scope discipline — no drive-by fixes):
+  - **The root `pnpm build` script does not run.** `pnpm -r --workspace-concurrency 1 run
+build` fails under the pinned pnpm 11.9.0 with `ERR_PNPM_RECURSIVE_RUN_NO_SCRIPT: None of
+the selected packages has a "run" script` — the flag before `run` is being eaten. Every
+    package does have a `build`, and `pnpm -r run build` works. CI does not use the root
+    script (`.github/workflows/ci.yml` runs `pnpm --filter @ballista/app build`), which is
+    how this went unnoticed; `pnpm verify` is unaffected. One flag-order edit fixes it.
+  - `pnpm bench:solverkit` reports 3 soft-warn regressions (heun-rk2 16.2%, classical-rk4
+    16.1%, position-verlet 15.4%, all relative to explicit-euler against a 15% threshold).
+    These are ratios of micro-benchmarks on a shared sandbox CPU and the script itself says
+    "soft warn only, not failing CI"; **no claim is made here that this run caused or did not
+    cause them** — nothing in this run touches a stepper.
+  - `CLAUDE.md` still fails `prettier --check`, pre-existing and untouched, as the 6th run
+    also recorded.
+
+---
+
 ## 2026-08-08 (6th run) — P5.05 (FD Jacobian of the shooting residual)
 
 - **Done: P5.05.** `packages/analysis/src/shooting-jacobian.ts` exports
