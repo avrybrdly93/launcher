@@ -15,6 +15,67 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-08 (6th run) — P5.05 (FD Jacobian of the shooting residual)
+
+- **Done: P5.05.** `packages/analysis/src/shooting-jacobian.ts` exports
+  `FiniteDifferenceScheme`, `DEFAULT_NOISE_FLOOR`, `AIM_COLUMNS`, `JacobianOptions`,
+  `ShootingJacobian`, `finiteDifferenceStep` and `shootingJacobian`. **Next task is P5.06**
+  (Newton shooting with an Armijo line search) — and read the rank note below before
+  writing it, because the obvious 2×2 Newton step does not work on this problem.
+- **The step size is derived from a declared noise floor, not from machine epsilon, and
+  that is the whole task.** Balancing truncation `C·hᵖ` against amplified noise `ε_F/h`
+  gives `h* = scale · noiseFloor^(1/(p+1))` — square root of the floor for a forward
+  difference, cube root for a central one. At `ε_F = ε` a central difference wants
+  `h ≈ 6e-6`; at `ε_F = 1e-6`, an inner solve at `rtol = 1e-6`, it wants `h ≈ 1e-2`.
+  **Three and a half orders larger.** Keeping the machine-epsilon step while loosening
+  tolerance is not conservatism, it is sitting far up the noise branch of the V.
+- **Measured plateau** (drag-free, fixed step `h = 0.01`, against the exact analytic
+  `∂R/∂θ = 196.396 m/rad`): relative error over FD steps `1e-10 → 1e-1` is `7.6e-5, 5.8e-6,
+4.2e-7, 4.5e-8, 1.3e-8, **2.7e-10**, 6.6e-9, 6.7e-7, 6.7e-5, 6.7e-3`. A clean V —
+  minimum **2.7e-10 at `h = 1e-5`**, truncation branch scaling _exactly_ as `h²` (a factor
+  of 100 per decade, asserted as a ratio rather than a pinned magnitude, since `h²` is what
+  makes the scheme second order), noise branch rising as `1/h` below it. Central bottoms at
+  2.7e-10 against forward's 1.9e-7 — a factor of ~700, the order difference showing up as
+  plateau depth. The module's default step lands inside the plateau and a test asserts it.
+- **The tolerance-noise control needed a different problem, and that is the part worth
+  carrying forward.** Drag-free motion is quadratic in `t` and Dormand–Prince integrates it
+  **exactly**, so the embedded error estimate vanishes and every tolerance from `1e-4` to
+  `1e-12` picks the identical step sequence. The first version of the test ran the negative
+  control drag-free and got **byte-identical curves** for loose and tight tolerances —
+  measuring nothing, while looking like a passing test. Quadratic drag makes the controller
+  actually adapt.
+- **Measured blowup** (drag, `C_d` 0.47, range 230.53 m, identical sweep): fixed step
+  reaches **2.0e-10**, while `rtol = 1e-5` **floors at 8.5e-6** and stays flat across four
+  decades of FD step, never going lower. **Ratio 4.2e4.** The floor is flat rather than
+  `1/h`-rising because the loose residual is not randomly noisy but _biased_ — the
+  controller makes locally identical step decisions for nearby aims, so the `rtol`-level
+  bias is a smooth wrong function whose derivative is wrong by a fixed amount. Refining `h`
+  recovers nothing, and the test asserts exactly that. This is the practical face of
+  "tolerance-noise blowup": not a visible explosion, but a floor no step size beats.
+- **The Jacobian is structurally rank 1, and P5.06 has to be built around it.** A
+  ground-impact terminal event pins `y_impact` to the ground for every aim, so the vertical
+  row is zero to `<1e-8` — **regardless of target height**, since a raised target only
+  shifts `F_y` by a constant (pinned at 12 m). A ground-impact shot is one scalar equation
+  in two unknowns, which is precisely why P5.08 speaks of low and high arcs and P5.22 of
+  locking two of three quantities. **P5.06 must not hand this to an unguarded 2×2 solve**:
+  it needs a rank-aware step — lock `v₀` and solve `θ`, or fall through to LM (P5.26).
+- **Full local gate green at this HEAD** (Node 22.22.2, pnpm 11.9.0): `typecheck` clean ·
+  `lint` clean · `lint:deps` **no violations (1233 modules, 3356 dependencies)** ·
+  `pnpm test` **1626/1626 across 212 files** · app build green in 21.4s.
+- **Observed, not acted on** (scope discipline — no drive-by fixes): `CLAUDE.md` fails
+  `prettier --check` at this HEAD, pre-existing and untouched by this run; `format:check`
+  is not a CI step, which is how it drifted. And the `analysis` package has **no
+  `typedoc.json`**, so a co-located `*.derivation.md` would not be wired into the docs the
+  way solverkit's are — that belongs to **P5.29** (Analysis API docs), so this task
+  documented the plateau in TSDoc plus printed test measurements instead.
+- **Repo-state note for whoever reads this next:** the local clone's `main` had diverged
+  from `origin/main` — two unrelated root commits, 50 commits each side, remote
+  force-updated. `origin/main` was verified to be a strict content superset (no file
+  deleted, every P4.36 file present) before the local branch was pointed at it. **Nothing
+  was force-pushed and no remote history was rewritten**; only the local pointer moved.
+
+---
+
 ## 2026-08-08 (5th run) — P5.04 (shooting residual)
 
 - **Done: P5.04.** `packages/analysis/src/shooting-residual.ts` exports `Aim`,
