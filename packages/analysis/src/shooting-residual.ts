@@ -122,6 +122,15 @@ export interface ShootingResidual {
    * needs to shorten its step, and it can only do that if the failure comes
    * back as a value. Throwing would make an ordinary incident in an
    * optimization — a bad trial point — indistinguishable from a bug.
+   *
+   * **This is not `report.status === "ok"`, and the difference is the whole
+   * hazard.** Exhausting `tspan` without ever hitting the ground is a
+   * perfectly *successful* solve — the driver reached `t_f`, so the status is
+   * `"ok"` — and its final recorded row is an ordinary mid-air point that
+   * `impactPoint` will report as an impact without complaint. A shot that
+   * flies off the end of its time budget would come back with a residual that
+   * is finite, plausible, and meaningless. See {@link createShootingResidual}
+   * for how the two are told apart.
    */
   readonly ok: boolean;
   /** The full solve report, including `failure` when the solve did not finish. */
@@ -233,7 +242,16 @@ export function createShootingResidual(problem: ShootingProblem): ResidualFuncti
       [recorder],
     );
 
-    if (report.status !== "ok" || recorder.trajectory.nSteps < 1) {
+    // A terminal event ends the solve *early*, so `tFinal` sits strictly
+    // inside the span; the driver clamps its last step to land exactly on
+    // `tspan[1]` when the span is what ran out, which makes this an exact
+    // discriminator rather than a tolerance. Testing `report.status` alone
+    // would accept an exhausted span as an impact (see `ShootingResidual.ok`).
+    // The remaining case — an event firing exactly at `tspan[1]` — is reported
+    // as "no impact", the conservative direction: a caller told there is no
+    // residual widens its span, whereas one handed a mid-air point does not.
+    const endedOnEvent = report.tFinal < tspan[1];
+    if (report.status !== "ok" || !endedOnEvent || recorder.trajectory.nSteps < 1) {
       return {
         residual: null,
         impact: null,
