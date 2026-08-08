@@ -2246,8 +2246,8 @@
       "estMinutes": 25,
       "difficulty": "M",
       "validation": "residual continuous across step boundaries (dense-output check)",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed 2026-08-08 (5th run). Building packages/analysis/src/shooting-residual.ts: F(theta, v0) = r_impact - r*, with r_impact read from the event-localized final row rather than a step grid point. Remaining: implementation, then the dense-output continuity check the validation criterion names."
     },
     {
       "id": "P5.05",
