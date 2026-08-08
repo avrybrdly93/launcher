@@ -15,6 +15,91 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-08 (5th run) — P5.04 (shooting residual)
+
+- **Done: P5.04.** `packages/analysis/src/shooting-residual.ts` exports `Aim`,
+  `ShootingProblem`, `ShootingResidual`, `ResidualFunction`,
+  `createShootingResidual` and `residualNorm`. **Next task is P5.05** (finite-difference
+  Jacobian of this residual, with the adaptive-step noise control its title names —
+  and note that this residual is deliberately exercised at _fixed_ step in its own
+  tests, for the reason in the next bullet, so P5.05 is the first task that has to
+  confront adaptive-step noise head-on).
+- **The validation criterion needed a fixed-step solve to be measurable at all, and
+  that is the one design decision here worth arguing.** "Residual continuous across
+  step boundaries" presupposes a step boundary that stays put while the aim moves. An
+  _adaptive_ solve picks its step sizes per aim, so its grid moves _with_ the aim and
+  there is no fixed boundary left for the event to cross — the criterion would be
+  untestable, not satisfied. Pinning `h = 0.05` fixes the grid at `0, h, 2h, …` for
+  every aim while the ground-event time `2v₀sin θ/g` slides continuously, which is
+  what lets a θ sweep walk the event across boundary after boundary.
+- **The sweep asserts that it actually crossed boundaries.** 401 samples over
+  [0.60, 0.70] rad at v₀ = 60 produce **20 distinct step counts spanning 139–158**, and
+  that spread is a test, not a comment. Without it every continuity assertion in the
+  file would pass vacuously on a sweep that never left one step interval — which is
+  the failure mode a continuity test is most likely to have and least likely to show.
+- **Measured: max |second difference| 9.04e-5 m**, against 8.8e-5 m predicted from the
+  range curve's own curvature (`|R''| ≤ 4v₀²/g`). So the residual's discrete curvature
+  is the physics and nothing else.
+- **The negative control is the load-bearing part.** `gridPointResidualX` reads row
+  `nSteps − 2` — the last step grid point before the crossing, exactly what a residual
+  that ignored dense output would see — and on the **identical sweep** measures max
+  |second difference| **2.47 m** and a largest single-sample jump of **2.41 m**, against
+  a predicted `h·vₓ` = 2.39 m. **A factor of 2.7e4 between the two.** The asserted 1e-3 m
+  bound sits an order above the curvature scale and three below the jump, so it fails on
+  a staircase and does not fail on ordinary sampling.
+- **A real defect was found and fixed mid-task, and it is the kind that ships quietly.**
+  `report.status === "ok"` does **not** mean the shot hit the ground. Exhausting `tspan`
+  without reaching the terminal event is a _successful_ solve — the driver reached `t_f` —
+  and its final recorded row is an ordinary mid-air point that `impactPoint` reports as an
+  impact without complaint. The first implementation keyed `ok` off `report.status`, and a
+  shot with `tspan [0, 1]` came back with a residual that was finite, plausible and
+  meaningless. `ok` is now `status === "ok" && tFinal < tspan[1]`, which is exact rather
+  than a tolerance: a terminal event stops the solve strictly inside the span, while the
+  driver clamps its last step to land _exactly_ on `tspan[1]` when the span is what ran
+  out. A test pins the trap by asserting `status === "ok"` and `ok === false` together.
+- **Full local gate green at this HEAD** (Node 22.22.2, pnpm **11.9.0**): `typecheck`
+  clean · `lint` clean · `lint:deps` **no violations** (1227 modules, 3338 dependencies) ·
+  `pnpm test` **1608/1608 across 211 files** in 110s (was 1586/210 — this task adds 22
+  tests in 1 file, and nothing else moved) · `pnpm --filter @ballista/app build` ✓ in 31.7s ·
+  app bundle **67.19 kB gzipped** against the 300 kB §2.6 budget. Nothing was skipped,
+  weakened or retried. The `chunked-integration.test.ts` slice-budget assertion passed
+  locally again this run — still not evidence the CI problem is gone, see below.
+- **The root `pnpm build` failure is NOT a pnpm-version mismatch, and the 4th run's
+  explanation of it is disproven.** That entry attributed
+  `ERR_PNPM_RECURSIVE_RUN_NO_SCRIPT` to the sandbox running pnpm 10.33.0 against a
+  `packageManager` pin of `pnpm@11.9.0`. **This sandbox runs 11.9.0 — the pinned version
+  exactly — and the root script still fails.** The actual cause is flag parsing in the
+  script itself: `pnpm -r --workspace-concurrency 1 run build` fails, while
+  `pnpm -r --workspace-concurrency=1 run build` **builds all 8 packages successfully**
+  (verified this run). The space-separated form makes pnpm 11 take `1` as the recursive
+  command. **The fix is one character**, `--workspace-concurrency=1` in `package.json`'s
+  `build` script. It was **not** applied: it is outside P5.04 and the routine driving this
+  repo prohibits drive-by changes, and `ROADMAP.json` has no convention for
+  non-blueprint task ids to file it under. CI is unaffected either way — it runs
+  `pnpm --filter @ballista/app build`, which passes.
+
+### ⚠️ CI on `main` is still red, still the same flake, still the same open decision
+
+**Unchanged, and this session did not attempt it** — it is a change to a performance
+contract, which `ROADMAP.json`'s quality policy puts outside what a session that trips
+over it may decide. Read first-hand this run rather than carried over: run
+**`31224097976`** at **`3ed8d38`** (the 4th run's last commit) failed with the single
+assertion `expected 10.490253000000052 to be less than 10` at
+`chunked-integration.test.ts:318` — **1585 of 1586 tests passed**. Neighbouring runs at
+`34036f9` and `1c3a8e1` are green while `37dbdb6` is red, which is the load-sensitivity
+pattern the 3rd and 4th runs documented, not a change in it.
+
+The consequence for this session is the same one the 4th run stated: **P5.04's own CI
+result cannot be interpreted**, because a red run cannot be told apart from the known
+flake from the outside. The local gate above is therefore the strongest honest statement
+available about this change, and it is a full one.
+
+The recommendation is unchanged — assert on work per slice (steps, `nRHS`) rather than
+wall-clock, so the assertion means the same thing on every machine. **A human needs to
+pick one. This is the third consecutive run to ask.**
+
+---
+
 ## 2026-08-07 (4th run) — P5.03 (scalar range root)
 
 - **Done: P5.03.** `packages/analysis/src/range-root.ts` exports `RangeFunction`,
