@@ -2312,8 +2312,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "sensitivity matches FD to 1e-6 on smooth scenario",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "CLAIMED 2026-08-09 (11th run). Plan: augment the state with the variational (tangent-linear) equations dS/dt = (df/dy) S + df/dmu, S = dy/dmu, integrated alongside y by the same stepper; plus the event-time correction the validation criterion actually needs -- an impact observable is y(T(mu)) with T itself a function of mu, so dy_impact/dmu = S(T) + f(T,y(T)) dT/dmu with dT/dmu = -(grad g . S)/(grad g . f). Validate against the drag-free closed form (dR/dtheta = 2 v0^2 cos 2theta / g, dR/dv0 = 2 v0 sin 2theta / g) and against a finite difference of the whole solve on a drag scenario. If this run is cut short, remaining work is whatever packages/analysis/src/tangent-linear.ts does not yet cover."
     },
     {
       "id": "P5.11",
