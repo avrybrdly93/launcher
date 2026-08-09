@@ -11,4 +11,5 @@ export * from "./range-root.js";
 export * from "./shooting-jacobian.js";
 export * from "./shooting-residual.js";
 export * from "./smart-init.js";
+export * from "./tangent-linear.js";
 export * from "./targets.js";
