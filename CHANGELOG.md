@@ -70,18 +70,23 @@ forcing a fallback to commit timestamps.
   that check. Filed as a backlog note rather than fixed here, on scope discipline.
 - **Not measured this run:** `pnpm bench:solverkit` and `check:cross-engine-drift`, both of
   which CI runs as soft warnings only. Neither is affected by a new analysis module.
-- **CI went red on the push and green on a re-run of the same commit — a flaky wall-clock
-  test, not a regression, and worth a look next session.**
-  `packages/solverkit/src/chunked-integration.test.ts`'s P2.40 cooperative-yield budget
-  asserts `maxSliceMs < 10` and measured **10.0385 ms** on run `31299263980` at `1cbc741`:
-  over by **0.4%**. `rerun_failed_jobs` on the identical commit passed (**1701/1701**), as
-  did the full suite locally both before and after the push. Nothing in this run touches
-  `solverkit` — the change is a new `analysis` module — and the three preceding pushes
-  (`0418b0b`, `f6b63e7`, `a188d3c`) were green, so it is intermittent rather than newly
-  introduced. **The test was left exactly as it is**; a wall-clock budget on a shared runner
-  will do this, and the fix is to make the assertion robust (best-of-N, or a budget with
-  headroom justified by measurement), not to loosen the number until it stops complaining.
-  Flagged here rather than fixed, on scope discipline.
+- **CI on `main` is now failing about two runs in three, on a wall-clock test this run did
+  not touch. It is the most important thing for the next session to pick up.**
+  `packages/solverkit/src/chunked-integration.test.ts:318` (P2.40's cooperative-yield
+  budget) asserts `maxSliceMs < 10` and measured **10.0385 ms** — over by **0.4%** — on run
+  `31299263980` at `1cbc741`. `rerun_failed_jobs` on that identical commit passed
+  **1701/1701**. It then failed _again_ at `49a46af`, run `31299576581`, on the same line.
+- **That second failure is the proof, because `49a46af` changes nothing but this file.** A
+  CHANGELOG-only commit cannot regress a solverkit timing budget, so the failure is the
+  runner's wall clock rather than the tree: same line, same assertion, two different commits
+  one of which has no code in it. The three preceding pushes (`0418b0b`, `f6b63e7`,
+  `a188d3c`) were green and the full suite passes locally, so this is a test that has become
+  marginal against its own budget, not a regression introduced here.
+- **The test was left exactly as it is, and should not simply be relaxed.** Raising the
+  number until it stops complaining would delete the only check that P2.40's cooperative
+  yield still holds. The fix is to make the _measurement_ robust — best-of-N slices, or a
+  budget with headroom justified by a measured distribution rather than a round 10 — and it
+  is a task of its own, not a drive-by edit inside P5.08. Flagged here on scope discipline.
 
 ---
 
