@@ -56,9 +56,13 @@ import type { Aim, ShootingProblem } from "./shooting-residual.js";
  * correction annihilates — vertical position at impact is pinned to the ground
  * for every $\mu$, so its total derivative is zero while `S(T)` is not — and
  * the horizontal row, the one that *is* range sensitivity, is off by
- * $v_x\,\mathrm dT/\mathrm d\mu$, which is the dominant term. On the drag-free
- * 45° shot in `tangent-linear.test.ts` the uncorrected $\partial R/\partial
- * \theta$ has the wrong **sign**. Both numbers are returned separately
+ * $v_x\,\mathrm dT/\mathrm d\mu$, which is the dominant term. Measured in
+ * `tangent-linear.test.ts`: on the drag-free 45° shot the true
+ * $\partial R/\partial\theta$ is zero while the uncorrected one is
+ * **−163 m/rad**, so the correction is the whole answer rather than a
+ * refinement to it; below the optimum the two carry **opposite signs**, since
+ * raising the elevation lengthens the shot but at fixed time moves the
+ * projectile backwards. Both numbers are returned separately
  * ({@link TangentLinearFlight.stateSensitivity} and
  * {@link TangentLinearFlight.impactSensitivity}) rather than one being folded
  * into the other, because they answer different questions and the raw one is
