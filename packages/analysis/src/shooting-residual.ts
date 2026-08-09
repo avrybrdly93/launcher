@@ -3,6 +3,7 @@ import {
   type SolveReport,
   type SolverConfig,
   type Stepper,
+  type Trajectory,
   TrajectoryRecorder,
   integrate,
 } from "@ballista/solverkit";
@@ -142,6 +143,32 @@ export interface ShootingResidual {
 /** A residual function of the aim, with the problem closed over. */
 export type ResidualFunction = (aim: Aim) => ShootingResidual;
 
+/**
+ * One flown aim, before anything is read off it.
+ *
+ * Factored out for P5.09, which needs the *path* rather than the endpoint: the
+ * reachability boundary is the highest an arc gets at a chosen abscissa, and a
+ * {@link ShootingResidual} has already discarded everything but the impact row
+ * by the time it is returned. Rebuilding the integration in that module instead
+ * would have duplicated {@link ShootingProblem}'s launch-state convention — the
+ * axis $v_0\cos\theta$ goes into — in a second place, and a disagreement
+ * between the two copies would surface as an envelope that quietly disagrees
+ * with the solver it is supposed to bound.
+ */
+export interface Flight {
+  /** The recorded path, or `null` when the solve did not reach a terminal event. */
+  readonly trajectory: Trajectory | null;
+  /** Whether the solve ended on its terminal event. Same discriminator as {@link ShootingResidual.ok}. */
+  readonly ok: boolean;
+  /** The full solve report. */
+  readonly report: SolveReport;
+  /** The aim flown, echoed back. */
+  readonly aim: Aim;
+}
+
+/** A flight function of the aim, with the problem closed over. */
+export type FlightFunction = (aim: Aim) => Flight;
+
 const DEFAULT_TSPAN: readonly [number, number] = [0, 600];
 
 /**
@@ -203,18 +230,62 @@ function launchState(problem: ShootingProblem, aim: Aim, layout: TrajectoryLayou
 export function createShootingResidual(problem: ShootingProblem): ResidualFunction {
   const layout = problem.layout ?? PLANAR_LAYOUT;
   validateTarget(problem.target, layout);
+  const fly = createFlight(problem);
+
+  return (aim: Aim): ShootingResidual => {
+    const flight = fly(aim);
+    if (!flight.ok || flight.trajectory === null) {
+      return {
+        residual: null,
+        impact: null,
+        timeOfFlight: null,
+        ok: false,
+        report: flight.report,
+        aim,
+      };
+    }
+
+    const impact = impactPoint(flight.trajectory, layout);
+    return {
+      residual: missVector(problem.target, impact, layout),
+      impact,
+      timeOfFlight: timeOfFlight(flight.trajectory),
+      ok: true,
+      report: flight.report,
+      aim,
+    };
+  };
+}
+
+/**
+ * Closes a {@link ShootingProblem} over its fixed parts and returns the flown
+ * trajectory as a function of the aim alone.
+ *
+ * The integration half of {@link createShootingResidual}, which is written in
+ * terms of this. Both preconditions and the terminal-event discriminator
+ * documented there apply here unchanged and are enforced here — that is the
+ * point of the factoring, so a second caller cannot get a staircase residual by
+ * reaching past the checks.
+ *
+ * The target is *not* validated here: a caller reading the path rather than the
+ * miss (P5.09's envelope sweeps abscissae, and has no target until it asks
+ * about one) has no use for it. {@link createShootingResidual} validates it
+ * before delegating.
+ */
+export function createFlight(problem: ShootingProblem): FlightFunction {
+  const layout = problem.layout ?? PLANAR_LAYOUT;
 
   const terminalEvents = (problem.model.events ?? []).filter((event) => event.terminal);
   if (terminalEvents.length === 0) {
     throw new Error(
-      "createShootingResidual: the model declares no terminal event, so no solve can produce " +
+      "createFlight: the model declares no terminal event, so no solve can produce " +
         "an impact — the residual would be read off whatever row `tspan` or `maxSteps` " +
         "happened to end on",
     );
   }
   if (problem.stepper.interpolant === undefined) {
     throw new Error(
-      `createShootingResidual: stepper "${problem.stepper.info.id}" exposes no dense-output ` +
+      `createFlight: stepper "${problem.stepper.info.id}" exposes no dense-output ` +
         "interpolant, so `integrate` cannot truncate a step at the event root. The impact " +
         "would be the last step grid point before the crossing, making the residual " +
         "discontinuous in the aim (P5.04's validation criterion is exactly that it is not)",
@@ -223,11 +294,9 @@ export function createShootingResidual(problem: ShootingProblem): ResidualFuncti
 
   const tspan = problem.tspan ?? DEFAULT_TSPAN;
 
-  return (aim: Aim): ShootingResidual => {
+  return (aim: Aim): Flight => {
     if (!Number.isFinite(aim.theta) || !Number.isFinite(aim.speed)) {
-      throw new Error(
-        `createShootingResidual: aim must be finite; got θ = ${aim.theta}, v₀ = ${aim.speed}`,
-      );
+      throw new Error(`createFlight: aim must be finite; got θ = ${aim.theta}, v₀ = ${aim.speed}`);
     }
 
     const y0 = launchState(problem, aim, layout);
@@ -252,25 +321,9 @@ export function createShootingResidual(problem: ShootingProblem): ResidualFuncti
     // residual widens its span, whereas one handed a mid-air point does not.
     const endedOnEvent = report.tFinal < tspan[1];
     if (report.status !== "ok" || !endedOnEvent || recorder.trajectory.nSteps < 1) {
-      return {
-        residual: null,
-        impact: null,
-        timeOfFlight: null,
-        ok: false,
-        report,
-        aim,
-      };
+      return { trajectory: null, ok: false, report, aim };
     }
-
-    const impact = impactPoint(recorder.trajectory, layout);
-    return {
-      residual: missVector(problem.target, impact, layout),
-      impact,
-      timeOfFlight: timeOfFlight(recorder.trajectory),
-      ok: true,
-      report,
-      aim,
-    };
+    return { trajectory: recorder.trajectory, ok: true, report, aim };
   };
 }
 
