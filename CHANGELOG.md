@@ -15,6 +15,54 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-09 (10th run) — P5.09 (reachability envelope + distance-to-envelope)
+
+- **Done: P5.09.** `packages/analysis/src/envelope.ts` exports `maxHeightAtDownrange`,
+  `computeEnvelope` and `assessReachability`; `observables.ts` gains `heightAtDownrange` and
+  `shooting-residual.ts` gains `createFlight`. **Next task is P5.10** (tangent-linear
+  integration). Full suite **1741/1741 across 216 files**; typecheck, lint, `lint:deps`, app
+  build, bundle budget (65.6 kB gzipped against 300 kB) and both API-doc builds all green.
+- **Validation met, against a closed form this code never evaluates.** An unreachable target is
+  reported with its Euclidean distance to the boundary, and four geometries — above the boundary
+  mid-range, past max range on the ground, beyond-and-above, and 2 m outside — each agree with a
+  brute-force minimization over the analytic **parabola of safety** to better than **1e-3
+  relative**. The boundary height matches `v₀²/2g − gx²/2v₀²` to **<1e-6 relative** at five
+  abscissae, max range matches `v₀²/g` (**<1e-6**) at 45° (**<1e-4 rad**), and the touching arc's
+  elevation matches `atan(v₀²/gx)` to **<1e-4 rad**.
+- **The independent reference is what caught the only real bug, and it is worth naming.** `x =
+R_max` is reached by _exactly one_ elevation, so the feasible θ set there collapses to a point
+  and no finite sweep can land in it. A target past the maximum range therefore measured its
+  distance to the last abscissa the sweep happened to resolve — **42.5 m against a true 40.79 m,
+  4% long** — while looking entirely plausible. Nothing but an outside reference finds that. The
+  ground endpoint is `(R_max, 0)` by construction and is now used directly.
+- **The other end is degenerate the opposite way.** At the launch abscissa the bound is attained
+  by the vertical shot, whose path is a _segment_, not a graph over `x`; the first-crossing rule
+  honestly returns the launch point, which would have made the sampled curve appear to **rise**
+  from 0 to `v₀²/2g`. `computeEnvelope` samples strictly to the right of the launch point instead.
+  Both ends are documented in the module rather than smoothed over.
+- **Scope.** This is the 2D reachable set, not the scalar ground check: P5.08's `shortfall` is
+  exactly this module's distance-to-envelope restricted to `y* = 0`. What was missing was the
+  airborne target — unreachable while sitting well inside the maximum range.
+- **Knowingly duplicated, not quietly.** The golden-section contraction is a near-twin of
+  `arcs.ts`'s `locatePeakAngle`. Folding them together needs a general 1D minimizer, which is
+  **P5.13** and unclaimed; writing it here would claim a task out of order. When P5.13 lands both
+  local copies should go.
+- **Limitation, stated rather than assumed away.** The distance minimization is a coarse sweep
+  plus a contraction, so it is the global minimum only where squared-distance-to-boundary is
+  single-basined — true for the parabola and every library scenario tried. `boundarySamples` is
+  the knob if a wavier boundary appears.
+- **Discovered, not fixed (no drive-by):** the root `pnpm build` script (`pnpm -r
+--workspace-concurrency 1 run build`) fails under the pnpm version this repo pins itself
+  (**11.9.0**) with `ERR_PNPM_RECURSIVE_RUN_NO_SCRIPT`, which parses `run` as the script name.
+  It is latent because CI never invokes it — `ci.yml` builds with `pnpm --filter @ballista/app
+build`, which passes. A future session should drop the redundant `run`.
+- **Not verified this run:** Playwright e2e and the cross-engine drift measurement. No browsers
+  are installed in this environment; `check:cross-engine-drift` runs but records both engines as
+  `unavailable`, which would have **overwritten a real committed Chromium measurement** (drift 0)
+  with a failure notice. That write was reverted and the file is unchanged.
+
+---
+
 ## 2026-08-09 (9th run) — P5.08 (multi-solution handling: low/high arcs)
 
 - **Done: P5.08.** `packages/analysis/src/arcs.ts` exports `solveArcs`, `locatePeakAngle` and
