@@ -2290,8 +2290,8 @@
       "estMinutes": 25,
       "difficulty": "M",
       "validation": "both arcs found for reachable targets; consistent labeling",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed. Plan: a new `arcs.ts` in @ballista/analysis that, at a FIXED launch speed, reports both elevations whose integrated trajectory matches the target's downrange — the low (flat) and high (lofted) arcs. Reuses P5.03's `solveRangeRoots` bracketing, which was written to take the range function as a parameter for exactly this reuse; the peak angle it needs cannot be DRAG_FREE_PEAK_ANGLE once drag or a raised launch is in play, so it is located by a coarse θ sweep refined by golden section. Validation: both arcs found for every reachable library target, with the labeling pinned by an independent physical property (time of flight, apex height) rather than by the bracket that produced it."
     },
     {
       "id": "P5.09",
