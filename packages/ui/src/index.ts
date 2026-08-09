@@ -42,3 +42,5 @@ export * from "./density-altitude-page-logic.js";
 export * from "./density-altitude-page.js";
 export * from "./model-picker-logic.js";
 export * from "./model-picker-panel.js";
+export * from "./sensitivity-panel-logic.js";
+export * from "./sensitivity-panel.js";
