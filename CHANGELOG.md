@@ -70,6 +70,18 @@ forcing a fallback to commit timestamps.
   that check. Filed as a backlog note rather than fixed here, on scope discipline.
 - **Not measured this run:** `pnpm bench:solverkit` and `check:cross-engine-drift`, both of
   which CI runs as soft warnings only. Neither is affected by a new analysis module.
+- **CI went red on the push and green on a re-run of the same commit — a flaky wall-clock
+  test, not a regression, and worth a look next session.**
+  `packages/solverkit/src/chunked-integration.test.ts`'s P2.40 cooperative-yield budget
+  asserts `maxSliceMs < 10` and measured **10.0385 ms** on run `31299263980` at `1cbc741`:
+  over by **0.4%**. `rerun_failed_jobs` on the identical commit passed (**1701/1701**), as
+  did the full suite locally both before and after the push. Nothing in this run touches
+  `solverkit` — the change is a new `analysis` module — and the three preceding pushes
+  (`0418b0b`, `f6b63e7`, `a188d3c`) were green, so it is intermittent rather than newly
+  introduced. **The test was left exactly as it is**; a wall-clock budget on a shared runner
+  will do this, and the fix is to make the assertion robust (best-of-N, or a budget with
+  headroom justified by measurement), not to loosen the number until it stops complaining.
+  Flagged here rather than fixed, on scope discipline.
 
 ---
 
