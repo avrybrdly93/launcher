@@ -15,6 +15,53 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-09 (12th run) — P5.11 (sensitivity channels UI)
+
+- **Done: P5.11.** `packages/ui/src/sensitivity-panel-logic.ts` + `sensitivity-panel.tsx`, wired into
+  the default route's analysis drawer in `packages/app/src/app.tsx` — which until now was a
+  placeholder paragraph. **Next task is P5.12** (Nelder–Mead). Full suite **1792/1792 across 219
+  files**; typecheck, lint, `lint:deps`, app build, bundle budget (**69.2 kB** gzipped against 300 kB)
+  and both API-doc builds all green.
+- **Validation met three ways.** Read literally — the panel's `dR/dθ`, `dR/dv₀` and `dR/dC_d` match an
+  independently constructed `createTangentLinearFlight` + `rangeSensitivity` to **1e-9** relative.
+  Against the drag-free closed form the panel never evaluates: `dR/dθ = 2v₀²cos2θ/g` and
+  `dR/dv₀ = 2v₀sin2θ/g` to **1e-8** at four elevations. Against a central difference of the whole
+  solve with drag on: all three channels to **1e-6**, `dR/dC_d` included.
+- **One augmented solve, not three.** All three channels ride a single tangent-linear solve. That is
+  not only cheaper — it is the only way they are guaranteed mutually consistent, since a second solve
+  would choose its own step sequence.
+- **The `C_d` row refuses rather than lies, and there are two distinct ways to have no number.** A
+  scenario with no `drag-quadratic` force wired reads the coefficient nowhere, so the variational
+  solve returns an exact **0** — which reads as physics ("drag doesn't matter here") and is really an
+  artefact of the force list. This is precisely the fixture trap P5.10's own tests document, surfaced
+  one layer up. Separately, a `tabulated-reynolds` drag model has no scalar `C_d` to displace at all.
+  Both render blank with the reason in the row's title, and a test pins each.
+- **The stepper is always `dopri5`, whatever the scenario picked, and the panel says so on screen when
+  they differ.** `createTangentLinearFlight` requires dense output: without an interpolant the impact
+  row is the last grid point _before_ the ground crossing, so both the state and its sensitivity would
+  be read off a point that is not on the event surface. Half the selectable steppers expose none — and
+  those are exactly the ones a learner reaches for while studying step-size error, so honouring the
+  scenario's choice would blank these readouts when they are most interesting. Tolerances and step
+  budget still come from the scenario.
+- **Excluded rather than approximated:** spatial models, whose aim carries an azimuth as well as an
+  elevation — printing only `dR/dθ` for one would answer a different question than the row label asks.
+  Degenerate aims and shots that never land come back as a `failure` string, not a throw, since this
+  runs on every commit.
+- **Cost, measured rather than assumed.** The synchronous augmented solve costs **0.3–2.7 ms** on six
+  of the seven presets and **22 ms** on the dust grain, the deliberately stiff one. That worst case is
+  one dropped frame _per commit_, not per frame, and commits are already rate-limited to one per
+  animation frame. Moving it to the worker pool carries a real message-protocol surface and belongs to
+  a task that says so, not to this one.
+- **Two things stated rather than hidden.** `rangeSensitivity` differentiates the impact `x`
+  coordinate while `observables.ts`'s `range` is `|x_imp − x₀|`; they agree for any shot launched
+  downrange, which is every scenario this panel is reachable from, and would disagree for one
+  travelling in −x. And the root `pnpm build` script is broken **independently of this change** —
+  pnpm 11.9 reads `pnpm -r run build` as a request for a script named `run` — so the gate was run with
+  CI's own `pnpm --filter @ballista/app build`, which is what `ci.yml` actually invokes. Worth a fix,
+  but not a drive-by one.
+
+---
+
 ## 2026-08-09 (11th run) — P5.10 (tangent-linear / variational integration)
 
 - **Done: P5.10.** `packages/analysis/src/tangent-linear.ts` exports `createTangentLinearModel`,
