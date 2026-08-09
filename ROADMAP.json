@@ -2301,8 +2301,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "unreachable target reported with distance-to-envelope",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "CLAIMED 2026-08-09 (10th run). Scope: the 2D reachable-set boundary at a fixed launch speed — the drag analog of the parabola of safety — plus a reachability query that reports distance-to-envelope for an unreachable target. NOT the scalar ground-range check: P5.08 already reports `maxDownrange`/`shortfall` along the ground, so re-deriving that here would leave the task a no-op. Implementation in progress; no code committed yet."
     },
     {
       "id": "P5.10",
