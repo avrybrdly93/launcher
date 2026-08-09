@@ -15,6 +15,57 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-09 (11th run) — P5.10 (tangent-linear / variational integration)
+
+- **Done: P5.10.** `packages/analysis/src/tangent-linear.ts` exports `createTangentLinearModel`,
+  `createTangentLinearFlight`, `aimParameters`, `rangeSensitivity` and their types. **Next task is
+  P5.11** (sensitivity channels UI). Full suite **1766/1766 across 217 files**; typecheck, lint,
+  `lint:deps`, app build, bundle budget (65.6 kB gzipped against 300 kB) and both API-doc builds all
+  green.
+- **Validation met twice, and the second reference is the stronger one.** Against the criterion's own
+  finite difference: with drag at θ = 0.7, `dR/dθ`, `dR/dv₀`, `dT/dθ` and `dT/dv₀` each agree with a
+  central difference of the whole solve (rtol 1e-12) to better than **1e-6 relative**, from a raised
+  launch point as well, and for a `C_d` parameter. Against a closed form the module never evaluates:
+  drag-free, `dR/dθ = 2v₀²cos2θ/g` and `dR/dv₀ = 2v₀sin2θ/g` to **1e-9** relative at four elevations.
+- **What the task buys, and why it is downstream of P5.05.** `shooting-jacobian.ts` documents that a
+  finite difference of an _adaptive_ solve carries a noise floor set by the integration tolerance, not
+  by machine epsilon, because two nearby aims are integrated on two different step sequences.
+  Differentiating the ODE rather than the solver has no such floor: `dS/dt = (∂f/∂y)S + ∂f/∂μ` rides
+  the same stepper and inherits its error control.
+- **The event-time correction is the substance of the task, not a refinement on it.** `S(T)` is
+  `∂y/∂μ` at _fixed_ time; every impact observable is `y(T(μ))` with `T` itself a function of `μ`.
+  Measured: on the drag-free 45° shot the true `dR/dθ` is **0** while the uncorrected number is
+  **−163 m/rad** — the correction is the entire answer there — and below the optimum the two carry
+  **opposite signs**, since raising the elevation lengthens the shot but at fixed time moves the
+  projectile backwards. Both are returned separately, because a fixed-time consumer wants the raw one.
+- **The check that catches a sign error first** is the vertical impact sensitivity, which must be
+  exactly zero: the ground pins the impact height for every `μ`, so the correction has to cancel that
+  row exactly.
+- **A test-fixture trap worth naming.** `dR/dC_d` at `C_d = 0` is nonzero even though the drag force
+  vanishes there — `∂f/∂C_d` is the full drag acceleration per unit coefficient. The obvious fixture
+  drops `QuadraticDragForce` from the model at `cd === 0`, and then displacing `C_d` moves nothing and
+  the sensitivity is a **structural** zero that reads as physics. The test wires the force at zero
+  coefficient instead.
+- **Rejected at construction rather than mishandled:** a terminal event carrying a reset map (P4.11's
+  bounce needs its own jump condition on `S`), more than one terminal event (the correction
+  differentiates whichever fired, and the report does not say which), and grazing impacts, where
+  `dT/dμ` is genuinely unbounded — reported with the measured tangency rather than as a large number.
+- **Knowingly duplicated, not quietly.** The module keeps an allocation-free copy of the engine's
+  `finiteDifferenceJacobian`, because that function documents itself as _not_ on a zero-allocation hot
+  path and here it runs once per rhs evaluation. A test pins the copy against the original so the two
+  cannot drift.
+- **Stated rather than assumed away:** the augmented solve is not the base solve. Its controller sees
+  the sensitivity channels — order 100 m/rad next to positions of order 10 m — and picks a different
+  step sequence, so `flight.state` matches `createFlight` to the tolerance, not bitwise. The test
+  asserts 1e-9 relative rather than equality.
+- **Still open from the 10th run, untouched (no drive-by):** the root `pnpm build` script fails under
+  the pinned pnpm 11.9.0 (`ERR_PNPM_RECURSIVE_RUN_NO_SCRIPT`, the redundant `run`); latent because CI
+  builds with `pnpm --filter @ballista/app build`, which passes and passed here.
+- **Not verified this run:** Playwright e2e and the cross-engine drift measurement — no browsers in
+  this environment, unchanged from previous runs.
+
+---
+
 ## 2026-08-09 (10th run) — P5.09 (reachability envelope + distance-to-envelope)
 
 - **Done: P5.09.** `packages/analysis/src/envelope.ts` exports `maxHeightAtDownrange`,
