@@ -55,6 +55,19 @@ describe("App", () => {
     expect(testid(root, "app-shell-drawer")).not.toBeNull();
   });
 
+  it("fills the analysis drawer with live range sensitivities for the committed scenario (P5.11)", () => {
+    const root = mount(<App />);
+    const drawer = testid(root, "app-shell-drawer")!;
+    expect(drawer.querySelector('[data-testid="sensitivity-panel"]')).not.toBeNull();
+
+    // The default scenario is the drag-free reference: the two aim channels
+    // carry numbers, and the C_d channel is blank because no force reads it.
+    // (`sensitivity-panel-logic.test.ts` is what pins the numbers themselves.)
+    expect(testid(root, "sensitivity-value-theta")!.textContent).toMatch(/m\/rad$/);
+    expect(testid(root, "sensitivity-value-speed")!.textContent).toMatch(/m\/\(m\/s\)$/);
+    expect(testid(root, "sensitivity-value-cd")!.textContent).toBe("—");
+  });
+
   it("runs the default scenario on load with no explicit Run button (draft/committed auto-integrates on commit, §5.3)", () => {
     const root = mount(<App />);
     const status = testid(root, "run-status")!;

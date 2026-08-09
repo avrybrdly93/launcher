@@ -7,9 +7,9 @@ import {
   createSimulationSession,
   parseShareUrl,
 } from "@ballista/runtime";
-import { CompareLegend } from "@ballista/ui";
+import { CompareLegend, SensitivityPanel, computeSensitivityReadout } from "@ballista/ui";
 import type { ReadableAtom } from "nanostores";
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useMemo, useState } from "preact/hooks";
 import { AppShell } from "./app-shell.js";
 import { CanvasViewport } from "./canvas-viewport.js";
 
@@ -78,7 +78,28 @@ export function App() {
   const result = useAtom(session.result.store);
   const playback = useAtom(session.playback.store);
   const compareState = useAtom(compare.store);
+  const scenarioState = useAtom(session.scenario.store);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
+
+  /**
+   * P5.11's readouts, recomputed only when the *committed* scenario changes --
+   * not on playback scrubs, pins or share-URL state, all of which re-render
+   * this component without moving the physics.
+   *
+   * This is a synchronous augmented solve on the main thread, which is a
+   * deliberate choice at a measured cost: 0.3-2.7 ms for six of the seven
+   * presets, and 22 ms for the dust grain, whose drag relaxation time is far
+   * below the step size (`scenario-presets.ts` calls it out as the stiff one).
+   * That worst case is one dropped frame per commit, not per frame, and
+   * commits are already rate-limited to one per animation frame by §5.3's
+   * draft/committed split. Moving it to the worker pool is real work with a
+   * real message-protocol surface, and belongs to a task that says so rather
+   * than to this one.
+   */
+  const sensitivity = useMemo(
+    () => computeSensitivityReadout(scenarioState.committed),
+    [scenarioState.committed],
+  );
 
   const trajectory = result.trajectory;
   const duration = trajectory && trajectory.nSteps > 0 ? trajectory.t[trajectory.nSteps - 1]! : 0;
@@ -147,7 +168,7 @@ export function App() {
           </p>
         </div>
       }
-      analysisDrawer={<p>Analysis drawer lands in later Phase 3 tasks.</p>}
+      analysisDrawer={<SensitivityPanel readout={sensitivity} />}
     />
   );
 }

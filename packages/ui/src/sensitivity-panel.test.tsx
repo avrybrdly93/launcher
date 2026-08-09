@@ -12,14 +12,17 @@ function flatChildren(children: unknown): unknown[] {
   return ([] as unknown[]).concat(children).flat(Infinity);
 }
 
-type Node = { type?: string; props?: Record<string, unknown> };
+/** The only shape these assertions read off a raw vnode. */
+interface TestNode {
+  props?: Record<string, unknown>;
+}
 
 /** Every node in the rendered tree carrying `data-testid`, keyed by it. */
-function byTestId(vnode: Node): Map<string, Node> {
-  const found = new Map<string, Node>();
+function byTestId(vnode: unknown): Map<string, TestNode> {
+  const found = new Map<string, TestNode>();
   const walk = (node: unknown): void => {
     if (typeof node !== "object" || node === null) return;
-    const candidate = node as Node;
+    const candidate = node as TestNode;
     const id = candidate.props?.["data-testid"];
     if (typeof id === "string") found.set(id, candidate);
     for (const child of flatChildren(candidate.props?.["children"])) walk(child);
@@ -28,7 +31,7 @@ function byTestId(vnode: Node): Map<string, Node> {
   return found;
 }
 
-function textOf(node: Node | undefined): string {
+function textOf(node: TestNode | undefined): string {
   return flatChildren(node?.props?.["children"]).join("");
 }
 
