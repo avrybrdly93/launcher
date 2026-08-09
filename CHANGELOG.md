@@ -15,6 +15,64 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-09 (9th run) — P5.08 (multi-solution handling: low/high arcs)
+
+- **Done: P5.08.** `packages/analysis/src/arcs.ts` exports `solveArcs`, `locatePeakAngle` and
+  their types. **Next task is P5.09** (reachability envelope with distance-to-envelope
+  reporting), which owns the envelope this task only measures in passing.
+- **Validation met: all 20 library entries.** 19 return two arcs, found and correctly
+  labelled; the 20th (`dust-grain`) has no second arc to find and is discussed below.
+  Downrange miss below **1e-6 m** on every arc of every entry. The drag-free case is checked
+  against the closed form rather than against itself: the roots agree with
+  `½asin(gR*/v₀²)` and its complement to π/2 to **1e-9 rad**, and the flight times with
+  `2v₀sinθ/g`.
+- **The labels are checked against flight time, not against θ ordering, and that is the
+  whole point of the second half of the criterion.** `low.theta < high.theta` is true _by
+  construction_ — the two roots come out of brackets either side of the peak — so a test
+  asserting it proves only that the bracketing ran. A label swap anywhere between the
+  bracket and the returned object survives that check. It does not survive "the lofted arc
+  is in the air longer", which is a property of the trajectories and not of the method.
+- **Most of the task was reuse, and the one part that could not be reused was the peak.**
+  P5.03's `solveRangeRoots` already brackets each branch, and it takes the range function as
+  a parameter precisely so an integrated range could be substituted for its drag-free closed
+  form later — its own doc comment says so. What it cannot supply is the maximum-range
+  elevation: its `DRAG_FREE_PEAK_ANGLE` default is π/4 = 0.785 rad, against a **measured
+  0.320 for `golf-drive` and 0.212 for `density-altitude-2000m`**. A wrong peak is not a
+  loss of accuracy but a structural failure — it puts both roots in one bracket and none in
+  the other — so `locatePeakAngle` measures it: a 24-point sweep for a bracket, golden
+  section to `1e-4` rad inside it. Golden section rather than a derivative method because
+  each evaluation flies a trajectory, so a difference quotient would cost two of them and
+  return the adaptive solver's step noise.
+- **Two findings, both handled rather than worked around.** (1) **A boundary peak is a real
+  case.** `dust-grain` — a micron particle whose Stokes relaxation is far shorter than its
+  9 mm flight — has a carry that _falls_ across the whole of `[0, π/2]`: no interior peak,
+  one branch, one arc. `solveRangeRoots` rejects a non-interior peak, correctly for itself,
+  so `solveBranches` handles the monotone interval directly and labels the single root by
+  which bound the peak sits on. (2) **The two-arc band is bounded below as well as above.**
+  `density-altitude-2000m` launches from 2000 m and already carries **93.9 m of its 95.8 m
+  envelope at 0°**; every target closer than that is reachable only on the lofted arc,
+  because the flat one would need a depression the default bounds exclude. `low: null` there
+  is the correct report, and the library harness measures each entry's band instead of
+  assuming it starts at zero.
+- **`maxDownrange` is a lower bound on the true envelope, not an equality**, because the
+  peak is located to `peakTol` and range is quadratic there. A target within microns of the
+  envelope therefore reads as _unreachable_ — the conservative direction, and pinned by a
+  test rather than left to be discovered.
+- **The "UI selects" half of the task's title was deliberately not built.** P5.21 is
+  "Target UI: draggable target marker; solve-on-drop with arc choice", and building a picker
+  here would claim it out of order. What this task owes P5.21 is two labelled, independently
+  valid solutions, which is what it returns.
+- **Full gate green, run locally before pushing:** `pnpm typecheck` 0 errors · `pnpm lint`
+  clean · `pnpm lint:deps` clean (1251 modules, 3432 dependencies) · `pnpm test`
+  **1701/1701 across 215 files** · `pnpm --filter @ballista/app build` + bundle budget
+  (65.6 kB gzipped against 300 kB) both pass. Note `pnpm format:check` reports `CLAUDE.md`
+  as unformatted; that is **pre-existing and untouched by this run**, and CI does not run
+  that check. Filed as a backlog note rather than fixed here, on scope discipline.
+- **Not measured this run:** `pnpm bench:solverkit` and `check:cross-engine-drift`, both of
+  which CI runs as soft warnings only. Neither is affected by a new analysis module.
+
+---
+
 ## 2026-08-09 (8th run) — P5.07 (smart initializer: drag-free closed-form aim)
 
 - **Done: P5.07.** `packages/analysis/src/smart-init.ts` exports `dragFreeAim`,
