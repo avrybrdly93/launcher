@@ -2323,8 +2323,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "values match variational integration",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed 2026-08-09 (12th run). Live dRange/dv0, dRange/dtheta, dRange/dC_d readouts in the default route's analysis drawer, computed from P5.10's tangent-linear solve. Remaining: sensitivity-panel-logic.ts + sensitivity-panel.tsx in @ballista/ui, wiring in app.tsx, tests pinning the readouts against createTangentLinearFlight/rangeSensitivity."
     },
     {
       "id": "P5.12",
