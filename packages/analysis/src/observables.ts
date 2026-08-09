@@ -171,6 +171,101 @@ export function impactPoint(traj: Trajectory, layout: TrajectoryLayout = PLANAR_
   return layout.position.map((channel) => at(traj, channel, last));
 }
 
+/**
+ * Height of the trajectory as it first passes a given **downrange coordinate**,
+ * or `null` if it never gets that far.
+ *
+ * Added for P5.09, which needs the reachable set in the $(x, y)$ plane rather
+ * than only where trajectories land. The reachability boundary is
+ * $y_{\max}(x) = \max_\theta y(x;\theta)$, and that maximization needs the
+ * height of an arc *mid-flight* at a chosen abscissa — a quantity none of the
+ * impact-row observables above can supply.
+ *
+ * **The abscissa is a coordinate, not a distance, and for a 3D layout that is a
+ * restriction worth naming.** It is read on the first non-vertical position
+ * axis, matching where `shooting-residual.ts`'s `launchState` puts $v_0\cos
+ * \theta$ and what `arcs.ts` calls downrange. For the planar model that is
+ * simply $x$. For a spatial one it is the $x$ coordinate of a shot launched in
+ * the $x$–$y$ plane, which is the only thing a 2D aim can express; a
+ * cross-range-deflected shot (Coriolis, crosswind) would need the ground-track
+ * arc length instead, and the task that introduces azimuth as a third control
+ * owns that generalization.
+ *
+ * **Interpolated on the same cubic Hermite basis {@link apex} uses**, and for
+ * the same reason: the recorded rows are step boundaries, so reading the
+ * nearest one would quantize the height to the solver's step sequence and make
+ * $y_{\max}(x)$ a staircase in $x$ — noise that a golden-section maximizer
+ * reads as structure. Here the interpolation is done twice per crossing: once
+ * on the downrange channel, inverted to find *when* the arc reaches `downrange`,
+ * and once on the vertical channel to evaluate the height there. Both use the
+ * recorded velocity channel as the derivative, available at no extra `rhs` cost.
+ *
+ * **The inversion is a bisection, not a closed form.** The Hermite for $x(t)$
+ * is a cubic and its root could be solved directly, but only the root *inside*
+ * the step is wanted, the cubic can be arbitrarily close to linear, and a
+ * bisection on a bracket already known to hold a sign change cannot leave it.
+ * 60 halvings take the parameter to roundoff on a scalar polynomial evaluation,
+ * which is free next to the integration that produced the step.
+ *
+ * **First crossing only.** Downrange is monotone for any shot whose horizontal
+ * velocity keeps its sign, which covers every scenario in the library; a strong
+ * enough headwind could in principle push an arc back across its own abscissa,
+ * and this reports the outbound pass in that case. A bouncing trajectory
+ * (P4.11) likewise reports the first arc's height rather than a later one's.
+ */
+export function heightAtDownrange(
+  traj: Trajectory,
+  downrange: number,
+  layout: TrajectoryLayout = PLANAR_LAYOUT,
+): number | null {
+  requireRows(traj, 1, "heightAtDownrange");
+  requireLayout(traj, layout, "heightAtDownrange");
+  if (!Number.isFinite(downrange)) {
+    throw new Error(`heightAtDownrange: downrange must be finite; got ${downrange}`);
+  }
+
+  const downrangeAxis = layout.vertical === 0 ? 1 : 0;
+  const xChannel = layout.position[downrangeAxis]!;
+  const vxChannel = layout.velocity[downrangeAxis]!;
+  const yChannel = layout.position[layout.vertical]!;
+  const vyChannel = layout.velocity[layout.vertical]!;
+  const last = lastRow(traj);
+
+  if (at(traj, xChannel, 0) === downrange) return at(traj, yChannel, 0);
+
+  for (let k = 0; k < last; k++) {
+    const x0 = at(traj, xChannel, k);
+    const x1 = at(traj, xChannel, k + 1);
+    if (!(x0 < downrange && downrange <= x1)) continue;
+
+    const t0 = traj.t[k]!;
+    const h = traj.t[k + 1]! - t0;
+    if (h <= 0) continue;
+    const vx0 = at(traj, vxChannel, k);
+    const vx1 = at(traj, vxChannel, k + 1);
+
+    let lo = 0;
+    let hi = 1;
+    for (let i = 0; i < 60; i++) {
+      const mid = 0.5 * (lo + hi);
+      if (hermiteValue(x0, vx0, x1, vx1, h, mid) < downrange) lo = mid;
+      else hi = mid;
+    }
+    const theta = 0.5 * (lo + hi);
+
+    return hermiteValue(
+      at(traj, yChannel, k),
+      at(traj, vyChannel, k),
+      at(traj, yChannel, k + 1),
+      at(traj, vyChannel, k + 1),
+      h,
+      theta,
+    );
+  }
+
+  return null;
+}
+
 /** Speed $|\mathbf v|$ at the impact row (§9.1). */
 export function impactSpeed(traj: Trajectory, layout: TrajectoryLayout = PLANAR_LAYOUT): number {
   requireRows(traj, 1, "impactSpeed");

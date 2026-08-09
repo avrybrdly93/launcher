@@ -23,6 +23,7 @@ import {
   apex,
   apexHeight,
   apexTime,
+  heightAtDownrange,
   impactSpeed,
   missDistance,
   range,
@@ -323,5 +324,59 @@ describe("P5.01 observable guard rails", () => {
     };
     expect(range(spatial, SPATIAL_LAYOUT)).toBeCloseTo(5, 12);
     expect(missDistance(spatial, [3, 0, 4], SPATIAL_LAYOUT)).toBeCloseTo(0, 12);
+  });
+});
+
+/**
+ * P5.09's enabling observable. The reference is the drag-free arc read as a
+ * function of abscissa rather than of time,
+ *
+ *   $y(x) = y_0 + x\tan\theta - \dfrac{g x^2}{2 v_0^2 \cos^2\theta}$,
+ *
+ * which is an *independent* check and not a restatement of the parametric form
+ * the integrator advanced: getting from one to the other means eliminating $t$,
+ * so a sign error in the interpolation's inversion cannot cancel against the
+ * same error in the reference.
+ *
+ * The mid-step abscissae are the point of the exercise. Reading the nearest
+ * recorded row instead of interpolating would pass a test that only sampled
+ * step boundaries, and fail these.
+ */
+describe("P5.09 heightAtDownrange vs the drag-free arc y(x)", () => {
+  const CASE: DragFreeCase = { v0: 60, thetaDeg: 35, y0: 100 };
+  const traj = simulateDragFree(CASE);
+  const theta = (CASE.thetaDeg * Math.PI) / 180;
+  const analyticHeight = (x: number): number =>
+    CASE.y0 +
+    x * Math.tan(theta) -
+    (G_STD * x * x) / (2 * CASE.v0 * CASE.v0 * Math.cos(theta) * Math.cos(theta));
+
+  const impactX = range(traj, PLANAR_LAYOUT);
+
+  for (const fraction of [0.05, 0.25, 0.5, 0.7, 0.9, 0.99]) {
+    it(`matches at ${(fraction * 100).toFixed(0)}% of the way downrange`, () => {
+      const x = fraction * impactX;
+      const got = heightAtDownrange(traj, x, PLANAR_LAYOUT);
+      expect(got).not.toBeNull();
+      expect(relErr(got!, analyticHeight(x))).toBeLessThan(1e-9);
+    });
+  }
+
+  it("returns the launch height at the launch abscissa", () => {
+    expect(heightAtDownrange(traj, 0, PLANAR_LAYOUT)).toBeCloseTo(CASE.y0, 12);
+  });
+
+  it("returns null beyond the impact point rather than extrapolating", () => {
+    expect(heightAtDownrange(traj, impactX * 1.5, PLANAR_LAYOUT)).toBeNull();
+  });
+
+  it("reaches ground level at the impact abscissa", () => {
+    const got = heightAtDownrange(traj, impactX, PLANAR_LAYOUT);
+    expect(got).not.toBeNull();
+    expect(Math.abs(got!)).toBeLessThan(1e-6);
+  });
+
+  it("rejects a non-finite abscissa", () => {
+    expect(() => heightAtDownrange(traj, Number.NaN, PLANAR_LAYOUT)).toThrow(/must be finite/);
   });
 });
