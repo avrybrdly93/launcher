@@ -61,6 +61,26 @@ forcing a fallback to commit timestamps.
   not reached. In practice it arrives to double precision (the active-bound test lands on `x₀ = 0.5`
   exactly, `f = 0.25`, both closed form), but the guarantee is not there and real constraint handling
   is **P5.16**.
+- **CI at this HEAD is RED, on the known P2.40 wall-clock flake and not on anything P5.12 touched.**
+  Run **`31363803136`** at `79322ba`: `Test` failed with **1810/1811 passing across 220 files**, the
+  sole failure being `packages/solverkit/src/chunked-integration.test.ts:318` —
+  `expected 10.446028999999953 to be less than 10`. Typecheck, lint and import boundaries passed
+  before it; **the six steps after it (benchmark, drift, both API-doc builds, app build, bundle
+  budget) were `skipped`, so CI did not verify them at this HEAD** — all six were run locally and
+  passed, but that is a local measurement and is not the same evidence.
+- **Why this is not this run's regression, stated with the reasons rather than asserted.** The
+  assertion is a wall-clock budget on `chunked-integration` in `@ballista/solverkit`; P5.12 adds one
+  new file to `@ballista/analysis` and imports nothing into that path. The same assertion has now
+  failed at **17.49, 11.80, 13.02** (12th run, three hosted attempts) and **10.45** ms — one of those
+  earlier failures on a commit that changed only a markdown file. **10.45 is the closest to budget
+  yet**, which is consistent with a loaded runner rather than with a step change in cost.
+- **Not re-run, and not re-budgeted.** `ROADMAP.json`'s quality policy and the 12th run's entry both
+  say a session that trips a performance assertion does not get to raise it, and that re-running
+  until the runner cooperates is the same evasion by another route. This entry records the result
+  and leaves the decision where the 12th run left it: **a human needs to choose** between raising
+  the budget with a stated rationale, making the assertion robust (best-of-N or a median rather than
+  a max), or moving it out of the correctness suite into the soft-warn benchmark step where a slow
+  runner cannot redden `main`. **It has now blocked two consecutive runs' CI.**
 - **Two pre-existing issues found and deliberately not fixed here.** `CLAUDE.md` fails
   `prettier --check` on `main` — confirmed against a clean tree, so it is not from this change; it is
   invisible to CI, which runs no format gate, and would have been a drive-by. And the root
