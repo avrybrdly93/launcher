@@ -15,6 +15,66 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-10 (14th run) — P5.13 (golden-section / Brent 1D minimizer)
+
+- **Done: P5.13.** `packages/analysis/src/brent-minimize.ts` exports `goldenSectionMinimize` and
+  `brentMinimize` plus their shared option/result types. **Next task is P5.14** (optimal-angle
+  problem: `argmax_θ` range with drag, against the 45° folklore). Full suite **1856/1856 across 221
+  files** (was 1811/220 — the 45 new tests and nothing else moved); typecheck, lint, `lint:deps`,
+  app build, bundle budget (**69.2 kB** gzipped against 300 kB, unchanged — nothing imports this
+  yet) and both API-doc builds all green.
+- **The criterion could not be asserted flat, and splitting it is the substance of this task.**
+  "Unimodal test functions to 1e-10" means two different things depending on the function, and a
+  single assertion over both would have been asserting something false. On a **smooth** minimum the
+  _value_ is easy — `f − f* = O(δ²)`, so the default tolerance delivers ~`1e-17` — while the
+  _location_ is impossible, and on a **kink** it is exactly the other way round. Both directions
+  are now tests rather than prose.
+- **The location floor, and the part of it that is usually stated wrong.** A method that only
+  _compares_ values cannot separate two points once `½f''δ²` drops under the rounding error
+  `O(ε|f(x*)|)`, which puts its floor at **`δ ≈ √(2ε|f(x*)|/f''(x*))`**. The term that matters is
+  `|f(x*)|` — **the floor scales with the minimum's value, not with `|x*|`**, which is the folklore
+  version. Predicted against measured, for golden section at a tolerance 1000× tighter than the
+  floor: `x·ln x` **7.75e-9 vs 5.03e-9**, `−cos x` **2.11e-8 vs 1.05e-8**, `eˣ−2x` **1.17e-8 vs
+  1.25e-8**, `cosh(x−0.7)` **2.11e-8 vs 1.49e-8** — every one inside a factor of two, and none of
+  them moves when the tolerance is tightened another 1000×. `−cos x` (`x* = 0`) and `cosh(x−0.7)`
+  (`x* = 0.7`) floor at the _same_ place, which is the direct refutation of the `|x*|` version.
+  Where the numerator vanishes the floor vanishes with it: `(x−1.3)⁴` and both kinked functions
+  have `f(x*) = 0` and are located exactly or to ~1e-15.
+- **`brentMinimize` beats that floor by one to three orders, and the reason is worth keeping
+  straight** — "you cannot do better than √ε" is usually repeated without its caveat. The floor
+  binds _comparison_. Interpolation fits three points that can sit **outside** the flat region,
+  where the values still carry information, so the computed vertex is better than any comparison
+  between points near the minimum: `−cos x` to **4.5e-12** against a 2.1e-8 floor. On an exactly
+  quadratic objective it is the answer to the last bit from any three points — `(x−2)²+3` returns
+  `x = 2` exactly in **6 evaluations**. That, more than the **9–15 evaluations against golden
+  section's 43–45**, is the reason to default to it on smooth problems.
+- **What a caller has to do differently on a kinked objective, since the default is wrong for it.**
+  `f − f* = O(δ)` there, so a location good to the default `√ε·|x*| ≈ 4.5e-9` yields a _value_ good
+  only to about the same — a hundredfold short of 1e-10. The compensation is that a kink has no
+  location floor, so tightening `xTolAbsolute` actually works, which at a smooth minimum it does
+  not. Tighten for kinks, don't bother for smooth ones.
+- **Both live in `@ballista/analysis`, and `brentRoot` staying in `solverkit` is the intended split
+  rather than an inconsistency to tidy.** Blueprint line 1153 groups golden-section with
+  Nelder–Mead as the derivative-free optimizers and line 119 puts optimization in this package;
+  root-finding and linear algebra stay in `solverkit`. The two Brents are also different
+  algorithms sharing an author and a safeguarding idea — one contracts a _sign-change bracket_ by
+  inverse quadratic interpolation, the other contracts an _interval_ by fitting a parabola for its
+  stationary point — and neither is expressible in terms of the other.
+- **One design decision that a "best value seen" implementation gets wrong.** Golden section picks
+  its answer from the three candidates still _inside_ the final interval, not from the lowest value
+  seen anywhere. At a minimum flat enough that every nearby point returns the identical double —
+  `−cos x` near 0 is one — a running best latches onto whichever point reached that value first,
+  and the function then returns an `x` that its own reported `bracket` excludes. Caught by the
+  invariant test, not by a failing criterion.
+- **Next session — P5.14, and one carried item.** `envelope.ts`'s `goldenSectionMaximum` and
+  `arcs.ts`'s `locatePeakAngle` are hand-rolled contractions whose **own comments** say they should
+  move onto P5.13 once it lands; both negate to minimize. That migration is deliberately _not_ in
+  this run: it changes two working exhibit paths with golden-trajectory implications and P5.13's
+  criterion does not cover them, so it wants its own commit and its own before/after check. Worth
+  doing before P5.14 builds a third caller.
+
+---
+
 ## 2026-08-10 (13th run) — P5.12 (Nelder–Mead)
 
 - **Done: P5.12.** `packages/analysis/src/nelder-mead.ts` exports `nelderMead` and its option/result

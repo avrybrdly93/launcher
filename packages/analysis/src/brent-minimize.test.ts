@@ -29,8 +29,8 @@ import {
  *
  * The term that surprises people is `|f(x*)|`: the floor is set by the
  * magnitude of the value being cancelled against, *not* by `|x*|`. A minimum
- * whose value is zero has no floor. `describes the floor` below checks this on
- * five functions spanning three orders of magnitude of predicted floor,
+ * whose value is zero has no floor. The "precision floor" block below checks
+ * this on five functions spanning three orders of magnitude of predicted floor,
  * including two with `f(x*) = 0` that are located exactly.
  *
  * **Every expectation is a closed form**, never a recorded output of this code:
