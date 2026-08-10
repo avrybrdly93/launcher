@@ -81,6 +81,24 @@ forcing a fallback to commit timestamps.
   the budget with a stated rationale, making the assertion robust (best-of-N or a median rather than
   a max), or moving it out of the correctness suite into the soft-warn benchmark step where a slow
   runner cannot redden `main`. **It has now blocked two consecutive runs' CI.**
+- **Follow-up, same run: `main` is GREEN again and the P5.12 code is now CI-verified in full.** The
+  changelog commit above (`57eb22a`) triggered run **`31364232725`**, which passed **every step** —
+  including `Test`, and including the six that were `skipped` at `79322ba` (benchmark, drift, both
+  API-doc builds, app build, bundle budget). **`57eb22a` differs from `79322ba` by 20 lines of this
+  file and nothing else** (`git diff --stat 79322ba 57eb22a`) and contains both `nelder-mead.ts` and
+  `nelder-mead.test.ts`, so this run is a full hosted verification of the P5.12 tree — the earlier
+  entry's caveat about locally-only evidence is now discharged.
+- **This was not a re-run, and the distinction matters.** Run `31363803136` was left failed; nothing
+  was re-dispatched and no budget was touched. `31364232725` is a separate run triggered by a real
+  commit that had to be made anyway. **It is evidence, not a retry.**
+- **The flake is now confirmed load-sensitive rather than a step change**, which is the useful part:
+  the identical assertion on the identical code measured **10.45 ms (fail)** and then passed minutes
+  later on another hosted runner. Four failures now stand at **17.49 / 11.80 / 13.02 / 10.45** ms
+  against a 10 ms budget, with passes interleaved. **The human decision this needs is unchanged and
+  is not urgent-because-red — it is worth making because a wall-clock `max` in the correctness suite
+  will keep reddening `main` at random.** Best-of-N, a median, or a move to the soft-warn benchmark
+  step all remove that without weakening a real check. **The run for this very commit is not tracked
+  further** — that regress has no end, and `main` being green at `57eb22a` is the fact worth having.
 - **Two pre-existing issues found and deliberately not fixed here.** `CLAUDE.md` fails
   `prettier --check` on `main` — confirmed against a clean tree, so it is not from this change; it is
   invisible to CI, which runs no format gate, and would have been a drive-by. And the root
