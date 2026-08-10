@@ -2367,8 +2367,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "KKT-style check: range envelope tangency at solution",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed 2026-08-10 (16th run). Plan: packages/analysis/src/min-energy.ts exporting minimumSpeedToHit. Outer brentRoot on launch speed of the envelope margin max_theta y(x*; theta) - y*, inner maximization reusing P5.09's maxHeightAtDownrange -- the nesting the task asks for. Lower bracket is smart-init.ts's dragFreeAim speed, which is a rigorous lower bound because drag only shrinks the reachable set. Validation is the KKT tangency check: at the minimum speed the target lies ON the envelope, so the margin is zero and the maximizing elevation is the tangency aim. Drag-free control is exact: v0 = sqrt(g(dy + R)), theta = pi/4 + phi/2."
     },
     {
       "id": "P5.16",
