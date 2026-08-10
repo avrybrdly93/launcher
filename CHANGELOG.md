@@ -35,6 +35,18 @@ forcing a fallback to commit timestamps.
   each time, and its 45 tests are accounted for in every full run including the failing one.
   **Next session should capture the failing file names** (`pnpm test 2>&1 | tee`) the first time
   it sees a red run rather than immediately re-running, which is what lost the evidence here.
+- **CI is green at this HEAD, and it was red at the one before — the flake, not this task.** Run
+  **`31401470739`** at **`fd7e942`** is `success`, every step including the full test job. The
+  previous HEAD `f951754` — the 13th run's own last commit, a docs-only change — had failed as run
+  **`31364821995`**, and its log names the culprit exactly: `chunked-integration.test.ts:318`,
+  **`expected 11.5173309999999 to be less than 10`**, the P2.40 cooperative-yield budget. So
+  `main` arrived at this session already red on a timing assertion that nothing in P5.13 touches,
+  and this push turned it green without addressing it. **That identification is the useful part of
+  the undiagnosed local run above**: same suite, same shape, and the local machine failed one run
+  in five where CI has now failed two of the last four. The assertion is a wall-clock budget
+  compared against a fixed 10 ms on shared runners, so it will keep doing this. Worth a real
+  decision — widen it, make it a soft warn like the benchmark step, or measure something other
+  than wall clock — rather than another session's re-run.
 - **The criterion could not be asserted flat, and splitting it is the substance of this task.**
   "Unimodal test functions to 1e-10" means two different things depending on the function, and a
   single assertion over both would have been asserting something false. On a **smooth** minimum the
