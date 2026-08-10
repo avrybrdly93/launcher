@@ -72,12 +72,19 @@ export interface MinEnergyOptions extends EnvelopeOptions {
   /**
    * Absolute tolerance on the returned speed, m/s. Default `1e-6`.
    *
-   * **Do not tighten this below the inner maximization's own noise.** The outer
-   * root-find sees `envelopeHeight` through {@link maxHeightAtDownrange}, whose
-   * answer carries the error of a bracketed search over an adaptively-integrated
-   * trajectory; asking for a speed to `1e-12` when the margin it is rooted on is
-   * only good to `1e-8` m spends iterations resolving that noise. `angleTol` and
-   * the problem's `rtol`/`atol` are the knobs that actually buy accuracy here.
+   * **It is honoured, and further than expected — this was measured rather
+   * than assumed.** The worry worth having is that the outer root-find sees
+   * `envelopeHeight` through {@link maxHeightAtDownrange}, a bracketed search
+   * over adaptively-integrated trajectories, so a request finer than that
+   * composite's noise floor should buy nothing. Measured against the drag-free
+   * closed form at `rtol 1e-11`, it buys what it asks for across eight orders:
+   * `1e-4 → 6.9e-5`, `1e-6 → 5.4e-7`, `1e-8 → 8.5e-9`, `1e-10 → 6.6e-11`,
+   * `1e-12 → 5.2e-13`, at a cost of roughly seven outer iterations per decade.
+   * The table is in `min-energy.test.ts`.
+   *
+   * What does *not* keep improving is {@link MinEnergySolution.theta}, which
+   * floors while the speed carries on — see its note. So tighten this when the
+   * speed is what matters and do not expect the aim to follow.
    */
   readonly speedTol?: number;
   /**
@@ -152,13 +159,24 @@ export interface MinEnergySolution {
   /**
    * The elevation that hits it at that speed, radians — the tangency aim.
    *
-   * **Resolved much less precisely than {@link speed}, inherently.** At the
-   * minimum the low and high arcs have merged, so the hit condition is
-   * quadratically flat in θ there and no value-comparing search can separate
-   * angles finer than roughly `√ε` in relative terms. This is the same
-   * degeneracy `optimal-angle.ts` documents for the range peak, arriving for the
-   * same reason, and it is benign for the same reason: the arc a degree off is
-   * barely worse.
+   * **It floors, but far lower than the merged-arc geometry suggests, and the
+   * distinction is worth keeping straight.** At the minimum the low and high
+   * arcs have merged, so *the hit condition* is quadratically flat in θ and
+   * solving that for θ would indeed stall around `√ε` relative. This θ is not
+   * that: it is the elevation reported by the inner envelope-height
+   * maximization, a better-conditioned problem whose own location floor is
+   * `optimal-angle.ts`'s `√(2ε·y/|y''|)`. Measured in `min-energy.test.ts`
+   * across four drag-free geometries it floors between **7.4e-10 and 1.6e-8
+   * rad** — reported figures, not a bound derived from the merge — while
+   * `speed` keeps tracking `speedTol` down to `1e-12`. The floor is
+   * geometry-dependent and worst for flat, long shots, whose height maximum is
+   * the broadest. So θ is the coarser of the two by several orders, and still
+   * much finer than the merged-arc argument alone would predict.
+   *
+   * The practical reading is unchanged and is the useful one: the tangency arc
+   * is a *grazing* solution, so an aim a fraction of a degree off it misses,
+   * and a caller wanting margin should buy it with speed rather than by
+   * trusting this angle to more digits.
    */
   readonly theta: number;
   /** {@link speed} and {@link theta} as an {@link Aim}, ready to fly. */
