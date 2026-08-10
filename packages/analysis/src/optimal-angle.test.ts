@@ -48,6 +48,23 @@ import { type Aim, type ShootingProblem, createFlight } from "./shooting-residua
  * or every "below 45°" measurement below is confounded with a biased optimizer.
  * That is the only assertion here that has an analytic answer, and it is what
  * makes the rest of the file evidence about physics rather than about search.
+ *
+ * **What makes 15 green cases evidence.** Each of these was applied to
+ * `optimal-angle.ts`, run, and reverted:
+ *
+ *   | perturbation                                          | cases failing (of 15) |
+ *   |---|---|
+ *   | refinement result discarded, sweep sample returned     | 5 |
+ *   | sign dropped: `+R` handed to the minimizer, so it minimizes | 6 |
+ *   | non-impact scored `0` instead of `-Infinity`           | 1 |
+ *   | `at-bound` reported as `converged`                     | 1 |
+ *   | last sweep sample accumulated instead of set to `maxAngle` | 1 |
+ *
+ * The last row is why the final test in this file uses `maxAngle = 0.9` and 7
+ * samples rather than a rounder bound: with most bounds the accumulated sum
+ * rounds back to the exact value and the test would pass whether the guard
+ * existed or not. It was written with such a bound first, measured as breaking
+ * nothing, and changed.
  */
 
 const TIGHT_TOL = {
@@ -368,21 +385,32 @@ describe("maximizeRange: bounds, degenerate intervals and inadmissible aims", ()
   });
 
   it("evaluates the upper bound exactly, not one rounding short of it", () => {
-    // The last sweep sample is computed as `maxAngle` rather than
+    // The last sweep sample is set to `maxAngle` rather than accumulated as
     // `minAngle + i·step`, so a hardware elevation limit is probed at the value
-    // the caller set. Observed by capping at a bound whose float sum differs:
-    // the objective records the angles it was asked for.
+    // the caller set.
+    //
+    // The bound here is chosen so the two differ: with `maxAngle = 0.9` and 7
+    // samples, `0 + 6·(0.9/6)` is `0.8999999999999999`, one ulp short. Most
+    // bounds — 0.7 with 7 samples, π/2 with the default 25 — happen to round
+    // back to the exact value, so a test using one of those would pass whether
+    // the guard existed or not. Verified by perturbation: replacing the guard
+    // with the accumulated form fails this case and nothing else in the file.
+    const cap = 0.9;
+    const samples = 7;
+    const accumulated = 0 + (samples - 1) * (cap / (samples - 1));
+    expect(accumulated).not.toBe(cap);
+
     const seen: number[] = [];
-    const cap = 0.7;
     maximizeRange(
       (theta) => {
         seen.push(theta);
         // Increasing on [0, cap], so the maximum is at the cap.
         return theta;
       },
-      { minAngle: 0, maxAngle: cap, sweepSamples: 7 },
+      { minAngle: 0, maxAngle: cap, sweepSamples: samples },
     );
 
     expect(seen).toContain(cap);
+    expect(seen).not.toContain(accumulated);
   });
 });
