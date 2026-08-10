@@ -2356,8 +2356,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "quadratic-drag optimum < 45° (typically 30–43° by regime); exhibit shows shift vs Π",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed 2026-08-13 (15th run). Plan: packages/analysis/src/optimal-angle.ts exporting maximizeRange over a RangeFunction -- coarse sweep to bracket the interior maximum, then refine with P5.13's brentMinimize on the negated range, which is the consumer that module was written for and which range-root.ts's DRAG_FREE_PEAK_ANGLE doc names ('computing the peak for the general case is P5.09's envelope sweep and P5.13's 1D minimizer'). The Pi exhibit follows the P4.09/P4.22/P4.34 precedent -- a documented test module running real quadratic-drag integrations across a Pi sweep -- rather than new UI."
     },
     {
       "id": "P5.15",
