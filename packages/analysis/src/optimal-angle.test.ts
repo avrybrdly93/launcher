@@ -4,6 +4,7 @@ import {
   Environment,
   G_STD,
   GravityForce,
+  ISA,
   QuadraticDragForce,
   UniformGravity,
   ZeroWind,
@@ -11,6 +12,7 @@ import {
   createPlanarProjectileModel,
   createSphericalProjectileParams,
   dimensionlessPi,
+  sutherlandViscosity,
 } from "@ballista/engine";
 import { createDormandPrince54Stepper } from "@ballista/solverkit";
 import { describe, expect, it } from "vitest";
@@ -74,9 +76,21 @@ const TIGHT_TOL = {
   maxSteps: 200_000,
 };
 
-/** Sea-level ISA-ish air, matching what `scenario-presets.ts` uses for its Π column. */
-const RHO = 1.225;
-const ETA = 1.81e-5;
+/**
+ * The air the integrations actually fly through.
+ *
+ * Taken from `ISA` and `sutherlandViscosity` rather than written as literals,
+ * because `ConstantAtmosphere` takes no constructor arguments — it always
+ * samples sea-level ISA. An earlier draft of this file passed `(1.225, 1.81e-5)`
+ * to that constructor and used the same literals for Π; the arguments were
+ * silently ignored at runtime, so the Π column was computed from numbers the
+ * drag force had never seen. It happened to agree (`ISA.rho0` is 1.225, and η
+ * does not enter Π at all for a `ConstantCd`, whose value ignores Reynolds
+ * number), but agreeing by coincidence is not the same as being the same
+ * quantity. `pnpm typecheck` is what caught it; vitest's transform did not.
+ */
+const RHO = ISA.rho0;
+const ETA = sutherlandViscosity(ISA.T0);
 
 const MASS = 1;
 const RADIUS = 0.05;
@@ -104,16 +118,12 @@ function problem(dragCoefficient: number): ShootingProblem {
       dragCoefficient === 0 ? [new GravityForce()] : [new GravityForce(), new QuadraticDragForce()],
     ),
     ctx: createEvalContext(
-      new Environment(
-        new ConstantAtmosphere(RHO, ETA),
-        new UniformGravity(G_STD, false),
-        new ZeroWind(),
-      ),
+      new Environment(new ConstantAtmosphere(), new UniformGravity(G_STD, false), new ZeroWind()),
       projectile(dragCoefficient),
     ),
     // Unused by the range function below -- `createFlight` needs the field, and
     // nothing here forms a residual against it.
-    target: { kind: "point", position: [0, 0] },
+    target: { kind: "point", center: [0, 0] },
     config: TIGHT_TOL,
     stepper: createDormandPrince54Stepper(),
     tspan: [0, 120],
