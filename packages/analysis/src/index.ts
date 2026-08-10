@@ -9,6 +9,7 @@ export * from "./envelope.js";
 export * from "./nelder-mead.js";
 export * from "./newton-shooting.js";
 export * from "./observables.js";
+export * from "./optimal-angle.js";
 export * from "./range-root.js";
 export * from "./shooting-jacobian.js";
 export * from "./shooting-residual.js";
