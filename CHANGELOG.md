@@ -23,6 +23,18 @@ forcing a fallback to commit timestamps.
   files** (was 1811/220 — the 45 new tests and nothing else moved); typecheck, lint, `lint:deps`,
   app build, bundle budget (**69.2 kB** gzipped against 300 kB, unchanged — nothing imports this
   yet) and both API-doc builds all green.
+- **The suite is not reliably green at this HEAD, and the run that failed was not diagnosed —
+  stated plainly rather than reported as a clean sweep.** `pnpm test` was run **five times**: four
+  gave 1856/1856 across 221 files, and one reported **2 failed files, 1837 passed, 19 skipped, and
+  zero individually failing tests** — the shape of a file-level timeout or hook error rather than a
+  wrong answer. **Which two files was not captured before the output scrolled**, and four
+  subsequent runs at the same HEAD could not reproduce it, so it is recorded here as unidentified
+  rather than pinned on the load-sensitive chunked-integration flake the 12th and 13th runs
+  logged — that remains the most likely candidate and is _not_ the same thing as evidence. The new
+  module is not implicated: `brent-minimize.test.ts` was run three more times in isolation, 45/45
+  each time, and its 45 tests are accounted for in every full run including the failing one.
+  **Next session should capture the failing file names** (`pnpm test 2>&1 | tee`) the first time
+  it sees a red run rather than immediately re-running, which is what lost the evidence here.
 - **The criterion could not be asserted flat, and splitting it is the substance of this task.**
   "Unimodal test functions to 1e-10" means two different things depending on the function, and a
   single assertion over both would have been asserting something false. On a **smooth** minimum the
