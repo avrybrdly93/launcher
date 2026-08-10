@@ -2345,8 +2345,8 @@
       "estMinutes": 20,
       "difficulty": "E",
       "validation": "unimodal test functions to 1e-10",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed 2026-08-10 (14th run). Goes in @ballista/analysis alongside nelder-mead.ts (blueprint line 1153 groups golden-section with Nelder-Mead as the derivative-free optimizers); solverkit keeps root-finding and linear algebra, so brent-root-finder.ts staying put is the intended split, not an oversight. Remaining: brent-minimize.ts exporting goldenSectionMinimize (pure contraction, no interpolation) and brentMinimize (parabolic interpolation with a golden-section safeguard, Brent 1973 localmin), both taking a caller-supplied bracket [a,b] the way brentRoot takes its sign-change bracket. Open question to settle in the tests, not by assertion: the 1e-10 criterion is met on the objective VALUE for a smooth minimum, but |x-x*| ~ sqrt(eps_mach) ~ 1.5e-8 is the hard floor there because f is flat to second order, so an x-tolerance below that is not meaningful and the module must say so rather than appear to deliver it. Non-smooth unimodal minima (a kink) have no such floor and should hit 1e-10 in x. Not in scope: migrating envelope.ts's goldenSectionMaximum and arcs.ts's locatePeakAngle onto this, which their own comments ask for once P5.13 lands."
     },
     {
       "id": "P5.14",
