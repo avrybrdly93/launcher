@@ -15,6 +15,61 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-10 (13th run) — P5.12 (Nelder–Mead)
+
+- **Done: P5.12.** `packages/analysis/src/nelder-mead.ts` exports `nelderMead` and its option/result
+  types. **Next task is P5.13** (golden-section / Brent 1D minimizer). Full suite **1811/1811 across
+  220 files**; typecheck, lint, `lint:deps`, app build, bundle budget (**69.2 kB** gzipped against
+  300 kB, unchanged — nothing imports this yet) and both API-doc builds all green.
+- **It went in `@ballista/analysis`, not `solverkit`, and that is the blueprint's call not a
+  preference.** Line 119 assigns "Optimization (shooting, Nelder–Mead, gradient)" to the analysis
+  package. The pull the other way is real — `brent-root-finder.ts` and `dense-linear-solve.ts` are
+  general numerics and they live in `solverkit` — so the split being drawn is root-finding-and-linear-
+  algebra in `solverkit`, optimization in `analysis`. Worth knowing before P5.13 puts a _1D
+  minimizer_ next to a 1D _root finder_ in a different package.
+- **Rosenbrock met the criterion by 21 orders, and the point is the stronger claim than the value.**
+  From the literature's `(−1.2, 1)`: `f = 2.09e-29` at `(1.000000000000004, 1.0000000000000082)`,
+  277 iterations / 540 evaluations / 1 restart, against the criterion's `1e-8`. Both the value and
+  the minimizer are checked against the closed form `f(1,1) = 0`, never a recorded run — `f ≤ 1e-8`
+  near that valley floor still permits `|x − 1| ~ 1e-4`, so asserting only the value would be much
+  weaker than it looks. Four other scattered starts and a 6-D Rosenbrock also land there.
+- **"Restarts on collapse" needed a real collapse, and manufacturing one was the hard part of this
+  task.** A correct Nelder–Mead does not collapse on ordinary problems: Powell's singular function
+  and a 6-D Rosenbrock were both tried and neither could be made to fail — with restarts off they
+  still converged to `1e-37` and `1e-29`. McKinnon (1998) constructs families that provably converge
+  to a non-stationary point, and they are defined by their **initial simplex**, not by a starting
+  point, which is why an `initialSimplex` option exists at all. It is API added to make a documented
+  failure testable, not for convenience. On `τ=2, θ=6, φ=60` with the simplex
+  `{(1,1), ((1+√33)/8, (1−√33)/8), (0,0)}`: restarts disabled gives **194 iterations that are every
+  one of them inside contractions**, terminating at the origin with `f = 0` — non-stationary, since
+  `∂f/∂y = 1 > 0` there — and reporting itself `converged`. With restarts it escapes in 358
+  iterations / 2 restarts to `f = −0.25` at `(1.5e-9, −0.4999999975)`, the closed form `f(0,−½)`.
+  **That "converged" on a wrong answer is the reason a first pass here never certifies itself.**
+- **Bounds are a reparametrization, and clipping would have been the easy wrong answer.** Clipping an
+  out-of-box vertex back onto the face makes the objective flat outside the box, so the simplex sees
+  a plateau, stops distinguishing directions, and collapses onto the face — converging to a bound
+  that is not a minimum. `tanh` two-sided and `softplus` one-sided instead, so every point the
+  objective is asked about is feasible by construction; a test records all ~500 evaluated points and
+  asserts it. Softplus rather than `exp` because `exp` overflows at `y ≈ 710` and distorts the scale
+  a caller wrote down; it is asymptotically linear, so far from a bound the transform is nearly the
+  identity.
+- **A subtle consequence, handled rather than discovered later: every convergence test reads the `x`
+  images, never the simplex coordinates.** Near an active bound the transform saturates — `x` stops
+  moving while `y` keeps growing — so a `y`-space diameter test would never fire and the solve would
+  spin to its iteration cap on a problem it had already solved.
+- **Stated rather than hidden:** a minimum sitting exactly on a bound is approached asymptotically,
+  not reached. In practice it arrives to double precision (the active-bound test lands on `x₀ = 0.5`
+  exactly, `f = 0.25`, both closed form), but the guarantee is not there and real constraint handling
+  is **P5.16**.
+- **Two pre-existing issues found and deliberately not fixed here.** `CLAUDE.md` fails
+  `prettier --check` on `main` — confirmed against a clean tree, so it is not from this change; it is
+  invisible to CI, which runs no format gate, and would have been a drive-by. And the root
+  `pnpm build` is still broken exactly as the 12th run recorded (pnpm 11.9 reads `pnpm -r run build`
+  as a request for a script named `run`), so the build gate was again run as CI's own
+  `pnpm --filter @ballista/app build`. Both are worth a task; neither is this one.
+
+---
+
 ## 2026-08-09 (12th run) — P5.11 (sensitivity channels UI)
 
 - **Done: P5.11.** `packages/ui/src/sensitivity-panel-logic.ts` + `sensitivity-panel.tsx`, wired into
