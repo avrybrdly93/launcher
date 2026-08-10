@@ -2334,8 +2334,8 @@
       "estMinutes": 30,
       "difficulty": "M",
       "validation": "Rosenbrock 2D to 1e-8; restarts on collapse",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed 2026-08-10 (13th run). Derivative-free simplex minimizer in @ballista/analysis (blueprint line 119 puts optimization in this package, not solverkit). Remaining: nelder-mead.ts with the standard reflect/expand/contract/shrink loop, adaptive coefficients for higher n, bound handling via a smooth tanh-style transform rather than clipping (clipping flattens the objective outside the box and lets the simplex collapse onto a face), collapse detection driving an automatic restart from a re-seeded simplex, and tests taking Rosenbrock 2D to 1e-8 plus a restart-on-collapse case."
     },
     {
       "id": "P5.13",
