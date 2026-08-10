@@ -15,6 +15,65 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-10 (16th run) — P5.15 (min-energy targeting, minimize v₀ subject to a hit)
+
+- **Done: P5.15.** `packages/analysis/src/min-energy.ts` exports `minimumSpeedToHit`. The task's
+  substance turned out to be the formulation rather than the search: minimizing `v₀` subject to a
+  hit is not a shooting solve with an extra unknown, because the hit condition is one equation in
+  two unknowns — above a threshold speed **two** elevations hit (P5.08's arcs), below it none do,
+  and the minimum is where they merge, which is exactly where the target sits **on** the P5.09
+  envelope. So the problem reduces to solving `envelopeHeight(x*; v₀) = y*` for `v₀`, and that _is_
+  the task's KKT criterion rather than a proxy for it. **Next task is P5.16** (constraint handling:
+  bounds on θ and v₀, penalty + projection). Suite **1897/1897 across 223 files** (was 1871/222 —
+  the 26 new tests and nothing else moved); typecheck, lint, `lint:deps`, app build and bundle
+  budget (**69.2 kB** gzipped against 300 kB, unchanged — nothing imports this yet) all green.
+  Full measurements and what is _not_ done are in `ROADMAP.json`.
+- **The nesting the task asks for is real and reuses the phase's own ladder**: outer `brentRoot`
+  (solverkit) on launch speed, inner elevation maximization via P5.09's `maxHeightAtDownrange`, with
+  P5.14's `maximizeRange` supplying max range for the second margin branch, and the bracket started
+  from `smart-init`'s drag-free `√(g(Δy+R))` — **a rigorous lower bound, not a guess**, since a
+  dissipative model can only shrink the reachable set. Nothing was re-derived.
+- **Tangency is checked three independent ways**, because stationarity alone only proves the
+  root-find converged. (1) The target lies on the envelope, re-measured through the public envelope
+  entry point rather than trusting the reported margin. (2) **Geometric tangency** — the optimal arc
+  and the envelope have the same _slope_ where they meet; drag-free this is checked against the
+  closed-form parabola slope `−g·x/v₀²`, which the implementation never computes. (3) **Minimality**
+  — `assessReachability`, a separate entry point, confirms 0.999·v misses and 1.001·v hits. The
+  drag-free closed form is recovered exactly over four geometries.
+- **Two doc claims were written from theory, measured false, and corrected — the 15th run's failure
+  mode recurring, and caught this time.** The `theta` note claimed a `√ε` resolution floor from the
+  merged-arc degeneracy; that reasoning was wrong twice over (the reported θ comes from the inner
+  height maximization, a better-conditioned problem) and the measured floor is **7.4e-10 rad**, far
+  finer. It is also **geometry-dependent**, which one measurement hid — 7.378e-10, 9.974e-9,
+  1.277e-8, 1.618e-8 across the four test rows. An intermediate draft asserted `1e-8`, the first
+  row's figure generalized to three rows it had never been measured on, and **two of them failed
+  it**; the bound now sits above the worst measured row. Separately, the `speedTol` doc warned
+  against tightening below the inner search's noise, and measurement refuted that too: it is
+  honoured across eight orders (`1e-12 → 5.2e-13`).
+- **Two implementation defects found by measurement, both fixed before the exhibit was written.**
+  The first version reported `"below-bracket"` for _every_ drag-free problem — there the drag-free
+  bound is the answer, so the margin at it is zero-to-rounding and read as "already reachable",
+  which is precisely the wrong answer in the case the module is most confident about. Fixed by
+  contracting the bracket downwards for a genuine sign change instead of thresholding a
+  metres-valued margin whose scale the module does not know. `arcSeparation` was also reading a
+  discrete trajectory row instead of the interpolated crossing and returned `null` at every
+  tangency.
+- **Filed P0.91**, not fixed here: `downrangeAxisOf` now has a **fourth** private copy (`arcs.ts`,
+  `envelope.ts`, `smart-init.ts`, and now `min-energy.ts`). Adding the fourth rather than
+  consolidating was the deliberate call — the refactor touches three modules this task had no other
+  business in. Every copy is correct today; four copies of a convention a spatial layout could
+  change is the kind of thing that diverges quietly.
+- **P0.90 (the root `build` script's flag placement) is still open and was still not hit by this
+  run**, for the same reason the 15th run recorded: CI never calls that script. The pre-push gate
+  here used `pnpm --filter @ballista/app build` and `check-bundle-size` directly, as CI does.
+- **No flake seen.** The 14th run's one-in-five red at `chunked-integration.test.ts:318` did not
+  reproduce; that is now four consecutive clean full runs, which remains a weak test of a
+  one-in-five event and is not evidence it is gone. **The wall-clock budget there is still
+  un-addressed and still a real decision** — widen it, make it a soft warn, or measure something
+  other than wall clock.
+
+---
+
 ## 2026-08-13 (15th run) — P5.14 (optimal-angle problem, argmax_θ range with drag)
 
 - **Done: P5.14.** `packages/analysis/src/optimal-angle.ts` exports `maximizeRange` — coarse sweep to
