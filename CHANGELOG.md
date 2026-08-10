@@ -15,6 +15,69 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-13 (15th run) — P5.14 (optimal-angle problem, argmax_θ range with drag)
+
+- **Done: P5.14.** `packages/analysis/src/optimal-angle.ts` exports `maximizeRange` — coarse sweep to
+  bracket the interior maximum, then P5.13's `brentMinimize` on the negated range, which is the
+  consumer that module was written for. **Next task is P5.15** (min-energy targeting: minimize `v₀`
+  subject to a hit, `θ` free, via nested Brent/shooting). Suite **1871/1871 across 222 files** (was
+  1856/221 — the 15 new tests and nothing else moved); typecheck, lint, `lint:deps`, app build and
+  bundle budget (**69.2 kB** gzipped against 300 kB, unchanged — nothing imports this yet) all green.
+  Full measurements, the perturbation table and what is _not_ done are in `ROADMAP.json`.
+- **The suite was green on three consecutive full runs**, which is recorded because the 14th run saw
+  one red in five at its own HEAD and could not reproduce or identify it. Three clean runs is not
+  proof the flake is gone — it was one in five, so three runs is a weak test of it — but it is the
+  evidence this run has, and per the 14th run's own instruction the output was captured to a file
+  rather than watched, so a red run would have named its files instead of scrolling away. None
+  appeared. The `chunked-integration.test.ts:318` wall-clock budget the 14th run identified as the
+  likely culprit is **still un-addressed and still a real decision** — widen it, make it a soft warn
+  like the benchmark step, or measure something other than wall clock.
+- **`pnpm build` is broken in this repo and was not fixed here — filed as P0.90.** `pnpm -r
+--workspace-concurrency 1 run build` fails under pnpm 11.9.0 with "None of the selected packages
+  has a `run` script": the space-separated flag value swallows the subcommand. It is **not masking
+  anything** — CI never calls that script, it runs `pnpm --filter @ballista/app build` and
+  `check-bundle-size` directly, and both pass, as does `pnpm -r run build`. Left as a task because
+  this run was on P5.14. Worth noting `CLAUDE.md`'s pre-push checklist names "build", so anyone
+  following it literally will hit this.
+- **The first draft of the exhibit asserted numbers I had predicted rather than measured, and four
+  of them were wrong.** Recorded because the failure mode is the one worth not repeating: the
+  comment table said the low-Π optimum was 42.35° (it is 44.87°) and the extreme-Π one 27.44° (it is
+  29.95°), and the "±5° costs under 1%" claim was false (1.51%). The fix was to measure the sweep
+  first and write the table from the output. **Nothing about the physics changed — only the
+  assertions, which had been aspirational.**
+- **The 30–43° band in the task's criterion does not hold across the whole Π range, and the exhibit
+  says so rather than trimming the sweep.** It holds over `0.5 ≲ Π ≲ 10`. Below that the optimum
+  must return to 45° and does (44.86° at Π = 0.023); above Π ≈ 20 it keeps falling past 30° (29.95°).
+  Both tails are their own assertions. Dropping those rows would have made the band look universal
+  and the sweep look tidier while removing exactly the two points that show the limit is the correct
+  one.
+- **`pnpm typecheck` caught two errors `vitest` had run straight past, and one of them mattered.**
+  `new ConstantAtmosphere(RHO, ETA)` — the class takes no constructor arguments and always samples
+  sea-level ISA — meant the exhibit's Π column was computed from literals the drag force had never
+  seen. It agreed by coincidence (`ISA.rho0` is 1.225, and η does not enter Π at all for a
+  `ConstantCd`, whose value ignores Reynolds number), which is the kind of agreement that stops being
+  true the moment someone switches to a `CdTable`. The constants now come from `ISA` and
+  `sutherlandViscosity`. **Worth generalising: vitest's transform is not a typechecker, so a test
+  that passes is not a test that compiles.**
+- **One of my own tests did not discriminate, was measured as not discriminating, and was changed.**
+  The "evaluates the upper bound exactly" case used `maxAngle = 0.7` with 7 samples, where the
+  accumulated `0 + 6·(0.7/6)` rounds back to exactly 0.7 — so it passed whether the guard it was
+  testing existed or not. Found by perturbing the guard away and seeing zero failures. It now uses
+  0.9, where the two differ by an ulp, and asserts the accumulated value is _absent_ as well as the
+  exact one present. Five perturbations in total, table in the test file header.
+- **Next run:** P5.15, min-energy targeting. It is the first task in this phase that nests two
+  solvers — an inner shooting solve for `θ` given `v₀` (P5.06's `newtonShooting`, or `solveRangeRoot`
+  for the flat-ground case) inside an outer 1D minimization over `v₀` (P5.13's `brentMinimize`, the
+  same pairing this run used). Two things to settle before writing it: the inner solve's tolerance
+  has to be tighter than the outer one's or the outer objective is noisy and Brent's parabolic step
+  will thrash — this run's `MeasuredErrorIsDiscretisation…` analogue is the check to write — and the
+  objective is only defined where the target is reachable, so the unreachable region needs the
+  `NO_IMPACT`/`NaN` inadmissibility convention `optimal-angle.ts` documents rather than a thrown
+  error. `maximizeRange` is directly reusable for the `θ`-free upper end: the minimum `v₀` that can
+  reach a range `R` is the one whose _maximum_ range is exactly `R`.
+
+---
+
 ## 2026-08-10 (14th run) — P5.13 (golden-section / Brent 1D minimizer)
 
 - **Done: P5.13.** `packages/analysis/src/brent-minimize.ts` exports `goldenSectionMinimize` and
