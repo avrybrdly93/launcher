@@ -60,6 +60,16 @@
  * caller who knows its minimum value is near zero should tighten it and will be
  * repaid.
  *
+ * **One consequence a caller minimizing a kinked objective needs, because the
+ * default is wrong for it.** The two regimes trade places exactly. At a smooth
+ * minimum the value converges quadratically in `δ`, so the default tolerance
+ * delivers a value accurate to `~1e-17` while the location saturates. At a kink
+ * the value converges only linearly, so the *same* default tolerance leaves the
+ * value off by `O(√ε |x*|)` — around `4e-9`, a hundred times worse than 1e-10 —
+ * while the location has no floor at all. So: **tighten
+ * {@link Minimize1DOptions.xTolAbsolute} when the objective has a kink at its
+ * minimum, and do not bother when it is smooth.** The tests assert both halves.
+ *
  * **Which one to call.** {@link brentMinimize} is the default: on a smooth
  * objective its parabolic steps converge superlinearly and it typically needs a
  * third to a half of golden section's evaluations for the same interval.
