@@ -68,6 +68,17 @@ forcing a fallback to commit timestamps.
   **P5.16's `AimBounds`** rather than restating them. Wind is **dissipative** — it enters through the
   drag force's relative velocity — so every solve stays on the embedded RK path the residual already
   requires. **No symplectic scheme is admissible here and none is used.**
+- **Branch cleanup could not be completed, and this is the record of that.** CLAUDE.md asks that no
+  long-lived `claude/*` branches be left behind. This run worked on `claude/upbeat-ride-uhifsa`,
+  merged it into `main` and pushed `main` (fast-forward `e84f8ab..8536d49`), deleted the local branch —
+  and then found that **`git push origin --delete` fails in this sandbox every time**, with
+  `fatal: the remote end hung up unexpectedly` across four attempts at 2/4/8/16 s backoff. The GitHub
+  MCP server offers `create_branch` but no delete-branch tool, so there is no second route. The
+  leftover ref points at the **old** `main` (`e84f8ab`) and is fully merged, so it holds nothing.
+  Filed as **P0.95** with the wider finding: the remote carries **76** `claude/*` branches, **7** of
+  them fully merged into `main` and therefore pure cruft. The credential these runs use appears unable
+  to delete refs at all, so the policy stays unmeetable until that is fixed at the permission level —
+  which is a better fix than any one run tidying up after itself.
 - Filed, not fixed: **P0.94** — `pnpm format:check` fails on `CLAUDE.md` at `HEAD`, confirmed
   pre-existing by stashing this run's changes and re-running. It survives because `ci.yml` does not
   run `format:check`, so nothing enforces it between the husky pre-commit hook's staged-file pass and

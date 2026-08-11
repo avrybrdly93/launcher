@@ -3293,6 +3293,17 @@
       "validation": "pnpm format:check exits 0 on a clean checkout",
       "status": "todo",
       "notes": "Filed 2026-08-11 (18th run) while running the gate for P5.17, NOT fixed -- out of scope for that task. `pnpm format:check` fails on CLAUDE.md at HEAD; confirmed pre-existing by stashing the run's changes and re-running, so it is not this run's doing. It survives because .github/workflows/ci.yml runs typecheck, lint, lint:deps, test, bench:solverkit, check:cross-engine-drift, the two docs builds, the app build and check-bundle-size -- but NOT format:check, so nothing enforces it between the husky pre-commit hook's staged-file pass and a human running it by hand. Fixing the file is one command; the decision worth making with it is whether format:check joins the CI gate, which would make this class of drift impossible rather than merely fixed once."
+    },
+    {
+      "id": "P0.95",
+      "phase": 0,
+      "seq": 293,
+      "title": "76 stale claude/* branches on the remote; CLAUDE.md asks for none, and this environment cannot delete refs",
+      "estMinutes": 10,
+      "difficulty": "L",
+      "validation": "git ls-remote --heads origin | grep -c refs/heads/claude/ returns 0 (or a documented, deliberate few)",
+      "status": "todo",
+      "notes": "Filed 2026-08-11 (18th run). CLAUDE.md: \"Don't leave long-lived claude/* branches around after a task finishes.\" The remote currently carries 76 of them, 7 of which are fully merged into main and so are pure cruft; the rest are unmerged and need a human to decide whether anything on them is wanted before they go. THE 18TH RUN COULD NOT COMPLY and this is the honest record of that: it worked on claude/upbeat-ride-uhifsa, merged it into main and pushed main (fast-forward, e84f8ab..8536d49), deleted the local branch, and then found that `git push origin --delete` fails in this sandbox with \"fatal: the remote end hung up unexpectedly\" on every attempt (4 retries with 2/4/8/16 s backoff). The GitHub MCP server exposes create_branch but no delete-branch tool, so there is no second route. The leftover ref points at the OLD main (e84f8ab) and is fully merged, so it holds nothing and costs nothing but noise. A human with normal push rights can clear all 7 merged ones in one command; the CI/agent credential apparently cannot delete refs at all, which is worth fixing at the permission level or the policy will keep being unmeetable."
     }
   ]
 }
