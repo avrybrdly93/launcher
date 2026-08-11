@@ -2411,8 +2411,8 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "slope doubling per iter near root (assert last-3 ratio)",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed 2026-08-11 (20th run). Reads the TraceRow stream P5.18 already produces rather than re-deriving it, per P5.18's closing note."
     },
     {
       "id": "P5.20",
