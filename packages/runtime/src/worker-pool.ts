@@ -15,6 +15,12 @@
  * module (and its tests) runnable in plain Node with a fake `WorkerLike`.
  */
 
+import {
+  runOptimizeJob,
+  type OptimizeIteration,
+  type OptimizeJob,
+  type OptimizeJobResult,
+} from "./optimize-job.js";
 import { runSweepRange, sweepPointCount, type SweepJob, type SweepResult } from "./sweep-job.js";
 
 /**
@@ -64,6 +70,54 @@ export interface SweepChunkProgress {
   readonly completed: number;
 }
 
+/** One worker's assignment: run `job` to convergence, streaming its iterations back. */
+export interface OptimizeRequest {
+  readonly kind: "optimize";
+  readonly job: OptimizeJob;
+}
+
+/** One streamed Newton iteration, posted the moment the solver produces it (P5.18). */
+export interface OptimizeIterationMessage {
+  readonly kind: "optimize-iteration";
+  readonly iteration: OptimizeIteration;
+}
+
+/** The terminal reply to an {@link OptimizeRequest}. */
+export interface OptimizeResponse {
+  readonly kind: "optimize-result";
+  readonly result: OptimizeJobResult;
+}
+
+/** Raised by {@link WorkerPool.runOptimize} when its `signal` aborts. */
+export class OptimizeCancelledError extends Error {
+  constructor() {
+    super("the optimize job was cancelled");
+    this.name = "OptimizeCancelledError";
+  }
+}
+
+/**
+ * The abort surface {@link RunOptimizeOptions} needs — structural, like
+ * {@link WorkerLike}, so this module keeps needing no DOM lib. A real
+ * `AbortSignal` satisfies it.
+ */
+export interface AbortSignalLike {
+  readonly aborted: boolean;
+  addEventListener(type: "abort", listener: () => void): void;
+  removeEventListener(type: "abort", listener: () => void): void;
+}
+
+export interface RunOptimizeOptions {
+  /** Called for each Newton iteration as it arrives, oldest first. */
+  readonly onIteration?: (iteration: OptimizeIteration) => void;
+  /**
+   * Cancels the solve. On abort the promise rejects with
+   * {@link OptimizeCancelledError} — see {@link WorkerPool.runOptimize} for
+   * why cancelling means terminating the worker rather than asking it to stop.
+   */
+  readonly signal?: AbortSignalLike;
+}
+
 export interface RunSweepOptions {
   /** Called with `(completed, total)` -- both full-sweep-wide counts -- as chunks report progress and as each chunk finishes. Best-effort: a chunk's interim reports are throttled (see {@link postSweepChunkResult}), so `completed` jumps in bursts rather than incrementing by exactly 1. */
   readonly onProgress?: (completed: number, total: number) => void;
@@ -72,6 +126,28 @@ export interface RunSweepOptions {
 export interface WorkerPool {
   /** Runs `job`'s full grid across the pool, one contiguous chunk per worker, and resolves once every chunk has returned. */
   runSweep(job: SweepJob, options?: RunSweepOptions): Promise<SweepResult>;
+  /**
+   * Runs one optimize job (P5.18) on a single worker, invoking
+   * `options.onIteration` for each Newton iteration as it streams back.
+   *
+   * **It uses one worker rather than the pool, and that is inherent rather
+   * than lazy.** Newton iteration `k + 1` starts from iteration `k`'s
+   * iterate, so the solve is strictly sequential — there is nothing to fan
+   * out. What the pool contributes is the same thing it contributes to a
+   * sweep: the work is off the main thread, so the frame keeps rendering
+   * while it runs.
+   *
+   * **Cancelling terminates that worker and replaces it.** A running solve is
+   * a synchronous loop of trajectory integrations inside the worker's single
+   * thread, so an incoming `postMessage` sits in a queue the worker will not
+   * drain until it has finished — the one thing a cancel must not wait for.
+   * The alternatives are a `SharedArrayBuffer` flag the loop polls (needs
+   * cross-origin isolation, i.e. COOP/COEP response headers this app does not
+   * set) or chunking the solve into macrotasks (restructures a solver that is
+   * correct). Termination is immediate, needs neither, and the pool stays
+   * usable afterwards because the slot is refilled from the same factory.
+   */
+  runOptimize(job: OptimizeJob, options?: RunOptimizeOptions): Promise<OptimizeJobResult>;
   /** Terminates every worker in the pool. Safe to call once the pool is no longer needed (e.g. a page/component teardown). */
   terminate(): void;
 }
@@ -98,7 +174,10 @@ const DEFAULT_POOL_SIZE = 1;
  */
 export function createWorkerPool(options: WorkerPoolOptions): WorkerPool {
   const size = Math.max(1, options.size ?? DEFAULT_POOL_SIZE);
-  const workers: readonly WorkerLike[] = Array.from({ length: size }, () => options.createWorker());
+  // Mutable, unlike v1's frozen array: cancelling an optimize job terminates
+  // the worker it ran on (see WorkerPool.runOptimize) and puts a fresh one in
+  // the slot, so the pool survives a cancel.
+  const workers: WorkerLike[] = Array.from({ length: size }, () => options.createWorker());
 
   function terminate(): void {
     for (const worker of workers) worker.terminate();
@@ -186,7 +265,63 @@ export function createWorkerPool(options: WorkerPoolOptions): WorkerPool {
     return { thetaDegGrid: job.thetaDegGrid, v0Grid: job.v0Grid, range, apexHeight };
   }
 
-  return { runSweep, terminate };
+  function runOptimize(
+    job: OptimizeJob,
+    optimizeOptions: RunOptimizeOptions = {},
+  ): Promise<OptimizeJobResult> {
+    const { onIteration, signal } = optimizeOptions;
+    // Slot 0 by convention: an optimize solve is sequential (see the interface
+    // docs), so it needs one worker, and the slot is what gets replaced if the
+    // job is cancelled.
+    const slot = 0;
+    const worker = workers[slot]!;
+
+    if (signal?.aborted) return Promise.reject(new OptimizeCancelledError());
+
+    return new Promise<OptimizeJobResult>((resolve, reject) => {
+      let settled = false;
+      const cleanup = (): void => {
+        settled = true;
+        worker.onmessage = null;
+        worker.onerror = null;
+        signal?.removeEventListener("abort", onAbort);
+      };
+
+      function onAbort(): void {
+        if (settled) return;
+        cleanup();
+        // The worker is mid-solve and will not read another message until it
+        // finishes, so stopping it means killing it. Replacing the slot
+        // immediately keeps the pool's invariant -- `size` live workers --
+        // true for whatever runs next.
+        worker.terminate();
+        workers[slot] = options.createWorker();
+        reject(new OptimizeCancelledError());
+      }
+
+      worker.onmessage = (event) => {
+        if (settled) return;
+        const data = event.data as OptimizeIterationMessage | OptimizeResponse;
+        if (data.kind === "optimize-iteration") {
+          onIteration?.(data.iteration);
+          return;
+        }
+        cleanup();
+        resolve(data.result);
+      };
+      worker.onerror = (event) => {
+        if (settled) return;
+        cleanup();
+        reject(event);
+      };
+
+      signal?.addEventListener("abort", onAbort);
+      const request: OptimizeRequest = { kind: "optimize", job };
+      worker.postMessage(request);
+    });
+  }
+
+  return { runSweep, runOptimize, terminate };
 }
 
 /** Post a progress message at most once every this many completed points within a chunk -- "throttled" per §5.6. */
@@ -236,4 +371,31 @@ export function postSweepChunkResult(
   });
   post(response, [response.range.buffer, response.apexHeight.buffer]);
   return response;
+}
+
+/**
+ * The message handler a real `optimize-worker-entry.ts` wires to
+ * `self.onmessage`: runs `request.job`, posting an
+ * {@link OptimizeIterationMessage} for every Newton iteration as it happens
+ * and an {@link OptimizeResponse} at the end.
+ *
+ * **Iterations are not throttled, unlike a sweep chunk's progress.** A sweep
+ * reports thousands of grid points and would flood the channel, hence
+ * {@link PROGRESS_THROTTLE_POINTS}. A Newton solve's whole point is that it
+ * takes a handful of iterations — `maxIterations` defaults to 20 — and each
+ * one is a datum the convergence trace plots rather than a progress tick, so
+ * dropping any of them would put holes in the very thing being streamed.
+ *
+ * No transfer list: an {@link OptimizeIteration} is small plain objects and
+ * numbers, with no typed array to hand over.
+ */
+export function postOptimizeResult(
+  post: (message: unknown) => void,
+  request: OptimizeRequest,
+): OptimizeJobResult {
+  const result = runOptimizeJob(request.job, (iteration) => {
+    post({ kind: "optimize-iteration", iteration } satisfies OptimizeIterationMessage);
+  });
+  post({ kind: "optimize-result", result } satisfies OptimizeResponse);
+  return result;
 }

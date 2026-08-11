@@ -1,11 +1,15 @@
 import { MessageChannel } from "node:worker_threads";
 import { describe, expect, it, vi } from "vitest";
 import { PRESET_SCENARIOS, type ScenarioSpec } from "@ballista/engine";
+import { runOptimizeJob, type OptimizeJob } from "./optimize-job.js";
 import { runSweepPoint, sweepPointCount, type SweepJob } from "./sweep-job.js";
 import {
   createWorkerPool,
   handleSweepChunkRequest,
+  OptimizeCancelledError,
+  postOptimizeResult,
   postSweepChunkResult,
+  type OptimizeRequest,
   type SweepChunkRequest,
   type WorkerLike,
 } from "./worker-pool.js";
@@ -227,5 +231,159 @@ describe("postSweepChunkResult: posts via transfer, not structured-clone (P3.40 
 
     port1.close();
     port2.close();
+  });
+});
+
+/**
+ * An in-process fake `WorkerLike` for optimize jobs (P5.18). Like
+ * {@link createFakeWorker} it runs the same `postOptimizeResult` a real
+ * `optimize-worker-entry.ts` would, so the pool's real message handling is
+ * exercised -- but it drives the solve one message per macrotask
+ * (`setTimeout(0)`) rather than computing it all in one microtask, because
+ * the behaviour under test is *streaming*: a cancel has to be able to land
+ * between two iterations, and a fake that delivered every message in one go
+ * would make that unobservable.
+ */
+function createFakeOptimizeWorker(): {
+  worker: WorkerLike;
+  terminated: () => boolean;
+  posted: () => number;
+} {
+  let terminated = false;
+  let posted = 0;
+  const worker: WorkerLike = {
+    postMessage(message) {
+      const request = message as OptimizeRequest;
+      const queue: unknown[] = [];
+      postOptimizeResult((out) => queue.push(out), request);
+      const drain = (index: number): void => {
+        if (terminated || index >= queue.length) return;
+        setTimeout(() => {
+          if (terminated) return;
+          posted++;
+          worker.onmessage?.({ data: queue[index] });
+          drain(index + 1);
+        }, 0);
+      };
+      drain(0);
+    },
+    terminate() {
+      terminated = true;
+    },
+    onmessage: null,
+    onerror: null,
+  };
+  return { worker, terminated: () => terminated, posted: () => posted };
+}
+
+const OPTIMIZE_JOB: OptimizeJob = {
+  baseScenario: BASE_SCENARIO,
+  target: { kind: "point", center: [1200, 0] },
+  initialAim: { theta: 0.5, speed: 130 },
+};
+
+describe("createWorkerPool: optimize jobs (P5.18)", () => {
+  it("runs an optimize job through a worker and returns the converged result", async () => {
+    const fake = createFakeOptimizeWorker();
+    const pool = createWorkerPool({ size: 1, createWorker: () => fake.worker });
+
+    const result = await pool.runOptimize(OPTIMIZE_JOB);
+
+    expect(result.converged).toBe(true);
+    expect(result.status).toBe("converged");
+    // The same answer the job produces in-process -- the pool moves the work,
+    // it does not change it.
+    expect(result.aim).toEqual(runOptimizeJob(OPTIMIZE_JOB).aim);
+  });
+
+  it("streams every iteration to onIteration, in order, before the result resolves", async () => {
+    const fake = createFakeOptimizeWorker();
+    const pool = createWorkerPool({ size: 1, createWorker: () => fake.worker });
+
+    const streamed: number[] = [];
+    let resolved = false;
+    const promise = pool.runOptimize(OPTIMIZE_JOB, {
+      onIteration: (iteration) => {
+        // If iterations arrived only after the promise settled, this would
+        // catch it -- the trace would be useless for a live display.
+        expect(resolved).toBe(false);
+        streamed.push(iteration.step.iteration);
+      },
+    });
+    const result = await promise;
+    resolved = true;
+
+    expect(streamed).toEqual(streamed.map((_, i) => i));
+    expect(streamed.length).toBe(result.iterations);
+    expect(streamed.length).toBeGreaterThan(1);
+  });
+
+  it("cancelling mid-stream rejects, terminates the worker, and stops delivering iterations", async () => {
+    const fake = createFakeOptimizeWorker();
+    let created = 0;
+    const replacements: Array<ReturnType<typeof createFakeOptimizeWorker>> = [];
+    const pool = createWorkerPool({
+      size: 1,
+      createWorker: () => {
+        if (created++ === 0) return fake.worker;
+        const next = createFakeOptimizeWorker();
+        replacements.push(next);
+        return next.worker;
+      },
+    });
+
+    const controller = new AbortController();
+    const streamed: number[] = [];
+    const promise = pool.runOptimize(OPTIMIZE_JOB, {
+      signal: controller.signal,
+      onIteration: (iteration) => {
+        streamed.push(iteration.step.iteration);
+        // Cancel as soon as the trace has something in it, which is the
+        // realistic case: a user watching the trace decides to stop.
+        if (streamed.length === 1) controller.abort();
+      },
+    });
+
+    await expect(promise).rejects.toBeInstanceOf(OptimizeCancelledError);
+    expect(fake.terminated()).toBe(true);
+    expect(streamed).toEqual([0]);
+
+    // Nothing arrives afterwards, even though the fake had more queued.
+    const before = streamed.length;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(streamed.length).toBe(before);
+
+    // And the pool refilled the slot, so it still works.
+    expect(replacements).toHaveLength(1);
+    const after = await pool.runOptimize(OPTIMIZE_JOB);
+    expect(after.converged).toBe(true);
+  });
+
+  it("a signal already aborted rejects without posting anything to a worker", async () => {
+    const fake = createFakeOptimizeWorker();
+    const pool = createWorkerPool({ size: 1, createWorker: () => fake.worker });
+
+    const controller = new AbortController();
+    controller.abort();
+
+    await expect(
+      pool.runOptimize(OPTIMIZE_JOB, { signal: controller.signal }),
+    ).rejects.toBeInstanceOf(OptimizeCancelledError);
+    expect(fake.posted()).toBe(0);
+  });
+
+  it("a signal that never fires leaves the solve untouched and the worker alive", async () => {
+    const fake = createFakeOptimizeWorker();
+    const pool = createWorkerPool({ size: 1, createWorker: () => fake.worker });
+
+    const controller = new AbortController();
+    const result = await pool.runOptimize(OPTIMIZE_JOB, { signal: controller.signal });
+
+    expect(result.converged).toBe(true);
+    expect(fake.terminated()).toBe(false);
+
+    // Aborting after the fact must not reach into a settled job.
+    expect(() => controller.abort()).not.toThrow();
+    expect(fake.terminated()).toBe(false);
   });
 });

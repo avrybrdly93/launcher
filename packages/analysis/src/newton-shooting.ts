@@ -187,6 +187,25 @@ export interface NewtonShootingOptions {
    * box on two variables can justify.
    */
   readonly projection?: (aim: Aim) => Aim;
+  /**
+   * Called once per iteration, with the same {@link NewtonShootingStep} that
+   * was just appended to {@link NewtonShootingResult.history}, at the moment
+   * it is appended rather than at the end of the solve.
+   *
+   * `history` already carries every step, so this adds nothing to a caller
+   * that only wants the answer — it exists for callers that cannot wait for
+   * one. P5.18 runs this solver inside a worker and streams each step to the
+   * main thread as it happens, which is the difference between a convergence
+   * trace that appears when the solve finishes and one that draws itself
+   * while it runs.
+   *
+   * Called for terminal iterations too — the blocked and line-search-failed
+   * paths push a step before returning, and both call this — so a listener
+   * sees exactly `result.history`, in order, and never a step that `history`
+   * lacks. Throwing from here will propagate out of {@link newtonShooting}
+   * and abandon the solve; a listener that might fail should catch its own.
+   */
+  readonly onIteration?: (step: NewtonShootingStep) => void;
 }
 
 /** What {@link newtonShooting} returns. */
@@ -456,6 +475,12 @@ export function newtonShooting(
   const project = options.projection;
 
   const history: NewtonShootingStep[] = [];
+  // One place that appends a step, so `history` and `onIteration` cannot
+  // drift apart: a listener sees exactly what the result will carry.
+  const record = (step: NewtonShootingStep): void => {
+    history.push(step);
+    options.onIteration?.(step);
+  };
   // The starting point is projected too: a caller whose initial guess comes from
   // P5.07's drag-free closed form has no reason to expect it inside a box the
   // machine imposes, and an infeasible iterate zero would make "every iterate is
@@ -559,7 +584,7 @@ export function newtonShooting(
     }
 
     if (blocked) {
-      history.push({
+      record({
         iteration,
         merit,
         rank,
@@ -580,7 +605,7 @@ export function newtonShooting(
     }
 
     if (accepted === null) {
-      history.push({
+      record({
         iteration,
         merit,
         rank,
@@ -598,7 +623,7 @@ export function newtonShooting(
       );
     }
 
-    history.push({
+    record({
       iteration,
       merit,
       rank,
