@@ -2378,8 +2378,8 @@
       "estMinutes": 25,
       "difficulty": "M",
       "validation": "constrained solutions respect bounds; active-set reported",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "CLAIMED. Plan: a `constraints` module in packages/analysis giving box bounds on the aim (theta, v0) plus the two strategies the title names. (1) PROJECTION: `projectAim` clamps onto the box, and the Newton solver of P5.06 gains an optional projected-arc line search so every iterate is feasible by construction, with the stall test measured on the PROJECTED displacement rather than the raw step -- otherwise an iterate sitting on an active face whose step points outward backtracks 25 times and reports `line-search-failed` at the exact moment it has reached a constrained stationary point. (2) PENALTY: `withBoundsPenalty` appends exterior hinge rows sqrt(w)*max(0, l-x) and sqrt(w)*max(0, x-u) to the residual vector; the Gauss-Newton stack is already generic in the row count (shootingJacobian derives `rows` from the residual length, minimumNormStep takes any m x 2), so no solver change is needed for this half. Feasibility is then only approximate and that is the point of the comparison exhibit. Active set reported at the final aim via `aimActiveSet`, which is the second half of the validation criterion."
     },
     {
       "id": "P5.17",
