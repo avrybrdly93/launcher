@@ -150,6 +150,29 @@ export interface NewtonShootingOptions {
   readonly thetaScale?: number;
   /** Typical magnitude of `v₀`. Defaults to `max(|v₀|, 1)` at the initial aim. */
   readonly speedScale?: number;
+  /**
+   * Maps a trial aim to a feasible one, turning the line search into a search
+   * along the **projected arc** `α ↦ P(x + αΔ)` rather than along the ray. The
+   * constraint-handling entry point of P5.16 supplies `projectAim` here; omitted,
+   * the solve is unconstrained and every code path below is unchanged.
+   *
+   * **Projecting the trial, not the accepted step, is what makes this correct.**
+   * Clamping only the final answer would let the iteration wander outside the
+   * box and converge to an exterior point, then report its projection — an aim
+   * that is feasible and solves nothing. Projecting each trial keeps every
+   * evaluation inside the box, which also matters because outside it the
+   * residual is frequently `ok: false` rather than merely large.
+   *
+   * **The Armijo test is left stated against the unprojected linear model.** The
+   * model predicts the reduction for `x + αΔ`, and the projected arc reaches a
+   * different point, so on a face the achieved decrease is smaller than
+   * predicted. With `armijoC` at its `1e-4` default the condition asks for so
+   * small a fraction of the prediction that this is slack rather than a
+   * distortion, and the alternative — re-deriving a model along the arc — is
+   * Bertsekas' two-metric projection and a far larger piece of machinery than a
+   * box on two variables can justify.
+   */
+  readonly projection?: (aim: Aim) => Aim;
 }
 
 /** What {@link newtonShooting} returns. */
@@ -360,6 +383,19 @@ function scaleColumns(
  * fraction of the achievable reduction and terminates cleanly by
  * {@link NewtonShootingStatus | stalling} instead.
  *
+ * **With a {@link NewtonShootingOptions.projection}, the stall test moves to the
+ * projected displacement, and for the same reason.** An iterate sitting on an
+ * active face whose Newton step points out of the box projects back onto itself
+ * for every `α`: the trial equals the current aim, the merit is unchanged, and
+ * the Armijo condition — which asks for a strict decrease — is unsatisfiable all
+ * the way down. Left alone the search would spend its full backtrack budget and
+ * report `line-search-failed` at the precise moment the solver had reached a
+ * constrained stationary point and was entitled to stop. Measuring the distance
+ * actually travelled, rather than the distance proposed, detects that on the
+ * first trial and stops with `"stalled"`. The test is applied **only** when a
+ * projection is supplied, so an unconstrained solve keeps its existing
+ * termination behaviour to the letter.
+ *
  * A residual evaluation that fails (an aim past the reachability boundary, no
  * impact) has merit `Infinity` by {@link residualNorm}'s contract, so the line
  * search rejects it and backtracks with no special case at the comparison site.
@@ -403,8 +439,14 @@ export function newtonShooting(
     return residual(at);
   };
 
+  const project = options.projection;
+
   const history: NewtonShootingStep[] = [];
-  let aim = initialAim;
+  // The starting point is projected too: a caller whose initial guess comes from
+  // P5.07's drag-free closed form has no reason to expect it inside a box the
+  // machine imposes, and an infeasible iterate zero would make "every iterate is
+  // feasible" false at the only step nobody checks.
+  let aim = project === undefined ? initialAim : project(initialAim);
   let current = evaluate(aim);
   let merit = residualNorm(current);
 
@@ -469,12 +511,28 @@ export function newtonShooting(
     let alpha = 1;
     let backtracks = 0;
     let accepted: { aim: Aim; residual: ShootingResidual; merit: number } | null = null;
+    let blocked = false;
     while (backtracks <= maxBacktracks) {
-      const trial: Aim = {
+      const ray: Aim = {
         theta: aim.theta + alpha * step[0]!,
         speed: aim.speed + alpha * step[1]!,
       };
+      const trial = project === undefined ? ray : project(ray);
       if (Number.isFinite(trial.theta) && Number.isFinite(trial.speed)) {
+        if (project !== undefined) {
+          // Distance actually travelled along the projected arc, in the same
+          // scaled variables `stepTolerance` is stated in. Zero here means the
+          // whole step was clipped away and no smaller `α` can travel further,
+          // so this is a termination rather than another backtrack.
+          const displacement = Math.hypot(
+            (trial.theta - aim.theta) / thetaScale,
+            (trial.speed - aim.speed) / speedScale,
+          );
+          if (!(displacement > stepTolerance)) {
+            blocked = true;
+            break;
+          }
+        }
         const trialResidual = evaluate(trial);
         const trialMerit = residualNorm(trialResidual);
         if (trialMerit <= merit - armijoC * alpha * predictedReduction) {
@@ -484,6 +542,27 @@ export function newtonShooting(
       }
       alpha *= backtrackFactor;
       backtracks++;
+    }
+
+    if (blocked) {
+      history.push({
+        iteration,
+        merit,
+        rank,
+        singularValues,
+        alpha: 0,
+        backtracks,
+        stepNorm,
+        predictedReduction,
+        nextMerit: merit,
+      });
+      return finish(
+        "stalled",
+        `the projected step travelled no further than the stall tolerance ${stepTolerance} ` +
+          `while ‖F‖ = ${merit}: the Newton direction points out of the feasible set at ` +
+          `θ = ${aim.theta}, v₀ = ${aim.speed}, which is a constrained stationary point rather ` +
+          "than a failure — read the active set to see which bound is carrying the residual",
+      );
     }
 
     if (accepted === null) {
