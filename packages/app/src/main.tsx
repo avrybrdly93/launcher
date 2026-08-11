@@ -8,6 +8,7 @@ import { DensityAltitudeRoute } from "./density-altitude-route.js";
 import { ModelRegistryRoute } from "./model-registry-route.js";
 import { StabilityExplorerRoute } from "./stability-explorer-route.js";
 import { TerrainEditorRoute } from "./terrain-editor-route.js";
+import { InverseSolverRoute } from "./inverse-solver-route.js";
 
 /**
  * Minimal hash-based routing (P3.41, extended P3.42): a handful of routes
@@ -45,6 +46,9 @@ function renderRoute(root: HTMLElement): void {
       return;
     case "#/model-registry":
       render(<ModelRegistryRoute />, root);
+      return;
+    case "#/inverse-solver":
+      render(<InverseSolverRoute />, root);
       return;
     default:
       render(<App />, root);

@@ -19,6 +19,8 @@ export * from "./forces-panel.js";
 export * from "./solver-panel-logic.js";
 export * from "./solver-panel.js";
 export * from "./advisor-hint-panel.js";
+export * from "./convergence-trace-panel-logic.js";
+export * from "./convergence-trace-panel.js";
 export * from "./compare-legend.js";
 export * from "./preset-browser-logic.js";
 export * from "./preset-browser.js";
