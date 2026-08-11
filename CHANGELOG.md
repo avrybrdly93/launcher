@@ -15,6 +15,66 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-11 (18th run) — P5.17 (wind-robust aim: expected miss under wind uncertainty)
+
+- **Done: P5.17.** `packages/analysis/src/robust-aim.ts` exports `WindScenario`, `RiskMeasure`,
+  `VaryAim`, `ScenarioMiss`, `RobustAimOptions`, `RobustAimStatus`, `RobustAimResult`, `robustAim`
+  and `robustAimIsFeasible`. A nominal aim drives the P5.04 residual to zero for _one_ wind; this
+  minimizes a risk measure of the miss over a **weighted ensemble** of winds and reports both aims
+  plus the gap, which is what the criterion — _robust aim differs from nominal in headwind-vs-gust
+  scenario (measured)_ — is stated against. **Next task is P5.18** (optimization job type in the
+  worker pool with iteration streaming). Suite **1951/1951 across 225 files** (was 1930/224 — the 21
+  new tests and nothing else moved); typecheck, lint, `lint:deps` green; app build green with
+  `check-bundle-size` at **69.2 kB gzipped** against a 300 kB budget. Full measurements in
+  `ROADMAP.json`.
+- **The measurement.** Exhibit: 1 kg 5 cm sphere, `Cd` 0.47, point target 400 m downrange, nominal
+  headwind **−6 m/s** against a **−16 m/s** gust, equally likely, launch speed held at the nominal
+  solve's **104.9387636174 m/s**. Nominal **θ = 0.6339044229** (miss 2.2e-12 m — a genuine hit,
+  recomputed from the returned aim rather than read off the inner solver's own flag). Robust
+  **θ = 0.5584788851**, i.e. **0.0754255378 rad — 4.32° — lower**. RMS miss **45.489 m → 43.106 m**.
+  The trade in full: **2.669 m** given up under the nominal wind to recover **3.429 m** under the
+  gust (64.331 → 60.902).
+- **A difference is the cheapest thing in the world to produce, so it is pinned from four
+  independent directions** a perturbation-shaped bug has no reason to satisfy. It vanishes
+  **exactly** — `shift === 0`, not merely small — on a one-scenario ensemble, where the risk _is_ the
+  miss. It is monotone in gust **severity** (0.01522 / 0.02178 / 0.02839 / 0.03504 / 0.07543 rad at
+  −7 / −8 / −9 / −10 / −16 m/s) and again in gust **probability** (robust θ 0.5706031 / 0.5629515 /
+  0.5584789 as the gust goes 1:9 → 3:9 → 9:9). And at a mild gust it is visibly a **trade** rather
+  than a drift: at −7 m/s the robust shot goes _long_ under the nominal wind — a sign flip from
+  exactly zero — in order to fall less short under the gust. Weight scaling is **bit-identical**,
+  not close: `[1,1]` and `[7,7]` agree to the last bit, because normalization precedes any
+  arithmetic.
+- **The two-variable problem is unbounded, and that is physics rather than a bug**, so it is
+  documented at the top of the module and **pinned by a test** rather than left as a footnote a later
+  reader might "fix". Wind acts for as long as the shot is airborne, so flatter-and-faster is always
+  more robust and nothing in the objective pushes back: as `v₀ → ∞` with `θ → 0` the time of flight
+  and the risk both tend to zero, the infimum is 0, and it is **not attained**. Measured: an
+  unbounded solve walks off to `θ ≈ 3.1e-4 rad, v₀ ≈ 3.59e3 m/s`, cutting RMS miss to 0.60 m and
+  still descending when the iteration cap stops it. Hence `vary: "theta"`, which holds the launch
+  speed fixed — the well-posed form, the one a real launcher faces since speed is a property of the
+  machine, and the **only** one with an _interior_ optimum. Bounds make the answer finite but not
+  interior: at `speedMax` 110 the minimizer sits **on** the cap at 110.000000 with risk 33.509 m,
+  feasibility recomputed through P5.16's `aimActiveSet`.
+- Two things **found by measurement rather than assumed**. The default seed for a pinned component
+  now comes from a full two-variable Newton solve, not from `smartInitialAim` directly — seeding the
+  held speed from the initial guess pins it below the speed the target needs and reports
+  `"nominal-failed"` on a perfectly solvable problem, which is how it first showed up: three spurious
+  failed exhibits. And at the −16 m/s gust the target is **out of reach altogether** at that speed
+  (max range ≈ 339 m), so the robust aim there is damage limitation and worst-case degenerates to
+  maximizing range under the gust; the −7 m/s exhibit exists to show the genuinely two-sided balance.
+- Reuse and constraints, unchanged from the phase's ladder: the outer loop is **P5.11's
+  `nelderMead`**, derivative-free on purpose because a gradient needs P5.05's Jacobian once per
+  scenario per step and that Jacobian is rank 1 under a ground-impact terminal event; bounds reuse
+  **P5.16's `AimBounds`** rather than restating them. Wind is **dissipative** — it enters through the
+  drag force's relative velocity — so every solve stays on the embedded RK path the residual already
+  requires. **No symplectic scheme is admissible here and none is used.**
+- Filed, not fixed: **P0.94** — `pnpm format:check` fails on `CLAUDE.md` at `HEAD`, confirmed
+  pre-existing by stashing this run's changes and re-running. It survives because `ci.yml` does not
+  run `format:check`, so nothing enforces it between the husky pre-commit hook's staged-file pass and
+  a human running it by hand. The fix is one command; the decision worth making alongside it is
+  whether `format:check` joins the CI gate. **P0.93** (broken root `build` script) remains open and
+  untouched; the build evidence above is CI's own `--filter @ballista/app build`.
+
 ## 2026-08-11 (17th run) — P5.16 (constraint handling: bounds on θ and v₀, penalty + projection)
 
 - **Done: P5.16.** `packages/analysis/src/constraints.ts` exports the box-bounds vocabulary
