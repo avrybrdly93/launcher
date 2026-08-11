@@ -160,8 +160,22 @@ export interface NewtonShootingOptions {
    * Clamping only the final answer would let the iteration wander outside the
    * box and converge to an exterior point, then report its projection — an aim
    * that is feasible and solves nothing. Projecting each trial keeps every
-   * evaluation inside the box, which also matters because outside it the
-   * residual is frequently `ok: false` rather than merely large.
+   * *iterate* feasible, at every iteration, which is what
+   * `ConstrainedShootingResult.feasible` reports.
+   *
+   * **It does not make every residual *evaluation* feasible, and that gap is
+   * measured rather than glossed.** {@link shootingJacobian} differences the
+   * residual about the current iterate, and those difference steps are not
+   * projected — at an iterate sitting on a face, the stencil reaches one
+   * difference step past it. `constraints.test.ts` measures exactly that on a
+   * speed-capped solve: 5 of 56 evaluations land outside the box, every one of
+   * them `4.8e-4` m/s past a 70 m/s cap, which is the speed column's difference
+   * step and nothing more. It is harmless when the residual is defined slightly
+   * outside the box, as it is there. It is **not** harmless when the bound marks
+   * the edge of the model's domain — a non-negative speed, say — where the
+   * stencil would evaluate at an aim that has no trajectory and the Jacobian
+   * would come back `ok: false`. Filed as P0.92; a one-sided stencil at an
+   * active face is the fix and belongs to that task, not this one.
    *
    * **The Armijo test is left stated against the unprojected linear model.** The
    * model predicts the reduction for `x + αΔ`, and the projected arc reaches a
