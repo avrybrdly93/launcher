@@ -68,6 +68,22 @@ forcing a fallback to commit timestamps.
   **P5.16's `AimBounds`** rather than restating them. Wind is **dissipative** — it enters through the
   drag force's relative velocity — so every solve stays on the embedded RK path the residual already
   requires. **No symplectic scheme is admissible here and none is used.**
+- **CI went red after this run's second push, on a flaky wall-clock test that this run did not
+  touch. Filed as P0.96; the test was NOT weakened.** `packages/solverkit/src/chunked-integration.test.ts`
+  (P2.40, line 318) asserts `maxSliceMs < 10` on a `performance.now()` measurement and reported
+  **12.668292 ms** on run `31506207711`; 1950 of 1951 tests passed. The evidence that it is load and
+  not this run is about as clean as it gets: **`8536d49`, which contains the whole of P5.17 — every
+  line of code this run wrote — was CI `success`** (run `31505994904`), and the commit that failed
+  two minutes later, `5bafdff`, changes **only `CHANGELOG.md` and `ROADMAP.json`** — markdown and
+  JSON, nothing under `packages/solverkit`, nothing any test reads. Text cannot slow an integrator.
+  Main's own history shows the same intermittency before this run (failures at `f951754` and
+  `79322ba` on 2026-08-10 between successes). **Confirmed by re-run: `rerun_failed_jobs` on the same
+  run, the same commit, not one byte changed, came back `success` — so `main` is green again and
+  nothing was edited to make it so.** A test that passes and fails on identical input is flaky by
+  definition. Raising the constant is the wrong fix — any wall-clock
+  assertion on a shared runner can lose a timeslice — so P0.96 proposes moving the timing to
+  `bench:solverkit`, which already soft-warns, or asserting the deterministic half and merely
+  reporting the milliseconds. The 10 ms cooperative-yield target is worth keeping as a target.
 - **Branch cleanup could not be completed, and this is the record of that.** CLAUDE.md asks that no
   long-lived `claude/*` branches be left behind. This run worked on `claude/upbeat-ride-uhifsa`,
   merged it into `main` and pushed `main` (fast-forward `e84f8ab..8536d49`), deleted the local branch —
