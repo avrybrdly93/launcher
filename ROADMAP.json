@@ -2389,8 +2389,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "robust aim differs from nominal in headwind-vs-gust scenario (measured)",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "CLAIMED 2026-08-11 (18th run), in progress. Plan: new packages/analysis/src/robust-aim.ts. A nominal aim drives the P5.04 residual to zero for ONE wind; this task minimizes a risk functional of the miss over a WEIGHTED ENSEMBLE of winds, so the deliverable is the measured gap between the two aims, which is what the validation criterion asks for. Derivative-free outer loop (P5.11 nelderMead, which already has box bounds and restarts) over (theta, v0); each objective evaluation integrates every scenario. Reuses AimBounds from P5.16 rather than restating bounds. Wind makes the dynamics DISSIPATIVE, so every solve here runs on the dopri5 path the residual already requires -- no symplectic scheme is admissible and none is used."
     },
     {
       "id": "P5.18",
