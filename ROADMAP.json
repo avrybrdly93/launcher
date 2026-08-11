@@ -3271,6 +3271,17 @@
       "validation": "no residual evaluation outside the box during a projected solve; Jacobian accuracy at a face unchanged elsewhere",
       "status": "todo",
       "notes": "Filed 2026-08-11 (17th run) by P5.16, which measured it rather than assumed it. `constrainedShooting`'s projection strategy keeps every ITERATE inside the box, but `shootingJacobian` differences the residual about the iterate and those difference steps are not projected: on the speed-capped exhibit, 5 of 56 evaluations land outside, every one 4.8444e-4 m/s past a 70 m/s cap -- exactly one difference step in the speed column. NOT masking anything today and not urgent: the residual is perfectly well defined just outside that cap, so the Jacobian is correct and P5.16's answers are feasible. It becomes a real defect at a bound that marks the edge of the MODEL'S DOMAIN rather than a machine limit -- a non-negative speed, or an elevation at which the terminal event cannot fire -- where the stencil evaluates an aim with no trajectory, the residual comes back ok:false, and the whole Jacobian fails with `evaluation-failed` at an otherwise healthy iterate. Whoever takes it: give JacobianOptions a feasible-region hook and switch that column to a one-sided (inward) difference when the stencil would cross a face, and note in the doc that a one-sided step drops the central scheme's truncation order from O(h^2) to O(h) AT THAT FACE ONLY -- which is the honest trade and needs to be measured, not asserted, since P5.05's whole comment is about how step-size error behaves here."
+    },
+    {
+      "id": "P0.93",
+      "phase": 0,
+      "seq": 291,
+      "title": "Root `pnpm build` script fails: no workspace package defines a `build` script except the app",
+      "estMinutes": 10,
+      "difficulty": "S",
+      "validation": "`pnpm build` exits 0 and builds what CI builds, or CLAUDE.md stops naming it as a gate",
+      "status": "todo",
+      "notes": "Filed 2026-08-11 (17th run) by P5.16, and PRE-EXISTING -- verified by running it against origin/main's package.json, where it fails identically, so no run introduced it. Root package.json has \"build\": \"pnpm -r --workspace-concurrency 1 run build\", which exits 1 with ERR_PNPM_RECURSIVE_RUN_NO_SCRIPT because only @ballista/app defines a `build` script. This matters only because CLAUDE.md names `build` in the pre-push gate every session is told to run, so every session either trips over it or quietly skips it. CI never runs it -- ci.yml builds `pnpm --filter @ballista/app build` and then `check-bundle-size`, both of which are green (69.2 kB gzipped against the 300 kB budget, 17th run). Whoever takes it: either point the root script at the app filter so it means what CLAUDE.md implies, or drop the script and correct CLAUDE.md to name the two commands CI actually runs. Do not add empty `build` scripts to the seven library packages to make the recursive form succeed -- that buys a green exit code and builds nothing."
     }
   ]
 }

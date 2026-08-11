@@ -69,6 +69,15 @@ forcing a fallback to commit timestamps.
 - Scope held deliberately: no general nonlinear constraints, no working-set iteration, no Lagrange
   multipliers, no KKT test beyond what `aimActiveSet` reports. A box on two variables does not
   justify an active-set QP, and the task that has general constraints to justify one is not this.
+- **The gate figures above are the CI commands, not the root `build` script, because that script does
+  not work — and it did not work before this run either.** `pnpm build` exits 1 with
+  `ERR_PNPM_RECURSIVE_RUN_NO_SCRIPT`; only `@ballista/app` defines a `build` script. Verified
+  pre-existing by running it against `origin/main`'s `package.json`, where it fails identically, so
+  this is reported rather than blamed on the change. CI never calls it — `ci.yml` runs
+  `pnpm --filter @ballista/app build` and `check-bundle-size`, both green here (**69.2 kB** gzipped
+  against the 300 kB budget, unchanged — nothing imports `constraints.ts` yet). It matters only
+  because `CLAUDE.md` names `build` in the pre-push gate every session is told to run. **Filed as
+  P0.93.**
 
 ---
 
