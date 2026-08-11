@@ -15,6 +15,55 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-11 (19th run) — P5.18 (optimize job type in the worker pool, with iteration streaming)
+
+- **Done: P5.18.** `#/inverse-solver` runs a Newton shooting solve in a real Worker and fills a
+  convergence-trace table row by row as the iterations arrive, with a Cancel button that stops it —
+  which is the criterion, _UI shows live convergence trace; cancel works_. The pieces:
+  `newtonShooting` gains an `onIteration` option (its three `history.push` sites became one
+  `record()` helper, so the stream and `history` cannot drift apart);
+  `packages/runtime/src/optimize-job.ts` holds the structured-cloneable job;
+  `worker-pool.ts` gains `runOptimize`; `optimize-worker-entry.ts`, `ConvergenceTracePanel` (+ its
+  reducer), `optimize-worker-factory.ts` and `inverse-solver-route.tsx` complete the path.
+  **Next task is P5.19** (convergence trace plot: log‖F‖ vs iteration), which should read the
+  `TraceRow` this run already produces rather than re-derive it. Suite **1994/1994 across 229
+  files** (was 1951/225 — 43 new tests, nothing else moved); typecheck, lint, `lint:deps` green;
+  app build green with `check-bundle-size` at **71.2 kB gzipped** against a 300 kB budget (was
+  69.2 kB). Full detail in `ROADMAP.json`.
+- **Cancel terminates the worker, and the reason is not squeamishness about `postMessage`.** A
+  solve is a synchronous loop of trajectory integrations, so a worker in the middle of one never
+  drains its message queue — the one thing a cancel must not wait for. A `SharedArrayBuffer` flag
+  the loop polls needs cross-origin isolation (COOP/COEP headers this app does not set), and
+  chunking the solve into macrotasks means restructuring a solver that is correct. So the pool
+  terminates the worker and refills the slot from the same factory; the `workers` array became
+  mutable for exactly that, and a test cancels and then runs another job on the same pool.
+- **The bug that was avoided is the one worth reading.** `NewtonShootingStep` carries no iterate,
+  so `runOptimizeJob` recovers it from the last residual evaluation — which is right only when the
+  line search accepted a trial. On the two paths that record a step without accepting one
+  (`alpha === 0`) the last evaluation is a **rejected** aim, and reporting it would put a point on
+  the trace the solve never visited. Reproduced deterministically with `maxBacktracks: 0` from
+  θ = 1.5, v₀ = 20, which fails Armijo on iteration 0: the test asserts the reported aim is the
+  initial one and that `evaluations > 1`, so "last evaluated" would have differed. The
+  accepted-but-short case needed its own configuration — `armijoC: 0.99, maxBacktracks: 6`, which
+  accepts α = 0.25, 0.25, 0.25, 0.5, 0.5, 1, 1, 1 — because the default options accept α = 1 at
+  every iteration on this problem and would never exercise the distinction at all. Every reported
+  iterate is re-evaluated through the residual and checked against the step's own `nextMerit`.
+- **The live part is tested as live, not as "it renders".** The panel takes `runOptimize` as a
+  prop, so its test emits one iteration, asserts the DOM has one row **while the promise is still
+  pending**, emits another, asserts two. A fake that resolved immediately would pass an
+  "it shows the iterations" test while proving nothing about the only property the task is about.
+  The route test fakes only the thread — it runs the real `postOptimizeResult` one message per
+  macrotask — so route → pool → job → stream → DOM is covered end to end.
+- **Two things deliberately not done**, so the next run does not think they were missed: the trace
+  is a table rather than a plot (that is P5.19), and the target and initial aim are fixed constants
+  on the route (P5.21 makes the target draggable, P5.22 the unknowns selectable).
+- **Unchanged and still open: P0.96**, the flaky wall-clock assertion in
+  `chunked-integration.test.ts`. It passed in every run this session, which is what a flaky test
+  does; its notes still ask a human to choose between moving the timing to `bench:solverkit` and
+  keeping the test while asserting only its deterministic half. **P0.93** (root `pnpm build`) is
+  also untouched — this run ran the two commands CI actually runs, `pnpm --filter @ballista/app
+build` and `check-bundle-size`, rather than the broken root script.
+
 ## 2026-08-11 (18th run) — P5.17 (wind-robust aim: expected miss under wind uncertainty)
 
 - **Done: P5.17.** `packages/analysis/src/robust-aim.ts` exports `WindScenario`, `RiskMeasure`,
