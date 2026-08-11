@@ -13,6 +13,7 @@ export * from "./newton-shooting.js";
 export * from "./observables.js";
 export * from "./optimal-angle.js";
 export * from "./range-root.js";
+export * from "./robust-aim.js";
 export * from "./shooting-jacobian.js";
 export * from "./shooting-residual.js";
 export * from "./smart-init.js";
