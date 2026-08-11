@@ -15,6 +15,63 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-11 (17th run) — P5.16 (constraint handling: bounds on θ and v₀, penalty + projection)
+
+- **Done: P5.16.** `packages/analysis/src/constraints.ts` exports the box-bounds vocabulary
+  (`AimBounds`, `projectAim`, `aimActiveSet`, `boundsPenaltyRows`, `withBoundsPenalty`) and the
+  `constrainedShooting` entry point the task's criterion — _constrained solutions respect bounds;
+  active-set reported_ — is stated against. Both halves are checked **from the outside**:
+  feasibility is recomputed with `aimActiveSet` from the _returned_ aim and the bounds, never read
+  off a flag the solver set about itself, so a solver reporting `feasible: true` on an out-of-box
+  aim would fail the test rather than pass it. **Next task is P5.17** (wind-robust aim: optimize
+  expected miss under wind uncertainty). Suite **1930/1930 across 224 files** (was 1897/223 — the 33
+  new tests and nothing else moved); typecheck, lint, `lint:deps` and build all green. Full
+  measurements and what is _not_ done are in `ROADMAP.json`.
+- **Projection is threaded into P5.06 rather than bolted on after it**, as an optional `projection`
+  hook that turns the Armijo search into a search along the **projected arc** `α ↦ P(x + αΔ)`.
+  Clamping only the final answer would let the iteration converge to an exterior point and then
+  report its projection — an aim that is feasible and solves nothing. On the exhibit (1 kg 5 cm
+  sphere, `Cd` 0.47, target 400 m downrange; unconstrained `θ = 0.6475`, `v₀ = 95.47` in 3
+  iterations) a binding cap is respected **exactly** — `v₀ = 70.000000000000` against 70 m/s — with
+  the active set reporting `speed:"upper"`, and the 116.76 m of miss left over is the honest answer
+  that the target is out of reach at that cap. Tightening the cap raises the irreducible miss
+  monotonically: **116.76 / 92.33 / 68.59 m at 70 / 75 / 80 m/s**. A non-binding 200 m/s cap
+  reproduces the unconstrained aim to 9 decimals with an empty active set. The unconstrained path is
+  untouched — the new stall test applies only when a projection is supplied, and a regression test
+  pins the bare solve at 3 iterations.
+- **The stall test had to move to the projected displacement, and the corner case is why.** With
+  `thetaMax` and `speedMax` both below the unconstrained answer the Newton direction leaves the box
+  in _both_ coordinates, so the trial projects back onto the current aim for every `α`, the merit
+  never changes, and the Armijo condition — which asks for a strict decrease — is unsatisfiable all
+  the way down. Measuring the distance actually travelled rather than the distance proposed stops it
+  in **≤ 2 iterations** with `"stalled"`; without it the search spends its full 25-backtrack budget
+  and reports `line-search-failed` at the exact moment it had reached a constrained stationary point.
+- **The penalty measurement refuted the theory the doc was first written from, and the doc was
+  corrected before the exhibit was written** — the 15th run's failure mode, caught again. The
+  textbook exterior-penalty story is a violation of order `1/√w` shrinking smoothly with weight.
+  Swept across ten orders the behaviour is **non-monotonic with a usable window in the middle**:
+  `w = 1e0`–`1e2` grossly infeasible (**9.35 → 2.23 m/s** over the cap, and `1e2` does not converge
+  at all); `w = 1e3`–`1e7` feasible, landing **~5e-11 _inside_** the bound; `w = 3e7`–`1e9`
+  infeasible again (**1.9e-5 → 1.2e-6**). The plateau is not a smooth balance: the hinge is exactly
+  zero inside the box, so once feasible the penalized problem is _locally identical_ to the
+  unconstrained one and pushes back out, the penalty rows pull it back, and the iteration chatters
+  onto the face — an inexact projection, not a trade. At the top end the `√w` rows degrade the
+  Jacobian's conditioning and **more weight is less feasible**, which `1/√w` cannot express at all.
+  `DEFAULT_PENALTY_WEIGHT = 1e6` is now picked from inside the measured window rather than from the
+  argument, and the doc records that the window was measured on **one** problem.
+- **A second doc claim was measured false and corrected: the projection makes every _iterate_
+  feasible, not every _evaluation_.** `shootingJacobian`'s difference stencil is not projected and
+  reaches one step past an active face — **exactly 5 of 56 evaluations, every one 4.8444e-4 m/s past
+  a 70 m/s cap**, which is the speed column's difference step and nothing larger. Harmless where the
+  residual is defined just outside the box, as it is here; not harmless at a bound marking the
+  model's _domain_, where the stencil would evaluate an aim with no trajectory and the whole Jacobian
+  would fail at an otherwise healthy iterate. **Filed as P0.92** rather than fixed mid-task.
+- Scope held deliberately: no general nonlinear constraints, no working-set iteration, no Lagrange
+  multipliers, no KKT test beyond what `aimActiveSet` reports. A box on two variables does not
+  justify an active-set QP, and the task that has general constraints to justify one is not this.
+
+---
+
 ## 2026-08-10 (16th run) — P5.15 (min-energy targeting, minimize v₀ subject to a hit)
 
 - **Done: P5.15.** `packages/analysis/src/min-energy.ts` exports `minimumSpeedToHit`. The task's
