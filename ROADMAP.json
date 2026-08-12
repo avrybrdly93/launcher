@@ -2422,8 +2422,8 @@
       "estMinutes": 30,
       "difficulty": "M",
       "validation": "two-arc basins render; boundary fractal-ish structure noted",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed 2026-08-12 (21st run). Plan: (1) packages/analysis/src/basin-of-attraction.ts sweeps a grid of initial aims through newtonShooting and labels each converged aim low/high by the SIGN OF dR/dtheta at the converged aim, not by comparing against a per-cell arc solve -- the branch boundary IS the peak of range-vs-theta, so the derivative sign is the definition rather than an approximation of it, and it costs 2 residual evaluations instead of a full solveArcs sweep per cell. (2) viz gains a heatmap trace kind so a categorical basin map can render. (3) a UI panel. Validation is 'two-arc basins render; boundary fractal-ish structure noted' -- the 'noted' half is to be a MEASUREMENT (boundary cell fraction vs grid refinement), not a sentence in a doc comment."
     },
     {
       "id": "P5.21",
