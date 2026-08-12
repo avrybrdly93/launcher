@@ -15,6 +15,62 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-12 (22nd run) — P5.21 (draggable target marker: solve-on-drop with arc choice)
+
+- **Done: P5.21.** A target marker the user drags across the plot and drops; the drop issues one
+  `solveArcs` call and the two aims that reach that point come back, with a low/high chooser, the
+  aim readout, and the drag→solution latency. Pieces: `packages/ui/src/target-marker-logic.ts`
+  (drag state machine, `worldFromPointer`, arc choice, readouts) and
+  `packages/ui/src/target-marker-panel.tsx` (`TargetMarkerPanel`), both exported from
+  `@ballista/ui`. Suite **2114/2114 across 235 files** (was 2081/233 — 33 new tests: 21 logic,
+  11 panel, 1 measurement); typecheck, lint and `lint:deps` (1377 modules) green; app build green
+  with `check-bundle-size` at **71.6 kB gzipped** against the 300 kB budget, unchanged. Full detail
+  in `ROADMAP.json`.
+- **The criterion is met with about an order of magnitude of headroom, and the number is measured
+  rather than asserted from theory.** `solveArcs` timed over 15 distinct drops across the reachable
+  band of a planar quadratic-drag shot at 60 m/s:
+
+  | statistic | ms   |
+  | --------- | ---- |
+  | fastest   | 15.2 |
+  | median    | 19.2 |
+  | slowest   | 50.9 |
+
+  Fifteen _distinct_ targets rather than one repeated, because repeating a single drop would let
+  the adaptive stepper's history flatter a number a real drag never gets. The test asserts the
+  criterion (median < 200 ms) and not the measured value, so a slower machine still passes while a
+  regression that ate the headroom would not; the slowest solve carries a backstop ten times looser
+  so a GC pause on a loaded runner cannot fail the suite. "Typical" is read as the median on
+  purpose — a median is what a user meets drop after drop, a maximum is whatever the collector did
+  once.
+
+- **Why solving happens on drop and not during the drag.** A pointer move fires tens of times a
+  second; at ~19 ms a solve, solving per move would queue work faster than it retires and the
+  marker would visibly lag the pointer by a growing margin — the standard way to make a fast solver
+  feel slow. So a drag is pure state and exactly one solve is issued per drop, which the panel test
+  asserts directly rather than by inspection. Two orderings follow and are both tested: a second
+  drop aborts the solve still in flight, and a solve that answers _after_ the user has resumed
+  dragging is discarded rather than repainted onto a target they can see they have left. The drag
+  is tracked in world metres and not pixels, so a resize mid-drag cannot silently move the target.
+- **Not done, deliberately: the panel is not mounted in an app route yet**, exactly as P5.20's
+  `BasinPanel` is not — it is a library component with its criterion measured. That is also why the
+  bundle is unchanged at 71.6 kB: nothing imports it, so it tree-shakes out. Wiring it into a route,
+  behind a real trajectory plot instead of the bare pointer box it renders now, is the natural
+  follow-up.
+
+Notes for the next run:
+
+- **`pnpm build` at the repo root fails under pnpm 11.9.0, and it is not this run's change.** The
+  root script is `pnpm -r --workspace-concurrency 1 run build`; under this pnpm it reports
+  `ERR_PNPM_RECURSIVE_RUN_NO_SCRIPT — None of the selected packages has a "run" script`, i.e. the
+  flag placement makes `run` parse as the script name. `pnpm -r run build` succeeds and was used
+  for this run's build verification, and `packages/app`'s `check-bundle-size` is green off that
+  build. `package.json` was last touched in `34e8d52`, well before this run. CI calls the root
+  script, so this is worth a one-line fix by whoever picks it up — moving the flag ahead of `run`.
+  Not fixed here: it is outside P5.21 and the routine forbids drive-by changes.
+- P5.22 (trajectory-designer mode: lock any two of θ, v₀, R and solve the third) is next by `seq`,
+  and its three lock combinations are independent enough to checkpoint between.
+
 ## 2026-08-12 (21st run) — P5.20 (basin-of-attraction map: initial-guess grid coloured by converged arc)
 
 - **Done: P5.20.** `sweepBasins` runs a grid of _initial guesses_ through `newtonShooting` and
