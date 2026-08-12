@@ -9,6 +9,7 @@ import {
   type Stepper,
   type WorkPrecisionCurve,
 } from "@ballista/solverkit";
+import { plottableTracePoints, type NewtonTracePoint } from "@ballista/analysis";
 import {
   buildConvergenceFigure,
   buildEnergyDriftFigure,
@@ -166,6 +167,31 @@ describe("buildNewtonTraceFigure (P5.19)", () => {
     ]);
 
     expect(spec.traces[0]).toEqual({ name: "exact", x: [0, 1], y: [1, 1e-4] });
+  });
+
+  it("filters exactly as plottableTracePoints does, so the plot and the ratio never disagree", () => {
+    // The predicate is duplicated in this module on purpose -- importing the
+    // analysis one by value pulled the whole package into the initial chunk
+    // (5 kB -> 141 kB), which is precisely what lazy-plotly-pane exists to
+    // avoid. This test is what keeps the copy honest. It lives in a test file,
+    // which is never bundled, so the import here costs nothing at runtime.
+    const cases: readonly NewtonTracePoint[] = [
+      { iteration: 0, merit: 1e3 },
+      { iteration: 1, merit: 1 },
+      { iteration: 2, merit: 1e-12 },
+      { iteration: 3, merit: 0 },
+      { iteration: 4, merit: -1 },
+      { iteration: 5, merit: Number.NaN },
+      { iteration: 6, merit: Number.POSITIVE_INFINITY },
+      { iteration: 7, merit: Number.NEGATIVE_INFINITY },
+      { iteration: 8, merit: Number.MIN_VALUE },
+    ];
+
+    const spec = buildNewtonTraceFigure([{ label: "all", points: cases }]);
+    const expected = plottableTracePoints(cases);
+
+    expect(spec.traces[0]!.x).toEqual(expected.map((p) => p.iteration));
+    expect(spec.traces[0]!.y).toEqual(expected.map((p) => p.merit));
   });
 
   it("builds one trace per solve", () => {

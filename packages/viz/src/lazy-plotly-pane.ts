@@ -17,7 +17,7 @@
  * renderLazyPlotlyPane}/{@link disposeLazyPlotlyPane} touch the lazy import.
  */
 
-import { plottableTracePoints, type NewtonTracePoint } from "@ballista/analysis";
+import type { NewtonTracePoint } from "@ballista/analysis";
 import {
   sampleStabilityRegionGrid,
   type Complex,
@@ -308,15 +308,26 @@ export interface NewtonTraceCurve {
  * per step — a curve that steepens, not a line. Putting iteration on a log
  * axis would flatten exactly the feature the plot exists to show.
  *
- * Points with a non-positive or non-finite `‖F‖` are dropped by
- * {@link plottableTracePoints}: a log axis has no place to put `‖F‖ = 0`, and
- * clamping would draw a residual the solve never reached.
+ * Points with a non-positive or non-finite `‖F‖` are dropped: a log axis has
+ * no place to put `‖F‖ = 0`, and clamping would draw a residual the solve
+ * never reached.
+ *
+ * **The predicate is inlined rather than imported from
+ * `plottableTracePoints` (`@ballista/analysis`), which is the same rule.**
+ * A value import there puts the whole analysis package into this module's
+ * static graph, and `lazy-plotly-pane.bundle.test.ts` measured what that costs:
+ * the initial chunk went from under 5 kB to 141 kB, because the point of this
+ * module is that *nothing* heavy loads until the dynamic import fires. The
+ * duplication is deliberate and pinned — a test asserts the two predicates
+ * agree case for case, so they cannot drift apart silently.
  */
 export function buildNewtonTraceFigure(curves: readonly NewtonTraceCurve[]): PlotlyFigureSpec {
   return {
     title: "Newton convergence",
     traces: curves.map((curve) => {
-      const usable = plottableTracePoints(curve.points);
+      const usable = curve.points.filter(
+        (point) => Number.isFinite(point.merit) && point.merit > 0,
+      );
       return {
         name: curve.label,
         x: usable.map((point) => point.iteration),
