@@ -20,4 +20,5 @@ export * from "./shooting-jacobian.js";
 export * from "./shooting-residual.js";
 export * from "./smart-init.js";
 export * from "./tangent-linear.js";
+export * from "./trajectory-designer.js";
 export * from "./targets.js";
