@@ -15,6 +15,64 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-12 (20th run) — P5.19 (convergence trace plot: log‖F‖ vs iteration)
+
+- **Done: P5.19.** The trace panel now draws `‖F‖` on a log axis against a linear iteration index
+  above the table P5.18 built, reading the same streamed rows rather than re-solving — so the curve
+  and the numbers are one stream rendered twice and cannot disagree. The criterion, _slope doubling
+  per iter near root (assert last-3 ratio)_, is asserted on **real** `newtonShooting` solves:
+  **1.999** for the drag-free problem against a closed-form target, **2.003** with drag and wind.
+  Pieces: `packages/analysis/src/newton-convergence-order.ts` (`plottableTracePoints`,
+  `meritLogSlopes`, `meritSlopeRatios`, `finalMeritSlopeRatio`), `buildNewtonTraceFigure` in
+  `lazy-plotly-pane.ts`, and `traceMeritPoints`/`traceSlopeRatio`/`formatSlopeRatio` in the panel.
+  Suite **2032/2032 across 230 files** (was 1994/229 — 38 new tests); typecheck, lint, `lint:deps`
+  (1347 modules) green; app build green with `check-bundle-size` at **71.5 kB gzipped** against the
+  300 kB budget (was 71.2 kB). Full detail in `ROADMAP.json`. **Next task is P5.20**
+  (basin-of-attraction grid), a different figure; `NewtonTraceCurve` is already a list, so a
+  multi-solve overlay would need no signature change.
+- **Why the diagnostic is a ratio of slopes and not a fitted exponent.** Squaring the residual is
+  doubling in log space: with `L = log₁₀‖F‖`, quadratic convergence gives `L₍ₖ₊₁₎ = 2Lₖ + c`, so the
+  plotted slope `sₖ = L₍ₖ₊₁₎ − Lₖ` satisfies `s₍ₖ₊₁₎ = 2sₖ`. The unknown constant `C` **cancels out
+  of the ratio**, which a least-squares fit of `p` in `‖F₍ₖ₊₁₎‖ = C‖Fₖ‖ᵖ` would need, and the
+  three-point window uses only the residuals nearest the root — where the asymptotic law is
+  actually in force. A fit over the whole history is dragged towards 1 by the pre-asymptotic head.
+- **The quadratic tail does not continue forever, and the first attempt at the criterion measured
+  0.892 rather than 2.** That was not a bug in the diagnostic. Forcing `residualTolerance: 1e-10`
+  buys one Newton iteration past the point where the trajectory integrator can still resolve the
+  miss distance — `1.782e-8 → 2.275e-13`, about 5 decades where doubling predicts 11 — so the last
+  residual is limited by integrator noise, not by Newton's law. At the default tolerance the same
+  solve stops at `1.782e-8` and reports **1.999**. The floor case is pinned by its own test
+  (`< 1.5`), because it is the first thing that will look like a bug in the plot; and
+  `formatSlopeRatio` prints the number **without** a "quadratic / not quadratic" verdict for the
+  same reason — a healthy solve near the floor would be libelled by one.
+- **The alignment that would have been wrong.** A `TraceRow` describes a _step_: `merit` is `‖F‖` at
+  the iterate it started from, `nextMerit` at the iterate it produced. So row `k` plots at `k+1`,
+  with one extra point at the front for the initial aim. Plotting `merit` at `k` shifts the whole
+  curve one iteration left and makes the solve look a step faster than it was. Adjacent rows share
+  a residual, so taking `nextMerit` from every row and `merit` from only the first counts each
+  exactly once — a test asserts `n` rows give `n+1` points.
+- **The existing suite caught a bundle regression, and the lesson generalises.** Importing
+  `plottableTracePoints` into `lazy-plotly-pane.ts` _by value_ put all of `@ballista/analysis` into
+  that module's static graph, and P3.30's `lazy-plotly-pane.bundle.test.ts` failed at once: initial
+  chunk **5 kB → 141 kB**, defeating the one thing that module exists for. The import is now
+  type-only and the predicate inlined, with a test importing the analysis version and asserting the
+  two agree case for case over `0`, `-1`, `NaN`, `±Infinity` and `MIN_VALUE`. Any future `viz`
+  module reaching into `analysis` should expect the same trap.
+- **Mixed axes are deliberate**, unlike every neighbouring figure: those are log-log because their
+  x is a continuous quantity whose power law is a straight line, whereas here x is an iteration
+  _count_ and the feature is a curve that steepens. A log x-axis would flatten exactly what the
+  plot is for. Both jsdom tests that mount the panel now stub
+  `renderLazyPlotlyPane`/`disposeLazyPlotlyPane` — `plotly.js-dist-min` expects a browser and was
+  throwing 18 unhandled errors per run — while every figure builder stays real.
+- **Unchanged and still open: P0.96**, the flaky wall-clock assertion in
+  `chunked-integration.test.ts`. It **did** trip once this session, measuring **10.313 ms** against
+  its `< 10` bound in an intermediate full-suite run, and passed in the runs before and after
+  — which is what a flaky test does, and is independent of anything this task touched. **The test
+  was not weakened.** Its notes still ask a human to choose between moving the timing to
+  `bench:solverkit` and keeping the test while asserting only its deterministic half. **P0.93**
+  (root `pnpm build`) is also untouched — this run used the two commands CI actually runs,
+  `pnpm --filter @ballista/app build` and `check-bundle-size`.
+
 ## 2026-08-11 (19th run) — P5.18 (optimize job type in the worker pool, with iteration streaming)
 
 - **Done: P5.18.** `#/inverse-solver` runs a Newton shooting solve in a real Worker and fills a
