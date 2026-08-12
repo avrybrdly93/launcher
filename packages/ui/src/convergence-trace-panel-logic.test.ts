@@ -2,11 +2,15 @@ import { describe, expect, it } from "vitest";
 import type { OptimizeIteration, OptimizeJobResult } from "@ballista/runtime";
 import {
   formatMerit,
+  formatSlopeRatio,
   initialTraceState,
   isRunning,
   summarize,
   toTraceRow,
+  traceMeritPoints,
   traceReducer,
+  traceSlopeRatio,
+  type TraceRow,
   type TraceState,
 } from "./convergence-trace-panel-logic.js";
 
@@ -178,5 +182,69 @@ describe("summarize", () => {
       { type: "cancelled" },
     ]);
     expect(summarize(state)).toBe("Cancelled after 1 iterations.");
+  });
+});
+
+/** A row as the panel would hold it, with both ends of the step given explicitly. */
+function row(iteration: number, merit: number, nextMerit: number): TraceRow {
+  return { iteration, merit, nextMerit, alpha: 1, rank: 1, theta: 0.5, speed: 100 };
+}
+
+describe("traceMeritPoints (P5.19)", () => {
+  it("plots a step's nextMerit at the iterate it produced, not the one it started from", () => {
+    // The alignment bug this guards against shifts the whole curve one
+    // iteration left, making the solve look a step faster than it was.
+    expect(traceMeritPoints([row(0, 66.16, 3.042), row(1, 3.042, 5.472e-3)])).toEqual([
+      { iteration: 0, merit: 66.16 },
+      { iteration: 1, merit: 3.042 },
+      { iteration: 2, merit: 5.472e-3 },
+    ]);
+  });
+
+  it("counts the residual two adjacent rows share exactly once", () => {
+    // Row k's nextMerit is row k+1's merit; n rows must give n+1 points.
+    const rows = [row(0, 1, 1e-2), row(1, 1e-2, 1e-4), row(2, 1e-4, 1e-8)];
+
+    expect(traceMeritPoints(rows)).toHaveLength(rows.length + 1);
+  });
+
+  it("has nothing to plot before the first row arrives", () => {
+    expect(traceMeritPoints([])).toEqual([]);
+  });
+
+  it("keeps the solve's own iteration numbering", () => {
+    expect(traceMeritPoints([row(7, 1e-3, 1e-6)]).map((p) => p.iteration)).toEqual([7, 8]);
+  });
+});
+
+describe("traceSlopeRatio (P5.19's criterion, as the panel reports it)", () => {
+  it("reports ~2 for the quadratic tail of a real drag-free solve", () => {
+    // The residuals newtonShooting actually produces from theta 0.45, v0 60
+    // against a closed-form target -- see newton-convergence-order.test.ts,
+    // which asserts the same number straight off the solver.
+    const rows = [row(0, 66.16, 3.042), row(1, 3.042, 5.472e-3), row(2, 5.472e-3, 1.782e-8)];
+
+    expect(traceSlopeRatio(rows)!).toBeCloseTo(2, 2);
+  });
+
+  it("has no ratio to report from a single step", () => {
+    expect(traceSlopeRatio([row(0, 1, 1e-3)])).toBeUndefined();
+    expect(traceSlopeRatio([])).toBeUndefined();
+  });
+});
+
+describe("formatSlopeRatio", () => {
+  it("says what is missing rather than printing a number it does not have", () => {
+    expect(formatSlopeRatio(undefined)).toBe("slope ratio: needs 3 residuals");
+  });
+
+  it("prints the ratio next to the value that would mean quadratic", () => {
+    expect(formatSlopeRatio(1.999)).toBe("slope ratio (last 3): 2.00 — 2.00 is quadratic");
+  });
+
+  it("reports a floor-limited tail as the number it is, without a verdict", () => {
+    // A healthy solve pushed past the integrator's accuracy reports ~0.89.
+    // Calling that "not quadratic" in the UI would be wrong about the solver.
+    expect(formatSlopeRatio(0.8919)).toBe("slope ratio (last 3): 0.89 — 2.00 is quadratic");
   });
 });

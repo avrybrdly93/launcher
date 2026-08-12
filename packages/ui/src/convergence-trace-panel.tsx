@@ -1,7 +1,10 @@
 /**
  * Live convergence trace for a Newton shooting solve (P5.18): runs an
  * optimize job through the worker pool and fills a table row by row as the
- * iterations stream in, with a Cancel button that stops it.
+ * iterations stream in, with a Cancel button that stops it. P5.19 added the
+ * `log‖F‖` vs iteration plot above the table, drawn from the same rows, so
+ * the picture and the numbers are one stream rendered twice rather than two
+ * measurements that could drift apart.
  *
  * **`runOptimize` is a prop rather than a pool this component builds.** The
  * component's job is the live-update and cancel behaviour, and injecting the
@@ -13,13 +16,18 @@
 
 import { useCallback, useEffect, useReducer, useRef } from "preact/hooks";
 import type { OptimizeJob, OptimizeJobResult } from "@ballista/runtime";
+import { buildNewtonTraceFigure } from "@ballista/viz";
 import {
   formatMerit,
+  formatSlopeRatio,
   initialTraceState,
   isRunning,
   summarize,
+  traceMeritPoints,
   traceReducer,
+  traceSlopeRatio,
 } from "./convergence-trace-panel-logic.js";
+import { LazyPlotlyView } from "./lazy-plotly-view.js";
 import type { OptimizeIteration } from "@ballista/runtime";
 
 /** The subset of `WorkerPool["runOptimize"]` this panel calls. */
@@ -72,6 +80,10 @@ export function ConvergenceTracePanel({ job, runOptimize }: ConvergenceTracePane
   }, []);
 
   const running = isRunning(state);
+  // Recomputed per render rather than memoized: the sequence is one pass over
+  // ~20 rows, and `LazyPlotlyView` re-renders on spec identity anyway, so a
+  // `useMemo` here would buy nothing and add a dependency array to keep right.
+  const points = traceMeritPoints(state.rows);
 
   return (
     <div class="convergence-trace-panel" data-testid="convergence-trace-panel">
@@ -101,6 +113,20 @@ export function ConvergenceTracePanel({ job, runOptimize }: ConvergenceTracePane
       >
         {summarize(state)}
       </p>
+
+      {/*
+        Two points is the minimum a line can be drawn through, and until then
+        the pane would be an empty axis box that reads as a broken plot. The
+        table below carries the single-row case on its own.
+      */}
+      {points.length >= 2 && (
+        <div class="convergence-trace-plot" data-testid="convergence-trace-plot">
+          <LazyPlotlyView spec={buildNewtonTraceFigure([{ label: "‖F‖", points }])} />
+          <p class="convergence-trace-slope-ratio" data-testid="convergence-trace-slope-ratio">
+            {formatSlopeRatio(traceSlopeRatio(state.rows))}
+          </p>
+        </div>
+      )}
 
       <table class="convergence-trace-table" data-testid="convergence-trace-table">
         <caption>Newton iterations, newest last</caption>

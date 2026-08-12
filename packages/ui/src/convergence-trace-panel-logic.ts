@@ -5,10 +5,12 @@
  * machine over messages arriving from a worker, and a reducer can be tested
  * against every ordering without rendering anything.
  *
- * The plot of this data is P5.19; this is the tabular form and the state it
- * needs, which that task will read rather than re-derive.
+ * P5.19 added the plot of the same data: `traceMeritPoints` derives the
+ * `(iteration, ‖F‖)` sequence from these rows, so the curve and the table are
+ * two views of one stream and cannot disagree about what the solve did.
  */
 
+import { finalMeritSlopeRatio, type NewtonTracePoint } from "@ballista/analysis";
 import type { OptimizeIteration, OptimizeJobResult } from "@ballista/runtime";
 
 /** Where a solve is in its lifecycle. */
@@ -113,6 +115,54 @@ export function isRunning(state: TraceState): boolean {
 export function formatMerit(value: number): string {
   if (!Number.isFinite(value)) return String(value);
   return value.toExponential(3);
+}
+
+/**
+ * The `(iteration, ‖F‖)` sequence the P5.19 plot draws, derived from the rows
+ * already streamed rather than re-run.
+ *
+ * **The alignment is the only subtle part.** A row describes a *step*: its
+ * `merit` is `‖F‖` at the iterate the step began from and its `nextMerit` is
+ * `‖F‖` at the iterate it produced. So row `k` contributes a point at `k + 1`,
+ * not at `k`, and the sequence needs one extra point at the front for the
+ * initial aim — which is the first row's `merit`. Plotting `merit` at `k`
+ * instead would shift the whole curve one iteration left and make the solve
+ * look like it converged a step sooner than it did.
+ *
+ * Consecutive rows agree on the shared residual (row `k`'s `nextMerit` is row
+ * `k+1`'s `merit`), so taking `nextMerit` from every row and `merit` from only
+ * the first counts each residual exactly once.
+ */
+export function traceMeritPoints(rows: readonly TraceRow[]): readonly NewtonTracePoint[] {
+  const first = rows[0];
+  if (first === undefined) return [];
+  return [
+    { iteration: first.iteration, merit: first.merit },
+    ...rows.map((row) => ({ iteration: row.iteration + 1, merit: row.nextMerit })),
+  ];
+}
+
+/**
+ * The observed slope ratio to display beside the plot — ≈ 2 while Newton is in
+ * its quadratic regime. `undefined` until three residuals exist, which a
+ * caller must render as "no measurement yet" rather than as a number.
+ */
+export function traceSlopeRatio(rows: readonly TraceRow[]): number | undefined {
+  return finalMeritSlopeRatio(traceMeritPoints(rows));
+}
+
+/**
+ * The ratio as a sentence, for the readout under the plot.
+ *
+ * It deliberately does not say "quadratic" or "not quadratic". The ratio is a
+ * measurement over three residuals, and near the integrator's accuracy floor a
+ * perfectly healthy solve reports well under 2 (see
+ * `newton-convergence-order.ts`); a component is the wrong place to turn that
+ * into a verdict.
+ */
+export function formatSlopeRatio(ratio: number | undefined): string {
+  if (ratio === undefined) return "slope ratio: needs 3 residuals";
+  return `slope ratio (last 3): ${ratio.toFixed(2)} — 2.00 is quadratic`;
 }
 
 /** A one-line summary of where the solve ended, for a status line. */

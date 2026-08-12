@@ -7,10 +7,22 @@
  * this an end-to-end check of the actual wiring (route → pool → job →
  * streamed iterations → panel → DOM) with only the thread faked, rather than
  * a check that the component renders.
+ *
+ * P5.19 put a Plotly pane inside the panel this route mounts, so the lazy-load
+ * boundary is stubbed too: `plotly.js-dist-min` expects a browser and throws
+ * under jsdom. Only `renderLazyPlotlyPane`/`disposeLazyPlotlyPane` are
+ * replaced — every figure builder stays real, so the wiring under test is
+ * still the real one.
  */
 import { render, type ComponentChildren } from "preact";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { postOptimizeResult, type OptimizeRequest, type WorkerLike } from "@ballista/runtime";
+
+vi.mock("@ballista/viz", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@ballista/viz")>()),
+  renderLazyPlotlyPane: async () => {},
+  disposeLazyPlotlyPane: async () => {},
+}));
 
 const terminations: Array<() => boolean> = [];
 

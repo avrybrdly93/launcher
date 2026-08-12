@@ -16,7 +16,26 @@ import { render, type ComponentChildren } from "preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PRESET_SCENARIOS, type ScenarioSpec } from "@ballista/engine";
 import type { OptimizeIteration, OptimizeJob, OptimizeJobResult } from "@ballista/runtime";
-import { ConvergenceTracePanel, type OptimizeRunner } from "./convergence-trace-panel.js";
+import type { PlotlyFigureSpec } from "@ballista/viz";
+
+/**
+ * Only the lazy-load boundary is faked, and only because jsdom cannot host
+ * Plotly: mounting the real pane pulls `plotly.js-dist-min` into jsdom, which
+ * throws on the browser APIs it expects and floods the run with unhandled
+ * errors. `buildNewtonTraceFigure` is deliberately *not* mocked -- it is the
+ * thing under test here, so the spec these tests read is the real one the app
+ * would draw.
+ */
+const renderLazyPlotlyPane = vi.fn(async (_container: HTMLElement, _spec: PlotlyFigureSpec) => {});
+const disposeLazyPlotlyPane = vi.fn(async (_container: HTMLElement) => {});
+vi.mock("@ballista/viz", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@ballista/viz")>()),
+  renderLazyPlotlyPane,
+  disposeLazyPlotlyPane,
+}));
+
+const { ConvergenceTracePanel } = await import("./convergence-trace-panel.js");
+type OptimizeRunner = import("./convergence-trace-panel.js").OptimizeRunner;
 
 const DRAG_FREE = PRESET_SCENARIOS.find((s) => s.model.forceIds.length === 1)!;
 const BASE: ScenarioSpec = {
@@ -293,5 +312,103 @@ describe("ConvergenceTracePanel: cancel works", () => {
     solve.click();
     await flush();
     expect(runner).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("the log‖F‖ vs iteration plot (P5.19)", () => {
+  it("draws nothing before there are two points to draw a line through", async () => {
+    const { runner, started } = createControllableRunner();
+    const root = mount(<ConvergenceTracePanel job={JOB} runOptimize={runner} />);
+
+    root.querySelector<HTMLButtonElement>('[data-testid="convergence-trace-solve"]')!.click();
+    await flush();
+
+    expect(started()).toBe(true);
+    // Running, but no iteration has arrived: an empty axis box reads as a
+    // broken plot, so there is deliberately no pane yet.
+    expect(root.querySelector('[data-testid="convergence-trace-plot"]')).toBeNull();
+  });
+
+  it("appears as soon as the first iteration lands, since a step gives two residuals", async () => {
+    const { runner, emit } = createControllableRunner();
+    const root = mount(<ConvergenceTracePanel job={JOB} runOptimize={runner} />);
+
+    root.querySelector<HTMLButtonElement>('[data-testid="convergence-trace-solve"]')!.click();
+    await flush();
+    emit(iteration(0, 3.042));
+    await flush();
+
+    expect(root.querySelector('[data-testid="convergence-trace-plot"]')).not.toBeNull();
+  });
+
+  it("hands the pane the residuals of the solve, on a log axis against linear iteration", async () => {
+    const { runner, emit } = createControllableRunner();
+    const root = mount(<ConvergenceTracePanel job={JOB} runOptimize={runner} />);
+
+    root.querySelector<HTMLButtonElement>('[data-testid="convergence-trace-solve"]')!.click();
+    await flush();
+    emit(iteration(0, 3.042));
+    emit(iteration(1, 5.472e-3));
+    await flush();
+
+    // `iteration(i, m)` builds a step from merit 10m to nextMerit m, so the
+    // sequence is 30.42 -> 3.042 -> 5.472e-3 and the last point sits at k = 2.
+    const spec = renderLazyPlotlyPane.mock.calls.at(-1)![1];
+    expect(spec.xAxis).toEqual({ title: "Newton iteration k" });
+    expect(spec.yAxis).toEqual({ title: "‖F‖ (m)", type: "log" });
+    expect(spec.traces[0]!.x).toEqual([0, 1, 2]);
+    // Elementwise, because `merit` is computed as `10 * nextMerit` and
+    // `10 * 3.042` is not exactly 30.42 in binary.
+    const y = spec.traces[0]!.y;
+    expect(y).toHaveLength(3);
+    expect(y[0]!).toBeCloseTo(30.42, 10);
+    expect(y[1]!).toBeCloseTo(3.042, 10);
+    expect(y[2]!).toBeCloseTo(5.472e-3, 10);
+  });
+
+  it("says the slope ratio needs three residuals rather than printing one it cannot compute", async () => {
+    const { runner, emit } = createControllableRunner();
+    const root = mount(<ConvergenceTracePanel job={JOB} runOptimize={runner} />);
+
+    root.querySelector<HTMLButtonElement>('[data-testid="convergence-trace-solve"]')!.click();
+    await flush();
+    emit(iteration(0, 3.042));
+    await flush();
+
+    expect(
+      root.querySelector('[data-testid="convergence-trace-slope-ratio"]')!.textContent,
+    ).toContain("needs 3 residuals");
+  });
+
+  it("reports the measured ratio once three residuals exist", async () => {
+    const { runner, emit } = createControllableRunner();
+    const root = mount(<ConvergenceTracePanel job={JOB} runOptimize={runner} />);
+
+    root.querySelector<HTMLButtonElement>('[data-testid="convergence-trace-solve"]')!.click();
+    await flush();
+    // Each step drops the residual by exactly one decade, so the two slopes are
+    // equal and their ratio is 1 -- linear convergence, told apart from the 2
+    // the quadratic tail of a real solve gives.
+    emit(iteration(0, 1e-1));
+    emit(iteration(1, 1e-2));
+    await flush();
+
+    expect(root.querySelector('[data-testid="convergence-trace-slope-ratio"]')!.textContent).toBe(
+      "slope ratio (last 3): 1.00 — 2.00 is quadratic",
+    );
+  });
+
+  it("keeps the plot after a cancel, showing what the solve reached before it stopped", async () => {
+    const { runner, emit } = createControllableRunner();
+    const root = mount(<ConvergenceTracePanel job={JOB} runOptimize={runner} />);
+
+    root.querySelector<HTMLButtonElement>('[data-testid="convergence-trace-solve"]')!.click();
+    await flush();
+    emit(iteration(0, 3.042));
+    await flush();
+    root.querySelector<HTMLButtonElement>('[data-testid="convergence-trace-cancel"]')!.click();
+    await flush();
+
+    expect(root.querySelector('[data-testid="convergence-trace-plot"]')).not.toBeNull();
   });
 });
