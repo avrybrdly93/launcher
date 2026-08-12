@@ -17,6 +17,9 @@ import {
   buildPlotlyFigure,
   buildStabilityRegionFigure,
   buildWorkPrecisionFigure,
+  BASIN_CLASS_INDEX,
+  BASIN_COLOURS,
+  buildBasinFigure,
   buildNewtonTraceFigure,
   type ConvergenceCurve,
   type EnergyDriftCurve,
@@ -294,5 +297,73 @@ describe("buildPhasePlotFigure (P3.30 exploratory pane)", () => {
     expect(spec.traces[0]!.y).toEqual(Array.from(trajectory.channels[3]!));
     expect(spec.xAxis).toEqual({ title: "y (m)" });
     expect(spec.yAxis).toEqual({ title: "v_y (m/s)" });
+  });
+});
+
+describe("buildBasinFigure (P5.20)", () => {
+  const grid = {
+    thetas: [0.2, 0.5, 0.8, 1.1],
+    speeds: [50, 60],
+    outcomes: [
+      ["low", "low", "high", "high"],
+      ["low", "unconverged", "high", "failed"],
+    ],
+  } as const;
+
+  it("puts the *initial guess* on both axes, which is what the map is of", () => {
+    const spec = buildBasinFigure(grid);
+
+    expect(spec.xAxis).toEqual({ title: "initial \u03b8\u2080 (rad)" });
+    expect(spec.yAxis).toEqual({ title: "initial v\u2080 (m/s)" });
+  });
+
+  it("carries the grid through row-major, matching the contour trace's convention", () => {
+    const [trace] = buildBasinFigure(grid).traces;
+
+    expect(trace!.kind).toBe("heatmap");
+    expect(trace!.x).toEqual([0.2, 0.5, 0.8, 1.1]);
+    expect(trace!.y).toEqual([50, 60]);
+    expect((trace as { z: unknown }).z).toEqual([
+      [0, 0, 1, 1],
+      [0, 2, 1, null],
+    ]);
+  });
+
+  it("draws a failed cell as a hole rather than as a fourth colour", () => {
+    // A starting guess with no trajectory at all is not an outcome to colour;
+    // painting it would suggest the solver reached a conclusion there.
+    expect(BASIN_CLASS_INDEX.failed).toBeNull();
+    expect(BASIN_COLOURS).toHaveLength(3);
+  });
+
+  it("bands the colour scale so no cell renders as a blend of two arcs", () => {
+    // The boundary between basins is a step, not a gradient. Each class owns a
+    // closed band, so every stop pair repeats one colour.
+    const [trace] = buildBasinFigure(grid).traces;
+    const scale = (trace as { colorScale: readonly (readonly [number, string])[] }).colorScale;
+
+    expect(scale).toHaveLength(2 * BASIN_COLOURS.length);
+    for (let i = 0; i < BASIN_COLOURS.length; i += 1) {
+      expect(scale[2 * i]![1]).toBe(BASIN_COLOURS[i]);
+      expect(scale[2 * i + 1]![1]).toBe(BASIN_COLOURS[i]);
+      expect(scale[2 * i + 1]![0]).toBeGreaterThan(scale[2 * i]![0]);
+    }
+    expect(scale[0]![0]).toBe(0);
+    expect(scale[scale.length - 1]![0]).toBe(1);
+  });
+
+  it("pins the colour range to the class indices instead of autoscaling", () => {
+    const [trace] = buildBasinFigure(grid).traces;
+
+    expect((trace as { zMin: number; zMax: number }).zMin).toBe(0);
+    expect((trace as { zMin: number; zMax: number }).zMax).toBe(BASIN_COLOURS.length - 1);
+  });
+
+  it("renders a Plotly heatmap with smoothing off, so cells stay flat", () => {
+    const { data } = buildPlotlyFigure(buildBasinFigure(grid));
+
+    expect(data[0]!.type).toBe("heatmap");
+    expect(data[0]!.zsmooth).toBe(false);
+    expect(data[0]!.hoverongaps).toBe(false);
   });
 });

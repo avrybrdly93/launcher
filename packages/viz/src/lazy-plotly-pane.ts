@@ -17,7 +17,7 @@
  * renderLazyPlotlyPane}/{@link disposeLazyPlotlyPane} touch the lazy import.
  */
 
-import type { NewtonTracePoint } from "@ballista/analysis";
+import type { BasinOutcome, NewtonTracePoint } from "@ballista/analysis";
 import {
   sampleStabilityRegionGrid,
   type Complex,
@@ -50,8 +50,32 @@ export interface PlotlyContourTrace {
   readonly contourSize: number;
 }
 
-/** A trace is a plain scatter (the default, `kind` omitted, every pre-P3.43 builder's shape) or an explicit contour. */
-export type PlotlyTrace = PlotlyScatterTrace | PlotlyContourTrace;
+/**
+ * A flat-shaded heatmap over a 2D grid (P5.20's basin map): `z` is row-major
+ * `z[row][col]`, the same shape as {@link PlotlyContourTrace}, so both 2D
+ * traces in this module agree with each other and with `StabilityRegionGrid`.
+ *
+ * **`z` is categorical, and the trace says so** — the values are class indices,
+ * not a measured quantity. `colorScale` is therefore given as explicit
+ * `[stop, colour]` pairs and `zMin`/`zMax` are pinned, because Plotly's default
+ * autoscaled continuous scale would interpolate between two class indices and
+ * draw a smooth gradient across a boundary that is a step. A cell either
+ * converged to the low arc or it did not.
+ */
+export interface PlotlyHeatmapTrace {
+  readonly kind: "heatmap";
+  readonly name: string;
+  readonly x: readonly number[];
+  readonly y: readonly number[];
+  readonly z: readonly (readonly (number | null)[])[];
+  readonly zMin: number;
+  readonly zMax: number;
+  /** `[stop, css-colour]` pairs, stops in `[0, 1]`. */
+  readonly colorScale: readonly (readonly [number, string])[];
+}
+
+/** A trace is a plain scatter (the default, `kind` omitted, every pre-P3.43 builder's shape), an explicit contour, or a heatmap. */
+export type PlotlyTrace = PlotlyScatterTrace | PlotlyContourTrace | PlotlyHeatmapTrace;
 
 /** Axis label plus optional log scaling (work-precision plots are log-log; phase plots are linear). */
 export interface PlotlyAxisSpec {
@@ -116,6 +140,22 @@ function traceToPlotly(trace: PlotlyTrace): Record<string, unknown> {
       },
       line: { width: 2 },
       showscale: false,
+    };
+  }
+  if (trace.kind === "heatmap") {
+    return {
+      name: trace.name,
+      x: trace.x,
+      y: trace.y,
+      z: trace.z,
+      type: "heatmap",
+      colorscale: trace.colorScale.map(([stop, colour]) => [stop, colour]),
+      zmin: trace.zMin,
+      zmax: trace.zMax,
+      // Flat cells, not a smoothed field: the quantity is a class index.
+      zsmooth: false,
+      showscale: false,
+      hoverongaps: false,
     };
   }
   return { name: trace.name, x: trace.x, y: trace.y, mode: "lines+markers", type: "scatter" };
@@ -290,6 +330,13 @@ export function buildEnergyDriftFigure(curves: readonly EnergyDriftCurve[]): Plo
   };
 }
 
+/** The slice of `BasinGrid` (`@ballista/analysis`) {@link buildBasinFigure} draws -- structural, so a caller can hand it a whole grid. */
+export interface BasinFigureGrid {
+  readonly thetas: readonly number[];
+  readonly speeds: readonly number[];
+  readonly outcomes: readonly (readonly BasinOutcome[])[];
+}
+
 /** One solve's residual history for {@link buildNewtonTraceFigure} -- {@link NewtonTracePoint}s (`@ballista/analysis`) plus a display label. */
 export interface NewtonTraceCurve {
   readonly label: string;
@@ -336,6 +383,80 @@ export function buildNewtonTraceFigure(curves: readonly NewtonTraceCurve[]): Plo
     }),
     xAxis: { title: "Newton iteration k" },
     yAxis: { title: "‖F‖ (m)", type: "log" },
+  };
+}
+
+/**
+ * Class index each basin outcome is drawn as. Exported so a legend and the
+ * figure cannot disagree about which colour means which arc.
+ *
+ * `"failed"` maps to `null` rather than to a fourth index: Plotly renders a
+ * null cell as a hole in the heatmap, which is the honest mark for "this
+ * starting guess has no trajectory at all" — the grid strays outside the
+ * reachable set there, and painting it a colour would suggest an outcome.
+ */
+export const BASIN_CLASS_INDEX: Readonly<Record<BasinOutcome, number | null>> = Object.freeze({
+  low: 0,
+  high: 1,
+  unconverged: 2,
+  failed: null,
+});
+
+/** Colour drawn for each class index of {@link buildBasinFigure}, in index order. */
+export const BASIN_COLOURS: readonly string[] = Object.freeze([
+  "#2d6a9f", // low arc — flat and fast
+  "#c2571a", // high arc — lofted
+  "#9aa0a6", // converged to no branch (on the peak, or short of tolerance)
+]);
+
+/**
+ * Basin-of-attraction figure (P5.20): the starting-guess grid, each cell
+ * painted by the arc `newtonShooting` converged to from there.
+ *
+ * **Axes are the *initial guess*, not the solution.** That is the entire point
+ * of the picture: it answers "which arc will the solver give me if I start
+ * here?", so both axes are quantities the caller chooses before solving.
+ *
+ * **The colour scale is built as flat bands rather than a gradient.** `z`
+ * carries class indices, and a continuous scale would interpolate across a
+ * boundary that is a step — drawing an arc that is neither low nor high in the
+ * cells either side of the seam. Each class gets a closed band of the scale, so
+ * every cell renders as exactly one of the three colours.
+ *
+ * **`BasinOutcome` is imported as a type only.** Same rule as
+ * {@link buildNewtonTraceFigure}'s inlined predicate: a value import from
+ * `@ballista/analysis` would pull the whole analysis package into this module's
+ * static graph, and `lazy-plotly-pane.bundle.test.ts` exists because that costs
+ * more than a hundred kB in the initial chunk. {@link BASIN_CLASS_INDEX} is
+ * therefore declared here rather than imported.
+ */
+export function buildBasinFigure(grid: BasinFigureGrid): PlotlyFigureSpec {
+  const classes = BASIN_COLOURS.length;
+  // Closed bands: class i occupies [i/classes, (i+1)/classes] of the scale, so
+  // no stop interpolates between two classes.
+  const colorScale: [number, string][] = [];
+  BASIN_COLOURS.forEach((colour, index) => {
+    colorScale.push([index / classes, colour], [(index + 1) / classes, colour]);
+  });
+
+  return {
+    title: "Newton basins of attraction",
+    traces: [
+      {
+        kind: "heatmap",
+        name: "converged arc",
+        x: [...grid.thetas],
+        y: [...grid.speeds],
+        z: grid.outcomes.map((row) => row.map((outcome) => BASIN_CLASS_INDEX[outcome])),
+        zMin: 0,
+        // Half a band past the last index, matching the closed-band scale: the
+        // colour axis spans exactly the three classes and nothing else.
+        zMax: classes - 1,
+        colorScale,
+      },
+    ],
+    xAxis: { title: "initial θ₀ (rad)" },
+    yAxis: { title: "initial v₀ (m/s)" },
   };
 }
 
