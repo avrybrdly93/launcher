@@ -17,6 +17,7 @@
  * renderLazyPlotlyPane}/{@link disposeLazyPlotlyPane} touch the lazy import.
  */
 
+import { plottableTracePoints, type NewtonTracePoint } from "@ballista/analysis";
 import {
   sampleStabilityRegionGrid,
   type Complex,
@@ -286,6 +287,44 @@ export function buildEnergyDriftFigure(curves: readonly EnergyDriftCurve[]): Plo
     })),
     xAxis: { title: "t (s)" },
     yAxis: { title: "E(t)/E(0) − 1" },
+  };
+}
+
+/** One solve's residual history for {@link buildNewtonTraceFigure} -- {@link NewtonTracePoint}s (`@ballista/analysis`) plus a display label. */
+export interface NewtonTraceCurve {
+  readonly label: string;
+  readonly points: readonly NewtonTracePoint[];
+}
+
+/**
+ * Newton convergence-trace figure (P5.19): `‖F‖` on a log y-axis against a
+ * *linear* iteration index, one trace per solve.
+ *
+ * **The mixed axes are the whole point, and are not an oversight.** The
+ * neighbouring convergence and work-precision figures are log-log because
+ * their x-axis is a continuous quantity (`h`, cost) whose power-law
+ * relationship to the error shows up as a straight line. Here x is an
+ * iteration *count*, and quadratic convergence is `log‖F‖` roughly doubling
+ * per step — a curve that steepens, not a line. Putting iteration on a log
+ * axis would flatten exactly the feature the plot exists to show.
+ *
+ * Points with a non-positive or non-finite `‖F‖` are dropped by
+ * {@link plottableTracePoints}: a log axis has no place to put `‖F‖ = 0`, and
+ * clamping would draw a residual the solve never reached.
+ */
+export function buildNewtonTraceFigure(curves: readonly NewtonTraceCurve[]): PlotlyFigureSpec {
+  return {
+    title: "Newton convergence",
+    traces: curves.map((curve) => {
+      const usable = plottableTracePoints(curve.points);
+      return {
+        name: curve.label,
+        x: usable.map((point) => point.iteration),
+        y: usable.map((point) => point.merit),
+      };
+    }),
+    xAxis: { title: "Newton iteration k" },
+    yAxis: { title: "‖F‖ (m)", type: "log" },
   };
 }
 

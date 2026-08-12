@@ -16,8 +16,10 @@ import {
   buildPlotlyFigure,
   buildStabilityRegionFigure,
   buildWorkPrecisionFigure,
+  buildNewtonTraceFigure,
   type ConvergenceCurve,
   type EnergyDriftCurve,
+  type NewtonTraceCurve,
   type TrajectoryChannelSpec,
 } from "./lazy-plotly-pane.js";
 
@@ -106,6 +108,79 @@ describe("buildConvergenceFigure (P3.42)", () => {
       { name: "explicit-euler", x: [0.1, 0.05, 0.025], y: [1e-1, 5e-2, 2.5e-2] },
       { name: "classical-rk4", x: [0.1, 0.05, 0.025], y: [1e-4, 6.25e-6, 3.9e-7] },
     ]);
+  });
+});
+
+describe("buildNewtonTraceFigure (P5.19)", () => {
+  it("plots ‖F‖ on a log axis against a linear iteration index", () => {
+    // Linear x is the deliberate difference from the log-log figures above:
+    // quadratic convergence is a steepening curve against an iteration *count*,
+    // and a log x-axis would flatten the feature the plot exists to show.
+    const curves: readonly NewtonTraceCurve[] = [
+      {
+        label: "drag-free",
+        points: [
+          { iteration: 0, merit: 66.16 },
+          { iteration: 1, merit: 3.042 },
+          { iteration: 2, merit: 5.472e-3 },
+          { iteration: 3, merit: 1.782e-8 },
+        ],
+      },
+    ];
+
+    const spec = buildNewtonTraceFigure(curves);
+
+    expect(spec.xAxis).toEqual({ title: "Newton iteration k" });
+    expect(spec.yAxis).toEqual({ title: "‖F‖ (m)", type: "log" });
+    expect(spec.traces).toEqual([
+      { name: "drag-free", x: [0, 1, 2, 3], y: [66.16, 3.042, 5.472e-3, 1.782e-8] },
+    ]);
+  });
+
+  it("keeps each solve's own iteration indices rather than re-numbering from zero", () => {
+    const spec = buildNewtonTraceFigure([
+      {
+        label: "resumed",
+        points: [
+          { iteration: 4, merit: 1e-2 },
+          { iteration: 5, merit: 1e-5 },
+        ],
+      },
+    ]);
+
+    expect(spec.traces[0]!.x).toEqual([4, 5]);
+  });
+
+  it("drops a residual a log axis cannot place, without shifting the surviving points", () => {
+    // ‖F‖ = 0 is what an exact hit reports. Clamping it would draw a residual
+    // the solve never reached; dropping it leaves iteration 2 at x = 2.
+    const spec = buildNewtonTraceFigure([
+      {
+        label: "exact",
+        points: [
+          { iteration: 0, merit: 1 },
+          { iteration: 1, merit: 1e-4 },
+          { iteration: 2, merit: 0 },
+        ],
+      },
+    ]);
+
+    expect(spec.traces[0]).toEqual({ name: "exact", x: [0, 1], y: [1, 1e-4] });
+  });
+
+  it("builds one trace per solve", () => {
+    const spec = buildNewtonTraceFigure([
+      { label: "a", points: [{ iteration: 0, merit: 1 }] },
+      { label: "b", points: [{ iteration: 0, merit: 2 }] },
+    ]);
+
+    expect(spec.traces.map((t) => t.name)).toEqual(["a", "b"]);
+  });
+
+  it("survives a solve with no plottable points at all", () => {
+    const spec = buildNewtonTraceFigure([{ label: "empty", points: [] }]);
+
+    expect(spec.traces).toEqual([{ name: "empty", x: [], y: [] }]);
   });
 });
 
