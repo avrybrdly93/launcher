@@ -15,6 +15,74 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-12 (23rd run) — P5.22 (trajectory-designer mode: lock any two of θ, v₀, R)
+
+- **Done: P5.22.** `designTrajectory` in `packages/analysis/src/trajectory-designer.ts`, exported
+  from `@ballista/analysis`. Lock exactly two of (θ, v₀, R) and the third is solved: (θ, v₀) → R is
+  a forward evaluation, (θ, R) → v₀ is a bracketed Brent solve, (v₀, R) → θ delegates to P5.08's
+  `solveArcs` and returns both arcs. Suite **2132/2132 across 236 files** (was 2114/235 — 18 new
+  tests); typecheck, lint and `lint:deps` (1383 modules) green; app build green with
+  `check-bundle-size` at **71.6 kB gzipped, unchanged** against the 300 kB budget. Full detail in
+  `ROADMAP.json`.
+- **The three combinations are not three algorithms — two already existed and the third is one
+  integration. What was missing, and is the substance of this task, is one definition of R that all
+  three share.** R is the downrange of the terminal-event impact measured from the launch point,
+  which is `solveArcs`'s own range function rather than a new convention. Everything else follows:
+  the θ solve overrides the aim point's downrange with the requested R, and the v₀ solve and the
+  forward solve subtract the launch downrange from the impact.
+
+  That definition is what the tests are built around, because the plausible bug here is not a wrong
+  formula in one branch — it is two branches that are each defensible and disagree. So the criterion
+  _"all three lock combinations function"_ is read as **round trips**: solve v₀ from (θ, R), re-lock
+  (θ, v₀), and the R that comes back must be the R that went in; same for both arcs of the θ solve.
+  Asserted with drag on, where no closed form can be doing the work, and separately with drag and a
+  6 m/s headwind. Each combination is _also_ checked against the drag-free closed form on its own —
+  `R = v₀² sin 2θ/g` and its two inverses — so a shared error cannot hide inside a consistent round
+  trip.
+
+- **`range(v₀)` being monotone is load-bearing and is swept rather than argued.** The v₀ solve
+  brackets, and a bracketing method on a non-monotone function converges to _a_ root and reports it
+  as _the_ root — a wrong answer that looks converged. So monotonicity is measured: three elevations
+  (0.15, 0.6, 1.3 rad) × twenty speeds (10…200 m/s) with drag and headwind, every step strictly
+  increasing.
+- **Infeasible requests are answers, not exceptions.** Two ways to have none, both physical: past
+  the envelope at the locked speed (the θ solve, reporting `solveArcs`'s shortfall), and past the
+  range at the upper speed bound at the locked elevation (the v₀ solve). Both come back
+  `feasible: false` with a `reason` string and the shortfall in metres, because "by how much" is
+  what a designer UI needs in order to say what to change. The shortfall is checked for meaning and
+  not merely for sign: subtract it from the request and the same call becomes feasible. The third
+  bracket failure — a requested R _shorter_ than the lower speed bound already reaches — is caught
+  here too, since `brentRoot`'s own "does not bracket a sign change" names the symptom rather than
+  the cause.
+- **A request must name exactly two.** Three is over-determined and one is under-determined, and
+  both throw rather than being resolved by a default — a default would answer a different question
+  from the one asked while looking like it had answered this one.
+- **Four perturbations, applied and reverted; two of them changed the work.** Measuring R from the
+  origin instead of the launch point fails the launch-point round trip. Leaving the aim point's
+  downrange alone in the θ solve fails four cases. But the third — zeroing the aim-point components
+  that are _not_ downrange — changed **nothing**, which contradicted a comment this run had written
+  claiming those components carried the target's height into the solve. They do not: `solveArcs`
+  reads the aim point only for its length check and for `aimPoint[downrangeAxis]`. The comment was
+  wrong and is corrected, and the test that had been written to cover the imagined behaviour was
+  replaced by two that cover the real contract (the requested R overrides the target's downrange,
+  and overrides a caller-supplied `aimPoint` too). Recorded because a passing test written against a
+  misunderstanding is worse than no test.
+- **Not done, deliberately: no UI.** P5.22 is a solver-surface task and the blueprint's UI work for
+  this phase sits in P5.21's marker and P5.23's readout. Nothing imports the module outside its
+  tests, so the bundle is unchanged.
+
+Notes for the next run:
+
+- **`pnpm build` at the repo root still fails under pnpm 11.9.0** — unchanged from the 22nd run's
+  note, and still not this run's change or this run's task. The root script is
+  `pnpm -r --workspace-concurrency 1 run build`, and under this pnpm the flag placement makes `run`
+  parse as the script name (`ERR_PNPM_RECURSIVE_RUN_NO_SCRIPT`). `pnpm -r run build` succeeds and
+  was used for this run's build verification. CI calls the root script. Two runs have now hit it;
+  whoever picks it up should move the flag ahead of `run`.
+- P5.23 (ill-conditioning exhibit: grazing target near the envelope, `cond(J)` readout) is next by
+  `seq`. It is marked H and its criterion has two halves — `cond(J)` spikes near the envelope
+  _plotted_, and the solver _warns_ — which are separable if the run gets tight.
+
 ## 2026-08-12 (22nd run) — P5.21 (draggable target marker: solve-on-drop with arc choice)
 
 - **Done: P5.21.** A target marker the user drags across the plot and drops; the drop issues one
