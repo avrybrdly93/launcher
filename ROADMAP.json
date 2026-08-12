@@ -2433,8 +2433,8 @@
       "estMinutes": 25,
       "difficulty": "M",
       "validation": "drag\u2192solution < 200 ms typical (measured)",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed. Plan: target-marker-logic.ts (drag state machine + pointer->world mapping + arc choice), target-marker-panel.tsx (draggable marker, solve-on-drop via injected runner), and the <200 ms criterion measured on real solveArcs solves."
     },
     {
       "id": "P5.22",
