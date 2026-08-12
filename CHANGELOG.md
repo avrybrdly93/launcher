@@ -15,6 +15,60 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-12 (21st run) — P5.20 (basin-of-attraction map: initial-guess grid coloured by converged arc)
+
+- **Done: P5.20.** `sweepBasins` runs a grid of _initial guesses_ through `newtonShooting` and
+  paints each cell by the arc it converged to, answering "which of the two aims will the solver
+  give me if I start here?" — a question P5.08's arc pair raises and nothing so far answered.
+  The first half of the criterion, _two-arc basins render_, holds: 136 low / 153 high on a 17×17
+  grid over θ₀ ∈ [0.05, 1.5] rad and v₀ ∈ [40, 80] m/s against a 140 m target with drag and wind,
+  nothing unconverged, nothing unreachable. Pieces: `packages/analysis/src/basin-of-attraction.ts`,
+  `PlotlyHeatmapTrace`/`buildBasinFigure` in `lazy-plotly-pane.ts`, and `BasinPanel` +
+  `basin-panel-logic.ts`. Suite **2081/2081 across 233 files** (was 2032/230 — 50 new tests);
+  typecheck, lint, `lint:deps` (1365 modules) green; app build green with `check-bundle-size` at
+  **71.6 kB gzipped** against the 300 kB budget (was 71.5 kB). Full detail in `ROADMAP.json`.
+- **The second half of the criterion came out the other way, and that is the result, not a
+  shortfall.** _"boundary fractal-ish structure noted"_ — measured, the boundary is **smooth**.
+  Boundary cells per row (`n × boundaryFraction`, the scale-free form: an `n × n` grid has `n²`
+  cells, so a `k`-per-row boundary has fraction `k/n`):
+
+  |                        | n = 9     | n = 17    | n = 33    |
+  | ---------------------- | --------- | --------- | --------- |
+  | shipped solver         | **2.000** | **2.000** | **2.000** |
+  | `rankTolerance: 1e-14` | 1.823     | 2.556     | 3.432     |
+
+  Exactly two cells per row at every refinement is the pair straddling a single curve crossed once
+  — there is nothing at the finer scales to find. Drop `rankTolerance` below the ground-impact rank
+  deficiency P5.05 measured at ≈ `1e-11`, so the near-null singular value is **retained** rather
+  than truncated, and the same sweep speckles: isolated cells of the opposite label well inside both
+  basins, and a count that grows with refinement instead of holding. **So the fractal-ish boundary
+  the blueprint expected is what an unguarded Newton produces, and P5.06's truncated-SVD
+  minimum-norm step is exactly what removes it.** Both cases are asserted. Reported as a scaling
+  observation over three levels and deliberately **not** as a box-counting dimension, which three
+  levels do not support (§8.4).
+
+- **Why the arc label is the sign of `∂R/∂θ` and not a second solve.** The branch boundary _is_ the
+  maximum-range elevation — the point where that derivative changes sign — so reading the sign at
+  the converged aim is the definition of "low" and "high" rather than an approximation of it. It
+  costs one central difference per cell instead of a full `solveArcs` sweep per cell: on a 33×33
+  grid, ~2000 extra integrations against ~50 000. The step is `1e-4` rad, sized against the adaptive
+  integrator's own accuracy rather than against `√ε`, because differencing at `1e-8` would measure
+  the error tolerance instead of the physics. A slope that cannot be measured, or is exactly zero,
+  gives `"unconverged"` rather than a guessed label — a cell on the peak belongs to neither arc.
+  Relatedly, a cell is judged on its **downrange** miss and not on `result.converged`: the vertical
+  Jacobian row is zero for every aim, so against a raised target the solver's expected terminal
+  state is `"stalled"` with an honestly non-zero residual, and keying the map off `converged` would
+  render a uniform sheet of failures.
+- **Not done, and not claimed as done: no app route mounts `BasinPanel`.** `runSweep` is an injected
+  prop, the same way `ConvergenceTracePanel` takes `runOptimize`, and outside the tests nothing
+  supplies it. Wiring it needs a sweep job in `@ballista/runtime`'s worker protocol — `n²` Newton
+  solves must not run on the UI thread — which is its own change and was not started. **Next
+  session:** either add that job and mount the panel, or take **P5.21** (draggable target marker,
+  solve-on-drop with arc choice), which is the next roadmap task and touches the same solver
+  surface. The `ArcLabel` this task colours by is the same label P5.21's arc picker needs.
+
+---
+
 ## 2026-08-12 (20th run) — P5.19 (convergence trace plot: log‖F‖ vs iteration)
 
 - **Done: P5.19.** The trace panel now draws `‖F‖` on a log axis against a linear iteration index
