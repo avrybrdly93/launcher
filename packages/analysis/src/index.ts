@@ -4,6 +4,7 @@
 export const ANALYSIS_PACKAGE = "@ballista/analysis";
 
 export * from "./arcs.js";
+export * from "./basin-of-attraction.js";
 export * from "./brent-minimize.js";
 export * from "./constraints.js";
 export * from "./envelope.js";
