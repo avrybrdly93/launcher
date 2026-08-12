@@ -15,6 +15,84 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-12 (23rd run) — P5.22 (trajectory-designer: lock any two of θ, v₀, R)
+
+- **Done: P5.22.** `designTrajectory(problem, request, options)` in
+  `packages/analysis/src/trajectory-designer.ts`, exported from `@ballista/analysis`. The three
+  locks are a discriminated union on the _unknown_, so "lock any two" is enforced by the type
+  checker rather than by a runtime arity check on a bag of three optional fields — a
+  `{theta?, speed?, range?}` bag would admit all eight subsets, seven of them meaningless. Suite
+  **2131/2131 across 236 files** (was 2114/235 — 17 new tests, 1 new file); typecheck, lint and
+  `lint:deps` (1383 modules) green; app build green with `check-bundle-size` at **71.6 kB
+  gzipped** against the 300 kB budget, unchanged — nothing imports the module yet, so it
+  tree-shakes out. Full detail in `ROADMAP.json`.
+- **The three locks are not three variations on one solve, and the differences are the content.**
+
+  | locked | unknown | cost                                  | answers          |
+  | ------ | ------- | ------------------------------------- | ---------------- |
+  | θ, v₀  | R       | one flight                            | exactly one      |
+  | v₀, R  | θ       | a peak location + two Brent solves    | **two**, or none |
+  | θ, R   | v₀      | a bracket expansion + one Brent solve | one, or none     |
+
+  `(θ, v₀) → R` is not a solve at all — both aim components are fixed, so it flies once and reads
+  the impact, and it is the only lock that cannot fail on feasibility grounds. `(v₀, R) → θ`
+  delegates **wholly** to P5.08's `solveArcs`, inheriting its two answers, its _measured_ peak and
+  its low/high labels; deriving a single "the" angle here would have duplicated that work and
+  thrown away the second solution, which for a designer is the interesting half.
+
+- **`(θ, R) → v₀` is the only new numerics, and it is the easy one for a structural reason worth
+  stating: range is monotone in speed at fixed elevation.** Fire the same elevation harder and it
+  goes further, with no peak in between — so unlike the angle problem there is no branch
+  structure and at most one root. That is _why_ this lock returns one solution and the θ lock
+  returns two; it is a fact about the physics, not a choice. `brentRoot` is bracketed by geometric
+  expansion from the drag-free inverse `v₀ = √(gR / sin 2θ)`, which is exact without drag and a
+  strict _under_-estimate with it, so the expansion almost always runs upward — the direction the
+  bracket is guaranteed to be. Monotonicity is exploited but not assumed: a cap reached without a
+  sign change is reported `unreachable` rather than solved past. This follows `min-energy.ts`,
+  which already brackets `brentRoot` on speed; that precedent is reused, not reinvented.
+- **`R` means downrange displacement from the launch point** — not distance from the origin, not
+  slant range. A raised launch is first-class throughout this package, so measuring from the
+  launcher is the only reading that keeps the three locks consistent with one another. Two tests
+  pin it by moving the launcher 100 m downrange and requiring the answers not to move.
+- **Infeasibility is a value, never a throw** (`unreachable`, `degenerate-elevation`,
+  `non-positive-range`, `max-iterations`); a _malformed aim_ — negative speed, NaN angle — still
+  throws. A caller bug and an out-of-reach target must not come back looking alike.
+- **On the tests, and why the cross-lock section runs with drag on.** The criterion is "all three
+  lock combinations function", read as three claims. Each lock alone is checked against the
+  drag-free closed form `R = v₀² sin2θ / g` and its two analytic inverses — none of which the
+  implementation knows — plus `R/√(2h/g)` for the raised zero-elevation case, where `sin 2θ = 0`
+  leaves no seed formula and the fallback has to carry the solve. Then the locks are checked
+  against _each other_, **with drag on deliberately**: without drag, three independent
+  re-derivations of the same closed form would agree with one another while all being wrong, and
+  the round trip would prove nothing. With drag there is no formula to agree with, so agreement
+  can only come from genuinely inverting the same integrated trajectory. The cross-lock elevation
+  is 22.5°, chosen clear of this problem's _measured_ drag-lowered peak (~36°, max ~397 m at
+  95 m/s); sitting on the peak would collapse the two arcs and let a real disagreement pass. Arc
+  labels are checked against **flight time**, not elevation ordering, which is true by
+  construction of the brackets and so would survive a label swap.
+- **One test failed first and the code was right.** The cross-lock round trip initially requested
+  420 m at 95 m/s with `cd` 0.47 and came back with zero solutions. That range is genuinely
+  outside the envelope — measured 397 m at the peak — so the failure was the test's number, not
+  the solver's answer. The request was moved inside the measured envelope and the envelope written
+  into the comment, rather than the assertion being loosened.
+- **Not done, deliberately: no designer UI panel.** The criterion is about the lock combinations
+  functioning, and the solver is the thing that has to function. A panel is the natural follow-up
+  and would sit in the same not-yet-mounted position as P5.20's `BasinPanel` and P5.21's
+  `TargetMarkerPanel`.
+- **Found, not fixed — the root `pnpm build` script is broken under the pinned pnpm.**
+  `package.json`'s `"build": "pnpm -r --workspace-concurrency 1 run build"` fails with
+  `ERR_PNPM_RECURSIVE_RUN_NO_SCRIPT: None of the selected packages has a "run" script` on
+  **pnpm 11.9.0**, the version `packageManager` pins. All eight workspace packages _do_ have a
+  `build` script; pnpm 11 parses `--workspace-concurrency 1` sitting _before_ `run` as making
+  `run` the script name. Confirmed by moving the flag after the subcommand —
+  `pnpm -r run --workspace-concurrency 1 build` — which builds all eight cleanly. CI does not
+  catch this because `ci.yml` never invokes the root script; it runs
+  `pnpm --filter @ballista/app build` directly. `CLAUDE.md` nonetheless tells every session to run
+  "build" as part of the pre-push gate, so the documented gate cannot be run as written. **Left
+  unfixed on purpose** — it is outside P5.22 and the blueprint governs what tasks exist here, so
+  filing it beats a drive-by edit. It is a one-line fix for whoever picks it up. This run's gate
+  was satisfied by the CI-exact command plus the corrected-flag-order recursive build, both green.
+
 ## 2026-08-12 (22nd run) — P5.21 (draggable target marker: solve-on-drop with arc choice)
 
 - **Done: P5.21.** A target marker the user drags across the plot and drops; the drop issues one
