@@ -2444,8 +2444,8 @@
       "estMinutes": 25,
       "difficulty": "M",
       "validation": "all three lock combinations function",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed 2026-08-12. Plan: a pure solver in packages/analysis/src/trajectory-designer.ts exposing the three locks as a discriminated union on the unknown, so an invalid pair cannot be constructed. Lock (theta, speed) -> range is a forward residual evaluation. Lock (speed, range) -> theta delegates to P5.08's solveArcs and inherits its two-solution low/high answer. Lock (theta, range) -> speed is the only new numerics: brentRoot on speed, bracketed by expansion from the drag-free inverse v0 = sqrt(g R / sin 2theta), following min-energy.ts's existing speed-bracketing precedent."
     },
     {
       "id": "P5.23",
