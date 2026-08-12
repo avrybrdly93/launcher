@@ -21,6 +21,8 @@ export * from "./solver-panel.js";
 export * from "./advisor-hint-panel.js";
 export * from "./basin-panel-logic.js";
 export * from "./basin-panel.js";
+export * from "./target-marker-logic.js";
+export * from "./target-marker-panel.js";
 export * from "./convergence-trace-panel-logic.js";
 export * from "./convergence-trace-panel.js";
 export * from "./compare-legend.js";
