@@ -9,6 +9,7 @@ export * from "./constraints.js";
 export * from "./envelope.js";
 export * from "./min-energy.js";
 export * from "./nelder-mead.js";
+export * from "./newton-convergence-order.js";
 export * from "./newton-shooting.js";
 export * from "./observables.js";
 export * from "./optimal-angle.js";
