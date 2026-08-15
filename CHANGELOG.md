@@ -15,6 +15,90 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-15 (24th run) — P5.23 (ill-conditioning exhibit at the reachability envelope)
+
+- **Done: P5.23.** `packages/analysis/src/ill-conditioning.ts` (`solveArcsWithConditioning`,
+  `sweepEnvelopeConditioning`, `conditioningLevel`, `geometricMargins`, `logLogSlope`) plus
+  `buildConditionNumberFigure` in `lazy-plotly-pane.ts`. Suite **2169/2169 across 237 files**
+  (was 2131/236 — 38 new tests, 1 new file); typecheck, lint and `lint:deps` (1391 modules)
+  green; app build green with `check-bundle-size` at **71.6 kB gzipped** against the 300 kB
+  budget, unchanged — nothing imports either piece yet, so both tree-shake out. Full detail in
+  `ROADMAP.json`.
+- **The obvious Jacobian is the wrong one, and picking it would have produced a flat line.**
+  P5.05's `shootingJacobian` differentiates against the full aim `(θ, v₀)`, and the ground-impact
+  event pins its vertical row — so it is rank 1 for _every_ aim, its condition number sits around
+  `1e11` a kilometre inside the envelope and a millimetre outside it alike, and it says nothing
+  about the envelope at all. It is a fact about the _terminal event_. The fold the blueprint means
+  (§ "Globalization": _"the two solution arcs merge and det J → 0"_) is in the **fixed-speed**
+  problem P5.08 solves — one unknown `θ`, one equation — where `det J` is the single number
+  `∂R/∂θ` and it really does vanish, because the envelope _is_ the maximum of `R(θ)`. Free `v₀`
+  too and there is no fold: a target past the envelope at one speed is reached at a higher one.
+- **"Spikes" is a rate, not a magnitude, and the rate is a square root.** Near the quadratic
+  maximum a target short by `s` is hit at `θ_p ± √(2s/|R''|)`, so three things follow together:
+
+  | quantity                 | law        | measured (drag-free) | measured (`cd` 0.47) |
+  | ------------------------ | ---------- | -------------------- | -------------------- |
+  | sensitivity `\|∂θ/∂R\|`  | `s^(-1/2)` | **−0.4999**          | **−0.5009**          |
+  | arc separation `θ₊ − θ₋` | `s^(+1/2)` | **+0.5000**          | **+0.4999**          |
+
+  The drag columns are the ones that earn the word _exhibit_: a `−1/2` law visible only drag-free
+  could be an artifact of the closed form rather than of the fold. The practical reading is that
+  the blow-up is real but **gentle** — κ only doubles per factor of four in margin — which is
+  precisely why it is worth quantifying instead of gesturing at.
+
+- **The thresholds key off a dimensionless number, and the first attempt at them was wrong.**
+  A `rad/m` sensitivity is scale-dependent: the same well-posed shot reads `1.5e-3` at 60 m/s and
+  something else at 600, so no absolute threshold separates "ordinary" from "at the fold" across
+  problems. The first cut used one anyway, at `1e-3`, and duly flagged **every ordinary shot** as
+  ill-conditioned. It was replaced rather than tuned. The relative condition number works because
+  drag-free it is exactly `tan(2θ)/(2θ)` — **1** at zero elevation, divergent at the 45° peak — so
+  `κ ≈ 1` is what a well-posed shot _is_ here, and thresholds at 10 and 100 are real decades above
+  a real baseline, read as significant digits lost.
+- **Both closed forms are used as external references at every sampled target, not just
+  asymptotically**, and the tolerance is five significant figures rather than six for a reason
+  that is this module's own subject. A central difference truncates at `(h²/6)·R'''`, so its
+  _relative_ error is `(h²/6)·R'''/R'` — and `R' → 0` at the fold while `R'''` does not. The
+  measurement of the conditioning is itself conditioned by the thing it measures. A separate test
+  pins that the agreement degrades towards the fold, so the tolerance is a measurement rather than
+  a concession; shrinking `h` trades it for the integrator noise `shooting-jacobian.ts` documents
+  and lands worse.
+- **Found while building it, filed as `P0.97`, not fixed — and it is a correctness bug in shipped
+  code.** Launching from **exactly** `y = 0` makes the impact event true at `t = 0`, and whenever
+  the entire flight fits inside the integrator's first step the detector localizes _that_ root:
+  `ok: true`, `timeOfFlight: 0`, impact at the launch point. `solveArcs` inherits it and returns,
+  for a 50 m target at 60 m/s drag-free, a **low arc that misses by 39.32 m** — silently, with no
+  error of any kind. A 25 m target misses by the full 25 m; targets from 100 m out are fine, and
+  both high arcs are fine throughout, which is why `arcs.test.ts` never caught it. The mechanism is
+  measured rather than guessed: the residual dump shows `nSteps: 1` with a ~1.5 s first step, and
+  the 0.1229 rad cutoff is exactly the elevation whose drag-free flight time `2v₀sinθ/g` equals
+  1.5 s. **Raising the launcher by `1e-9` m fixes it outright** — at θ = 0.05 rad, `h = 0` gives
+  `tof 0, x 0` and `h = 1e-9` gives `tof 0.611575, x 36.6486`, the closed form. Blast radius:
+  P5.08, and through it P5.20, P5.21 and P5.22. Left unfixed on purpose — it is outside P5.23 and
+  the fix belongs to the event detector — but it outranks the rest of the backlog on this repo's
+  own priority order, so **it is the recommended next task**. This run's module guards its own
+  measurement against it (a zero flight time is rejected as hard as a failed solve) after
+  differencing across the cliff produced `4.5e5 m/rad` against a drag-free maximum of `734`; that
+  guard is local and is not a fix.
+- **Not done, deliberately: no UI panel**, the same not-yet-mounted position as P5.20's
+  `BasinPanel`, P5.21's `TargetMarkerPanel` and P5.22's designer. Also not done: the _fix_ for the
+  ill-conditioning. The LM fallback is P5.26 and multi-start is P5.27;
+  `solveArcsWithConditioning` is a reporting wrapper that returns `solveArcs`' answer unchanged,
+  so P5.26 still has an unimproved baseline to measure against.
+
+Notes for the next run:
+
+- **Take `P0.97` before `P5.24`.** It is a wrong answer returned silently by a solver three later
+  tasks build on, and this repo's priority order puts a correctness bug above everything else.
+  The suggested fix is in the task notes: an event already zero at `t0` should require a departure
+  before a crossing counts, rather than being localized at the initial condition.
+- **`pnpm build` at the repo root is still broken and is still not this run's change** — filed as
+  `P0.90`/`P0.93`, now unfixed across four runs. The root script is
+  `pnpm -r --workspace-concurrency 1 run build`, which under the pinned pnpm 11.9.0 parses `run`
+  as the script name. This run's build gate was satisfied the way CI does it —
+  `pnpm --filter @ballista/app build` followed by `check-bundle-size` — both green.
+
+---
+
 ## 2026-08-12 (23rd run) — P5.22 (trajectory-designer: lock any two of θ, v₀, R)
 
 - **Done: P5.22.** `designTrajectory(problem, request, options)` in
