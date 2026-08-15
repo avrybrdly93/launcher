@@ -125,7 +125,7 @@ export const CONDITION_NUMBER_THRESHOLDS: Readonly<Record<"illConditioned" | "at
  */
 export const DEFAULT_SLOPE_STEP = 1e-4;
 
-/** Tuning for {@link assessConditioning} and {@link solveArcsWithConditioning}. */
+/** Tuning for {@link solveArcsWithConditioning} and {@link sweepEnvelopeConditioning}. */
 export interface ConditioningOptions extends ArcOptions {
   /** Central-difference step in `θ`, radians. Defaults to {@link DEFAULT_SLOPE_STEP}. */
   readonly slopeStep?: number;
@@ -148,8 +148,12 @@ export interface ArcConditioning {
    */
   readonly slope: number | null;
   /**
-   * `|∂θ/∂R| = 1/|slope|`, radians of aim per metre of target — the quantity
-   * the thresholds are stated in, and the one that diverges at the fold.
+   * `|∂θ/∂R| = 1/|slope|`, radians of aim per metre of target.
+   *
+   * This is the *pure* `s^{-1/2}` quantity — the one whose log-log fit against
+   * the shortfall the tests measure at −0.4999 — but it is dimensional and
+   * scale-dependent, so it is not what {@link level} judges. See
+   * {@link relativeConditionNumber}, which is.
    *
    * `Infinity` at an exactly zero slope; `null` when {@link slope} is.
    */

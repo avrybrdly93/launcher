@@ -17,6 +17,7 @@ import {
   buildPlotlyFigure,
   buildStabilityRegionFigure,
   buildWorkPrecisionFigure,
+  buildConditionNumberFigure,
   BASIN_CLASS_INDEX,
   BASIN_COLOURS,
   buildBasinFigure,
@@ -365,5 +366,84 @@ describe("buildBasinFigure (P5.20)", () => {
     expect(data[0]!.type).toBe("heatmap");
     expect(data[0]!.zsmooth).toBe(false);
     expect(data[0]!.hoverongaps).toBe(false);
+  });
+});
+
+describe("buildConditionNumberFigure (P5.23)", () => {
+  /**
+   * Rows straight off `sweepEnvelopeConditioning`'s shape: margins descending
+   * towards the fold, κ rising as margin^(-1/2) and the arc separation falling
+   * as margin^(+1/2). The numbers are the exact power laws rather than measured
+   * ones, so a figure bug cannot hide behind integration noise.
+   */
+  const points = [1000, 100, 10, 1, 0.1].map((envelopeMargin) => ({
+    envelopeMargin,
+    conditionNumber: Math.pow(envelopeMargin, -0.5),
+    arcSeparation: Math.pow(envelopeMargin, 0.5),
+  }));
+
+  it("puts both axes on a log scale, which is what makes the −1/2 slope visible", () => {
+    const spec = buildConditionNumberFigure(points);
+
+    expect(spec.xAxis.type).toBe("log");
+    expect(spec.yAxis.type).toBe("log");
+  });
+
+  it("plots κ and the arc separation on the same axes, as two faces of one fold", () => {
+    const spec = buildConditionNumberFigure(points);
+
+    expect(spec.traces).toHaveLength(2);
+    expect(spec.traces[0]!.name).toContain("κ");
+    expect(spec.traces[1]!.name).toContain("separation");
+  });
+
+  it("carries the margins through unreversed, fold at the left edge", () => {
+    const [kappa] = buildConditionNumberFigure(points).traces;
+
+    expect((kappa as { x: readonly number[] }).x).toEqual([1000, 100, 10, 1, 0.1]);
+    expect((kappa as { y: readonly number[] }).y[0]).toBeCloseTo(Math.pow(1000, -0.5), 12);
+  });
+
+  it("drops rows at or beyond the envelope rather than clamping them onto the log axis", () => {
+    const withPastFold = [
+      ...points,
+      { envelopeMargin: 0, conditionNumber: 5, arcSeparation: 1 },
+      { envelopeMargin: -12, conditionNumber: 5, arcSeparation: 1 },
+    ];
+    const [kappa] = buildConditionNumberFigure(withPastFold).traces;
+
+    // Past the fold there is no solution to be conditioned; a clamped point
+    // would draw one.
+    expect((kappa as { x: readonly number[] }).x).toHaveLength(points.length);
+  });
+
+  it("drops a non-finite or non-positive κ, the same rule as the Newton trace", () => {
+    const poisoned = [
+      { envelopeMargin: 10, conditionNumber: Infinity, arcSeparation: 1 },
+      { envelopeMargin: 5, conditionNumber: 0, arcSeparation: 1 },
+      { envelopeMargin: 1, conditionNumber: 7, arcSeparation: 1 },
+    ];
+    const [kappa] = buildConditionNumberFigure(poisoned).traces;
+
+    expect((kappa as { x: readonly number[] }).x).toEqual([1]);
+  });
+
+  it("keeps a single-arc row out of the separation trace but in the κ trace", () => {
+    const oneArc = [
+      { envelopeMargin: 10, conditionNumber: 3, arcSeparation: null },
+      { envelopeMargin: 1, conditionNumber: 9, arcSeparation: 0.5 },
+    ];
+    const [kappa, separation] = buildConditionNumberFigure(oneArc).traces;
+
+    expect((kappa as { x: readonly number[] }).x).toEqual([10, 1]);
+    expect((separation as { x: readonly number[] }).x).toEqual([1]);
+  });
+
+  it("renders through buildPlotlyFigure as two scatter traces", () => {
+    const { data, layout } = buildPlotlyFigure(buildConditionNumberFigure(points));
+
+    expect(data).toHaveLength(2);
+    expect((layout.xaxis as { type: string }).type).toBe("log");
+    expect((layout.yaxis as { type: string }).type).toBe("log");
   });
 });

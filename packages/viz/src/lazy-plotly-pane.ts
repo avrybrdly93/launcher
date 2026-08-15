@@ -460,6 +460,82 @@ export function buildBasinFigure(grid: BasinFigureGrid): PlotlyFigureSpec {
   };
 }
 
+/** One row of the ill-conditioning exhibit -- the three fields {@link buildConditionNumberFigure} plots, which a caller maps from a `ConditioningSample` (`@ballista/analysis`) by picking an arc's `relativeConditionNumber`. Declared structurally rather than imported so this module keeps no dependency on the analysis package. */
+export interface ConditionNumberPoint {
+  /** Metres short of the envelope. Non-positive rows are dropped by the figure. */
+  readonly envelopeMargin: number;
+  /** The relative condition number at that margin. */
+  readonly conditionNumber: number;
+  /** `θ_high − θ_low` there, radians, or `null` if only one arc exists. */
+  readonly arcSeparation: number | null;
+}
+
+/**
+ * Ill-conditioning exhibit (P5.23): the relative condition number of the
+ * fixed-speed aim problem against distance to the reachability envelope, with
+ * the arc separation on the same axes.
+ *
+ * **Log-log, and the axes are the argument.** The claim this figure exists to
+ * support is not "κ gets big near the envelope" but that it grows as
+ * `margin^(-1/2)` — so the point of the picture is that the trace is a
+ * *straight line of slope −1/2*, and only log-log makes that visible. On linear
+ * axes the same data is a hyperbola-ish sweep up the left edge, which looks
+ * dramatic and says nothing about the rate. This is the opposite choice from
+ * {@link buildNewtonTraceFigure}, whose x-axis is an iteration count and
+ * deliberately stays linear, and the same one as the work-precision and
+ * convergence figures, whose x is continuous.
+ *
+ * **The fold is at the left-hand edge**, since the margin axis ascends
+ * normally and the fold is where the margin is smallest. The alternative — a
+ * reversed axis, so that approaching the envelope reads as moving rightward —
+ * would need a `reversed` flag on {@link PlotlyAxisSpec} that nothing else
+ * wants yet, and inventing shared vocabulary for one caller is how a figure
+ * layer accretes options. Left as it is, deliberately.
+ *
+ * **Arc separation shares the plot rather than getting its own.** It falls as
+ * `margin^(+1/2)`, so on these axes it is a line of the opposite slope, and the
+ * two crossing traces are the fold's two faces — the Jacobian degenerating and
+ * the two solutions merging — shown to be one phenomenon. Two separate figures
+ * would show two coincidences.
+ *
+ * Rows at or beyond the envelope (`envelopeMargin ≤ 0`) are dropped rather than
+ * clamped: they are past the fold, where there is no solution to be conditioned
+ * and a log axis has nowhere to put them. Non-finite and non-positive κ go the
+ * same way, for the reason {@link buildNewtonTraceFigure} states.
+ */
+export function buildConditionNumberFigure(
+  points: readonly ConditionNumberPoint[],
+): PlotlyFigureSpec {
+  const usable = points.filter(
+    (point) =>
+      point.envelopeMargin > 0 &&
+      Number.isFinite(point.envelopeMargin) &&
+      point.conditionNumber > 0 &&
+      Number.isFinite(point.conditionNumber),
+  );
+  const separated = usable.filter(
+    (point) => point.arcSeparation !== null && point.arcSeparation > 0,
+  );
+
+  return {
+    title: "Conditioning at the reachability envelope",
+    traces: [
+      {
+        name: "κ (relative condition number)",
+        x: usable.map((point) => point.envelopeMargin),
+        y: usable.map((point) => point.conditionNumber),
+      },
+      {
+        name: "arc separation θ₊ − θ₋ (rad)",
+        x: separated.map((point) => point.envelopeMargin),
+        y: separated.map((point) => point.arcSeparation!),
+      },
+    ],
+    xAxis: { title: "margin to envelope (m), approaching the fold rightwards", type: "log" },
+    yAxis: { title: "κ, and arc separation (rad)", type: "log" },
+  };
+}
+
 /**
  * Mounts `spec` into `container` via lazy-loaded Plotly. Safe to call again
  * on the same `container` to update in place (Plotly's `newPlot` reconciles
