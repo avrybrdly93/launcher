@@ -8,6 +8,7 @@ export * from "./basin-of-attraction.js";
 export * from "./brent-minimize.js";
 export * from "./constraints.js";
 export * from "./envelope.js";
+export * from "./ill-conditioning.js";
 export * from "./min-energy.js";
 export * from "./nelder-mead.js";
 export * from "./newton-convergence-order.js";
