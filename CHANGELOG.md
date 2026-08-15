@@ -15,6 +15,55 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-15 (25th run) — P0.97 (ground-level launch fired its impact event at t=0)
+
+- **Done: P0.97**, the correctness bug the 24th run found and filed rather than fixed. Taken
+  ahead of P5.24 (the next task by `seq`, and marked "optional" in its own title) because it
+  was a silently wrong answer in shipped behaviour: `solveArcs` returned a low arc for a 50 m
+  target that missed by 39 m, with `ok: true`, no error, and 39 iterations of a root finder
+  working on a function with a cliff in it. Fix in
+  `packages/solverkit/src/event-detection.ts`; suite **2198/2198 across 237 files** (was
+  2169/237 — 29 new tests, no new file); typecheck, lint and `lint:deps` (1389 modules) green;
+  app build green with `check-bundle-size` at **71.7 kB gzipped** against the 300 kB budget.
+  Full detail in `ROADMAP.json`.
+- **Reproduced before anything was edited, and the 24th run's mechanism note needed one
+  correction.** It estimates the first step at "about 1.5 s"; the step is **6 s** —
+  `(tFinal - t0)/DEFAULT_STEP_COUNT` = 600/100 — and 1.5 s is its _first interior sample_.
+  DOPRI5 accepts that 6 s step whole because constant acceleration makes `y(t)` a quadratic it
+  integrates exactly, so the error estimate is ~0 and adaptivity never shrinks it. The real
+  condition is therefore `tof < h/4`, not `tof < h`, and the measured cutoff at v₀ = 60 m/s
+  (θ = 0.12 fails, θ = 0.125 passes) is exactly the 0.25 sample.
+- **Two faults compose, and fixing either alone is wrong — which was observed, not predicted.**
+  The exact zero of `g_gnd = y` at `t0` made `(0, negative)` read as a falling crossing, and
+  `brentRoot` handed `gLo = 0` returns the left endpoint without iterating. But the real
+  crossing can lie entirely inside the first sub-interval, which nothing sampled. The first
+  draft suppressed the spurious bracket only, turned a wrong answer into a missed event, and
+  **failed 26 tests** — the outcome the 24th run's note warned about in advance. The landed fix
+  adds a 12-rung geometric ladder inside that sub-interval alongside the suppression.
+- **A horizontal launch from exactly ground level still lands at t=0, and that is deliberate.**
+  With `v_y = 0` at `y = 0` the shot leaves _through_ the surface rather than departing it, so
+  `t=0` is the right answer. `crossesInDirection` — the event's own declared direction — is what
+  decides which of the two cases applies, so the rule is correct for any event rather than
+  hand-fitted to the ground. This is not a curiosity: `solveArcs` evaluates θ = 0 at its lower
+  angle bound on every call, and the first draft's blanket suppression broke every ground-launch
+  test in `arcs.test.ts`.
+- **The ladder's floor is documented rather than hidden.** Its last rung resolves an excursion
+  about `6.1e-5` of a step — 0.37 ms on the default 6 s step, an elevation near `3e-6` rad and a
+  range near 2 cm. Below that the `t0` crossing is reported instead, so the answer degrades
+  continuously to the θ → 0 limit rather than failing.
+- **Failing-first evidence, measured against the pre-fix scanner rather than asserted:** 4 of
+  the 6 new `event-detection.test.ts` cases fail, and 13 of the 23 new `arcs.test.ts` cases fail
+  — all 13 at targets of 1–100 m, with 130 m and beyond passing before the fix. That band is
+  exactly what the mechanism predicts and is why the defect stayed invisible for so long. The
+  cases that pass both before and after are pinning behaviour the fix preserves, and they say so.
+- **Next run:** the next task by `seq` is **P5.24** (discrete-adjoint note, "optional" in its own
+  title, `H`), then P5.25 (regression: optimization goldens pinned) and P5.26 (Levenberg–Marquardt
+  fallback). If a shorter run is wanted instead, **P0.98** is newly filed and self-contained: a
+  drag-free bouncing ball has closed-form impact times, and no test covers a bounce whose flight
+  is shorter than a quarter step — the regime every restitution solve enters as it loses height.
+  Note P0.94 (`format:check` not in CI) and P0.96 (the wall-clock assertion that flakes) are both
+  still open and both still one-decision items for a human.
+
 ## 2026-08-15 (24th run) — P5.23 (ill-conditioning exhibit at the reachability envelope)
 
 - **Done: P5.23.** `packages/analysis/src/ill-conditioning.ts` (`solveArcsWithConditioning`,
