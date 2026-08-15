@@ -2455,8 +2455,8 @@
       "estMinutes": 25,
       "difficulty": "H",
       "validation": "cond(J) spikes near envelope (plotted); solver warns",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed by the 24th run (2026-08-15). Building the exhibit as packages/analysis/src/ill-conditioning.ts: the fold is in the FIXED-SPEED arc problem, so the Jacobian whose determinant vanishes is the 1x1 dR/dtheta, not the 2x2 d(F)/d(theta, v0) — that one is rank 1 for every aim because of the ground-impact event (P5.05), so its condition number is astronomical everywhere and says nothing about the envelope."
     },
     {
       "id": "P5.24",
