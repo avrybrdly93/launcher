@@ -118,6 +118,74 @@ describe("solveArcs on a drag-free ground launch", () => {
     expect(pair.high!.aim.speed).toBe(speed);
   });
 
+  /**
+   * P0.97's validation criterion. Before the event detector was fixed, a
+   * launch from exactly y=0 fired the ground-impact event at t=0 for every
+   * elevation whose whole flight fit inside the integrator's first
+   * sub-interval — so the range function read 0 across that entire band, and
+   * `solveArcs` returned a low arc for a short target that missed by nearly
+   * the whole distance, with `ok: true` and no error of any kind.
+   *
+   * The band is not exotic: at v₀ = 80 m/s the default first step is 6 s
+   * (tspan/100, accepted whole because DOPRI5 integrates drag-free flight
+   * exactly), its first interior sample is at 1.5 s, and every elevation
+   * below about 0.0921 rad flies for less than that. Those elevations are
+   * the low arcs of every target inside roughly 130 m.
+   */
+  describe("short targets, whose low arc flies inside the integrator's first sample (P0.97)", () => {
+    // Chosen to straddle the old cutoff: 1 m and 10 m are far below it, 130 m
+    // is around it, and 400 m is comfortably above and would have passed
+    // before the fix. The envelope here is v₀²/g ≈ 652 m.
+    const shortTargets = [1, 5, 10, 25, 50, 100, 130, 200, 400, 600];
+
+    it.each(shortTargets)("solves both arcs for a target at %d m", (range) => {
+      const pair = solveArcs(simpleProblem({ kind: "point", center: [range, 0] }), speed);
+
+      expect(pair.reachable).toBe(true);
+      expect(Math.abs(pair.low!.downrangeMiss)).toBeLessThan(1e-8);
+      expect(Math.abs(pair.high!.downrangeMiss)).toBeLessThan(1e-8);
+    });
+
+    it.each(shortTargets)("lands the low arc on ½asin(gR/v₀²) for %d m", (range) => {
+      const pair = solveArcs(simpleProblem({ kind: "point", center: [range, 0] }), speed);
+      const closedForm = 0.5 * Math.asin((G_STD * range) / (speed * speed));
+
+      expect(pair.low!.aim.theta).toBeCloseTo(closedForm, 9);
+      expect(pair.high!.aim.theta).toBeCloseTo(Math.PI / 2 - closedForm, 9);
+    });
+
+    it("flies for a nonzero time at every elevation in (0, π/2)", () => {
+      // The direct statement of the defect, independent of any solver: the
+      // range function itself read zero across the band. A flight time of
+      // exactly zero at a positive elevation is the signature.
+      const residual = createShootingResidual(simpleProblem({ kind: "point", center: [1, 0] }));
+
+      for (const theta of [1e-4, 1e-3, 0.01, 0.02, 0.05, 0.09, 0.0921, 0.1, 0.5, 1.5]) {
+        const evaluation = residual({ theta, speed });
+
+        expect(evaluation.ok).toBe(true);
+        expect(evaluation.timeOfFlight).toBeGreaterThan(0);
+        // Against the closed form, not against a previously recorded number.
+        expect(evaluation.timeOfFlight!).toBeCloseTo((2 * speed * Math.sin(theta)) / G_STD, 9);
+        expect(evaluation.impact![0]!).toBeCloseTo(dragFreeRange(speed, theta), 6);
+      }
+    });
+
+    it("still lands at t=0 for a horizontal launch from exactly ground level", () => {
+      // The boundary case the fix deliberately preserves, and the one
+      // `solveArcs` evaluates at its own lower angle bound every time it
+      // runs: with v_y = 0 at y = 0 the shot leaves through the surface
+      // rather than departing it, so t=0 is the right answer and refusing it
+      // breaks every call above.
+      const residual = createShootingResidual(simpleProblem({ kind: "point", center: [1, 0] }));
+      const evaluation = residual({ theta: 0, speed });
+
+      expect(evaluation.ok).toBe(true);
+      expect(evaluation.timeOfFlight).toBe(0);
+      expect(evaluation.impact![0]).toBe(0);
+    });
+  });
+
   it("measures the peak at π/4 and the envelope at v₀²/g", () => {
     const pair = solveArcs(simpleProblem({ kind: "point", center: [targetRange, 0] }), speed);
     // peakTol is 1e-4 rad by default and that is all this may claim.

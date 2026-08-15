@@ -152,3 +152,199 @@ describe("scanStepForEvents (P2.32, §4.9)", () => {
     expect(candidates.filter((c) => c.event === flatEvent)).toHaveLength(0);
   });
 });
+
+/**
+ * An event already *active* at the step's start: `g(t0)` is exactly zero
+ * (P0.97). A launcher standing on the deck satisfies `g_gnd = y = 0` at
+ * `t=0`, and so does the post-bounce state of a restitution impact.
+ *
+ * These cases pin both halves of the fix, because either alone is wrong.
+ * Reporting the zero at `t0` as a crossing makes the solve end at the launch
+ * instant with zero flight time. Merely refusing to report it makes the solve
+ * *miss* an excursion that is entirely inside the first sub-interval, where
+ * the original five-sample scan never looked -- a wrong answer replaced by no
+ * answer.
+ *
+ * The trajectory used throughout is `g(theta) = departure(theta) `, a
+ * parabolic arc leaving zero at `theta=0` and returning at `theta=tof`, which
+ * is exactly the shape of `y(t)` under gravity.
+ */
+describe("scanStepForEvents with an event active at the step start (P0.97)", () => {
+  /**
+   * `g` rises from exactly zero and comes back down through it at
+   * `theta = returnTheta`, staying negative thereafter -- a launch and its
+   * impact, in dense-output coordinates.
+   */
+  function arcInterpolant(returnTheta: number): (theta: number, out: Float64Array) => void {
+    return (theta: number, out: Float64Array) => {
+      out[0] = theta * (returnTheta - theta);
+    };
+  }
+
+  const FALLING = withDirection("falling");
+
+  it("does not report the initial zero as a crossing when the state departs", () => {
+    // The bug: (g=0 at theta=0, g<0 at theta=0.25) reads as a falling
+    // crossing, and localization handed gLo=0 returns t0 without iterating.
+    const y0 = new Float64Array([0]);
+    const y1 = new Float64Array([-1]);
+    const candidates = scanStepForEvents(
+      [FALLING],
+      0,
+      y0,
+      1,
+      y1,
+      arcInterpolant(0.1),
+      new Float64Array(1),
+    );
+
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0]!.thetaLo).toBeGreaterThan(0);
+    expect(candidates[0]!.gLo).toBeGreaterThan(0);
+  });
+
+  it("brackets a return crossing that lies entirely inside the first sub-interval", () => {
+    // The half that a bare suppression would break: the whole excursion is
+    // inside [0, 0.25], which the original scan never sampled.
+    const y0 = new Float64Array([0]);
+    const y1 = new Float64Array([-1]);
+    const candidates = scanStepForEvents(
+      [FALLING],
+      0,
+      y0,
+      1,
+      y1,
+      arcInterpolant(0.02),
+      new Float64Array(1),
+    );
+
+    expect(candidates).toHaveLength(1);
+    const { thetaLo, thetaHi, gLo, gHi } = candidates[0]!;
+    expect(thetaLo).toBeGreaterThan(0);
+    expect(thetaHi).toBeLessThanOrEqual(0.25);
+    // A genuine sign-bracketed interval, so Brent has a root to find rather
+    // than an endpoint to return.
+    expect(gLo).toBeGreaterThan(0);
+    expect(gHi).toBeLessThan(0);
+    expect(thetaLo).toBeLessThan(0.02);
+    expect(thetaHi).toBeGreaterThan(0.02);
+  });
+
+  it("resolves an excursion three decades shorter than the step", () => {
+    const y0 = new Float64Array([0]);
+    const y1 = new Float64Array([-1]);
+    const candidates = scanStepForEvents(
+      [FALLING],
+      0,
+      y0,
+      1,
+      y1,
+      arcInterpolant(1e-3),
+      new Float64Array(1),
+    );
+
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0]!.gLo).toBeGreaterThan(0);
+    expect(candidates[0]!.gHi).toBeLessThan(0);
+  });
+
+  it("still fires at t0 when the state leaves through the surface", () => {
+    // Not a defect and deliberately preserved: a horizontal launch from
+    // exactly ground level has vy=0 and goes straight down, so it lands at
+    // t=0 with zero range. Suppressing this case is what broke solveArcs'
+    // theta=0 bound while the first draft of the fix was in place.
+    const y0 = new Float64Array([0]);
+    const y1 = new Float64Array([-1]);
+    const candidates = scanStepForEvents(
+      [FALLING],
+      0,
+      y0,
+      1,
+      y1,
+      (theta, out) => {
+        out[0] = -theta * theta;
+      },
+      new Float64Array(1),
+    );
+
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0]!.thetaLo).toBe(0);
+    expect(candidates[0]!.gLo).toBe(0);
+  });
+
+  it("honours a declared direction at the initial zero", () => {
+    // The mirror of the case above for a rising event: departing downward and
+    // returning upward through zero is a rising crossing, and the zero at t0
+    // is the departure rather than the crossing.
+    const y0 = new Float64Array([0]);
+    const y1 = new Float64Array([1]);
+    const candidates = scanStepForEvents(
+      [withDirection("rising")],
+      0,
+      y0,
+      1,
+      y1,
+      (theta, out) => {
+        out[0] = -theta * (0.02 - theta);
+      },
+      new Float64Array(1),
+    );
+
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0]!.thetaLo).toBeGreaterThan(0);
+    expect(candidates[0]!.gLo).toBeLessThan(0);
+    expect(candidates[0]!.gHi).toBeGreaterThan(0);
+  });
+
+  it("adds no samples and no candidates when the event is not active at the start", () => {
+    // The ladder must cost nothing on an ordinary step. Counting `g` calls is
+    // the only way to see that from outside.
+    let calls = 0;
+    const counting: EventSpec = {
+      name: "counting",
+      g: (_t: number, y: Float64Array) => {
+        calls++;
+        return y[0]!;
+      },
+      direction: "falling",
+    };
+    const y0 = new Float64Array([1]);
+    const y1 = new Float64Array([-1]);
+    const candidates = scanStepForEvents(
+      [counting],
+      0,
+      y0,
+      1,
+      y1,
+      // Quadratic, so the crossing at theta = 1/sqrt(2) misses every sample
+      // point -- a root landing exactly on one produces two brackets, which
+      // is pre-existing behaviour and not what this case is about.
+      (theta, out) => {
+        out[0] = 1 - 2 * theta * theta;
+      },
+      new Float64Array(1),
+    );
+
+    expect(candidates).toHaveLength(1);
+    // Endpoints plus the three interior samples: the original five.
+    expect(calls).toBe(5);
+  });
+
+  it("reports nothing when g is identically zero across the step", () => {
+    const y0 = new Float64Array([0]);
+    const y1 = new Float64Array([0]);
+    const candidates = scanStepForEvents(
+      [FALLING],
+      0,
+      y0,
+      1,
+      y1,
+      (_theta, out) => {
+        out[0] = 0;
+      },
+      new Float64Array(1),
+    );
+
+    expect(candidates).toHaveLength(0);
+  });
+});
