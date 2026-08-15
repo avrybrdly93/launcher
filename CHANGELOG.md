@@ -15,6 +15,49 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-15 (26th run) — P0.98 attempted, returned to todo; P0.99 and P1.00 filed
+
+- **P0.98 is not done, and that is the finding rather than a shortfall.** It asked for a test of
+  restitution bounces whose whole flight is shorter than a quarter step. **The regime is not
+  reachable from the adaptive driver**, which truncates each step to land on the localized event:
+  across both an `e = 0.5` and an `e = 0.2` drop-from-rest sequence, `flight / step` measures
+  **5.00 at every bounce** — about five steps per flight, never a fraction of one — even where the
+  flight is `1.3e-4 s` against a nominal step of `0.12`. The decisive check: **emptying P0.97's
+  `DEPARTURE_THETAS` ladder leaves the entire new test file green**, so the sub-interval path is
+  demonstrably untouched. Marking the task done on that evidence would have been a false
+  completion claim. It goes back to `todo` with the measurement recorded, blocked behind P0.99.
+- **Landed anyway, because it is real coverage:** `restitution-bounce-short-flights.test.ts`, 5
+  cases pinning impact **times** for a drag-free bouncing ball against the closed form
+  `t_n = t0 (1 + 2 e (1 - e^n) / (1 - e))` to **1e-12 relative** (measured error 2.1e-15), plus the
+  resolved impact count and the approach to the Zeno accumulation point. `restitution-bounce.test.ts`
+  asserts energy conservation, re-arming and monotone decay but never checks an impact time against
+  an analytical value, so this angle did not exist. Suite **2203/2203 across 238 files** (was
+  2198/237); typecheck, `lint` and `lint:deps` (1392 modules) green; app build green with
+  `check-bundle-size` at **71.7 kB gzipped** against the 300 kB budget.
+- **P0.99 — a silent wrong answer of the same shape as P0.97, and arguably worse.** `integrate.ts`
+  gates its entire event block on `hasEvents`, which requires `stepper.interpolant !== undefined`.
+  Every fixed-step stepper in the package — `ClassicalRK4`, explicit and semi-implicit Euler, Heun,
+  midpoint, SDIRK2, the symplectic ones — exposes no interpolant, so **event detection is switched
+  off entirely and nothing warns.** Same model, same `h = 0.12`, terminal ground impact, `y0 = [0,
+5, 3, 0]`: DOPRI5 stops correctly at `t = 1.009810` with `y = 1.0e-15`; `ClassicalRK4` runs the
+  full span and finishes **701 m underground** reporting `status: "ok"`. P0.97 needed a near-zero
+  elevation to trigger; this needs only a stepper choice. Filed with the repro and two candidate
+  fixes (fail loudly at init, or build a Hermite interpolant from step endpoints), not fixed here —
+  the guard is presumably deliberate and the right answer wants an ADR.
+- **P1.00 — bouncing solves tunnel through the ground past the Zeno point.** Distinct from P0.99:
+  this reproduces on the _adaptive_ path with dense output present and events firing normally. A
+  drag-free bouncing ball accumulates infinitely many impacts at `t_inf`, so running out of
+  resolution is expected; what is not is that the ball then passes **through** the ground and
+  free-falls. At `H0 = 5, e = 0.2` over `[0, 12]`: 7 impacts resolved, the last at `t = 1.514683`
+  against `t_inf = 1.514715`, then `yFinal = -5.391e+2` with `status: "ok"`. Every resolved impact
+  time is right to 2.1e-15, so localization is not at fault — nothing catches the ball. Needs a
+  resting-contact model, which blueprint §4.9 does not currently specify; filed for an ADR.
+- **Next run:** take **P0.99** — it is a correctness bug producing silently wrong answers, it
+  outranks everything else open by the repo's own priority order, and it is what unblocks P0.98
+  (a fixed step is the only way to reach that regime). Then P1.00, then P0.98 becomes doable with
+  `ClassicalRK4Stepper` at a fixed `h`. P5.24 remains the next task by `seq` and remains marked
+  optional in its own title.
+
 ## 2026-08-15 (25th run) — P0.97 (ground-level launch fired its impact event at t=0)
 
 - **Done: P0.97**, the correctness bug the 24th run found and filed rather than fixed. Taken
