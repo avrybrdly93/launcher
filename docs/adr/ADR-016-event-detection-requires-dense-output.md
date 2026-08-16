@@ -1,11 +1,11 @@
-# ADR-016: Event Detection Requires Dense Output, and `integrate` Says So Loudly
+# ADR-016: Event Detection Without Dense Output — Why the Two Obvious Fixes Are Both Wrong
 
-**Status:** Accepted
+**Status:** Proposed — the defect is confirmed and measured, the remedy is not decided
 **Date:** 2026-08-16
 
 ## Context
 
-`integrate()` gated its whole event block on a single expression
+`integrate()` gates its whole event block on a single expression
 (`packages/solverkit/src/integrate.ts`):
 
 ```ts
@@ -16,8 +16,8 @@ The third conjunct is the problem. Root localization genuinely needs dense
 output — `scanStepForEvents` samples $g$ inside the step and
 `localizeEventRoot` brackets the sign change on the interpolant — so a
 stepper without one cannot locate an event. But the consequence of that
-conjunct was that a model _declaring_ events, integrated with a stepper
-_without_ an interpolant, silently integrated as if it had declared none.
+conjunct is that a model _declaring_ events, integrated with a stepper
+_without_ an interpolant, silently integrates as if it had declared none.
 No warning, no failure, no diagnostic on the report.
 
 Every fixed-step stepper in the package is in that category:
@@ -38,84 +38,113 @@ drag-free planar model with a terminal ground impact and
 The projectile falls 701 m through the ground and the solve reports success.
 This is the same shape of defect as P0.97 — a wrong answer with `ok: true`
 and no error — and reaching it needs only a stepper choice, not an unusual
-input.
+input. It reproduces identically on explicit Euler, Heun and midpoint.
 
 ## Decision
 
-**`integrate()` throws at init when a model declares events and the supplied
-stepper has no interpolant.** The guard is not widened and the events are not
-silently dropped:
+**None yet.** What this ADR records is that the two remedies P0.99's own
+notes proposed were both implemented far enough to measure on the 27th run,
+and both are wrong. That is worth writing down, because both look obviously
+correct until you run the suite.
 
-```ts
-if (events !== undefined && events.length > 0 && stepper.interpolant === undefined) {
-  throw new Error(
-    `integrate: event detection requires a stepper with dense output; "${stepper.info.id}" ` +
-      `has no interpolant. Wrap it: new HermiteDenseOutputStepper(new ${...}()).`,
-  );
-}
-```
+### Rejected: throw at init when the stepper has no interpolant
 
-This mirrors the check sitting immediately above it, which has thrown since
-P2.28 when `cfg.rtol` is set on a stepper with no `embeddedOrder`. Both say
-the same thing: a solver configuration that cannot deliver what the caller
-asked for is a programming error, not a silent downgrade.
+The natural fix, mirroring the check immediately above it that has thrown
+since P2.28 when `cfg.rtol` is set on a stepper with no `embeddedOrder`.
 
-### Why not auto-wrap in `HermiteDenseOutputStepper`?
+Implemented and run: **88 tests fail across 31 files.** Not a handful of
+callers doing something odd — the failures are `convergence-harness`,
+`euler-global-error`, `work-precision-harness`, `golden-trajectories`,
+`reference-solution`, `energy-drift-study`, `stability-boundary-sweep`,
+`phase-portrait`, every individual fixed-step stepper's own test, and the app
+routes built on them.
 
-It was the more tempting option — the wrapper already exists, so the fallback
-looked nearly free, and it would have made the bad configuration simply work.
-It was rejected because the wrapper is **opt-in by construction and by
-design**. Its own doc comment ties that to §5.1(c)'s interactive-vs-batch
-split: it costs up to 2 extra `model.rhs` calls per step (1 in steady state,
-via the FSAL-style reuse), and "the batch/Monte-Carlo path composes the bare
-inner stepper and pays nothing extra; only a caller that actually wants dense
-output reaches for this."
+The reason is structural, and it is the thing this ADR most wants to record:
+**a convergence-order or energy-drift study must hold $h$ fixed, and every
+standard projectile model attaches a ground-impact event.**
+`createPlanarProjectileModel` always calls `createGroundImpactEvent`. So
+"event-bearing model + fixed-step stepper" is not a caller error to be
+rejected; it is how the majority of the numerical-methods content in this
+repository is measured. Throwing outlaws the platform's own pedagogy.
 
-Auto-wrapping would delete that split. Every batch run over a model with a
-ground-impact event — which is every standard projectile model, since
-`createPlanarProjectileModel` always attaches one — would quietly acquire a
-per-step RHS call it did not ask for, and a Monte-Carlo sweep would pay it
-across every replicate. Trading a silent correctness bug for a silent
-performance regression is not an improvement; it just moves which invariant
-is broken quietly. It would also change the _numbers_: cubic Hermite is 3rd
-order, one below RK4, so localized event times would carry an interpolation
-error that the caller never opted into and could not see in the report.
+### Rejected: auto-wrap in `HermiteDenseOutputStepper`
 
-Throwing keeps both properties visible. A caller who wants events on a fixed
-step writes one wrapper and pays the documented cost knowingly; a caller who
-wants a cheap batch run keeps the bare stepper and gets told, immediately and
-at the call site, if the model they passed needs more.
+The other option in P0.99's notes, and superficially the kinder one — the
+wrapper already exists, so the fallback looks nearly free.
 
-### Why throw rather than report `status: "failed"`?
+It is worse than throwing. Those same convergence and energy studies would
+keep running, but with the terminal ground-impact event now **armed**: a
+study integrating a projectile over a fixed span would be truncated at
+impact, silently changing every convergence rate and energy-drift figure it
+reports, including the golden trajectories other tests are pinned against. It
+also contradicts the wrapper's stated design — its own doc comment ties
+opt-in to §5.1(c)'s interactive-vs-batch split, since it costs up to 2 extra
+`model.rhs` calls per step and "the batch/Monte-Carlo path composes the bare
+inner stepper and pays nothing extra". And cubic Hermite is 3rd order, one
+below RK4, so localized event times would carry an interpolation error the
+caller never opted into.
 
-`SolveFailure` describes things discovered _during_ integration — a step-size
-collapse, a non-finite state, a Newton divergence. This is knowable before the
-first step from `(model, stepper)` alone, and the existing `embeddedOrder`
-check already establishes throwing as the idiom for that class. Returning a
-failed report would also mean every caller has to check a report they could
-not have produced usefully in the first place.
+Trading a silent correctness bug for a silent measurement change is not a
+fix. It just moves which invariant breaks quietly.
+
+### What the real fix has to do
+
+Both rejected options fail for the same underlying reason: **the API has no
+way to express whether this particular caller wants events.** Today the
+stepper choice decides it, implicitly and invisibly. The distinguishing fact
+is caller intent, and intent is exactly what is missing from the signature.
+
+So the remedy is an API change, not a guard change, and the shape of it is a
+real decision rather than an obvious one. Sketches, none of them chosen:
+
+- **Explicit tri-state on `SolverConfig`** — e.g. `events: "require" |
+"off"`, no default, or defaulting to `"require"` with every convergence and
+  energy study updated to say `"off"`. Honest and total; touches many call
+  sites once.
+- **Diagnostic on `SolveReport`** — an `eventsArmed: false` (or a `warnings`
+  array) so the condition is discoverable and assertable. Non-breaking and
+  small, but it does **not** satisfy P0.99's validation criterion as written,
+  since a solve can still return `ok` below ground; it only stops the
+  condition being invisible.
+- **Post-hoc guard evaluation** — when events were not armed, evaluate the
+  terminal events' $g$ at the final state and fail if one was crossed. Meets
+  the criterion without an API change, but needs checking against whether the
+  legitimate fixed-step studies themselves end below ground; if they do, this
+  collapses into the throw.
+
+**P0.99's validation criterion is not achievable without one of these.** It
+asks that "no configuration returns ok with the projectile below ground",
+which the diagnostic option cannot deliver and the other two can only deliver
+by changing either the API or a large number of existing call sites. Whoever
+takes it should expect to update call sites, and should not treat the
+criterion as satisfiable by a local edit to `integrate.ts`.
 
 ## Consequences
 
-- **Breaking, deliberately.** A caller combining an event-bearing model with
-  a fixed-step stepper now throws where it previously returned a wrong
-  answer. That combination had no correct behaviour to preserve — it is
-  precisely the bug — so there is no migration path to offer beyond the
-  wrapper the message names. No caller in this repository was doing it: the
-  full suite passes unchanged apart from the tests added for this ADR.
-- **P0.98 is unblocked.** Its regime — a restitution bounce whose whole
-  flight is shorter than a quarter step — is unreachable from the adaptive
-  driver, which truncates each step onto the localized event (the 26th run
-  measured `flight / step = 5.00` at every bounce). It needs a _fixed_ step
-  with events live, i.e. `new HermiteDenseOutputStepper(new
-ClassicalRK4Stepper())`, which is now both possible and the documented way
-  to ask for it.
-- The `hasEvents` local survives, but its third conjunct is now redundant by
-  construction; it is kept as a type narrowing for `stepper.interpolant!`.
-- Nothing changes for a model with no events, or for the adaptive path.
+- **No behaviour change landed.** `integrate.ts` is functionally identical to
+  before the 27th run; only its comment changed, to carry the trap and point
+  here.
+- `packages/solverkit/src/event-detection-requires-dense-output.test.ts`
+  characterizes the bug: it pins the measured wrong numbers so they stay true
+  as the code moves, asserts the same failure on three more fixed-step
+  steppers, and pins the legitimate fixed-step-plus-event-model pattern in
+  the same file, so the cost of the throw is visible next to the bug that
+  seems to justify it. **Its assertions are the defect, not the
+  specification** — when P0.99 is fixed the file must be rewritten, not
+  deleted.
+- **The workaround needs no core change and is tested:**
+  `new HermiteDenseOutputStepper(new ClassicalRK4Stepper())` arms events on a
+  fixed step and localizes the impact to the closed-form time.
+- **P0.98 is unblocked by that workaround**, without waiting for P0.99. Its
+  regime — a restitution bounce whose whole flight is shorter than a quarter
+  step — is unreachable from the adaptive driver, which truncates each step
+  onto the localized event (the 26th run measured `flight / step = 5.00` at
+  every bounce). It needs a fixed step with events live, which the wrapper
+  provides today.
 
 ## References
 
-- P0.99 (this ADR), P0.97 (same defect shape), P0.98 (unblocked by it)
+- P0.99 (open, this ADR), P0.97 (same defect shape), P0.98 (unblocked by the
+  wrapper)
 - `packages/solverkit/src/integrate.ts`, `hermite-dense-output.ts`
 - Blueprint §4.9 (event detection), §5.1(c) (interactive vs batch)
