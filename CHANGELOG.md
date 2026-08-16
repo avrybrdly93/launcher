@@ -15,6 +15,46 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-16 (28th run) — P0.90 done, closing P0.93 and P1.01 as the same one-character defect; guard added; P0.100 filed
+
+- **The root `pnpm build` script works now.** `--workspace-concurrency 1` → `--workspace-concurrency=1`.
+  Under the pinned pnpm 11.9.0 the space-separated form folds the next token into the flag's value, so
+  `run` became the script name and the command exited 1 with `ERR_PNPM_RECURSIVE_RUN_NO_SCRIPT`. Measured
+  both ways this run rather than inherited: space form exits 1, `=` form exits 0 and reports
+  `Scope: 8 of 9 workspace projects`. Also checked what P0.90's notes asked — no other root script uses
+  the space-separated form; `verify` and the rest are clean.
+- **One defect, three task filings, eleven changelog entries.** P0.90 (15th run), P0.93 (17th run) and
+  P1.01 (27th run) are all the same bug; P0.93 and P1.01 are marked done by this fix. **P0.93's diagnosis
+  was wrong and is recorded as wrong in its notes:** it claims only `@ballista/app` defines a `build`
+  script, but all eight packages define one — `tsc -b`, checked by reading every manifest. P0.90's and
+  P1.01's diagnosis (flag parsing) is the correct one. The `=` form was already named as the fix in this
+  file at line ~1478, several runs ago.
+- **The guard is the real deliverable.** `packages/validation/src/root-scripts.test.ts`, 5 tests over the
+  root scripts and the workspace manifests: no pnpm value-flag in space-separated form in any root script,
+  `build` recurses and never names `run` as its script, all eight packages define `build`, and the package
+  count is 8. **Verified it fails for the right reason** — putting the space back turns exactly 2 of the 5
+  red. String assertions, not a real recursive build, which takes ~35 s and does not belong in the unit
+  suite. **Why this bug survived so long is the part worth keeping:** nothing failed when it broke. CLAUDE.md
+  names `build` in the pre-push gate every session runs, but `ci.yml` calls `pnpm --filter @ballista/app
+build` and never the root script, so the breakage was visible only to whoever typed `pnpm build` — and
+  each session that tripped over it filed a fresh task instead of spending the one character.
+- **P0.100 filed: task ids in `ROADMAP.json` are not unique.** Hit while marking P1.01 done. The
+  discovered-bug counter rolled `P0.99 → P1.00 → P1.01`, but `P1.01` and `P1.02` are already phase 1's
+  blueprint tasks at seq 12 and 13. So **`P1.01` currently names two different tasks**, and this run's
+  status edit had to disambiguate on `seq >= 288` rather than on id. Both collisions are on `done` tasks
+  and nothing automated reads ids today, so it is filed, not fixed — fixing it was not this run's claimed
+  task. It wants a uniqueness assertion so the next collision fails a test.
+- **Full gate green at `c9a1a9e`** (Node **22.22.2**, pnpm **11.9.0**, `--frozen-lockfile` clean in 8.1s):
+  `typecheck` clean · `lint` clean · `lint:deps` **no violations, 1332 modules / 3749 dependencies** ·
+  `pnpm test` **2215 passed across 240 files** · `pnpm build` **exit 0, all 8 packages**. That build figure
+  is a first for this changelog — every prior run recorded it as failing or skipped it.
+- **Untouched, and deliberately:** P0.98 and P0.99. The 27th run left P0.98 unblocked via
+  `HermiteDenseOutputStepper(ClassicalRK4Stepper)` and it is the natural next task. P0.99 still needs the
+  API decision ADR-016 (Proposed) sketches and does not belong to an unattended run until a human picks one
+  of its three options. Neither was started, so neither is left half-finished.
+
+---
+
 ## 2026-08-16 (27th run) — P0.99 attempted, returned to todo; ADR-016 records why both proposed fixes fail; P1.01 filed
 
 - **P0.99 is not done, and the finding is that the task's own two candidate fixes are both wrong.**
