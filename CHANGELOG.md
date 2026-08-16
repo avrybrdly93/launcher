@@ -15,6 +15,61 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-16 (29th run) — P0.98 done with a fixed step; P0.101 filed: bounces silently missed, projectile falls through the ground
+
+- **P0.98 is done, and the thing that unblocked it was a fixed step, not the Hermite wrapper alone.**
+  The 26th run's block in `restitution-bounce-short-flights.test.ts` is explicitly groundwork: it measured
+  `flight / step` at exactly 5.00 across every bounce and concluded the sub-quarter-step regime is
+  unreachable from the adaptive driver, which truncates each step onto the localized event so the step
+  shrinks in lockstep with the bounces. Pinning `h` breaks that coupling — the flights decay geometrically
+  and the step does not. `HermiteDenseOutputStepper(ClassicalRK4Stepper)` is what makes a fixed step
+  eligible for event detection at all, since `integrate`'s `hasEvents` guard needs `stepper.interpolant`
+  (that guard's silence is **P0.99**, still open and untouched).
+- **8 new cases, `describe.each` over h = 0.12 and h = 0.25.** At h = 0.12 the last two impacts arrive from
+  flights of 0.135 h and 0.027 h; at h = 0.25 the last three from 0.065 h, 0.013 h and 0.003 h. Every impact
+  time matches the closed form `t_n = t0 (1 + 2e(1-e^n)/(1-e))` to within **5e-16 relative** — RK4 is exact
+  on a quadratic and the Hermite cubic reproduces it exactly, so the only error left is the root find's.
+- **Two perturbations, applied and reverted; both caught by the same 2 cases.** Emptying `DEPARTURE_THETAS`,
+  and forcing `activeAtStart = false` (removing P0.97's suppression). **Which cases go red is the useful
+  part:** only the h = 0.12 pair, and only the closed-form-time and on-the-ground assertions. h = 0.25 pins
+  the regime but is insensitive to the ladder, and **the impact counts stay green under both perturbations**
+  — the solve still reports the same _number_ of impacts, just at wrong times. A count assertion would not
+  have noticed either perturbation.
+- **P0.101 filed, and it is the run's more important finding.** `scanStepForEvents` arms the ladder on
+  `g0 === 0` **exactly**, but the state a bounce resumes from is Brent's localized root, whose `g_gnd` is
+  zero only to within the root find's error — measured at up to ~1e-15 m **and of either sign**. A negative
+  residual reads as "already below ground": the ladder is not armed, the scan falls back to
+  `INTERIOR_THETAS = [0.25, 0.5, 0.75]`, and a flight shorter than a quarter step ends before the first of
+  them. No sign change, no impact, and the ball accelerates downward forever. **Repro:** drag-free ball from
+  y = 5, e = 0.2, tspan [0, 12] — at **h = 0.4 and h = 0.5 the sequence stops after 2 impacts and the solve
+  returns `ok` with `yFinal = -5.45e+2`**, the ball 545 m underground. h = 0.12 gives 5 and h = 0.8 gives 6,
+  so **it is not monotone in h**; it turns on the sign of a rounding residual, which is why it stayed hidden.
+- **The adaptive path is not exempt, and the existing test walked past it.** `createDormandPrince54Stepper`
+  on the same problem resolves 7 impacts and also ends at `yFinal = -5.39e+2` reporting `ok`. The 26th run's
+  block pinned that 7 and never looked at `yFinal`. Same shape as P0.97 and P0.99: a silently wrong answer
+  with `ok: true` at a configuration a caller reaches without doing anything unusual.
+- **The candidate fix was implemented and measured this run, then deliberately reverted.** Snapping the
+  post-bounce height onto the terrain in `createGroundImpactEvent` (`out[Y] = terrain.height(out[X])`) is
+  exact rather than a tolerance — the impact is _on_ the surface by the event's definition — and it works:
+  the fall-through is gone and `y` holds at exactly 0. **But it exposes the Zeno tail underneath**: ~20000
+  bounces, step budget exhausted, `tFinal` converging on the accumulation point `t_inf = 1.5147`, and status
+  **`failed`** on every bouncing solve. Trading a silent wrong answer for a loud failure is the trade
+  `DEPARTURE_THETAS`' own comment endorses, but making the ordinary bouncing case fail is a product decision,
+  not a bug fix — so this run did not take it, on the same reasoning the 27th run applied to P0.99.
+  `restitution.ts` has no rebound-speed cutoff of any kind today; picking one is the open half.
+- **Because of that, P0.98's counts are asserted as lower bounds and `report.status` is not asserted at all.**
+  Both are what they are today only because the sequence dies early. A fix for P0.101 resolves _more_
+  impacts and changes the status, and these cases stay green rather than turning red for the wrong reason.
+  Tightening them into exact counts is written into P0.101 as part of that task.
+- **Full gate green at `2790291`** (Node **22.22.2**, pnpm **11.9.0**, `--frozen-lockfile` clean in 8.1s):
+  `typecheck` clean · `lint` clean · `lint:deps` **no violations, 1398 modules / 3940 dependencies** ·
+  `pnpm test` **2223 passed across 240 files** (2215 → 2223, the 8 new cases).
+- **Untouched, and deliberately:** P0.99 (still needs the human API decision ADR-016 sketches) and P0.100
+  (the task-id collision; note this run's new task is **P0.101**, chosen to stay clear of the P1.xx namespace
+  that collision is about, so it does not make P0.100 worse).
+
+---
+
 ## 2026-08-16 (28th run) — P0.90 done, closing P0.93 and P1.01 as the same one-character defect; guard added; P0.100 filed
 
 - **The root `pnpm build` script works now.** `--workspace-concurrency 1` → `--workspace-concurrency=1`.
