@@ -15,6 +15,62 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-16 (27th run) — P0.99 attempted, returned to todo; ADR-016 records why both proposed fixes fail; P1.01 filed
+
+- **P0.99 is not done, and the finding is that the task's own two candidate fixes are both wrong.**
+  It asked for event detection to be made non-silent when the stepper has no dense output, and
+  suggested either failing loudly at init or falling back to a Hermite interpolant. Both were
+  implemented far enough to measure. **Throwing takes 88 tests red across 31 files** — and not odd
+  callers: `convergence-harness`, `euler-global-error`, `work-precision-harness`,
+  `golden-trajectories`, `reference-solution`, `energy-drift-study`, `stability-boundary-sweep`,
+  `phase-portrait`, every fixed-step stepper's own test, and the app routes over them. The reason is
+  structural and is the run's main result: **a convergence-order or energy-drift study must hold `h`
+  fixed, and `createPlanarProjectileModel` always attaches a ground-impact event**, so
+  "event-bearing model + fixed-step stepper" is the normal case in this repo rather than a caller
+  error. Throwing outlaws the platform's own pedagogy. **Auto-wrapping is worse:** those studies
+  would keep running but with the terminal event _armed_, truncating them at ground impact and
+  silently changing every convergence rate, energy-drift figure and golden trajectory they are
+  pinned against — trading a silent correctness bug for a silent measurement change. Both fail for
+  one reason: **the API cannot express whether a given caller wants events**, so the stepper choice
+  decides it invisibly. The remedy is an API change, not a guard change. P0.99 goes back to `todo`
+  with that recorded; marking it done on either fix would have been a false completion claim.
+- **ADR-016 written, Status `Proposed` rather than `Accepted`** — it records the measurements, why
+  each candidate fails, and three sketched remedies (tri-state `cfg.events`; an `eventsArmed`
+  diagnostic on `SolveReport`; post-hoc terminal-guard evaluation), choosing none. It also states
+  plainly that **P0.99's validation criterion is not reachable by a local edit to `integrate.ts`**,
+  so the next run does not rediscover that the hard way.
+- **Landed anyway, because it is real coverage:** `event-detection-requires-dense-output.test.ts`,
+  7 tests pinning the measured wrong numbers (`ClassicalRK4` reports `ok` at `tFinal = 12`,
+  **701 m underground**, zero events, against DOPRI5 stopping at `t = 1.009810` with `y = 1.0e-15`),
+  the same failure on explicit Euler, Heun and midpoint, the working
+  `HermiteDenseOutputStepper(ClassicalRK4Stepper)` workaround localizing the impact to the
+  closed-form `sqrt(2h₀/g)`, and — in the same file — the legitimate fixed-step-plus-event-model
+  pattern, so the cost of "just throw" is visible next to the bug that appears to justify it. **Its
+  assertions are the defect, not the specification**; rewrite the file when fixing, do not delete
+  it. `integrate.ts`'s comment now carries the trap and an explicit "do not throw, do not auto-wrap
+  — read ADR-016 first". **No behaviour changed:** the guard is byte-identical to before this run.
+- **P0.98 is unblocked without P0.99 landing.** The fixed step it needs is reachable today via
+  `new HermiteDenseOutputStepper(new ClassicalRK4Stepper())`, now tested. The 26th run recorded
+  P0.98 as blocked behind P0.99; that is no longer true — only the wrapper is needed.
+- **P1.01 filed** — the root `pnpm build` script is broken under pnpm 11.9.0:
+  `pnpm -r --workspace-concurrency 1 run build` exits 1 with
+  `ERR_PNPM_RECURSIVE_RUN_NO_SCRIPT: None of the selected packages has a "run" script`, the `run`
+  token being read as the script name. **Not a CI outage** — `ci.yml` calls
+  `pnpm --filter @ballista/app build` and never the root script — but it does bite anyone following
+  CLAUDE.md's "run the build locally before pushing".
+- **Gate green:** suite **2210/2210 across 239 files** (was 2203/238); `typecheck`, `lint` and
+  `lint:deps` (**1395 modules**, 3928 dependencies) clean; app build green with
+  `check-bundle-size` at **71.7 kB gzipped** against the 300 kB budget.
+- **Next run:** **P1.00** (bouncing solves tunnel through the ground past the Zeno point) is the
+  highest-priority open correctness item now that P0.99 is parked on a design decision — but note it
+  too wants an ADR for a resting-contact model, so if the intent is to _land_ something, **P0.98 is
+  now the one that is actually completable**: it is unblocked, its regime is reachable with the
+  Hermite wrapper, and its closed form `t_n = t₀(1 + 2e(1 − eⁿ)/(1 − e))` needs no reference
+  implementation. P0.99 should not be re-attempted until someone picks one of ADR-016's three
+  options. P5.24 remains the next task by `seq` and remains marked optional in its own title.
+
+---
+
 ## 2026-08-15 (26th run) — P0.98 attempted, returned to todo; P0.99 and P1.00 filed
 
 - **P0.98 is not done, and that is the finding rather than a shortfall.** It asked for a test of
