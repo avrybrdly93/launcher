@@ -280,9 +280,27 @@ function* runIntegrationSteps(
 
   const usePIController = cfg.controller === "PI";
 
-  // Event handling (§4.9, P2.32-P2.34) is only possible once the stepper
-  // exposes dense output -- a fixed-step method with no `interpolant` (or a
-  // model declaring no events) integrates exactly as before, unaffected.
+  // Event handling (§4.9, P2.32-P2.34) needs dense output: scanStepForEvents
+  // samples g inside the step and localizeEventRoot brackets the sign change
+  // on the interpolant, so a stepper without one cannot locate an event.
+  //
+  // KNOWN TRAP (P0.99, open; ADR-016 has the measurements). The third
+  // conjunct means a model that DECLARES events, integrated with a stepper
+  // that has no interpolant, silently integrates as though it declared none:
+  // no warning, no failure, `status: "ok"`. Measured at h = 0.12 on a
+  // drag-free planar model with a terminal ground impact, y0 = [0, 5, 3, 0]:
+  // DOPRI5 stops at t = 1.009810 with y = 1.0e-15, while ClassicalRK4 runs
+  // the full span and ends 701 m BELOW the ground still reporting "ok".
+  //
+  // Do NOT "fix" this by throwing when the interpolant is missing, and do not
+  // auto-wrap in HermiteDenseOutputStepper. Both were tried and measured on
+  // the 27th run and both are wrong -- ADR-016 records why, and what the fix
+  // actually has to distinguish. The short version: integrating an
+  // event-bearing model with a fixed-step method is a legitimate and load
+  // bearing pattern here (convergence order studies, energy-drift studies,
+  // golden trajectories all need a fixed step, and every standard projectile
+  // model attaches a ground-impact event), so the silence is the defect, not
+  // the opt-out.
   const events = model.events;
   const hasEvents = events !== undefined && events.length > 0 && stepper.interpolant !== undefined;
   const eventScratch = hasEvents ? new Float64Array(model.dim) : undefined;
