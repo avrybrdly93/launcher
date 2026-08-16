@@ -11,8 +11,10 @@ import {
   createPlanarProjectileModel,
   createSphericalProjectileParams,
 } from "@ballista/engine";
+import { ClassicalRK4Stepper } from "./classical-rk4-stepper.js";
 import { createDormandPrince54Stepper } from "./dormand-prince-54.js";
 import { EventCollector } from "./event-collector.js";
+import { HermiteDenseOutputStepper } from "./hermite-dense-output.js";
 import { integrate } from "./integrate.js";
 
 /**
@@ -159,5 +161,116 @@ describe("integrate: drag-free bouncing ball against the closed form (P0.98 grou
     expect(last).toBeLessThan(tInf);
     // ...but close to it: the unresolved tail is a small fraction of the drop.
     expect(tInf - last).toBeLessThan(1e-3 * tInf);
+  });
+});
+
+/**
+ * P0.98 proper: bounces whose whole flight is shorter than a quarter step.
+ *
+ * The block above could not reach this regime and says so — an adaptive driver
+ * truncates each step to land on the localized event, so the live step shrinks
+ * in lockstep with the bounces and `flight / step` sits at ~5 forever. A
+ * *fixed* step is what breaks that coupling: `h` stays where the caller put it
+ * while the flights decay geometrically, so after a few bounces the entire
+ * flight lands inside the first sub-interval of the event scan. That is the
+ * configuration P0.97's `DEPARTURE_THETAS` ladder exists for, and until now
+ * nothing exercised it.
+ *
+ * A fixed-step stepper reaches it only via `HermiteDenseOutputStepper`:
+ * `integrate`'s `hasEvents` guard requires `stepper.interpolant`, and no bare
+ * fixed-step stepper in this package has one (that guard's silence is P0.99,
+ * still open). Wrapping `ClassicalRK4Stepper` gives it cubic dense output and
+ * with it event detection.
+ *
+ * Measured for these two step sizes, against the closed form: at h = 0.12 the
+ * last two impacts arrive from flights of 0.135 h and 0.027 h, and at h = 0.25
+ * the last three from 0.065 h, 0.013 h and 0.003 h — all well under the quarter
+ * step, and every impact time exact to within 5e-16 relative. RK4 integrates a
+ * quadratic exactly and the Hermite cubic reproduces it exactly, so the only
+ * error is the root find's.
+ *
+ * **Bounds, not a pinned count, and that is deliberate.** A neighbouring step
+ * size does *not* behave this well: at h = 0.4 and h = 0.5 the sequence stops
+ * after two impacts and the projectile falls through the ground while the solve
+ * still reports `ok`. That is a real defect, measured this run and filed as its
+ * own task — the localized impact leaves `y` a hair below the terrain, so the
+ * `g0 === 0` test that arms the ladder is false, the scan falls back to its
+ * interior samples, and a flight shorter than a quarter step lands before the
+ * first of them. Asserting `>=` here means the fix for that task, which
+ * resolves *more* impacts, leaves these cases green rather than red.
+ *
+ * `report.status` is deliberately not asserted for the same reason: it is `ok`
+ * today only because the sequence dies, and any honest fix changes it.
+ */
+describe("integrate: fixed-step restitution bounces shorter than a quarter step (P0.98)", () => {
+  const H0 = 5;
+  const E = 0.2;
+  const T_END = 12;
+
+  function bounceFixedStep(h: number) {
+    const env = new Environment(new ConstantAtmosphere(), new UniformGravity(), new ZeroWind());
+    const params = createSphericalProjectileParams({
+      mass: 1,
+      radius: 0.05,
+      dragCoefficient: new ConstantCd(0),
+    });
+    const ctx = createEvalContext(env, params);
+    const model = createPlanarProjectileModel([new GravityForce()], undefined, { e: E, muF: 1 });
+    const stepper = new HermiteDenseOutputStepper(new ClassicalRK4Stepper());
+    const collector = new EventCollector();
+    integrate(
+      model,
+      ctx,
+      new Float64Array([0, H0, 0, 0]),
+      [0, T_END],
+      { stepper: stepper.info.id, maxSteps: 50000, h },
+      stepper,
+      [collector],
+    );
+    return collector.events.filter((r) => r.event.name === "ground-impact");
+  }
+
+  /** Closed-form time of the impact that ends the nth bounce (n = 0 is the drop). */
+  const exactImpactTime = (n: number): number =>
+    Math.sqrt((2 * H0) / G_STD) * (1 + (2 * E * (1 - E ** n)) / (1 - E));
+
+  /** Closed-form duration of the flight that ends at impact n. */
+  const exactFlightBefore = (n: number): number =>
+    n === 0 ? Math.sqrt((2 * H0) / G_STD) : 2 * E ** n * Math.sqrt((2 * H0) / G_STD);
+
+  describe.each([
+    { h: 0.12, minImpacts: 5, minShort: 2 },
+    { h: 0.25, minImpacts: 6, minShort: 3 },
+  ])("h = $h", ({ h, minImpacts, minShort }) => {
+    it("reaches the sub-quarter-step regime the adaptive driver cannot", () => {
+      const impacts = bounceFixedStep(h);
+      const short = impacts.filter((_, n) => exactFlightBefore(n) < h / 4);
+      // Unlike the adaptive block above, `h` here really is the step in play,
+      // so this ratio is the flight-to-step ratio and not a nominal stand-in.
+      expect(short.length).toBeGreaterThanOrEqual(minShort);
+      expect(exactFlightBefore(impacts.length - 1)).toBeLessThan(h / 4);
+    });
+
+    it("resolves every impact of the sequence it reaches", () => {
+      expect(bounceFixedStep(h).length).toBeGreaterThanOrEqual(minImpacts);
+    });
+
+    it("impact times match the closed form, including the short flights", () => {
+      const impacts = bounceFixedStep(h);
+      for (let n = 0; n < impacts.length; n++) {
+        const exact = exactImpactTime(n);
+        // Tight enough that a bracket resolved back to t0 -- the P0.97 failure,
+        // which lands a whole flight early -- could not survive it.
+        expect(Math.abs(impacts[n]!.t - exact)).toBeLessThan(1e-12 * exact);
+      }
+    });
+
+    it("every impact lands on the ground and the sequence advances monotonically", () => {
+      const impacts = bounceFixedStep(h);
+      for (let n = 0; n < impacts.length; n++) {
+        expect(Math.abs(impacts[n]!.y[1]!)).toBeLessThan(1e-9);
+        if (n > 0) expect(impacts[n]!.t).toBeGreaterThan(impacts[n - 1]!.t);
+      }
+    });
   });
 });
