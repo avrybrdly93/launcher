@@ -59,8 +59,13 @@ forcing a fallback to commit timestamps.
   `pnpm --filter @ballista/app build` and never the root script — but it does bite anyone following
   CLAUDE.md's "run the build locally before pushing".
 - **Gate green:** suite **2210/2210 across 239 files** (was 2203/238); `typecheck`, `lint` and
-  `lint:deps` (**1395 modules**, 3928 dependencies) clean; app build green with
-  `check-bundle-size` at **71.7 kB gzipped** against the 300 kB budget.
+  `lint:deps` clean; app build green with `check-bundle-size` at **71.7 kB gzipped** against the
+  300 kB budget. Note on the `lint:deps` module count, since it has been quoted run-to-run as if
+  stable: it read **1395 modules / 3928 dependencies** mid-run and **1329 / 3741** on the final
+  clean pass. The difference is stale `packages/*/dist` output left by earlier `tsc -b` runs in the
+  same session, not a dependency-graph change — `depcruise` cruises whatever is on disk. **1329 /
+  3741 is the reproducible figure**; treat the count as an artefact of build state rather than a
+  health signal, and do not read a small delta as a regression.
 - **Next run:** **P1.00** (bouncing solves tunnel through the ground past the Zeno point) is the
   highest-priority open correctness item now that P0.99 is parked on a design decision — but note it
   too wants an ADR for a resting-contact model, so if the intent is to _land_ something, **P0.98 is
