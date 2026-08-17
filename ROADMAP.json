@@ -3258,8 +3258,8 @@
       "estMinutes": 10,
       "difficulty": "S",
       "validation": "one exported helper, no private copies, suite still green",
-      "status": "todo",
-      "notes": "Filed 2026-08-10 (16th run) while adding min-energy.ts, which needed the helper and made a FOURTH private copy rather than doing the refactor mid-task. arcs.ts:520, envelope.ts:288, smart-init.ts:187 and min-energy.ts each carry an identical 'first non-vertical position axis' function. They agree today; four copies of a convention that a spatial layout could change is the kind of thing that diverges quietly. Not urgent and not masking anything -- every copy is correct. Whoever takes it should export one from observables.ts next to PLANAR_LAYOUT (which is where the layout type already lives) and delete the four."
+      "status": "in-progress",
+      "notes": "Filed 2026-08-10 (16th run) while adding min-energy.ts, which needed the helper and made a FOURTH private copy rather than doing the refactor mid-task. arcs.ts:520, envelope.ts:288, smart-init.ts:187 and min-energy.ts each carry an identical 'first non-vertical position axis' function. They agree today; four copies of a convention that a spatial layout could change is the kind of thing that diverges quietly. Not urgent and not masking anything -- every copy is correct. Whoever takes it should export one from observables.ts next to PLANAR_LAYOUT (which is where the layout type already lives) and delete the four. CLAIMED 2026-08-18 (32nd run). The count in this note is now WRONG in the safe direction: there are SEVEN copies, not four -- ill-conditioning.ts:256, basin-of-attraction.ts:182 and trajectory-designer.ts:181 appeared after this was filed, which is the divergence risk the filing predicted, arriving on schedule. Six of the seven are byte-identical `layout.vertical === 0 ? 1 : 0`; min-energy.ts:242 is NOT -- it scans for the first non-vertical axis and throws when there is none."
     },
     {
       "id": "P0.92",
