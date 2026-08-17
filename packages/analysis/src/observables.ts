@@ -39,6 +39,39 @@ export const SPATIAL_LAYOUT: TrajectoryLayout = Object.freeze({
 });
 
 /**
+ * Index *within* `position`/`velocity` of the downrange axis: the first axis
+ * that is not the vertical one.
+ *
+ * This convention is load-bearing in a way its one line hides. `launchState`
+ * puts `v₀cos θ` into this axis, `range` and `heightAtDownrange` read out of
+ * it, the shooting residual differentiates with respect to it, and the arc
+ * and envelope analyses index their results by it. All of them have to agree,
+ * and a disagreement does not surface as an error -- it surfaces as a solver
+ * confidently matching the wrong coordinate.
+ *
+ * It lived as seven private copies plus seven inline `layout.vertical === 0 ?
+ * 1 : 0` expressions until 2026-08-18 (P0.91). They all agreed, which is
+ * exactly why the duplication was worth removing before a layout arrived that
+ * made them stop agreeing.
+ *
+ * **On the throw.** Six of those seven copies were the ternary, which returns
+ * axis `1` for a one-dimensional layout -- an axis that does not exist, read
+ * later as `undefined`-turned-`NaN` several frames away. The seventh
+ * (`min-energy.ts`) scanned and threw instead, and that is the behaviour kept
+ * here, for the same reason {@link requireLayout} checks the whole layout up
+ * front: a malformed layout should fail where it is malformed. No shipped
+ * layout can reach the throw -- both have two or more position axes.
+ */
+export function downrangeAxisOf(layout: TrajectoryLayout): number {
+  for (let axis = 0; axis < layout.position.length; axis++) {
+    if (axis !== layout.vertical) return axis;
+  }
+  throw new Error(
+    `downrangeAxisOf: layout has no horizontal axis (${layout.position.length} position axis/axes, vertical ${layout.vertical})`,
+  );
+}
+
+/**
  * Reads channel `channel` at row `row`, failing loudly rather than yielding
  * `NaN` when a layout names a channel the trajectory does not carry -- the
  * realistic mistake here is pairing `SPATIAL_LAYOUT` with a planar solve,
@@ -224,7 +257,7 @@ export function heightAtDownrange(
     throw new Error(`heightAtDownrange: downrange must be finite; got ${downrange}`);
   }
 
-  const downrangeAxis = layout.vertical === 0 ? 1 : 0;
+  const downrangeAxis = downrangeAxisOf(layout);
   const xChannel = layout.position[downrangeAxis]!;
   const vxChannel = layout.velocity[downrangeAxis]!;
   const yChannel = layout.position[layout.vertical]!;

@@ -1,5 +1,5 @@
 import { type ArcLabel, type ArcOptions, type ArcPair, solveArcs } from "./arcs.js";
-import { PLANAR_LAYOUT, type TrajectoryLayout } from "./observables.js";
+import { PLANAR_LAYOUT, downrangeAxisOf } from "./observables.js";
 import {
   type ResidualFunction,
   type ShootingProblem,
@@ -241,20 +241,6 @@ export interface ConditioningSweep {
   readonly peakAngle: number;
   /** Total trajectory integrations spent. */
   readonly evaluations: number;
-}
-
-/**
- * Which coordinate of a position vector is downrange, for a given layout.
- *
- * The same one-line rule `arcs.ts`, `shooting-residual.ts` and `smart-init.ts`
- * each state privately; P0.91 is filed to consolidate all of them into
- * `observables.ts`, and this is the fifth copy rather than a fifth *rule*.
- * Duplicated here rather than fixed in passing because P0.91 is that task and
- * this one is P5.23. `ill-conditioning.test.ts` pins it against `arcs.ts`'s
- * behaviour so the copies cannot drift before P0.91 lands.
- */
-function downrangeAxisOf(layout: TrajectoryLayout): number {
-  return layout.vertical === 0 ? 1 : 0;
 }
 
 /**

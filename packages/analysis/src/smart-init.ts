@@ -1,6 +1,6 @@
 import { EnvSample, G_STD } from "@ballista/engine";
 
-import { PLANAR_LAYOUT, type TrajectoryLayout } from "./observables.js";
+import { PLANAR_LAYOUT, type TrajectoryLayout, downrangeAxisOf } from "./observables.js";
 import type { Aim, ShootingProblem } from "./shooting-residual.js";
 
 /**
@@ -172,20 +172,6 @@ export function smartInitialAim(problem: ShootingProblem, options: SmartInitOpti
 
   const gravity = options.gravity ?? sampleGravity(problem, launchPoint, layout);
   return dragFreeAim(downrange, rise, gravity);
-}
-
-/**
- * The axis index the aim's horizontal velocity component goes into: the first
- * one that is not the vertical axis.
- *
- * Duplicated from `shooting-residual.ts`'s `launchState` on purpose — the two
- * have to agree, and the failure if they ever disagree is an initializer that
- * aims along one axis while the launch state fires along another, which shows
- * up as a residual that never comes down rather than as an error. Both sites
- * say the same one-line rule; `smart-init.test.ts` pins that they agree.
- */
-function downrangeAxisOf(layout: TrajectoryLayout): number {
-  return layout.vertical === 0 ? 1 : 0;
 }
 
 /** Local gravity magnitude at the launch point, from the problem's environment. */

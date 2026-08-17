@@ -1,5 +1,5 @@
 import { newtonShooting, type NewtonShootingOptions } from "./newton-shooting.js";
-import { PLANAR_LAYOUT, type TrajectoryLayout } from "./observables.js";
+import { PLANAR_LAYOUT, type TrajectoryLayout, downrangeAxisOf } from "./observables.js";
 import type { Aim, ResidualFunction } from "./shooting-residual.js";
 
 /**
@@ -178,10 +178,6 @@ export interface BasinCensus {
 }
 
 const ARC_OUTCOMES: readonly BasinOutcome[] = ["low", "high"];
-
-function downrangeAxisOf(layout: TrajectoryLayout): number {
-  return layout.vertical === 0 ? 1 : 0;
-}
 
 /**
  * `samples` evenly spaced values from `min` to `max` inclusive.

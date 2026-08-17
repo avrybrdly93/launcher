@@ -1,4 +1,4 @@
-import { PLANAR_LAYOUT, type TrajectoryLayout, heightAtDownrange } from "./observables.js";
+import { PLANAR_LAYOUT, downrangeAxisOf, heightAtDownrange } from "./observables.js";
 import { type Aim, type Flight, type ShootingProblem, createFlight } from "./shooting-residual.js";
 
 /**
@@ -282,11 +282,6 @@ function resolve(options: EnvelopeOptions): {
     throw new Error(`envelope: angleTol must be positive; got ${angleTol}`);
   }
   return { minAngle, maxAngle, sweepSamples, angleTol, maxIterations };
-}
-
-/** The downrange axis: the first that is not vertical. Matches `arcs.ts`. */
-function downrangeAxisOf(layout: TrajectoryLayout): number {
-  return layout.vertical === 0 ? 1 : 0;
 }
 
 /** Per-call integration bookkeeping shared by the entry points below. */

@@ -7,7 +7,13 @@ import {
   TrajectoryRecorder,
   integrate,
 } from "@ballista/solverkit";
-import { PLANAR_LAYOUT, type TrajectoryLayout, impactPoint, timeOfFlight } from "./observables.js";
+import {
+  PLANAR_LAYOUT,
+  type TrajectoryLayout,
+  downrangeAxisOf,
+  impactPoint,
+  timeOfFlight,
+} from "./observables.js";
 import { type Target, missVector, validateTarget } from "./targets.js";
 
 /**
@@ -200,7 +206,7 @@ function launchState(problem: ShootingProblem, aim: Aim, layout: TrajectoryLayou
   }
 
   // The first axis that is not the vertical one is "downrange".
-  const downrange = layout.vertical === 0 ? 1 : 0;
+  const downrange = downrangeAxisOf(layout);
   y0[layout.velocity[downrange]!] = aim.speed * Math.cos(aim.theta);
   y0[layout.velocity[layout.vertical]!] = aim.speed * Math.sin(aim.theta);
   return y0;

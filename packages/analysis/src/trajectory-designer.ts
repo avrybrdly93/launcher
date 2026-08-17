@@ -1,7 +1,7 @@
 import { G_STD } from "@ballista/engine";
 import { brentRoot } from "@ballista/solverkit";
 import { type ArcLabel, type ArcOptions, solveArcs } from "./arcs.js";
-import { PLANAR_LAYOUT, type TrajectoryLayout } from "./observables.js";
+import { PLANAR_LAYOUT, downrangeAxisOf } from "./observables.js";
 import {
   type Aim,
   type ResidualFunction,
@@ -167,19 +167,6 @@ export interface SpeedSolveOptions {
 export interface DesignOptions extends SpeedSolveOptions {
   /** Passed through to {@link solveArcs} for the `"theta"` lock. */
   readonly arcs?: ArcOptions;
-}
-
-/**
- * Index of the downrange axis in a layout's position channels.
- *
- * Duplicated from `arcs.ts`, `envelope.ts` and `basin-of-attraction.ts`, which
- * each carry their own copy. Hoisting the four into one shared helper is a
- * reasonable tidy-up but it is not this task, and editing three working
- * modules to land a fourth would be exactly the drive-by refactor the
- * repository's commit rules ask against.
- */
-function downrangeAxisOf(layout: TrajectoryLayout): number {
-  return layout.vertical === 0 ? 1 : 0;
 }
 
 /**

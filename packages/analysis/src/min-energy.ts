@@ -1,11 +1,6 @@
 import { brentRoot } from "@ballista/solverkit";
 import { type EnvelopeOptions, maxHeightAtDownrange } from "./envelope.js";
-import {
-  PLANAR_LAYOUT,
-  type TrajectoryLayout,
-  heightAtDownrange,
-  impactPoint,
-} from "./observables.js";
+import { PLANAR_LAYOUT, downrangeAxisOf, heightAtDownrange, impactPoint } from "./observables.js";
 import { NO_IMPACT, maximizeRange } from "./optimal-angle.js";
 import { type Aim, type ShootingProblem, createFlight } from "./shooting-residual.js";
 import { smartInitialAim } from "./smart-init.js";
@@ -229,22 +224,6 @@ const DEFAULT_SPEED_TOL = 1e-6;
 const DEFAULT_EXPANSION_FACTOR = 1.25;
 const DEFAULT_MAX_EXPANSIONS = 40;
 const DEFAULT_MAX_ITERATIONS = 100;
-
-/**
- * The layout's downrange axis.
- *
- * A fourth private copy of a helper `arcs.ts`, `envelope.ts` and
- * `smart-init.ts` each already carry. Consolidating the four into
- * `observables.ts` is worth doing and is deliberately *not* done here — it
- * would touch three modules this task has no other business in. Filed as its
- * own backlog item instead.
- */
-function downrangeAxisOf(layout: TrajectoryLayout): number {
-  for (let axis = 0; axis < layout.position.length; axis++) {
-    if (axis !== layout.vertical) return axis;
-  }
-  throw new Error("minimumSpeedToHit: layout has no horizontal axis");
-}
 
 interface Resolved {
   speedTol: number;

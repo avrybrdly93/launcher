@@ -1,4 +1,4 @@
-import { PLANAR_LAYOUT, type TrajectoryLayout } from "./observables.js";
+import { PLANAR_LAYOUT, downrangeAxisOf } from "./observables.js";
 import {
   type RangeFunction,
   type RangeRoot,
@@ -506,17 +506,4 @@ function describe(
     timeOfFlight: evaluation.timeOfFlight!,
     iterations: root.iterations,
   };
-}
-
-/**
- * The axis the aim's horizontal velocity goes into: the first that is not
- * vertical.
- *
- * The same one-line rule `shooting-residual.ts`'s `launchState` and
- * `smart-init.ts` each state, for the same reason they state it — all three
- * have to agree, and a disagreement shows up as a solver matching the wrong
- * coordinate rather than as an error. `arcs.test.ts` pins the agreement.
- */
-function downrangeAxisOf(layout: TrajectoryLayout): number {
-  return layout.vertical === 0 ? 1 : 0;
 }

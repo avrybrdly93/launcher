@@ -5,7 +5,7 @@ import {
   TrajectoryRecorder,
   integrate,
 } from "@ballista/solverkit";
-import { PLANAR_LAYOUT, type TrajectoryLayout } from "./observables.js";
+import { PLANAR_LAYOUT, type TrajectoryLayout, downrangeAxisOf } from "./observables.js";
 import type { Aim, ShootingProblem } from "./shooting-residual.js";
 
 /**
@@ -203,14 +203,14 @@ function differenceStep(scale: number): number {
  * that should build these.
  */
 function seedTheta(aim: Aim, layout: TrajectoryLayout, out: Float64Array): void {
-  const downrange = layout.vertical === 0 ? 1 : 0;
+  const downrange = downrangeAxisOf(layout);
   out[layout.velocity[downrange]!] = -aim.speed * Math.sin(aim.theta);
   out[layout.velocity[layout.vertical]!] = aim.speed * Math.cos(aim.theta);
 }
 
 /** `∂y₀/∂v₀`: the unit vector along the launch direction. */
 function seedSpeed(aim: Aim, layout: TrajectoryLayout, out: Float64Array): void {
-  const downrange = layout.vertical === 0 ? 1 : 0;
+  const downrange = downrangeAxisOf(layout);
   out[layout.velocity[downrange]!] = Math.cos(aim.theta);
   out[layout.velocity[layout.vertical]!] = Math.sin(aim.theta);
 }
@@ -476,7 +476,7 @@ export function createTangentLinearFlight(
     for (let axis = 0; axis < layout.position.length; axis++) {
       Y0[layout.position[axis]!] = launchPoint[axis]!;
     }
-    const downrange = layout.vertical === 0 ? 1 : 0;
+    const downrange = downrangeAxisOf(layout);
     Y0[layout.velocity[downrange]!] = aim.speed * Math.cos(aim.theta);
     Y0[layout.velocity[layout.vertical]!] = aim.speed * Math.sin(aim.theta);
 
@@ -617,7 +617,7 @@ export function rangeSensitivity(
   layout: TrajectoryLayout = PLANAR_LAYOUT,
 ): number[] | null {
   if (!flight.ok || flight.impactSensitivity === null) return null;
-  const downrange = layout.vertical === 0 ? 1 : 0;
+  const downrange = downrangeAxisOf(layout);
   const channel = layout.position[downrange]!;
   return flight.impactSensitivity.map((block) => {
     const value = block[channel];

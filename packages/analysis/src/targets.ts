@@ -1,6 +1,11 @@
 import type { Trajectory } from "@ballista/solverkit";
 
-import { PLANAR_LAYOUT, type TrajectoryLayout, impactPoint } from "./observables.js";
+import {
+  PLANAR_LAYOUT,
+  type TrajectoryLayout,
+  downrangeAxisOf,
+  impactPoint,
+} from "./observables.js";
 
 /**
  * A target the inverse solvers of §7 Phase 5 aim at (P5.02).
@@ -225,7 +230,7 @@ export function nearestPointOn(
   if (r === 0) {
     if (inner === 0) return nearest; // Dead centre of a filled disc: already on it.
     // Equidistant from the whole inner rim; pick the first horizontal axis.
-    const firstHorizontal = layout.vertical === 0 ? 1 : 0;
+    const firstHorizontal = downrangeAxisOf(layout);
     nearest[firstHorizontal] = target.center[firstHorizontal]! + inner;
     return nearest;
   }
