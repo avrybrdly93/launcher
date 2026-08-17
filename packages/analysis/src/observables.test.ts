@@ -23,6 +23,7 @@ import {
   apex,
   apexHeight,
   apexTime,
+  downrangeAxisOf,
   heightAtDownrange,
   impactSpeed,
   missDistance,
@@ -378,5 +379,45 @@ describe("P5.09 heightAtDownrange vs the drag-free arc y(x)", () => {
 
   it("rejects a non-finite abscissa", () => {
     expect(() => heightAtDownrange(traj, Number.NaN, PLANAR_LAYOUT)).toThrow(/must be finite/);
+  });
+});
+
+describe("P0.91 downrangeAxisOf, the convention fourteen call sites used to restate", () => {
+  it("is axis 0 for both shipped layouts, whose vertical is axis 1", () => {
+    expect(downrangeAxisOf(PLANAR_LAYOUT)).toBe(0);
+    expect(downrangeAxisOf(SPATIAL_LAYOUT)).toBe(0);
+  });
+
+  it("is axis 1 when the vertical is axis 0", () => {
+    expect(downrangeAxisOf({ position: [0, 1], velocity: [2, 3], vertical: 0 })).toBe(1);
+  });
+
+  it("is still axis 0 for a spatial layout whose vertical is the last axis", () => {
+    // z-up rather than y-up. The six copies this helper replaced were
+    // `vertical === 0 ? 1 : 0`, which also answers 0 here -- the agreement is
+    // asserted rather than assumed, since it is why the consolidation was a
+    // refactor and not a behaviour change.
+    expect(downrangeAxisOf({ position: [0, 1, 2], velocity: [3, 4, 5], vertical: 2 })).toBe(0);
+  });
+
+  it("agrees with the ternary the replaced copies used, on every layout either can describe", () => {
+    for (let axes = 2; axes <= 4; axes++) {
+      for (let vertical = 0; vertical < axes; vertical++) {
+        const position = Array.from({ length: axes }, (_, i) => i);
+        const velocity = position.map((i) => i + axes);
+        expect(downrangeAxisOf({ position, velocity, vertical })).toBe(vertical === 0 ? 1 : 0);
+      }
+    }
+  });
+
+  it("throws on a layout with no horizontal axis, where the ternary returned a nonexistent one", () => {
+    // The one behavioural difference between the two shapes that were
+    // consolidated. `min-energy.ts`'s copy threw here; the other six returned
+    // axis 1, which the caller then reads out of a one-element array as
+    // `undefined` and turns into NaN several frames downstream. The throw is
+    // the kept behaviour.
+    expect(() => downrangeAxisOf({ position: [0], velocity: [1], vertical: 0 })).toThrow(
+      /no horizontal axis/,
+    );
   });
 });
