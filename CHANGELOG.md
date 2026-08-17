@@ -15,6 +15,58 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-17 (33rd run) — P0.94 done: `format:check` is a CI step now, and the filing's diagnosis was wrong
+
+- **P0.94 was taken because the 32nd run named it** and it is the first startable open item by
+  `seq` (292): every earlier-`seq` open item needs a human — P0.95 is the branch-deletion
+  permissions gap, P0.96 asks a human to choose between two options, P0.99/P1.00/P0.101 are each
+  correctness bugs awaiting a decision. The criterion, `pnpm format:check` exits 0 on a clean
+  checkout, is met.
+- **The one-command fix was not the right fix.** `prettier --write CLAUDE.md` de-indents the
+  third bullet's continuation line, because the inline code span `pnpm typecheck` straddled the
+  line break and prettier pulls the wrapped span flush-left. Left like that the file is
+  prettier-clean but visibly wrong — a flush-left line under an indented bullet. Moving the span
+  onto a single line makes the file both prettier-clean and correctly indented. The prose is
+  word-for-word identical; verified by diffing the before/after with whitespace collapsed, not by
+  eye.
+- **The filing's diagnosis needed correcting, and this is the honest record of it.** The filing
+  and the 32nd run's handover both said the fix was to widen lint-staged's glob to `.mjs`. But the
+  file that actually fails `format:check` is `CLAUDE.md`, which is `.md` — a type the **old** glob
+  `*.{ts,tsx,js,json,md}` already covered. Widening the glob would not have touched it. The reason
+  a covered file stays dirty is that **lint-staged only ever sees _staged_ files**: CLAUDE.md was
+  already committed dirty before anyone cared, so the hook never re-examines it. Only a repo-wide
+  check reaches it. So the change that actually closes P0.94 is **`format:check` added to
+  `.github/workflows/ci.yml`** (between Lint and Import boundaries), not the glob.
+- **The glob was widened anyway, because it is a real and separate gap.** It went from
+  `*.{ts,tsx,js,json,md}` to `*.{ts,tsx,mts,cts,js,jsx,mjs,cjs,json,md,css,html,yml,yaml}`. The
+  repo tracks 6 `.mjs`, 3 `.css`, 2 `.yaml`, 2 `.html`, 1 `.yml` and 1 `.cjs` file that the hook
+  never formatted, all of which `format:check` now enforces. This run demonstrated the gap live:
+  the `ci.yml` commit printed **`No staged files match any configured task`** — a `.yml` edit the
+  hook ignored. Verified the fix by probe, not assertion: staging a deliberately mis-formatted
+  `measure-cross-engine-drift.mjs` under the new glob makes the hook format it and the change
+  never reaches the commit. The 31st run's `style(scripts): make measure-cross-engine-drift.mjs
+prettier-clean` was this same gap having already bitten once.
+- **Full gate green** (Node **22.22.2**, pnpm **11.9.0**): `typecheck` clean · `lint` clean ·
+  `format:check` clean · `lint:deps` **no violations, 1405 modules / 3965 dependencies** ·
+  `pnpm test` **2253 passed across 242 files** · `pnpm --filter @ballista/app build` exit 0 ·
+  bundle **71.7 kB gzipped** against the 300 kB budget. Test count is identical to the 32nd run,
+  which is what a config-only task should produce. `bench:solverkit` and `check:cross-engine-drift`
+  were **not** run locally this run.
+- **One thing left undone on purpose, named so it is not mistaken for an oversight.** Nothing
+  pins the new `format:check` CI step itself — a later edit could delete it silently, the same way
+  the un-enforced formatting drifted in the first place. No CI step in this repo is guarded that
+  way today, so pinning this one alone would be inconsistent; if that guard is wanted it is a task
+  of its own covering every step, not a rider on this one.
+- **Next run:** **P0.100** (task-id uniqueness assertion, ~15m) is the cheapest fully-specified
+  item left — its filing says to rename the seq-299 task and `P1.00` out of the `P1` namespace
+  rather than touch blueprint-derived phase-1 ids, and to put the assertion in `root-scripts.test.ts`
+  or a sibling. Everything else open at low `seq` needs a human: P0.95 (branch-deletion
+  permissions — this environment cannot delete remote refs), P0.96 (a two-option choice), and the
+  correctness bugs P0.99/P1.00/P0.101, each measured and each awaiting a decision on the fix.
+  P5.24 remains first by `seq` overall and is still marked optional in its own title.
+
+---
+
 ## 2026-08-18 (32nd run) — P0.91 done: one `downrangeAxisOf`, and it was fourteen copies rather than four
 
 - **P0.91 was taken because it is first by `seq` among the startable open items** (289, ahead of
