@@ -62,6 +62,16 @@ forcing a fallback to commit timestamps.
   `bench:solverkit` also passed on that runner, which does **not** refute the 30th run's 16.8%
   `position-verlet` soft-warn — different machine, different moment — but is consistent with its
   reading of that as runner load rather than a regression. Recorded as a data point, not a verdict.
+- **Run 223 went red, and it was GitHub, not this repo — one more entry in that pattern.** The
+  changelog commit at `4cf8d3a` failed on **`Set up job`, step 1 of 33, before checkout**, so no
+  repo code ran at all. The log is unambiguous: three attempts to download `pnpm/action-setup`
+  from `codeload.github.com`, **429 Too Many Requests** twice and then **503 Service Unavailable**.
+  The same rough patch showed up in this session's tooling, where `api.github.com/user` also
+  returned 503. Re-run as attempt 2: **all 33 steps success**, so **CI is green at the current
+  `main` HEAD `4cf8d3a`**. A re-run was the right response _only_ because the failure landed before
+  any test body executed — that is the narrow case where "re-run it" is a diagnosis rather than an
+  evasion. **Read the job log before suspecting the code**; a red CI here has meant a GitHub 5xx
+  every time so far.
 - **A second commit, `35cc2e7`, is formatting only.** One line of the P0.102 change wrapped where
   prettier would not; fixing it cleared the file entirely, since all 10 lines of pre-existing drift
   sat inside the region P0.102 rewrote. Worth noting for **P0.94**: lint-staged's glob is
