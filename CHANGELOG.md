@@ -15,6 +15,68 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-17 (31st run) — P0.102 done: the pre-push gate can no longer overwrite its own committed evidence
+
+- **P0.102 was taken because it is the one open correctness item an unattended run can finish, and
+  because it attacks the gate itself.** The 30th run's shortlist was P0.102, P0.100 and P0.91;
+  P0.96 names two options and says explicitly they are for a human to choose between, and P0.99,
+  P1.00, P0.101 all still need a human. P0.95 remains unsatisfiable here — see below, and it is now
+  confirmed as a permissions gap rather than an environment quirk.
+- **The defect, restated because it is subtle.** `measure-cross-engine-drift.mjs` ended by
+  unconditionally writing the **committed** `cross-engine-drift-results.json`. That script sits in
+  the documented pre-push gate. Run anywhere without Playwright's exact browser revisions — every
+  dev sandbox — it replaced a real chromium measurement (`maxRelativeDrift 0`, bit-identical over
+  101 rows × 5 series) with two `status: unavailable` records carrying launcher stack traces, and
+  **still printed "All measured engines are within the drift threshold" and exited 0**, because
+  that sentence is vacuously true of zero engines. A soft-warn check downgraded checked-in evidence
+  to a non-measurement and called it a pass.
+- **Writing is now opt-in, and the flag buys less than it looks like.** `--record` is required to
+  write at all; CI passes it (where browsers are real), a local gate run does not. But a `--record`
+  run **still refuses when zero engines measured** — if CI's `playwright install` ever fails,
+  replacing a good record with a stack trace is not the useful outcome. So the flag buys the right
+  to write a _measurement_, never the right to erase one. The zero-measured case now warns "No
+  engine could be measured … This is not a pass".
+- **The tests force the failure rather than wait for it.** Five tests run the real script as a
+  subprocess (~0.7s each) and assert the committed file is **byte-identical** afterwards in both
+  flag modes. Where "nothing measurable" has to hold deterministically they point
+  `PLAYWRIGHT_BROWSERS_PATH` at a path that does not exist — otherwise the `--record` test would
+  behave differently on the CI runner, where the browsers _are_ real, and **would itself perform
+  the write it exists to forbid**. A fifth test asserts CI still passes `--record`, so making
+  writing opt-in cannot quietly freeze the committed measurement at whatever it last held.
+- **Mutation-tested, and the defect obligingly reproduced.** Restoring the unconditional write
+  fails 3 of the 5; restoring the vacuous all-clear fails 2; dropping `--record` from `ci.yml`
+  fails 1. During that exercise the mutated script **did** overwrite the results file — the 30th
+  run's exact experience, caught the same way, by reading `git status` rather than trusting the
+  exit code. Reverted with `git checkout --`; the committed measurement is intact and verified
+  present in the landed commit.
+- **Full gate green at `af21b96`** (Node **22.22.2**, pnpm **11.9.0**, `--frozen-lockfile` clean in
+  19.5s): `typecheck` clean · `lint` clean · `lint:deps` **no violations, 1405 modules / 3965
+  dependencies** · `pnpm test` **2248 passed across 242 files** (2243/241 → +5 cases, +1 file) ·
+  root `pnpm build` **exit 0** · bundle **71.7 kB gzipped** against the 300 kB budget. The suite now
+  runs the drift script four times and leaves the results file unmodified — the fix, observed
+  rather than asserted. `bench:solverkit` was **not** run this run; the 30th run's `position-verlet`
+  soft-warn is neither confirmed nor refuted here and is not restated as fresh.
+- **A second commit, `35cc2e7`, is formatting only.** One line of the P0.102 change wrapped where
+  prettier would not; fixing it cleared the file entirely, since all 10 lines of pre-existing drift
+  sat inside the region P0.102 rewrote. Worth noting for **P0.94**: lint-staged's glob is
+  `*.{ts,tsx,js,json,md}`, which **excludes `.mjs`**, so the pre-commit hook never formats these
+  scripts at all. That is a concrete mechanism for the invisible drift P0.94 describes.
+- **P0.95 is worse than "cannot delete refs", and this run has a sharper diagnosis.** The 30th run
+  recorded the delete failure as an HTTP 403. This run hit a 403 on `git push` in a _sibling_
+  repository and probed all three: writes are refused on `paper-trader` and permitted here and on
+  `telehealth`, so these are per-repository GitHub App permissions, not an environment-wide egress
+  rule. P0.95's 76 stale branches therefore need a human with admin on the repo, or the App granted
+  the scope — not a cleverer script. Recorded here; **not** filed as a new task, since P0.95
+  already owns it.
+- **Next run:** unchanged in shape — no open correctness item is startable without a human.
+  **P0.100** (task-id uniqueness assertion, 15m) and **P0.91** (consolidate the four
+  `downrangeAxisOf` copies, 10m) remain the two small, fully specified, independent ones, and
+  either is a clean single-task run. **P0.94** is now better understood and cheap: add `.mjs`
+  (and `.mts`/`.cjs`) to the lint-staged glob, then `format:check` to CI. P0.96 still wants a human
+  to choose between its two options; P0.99, P1.00 and P0.101 still need a human decision each.
+
+---
+
 ## 2026-08-17 (30th run) — P0.92 done: the difference stencil no longer steps outside an active bound; P0.102 filed
 
 - **P0.92 is done, and it was taken because it is the only open correctness item an unattended run
