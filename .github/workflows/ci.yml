@@ -29,6 +29,12 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      # P0.94. The pre-commit hook only formats files that are STAGED, so a
+      # file already dirty when the hook landed stays dirty forever. This is
+      # the repo-wide check that catches that class rather than fixing it once.
+      - name: Format
+        run: pnpm format:check
+
       - name: Import boundaries
         run: pnpm lint:deps
 
