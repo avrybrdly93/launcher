@@ -348,11 +348,16 @@ describe("constrainedShooting — projection strategy", () => {
     expect(seen[0]).toBe(70);
   });
 
-  it("keeps every iterate feasible, while the difference stencil reaches just past the face", () => {
-    // The measured gap between "every iterate is feasible" (true) and "nothing is
-    // ever evaluated outside the box" (false, and an early draft of the module
-    // comment claimed it). The excursions are the Jacobian's difference step in
-    // the speed column and nothing larger. Filed as P0.92.
+  it("keeps every evaluation feasible, not merely every iterate", () => {
+    // **This test used to assert the opposite, and the change is deliberate.**
+    // It was written to characterize the measured gap between "every iterate is
+    // feasible" (true) and "nothing is ever evaluated outside the box" (false at
+    // the time): 5 of 56 evaluations landed 4.8444e-4 m/s past the cap, one
+    // difference step in the speed column, filed as P0.92. P0.92 closed that gap
+    // by handing the Jacobian a feasible-region hook, so the old expectation now
+    // encodes a defect rather than a fact. The historical numbers are preserved
+    // by the control below, which reproduces all five excursions on demand, and
+    // the stencil mechanics live in shooting-jacobian-feasible.test.ts.
     const cap = 70;
     const base = dragResidual();
     const excursions: number[] = [];
@@ -365,6 +370,30 @@ describe("constrainedShooting — projection strategy", () => {
     const result = constrainedShooting(watched, START, { speedMax: cap });
 
     expect(result.feasible).toBe(true);
+    // Unchanged at 56: a one-sided column spends the same two evaluations a
+    // central one does, so the fix costs nothing here.
+    expect(total).toBe(56);
+    expect(excursions).toEqual([]);
+  });
+
+  it("reproduces the pre-P0.92 excursions exactly when the hook is disabled", () => {
+    // The control for the assertion above, and the reason it is not vacuous:
+    // without it, "no excursions" could mean the stencil never reached the face
+    // on this problem rather than that the fix works. `feasible: () => true` is
+    // the old behaviour spelled out — every point is admissible, so no column
+    // ever falls back.
+    const cap = 70;
+    const base = dragResidual();
+    const excursions: number[] = [];
+    let total = 0;
+    const watched = (aim: Aim) => {
+      total++;
+      if (aim.speed > cap) excursions.push(aim.speed - cap);
+      return base(aim);
+    };
+
+    constrainedShooting(watched, START, { speedMax: cap }, { jacobian: { feasible: () => true } });
+
     expect(total).toBe(56);
     expect(excursions).toHaveLength(5);
     for (const excursion of excursions) {
