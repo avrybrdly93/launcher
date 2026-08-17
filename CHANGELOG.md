@@ -54,8 +54,14 @@ forcing a fallback to commit timestamps.
   dependencies** · `pnpm test` **2248 passed across 242 files** (2243/241 → +5 cases, +1 file) ·
   root `pnpm build` **exit 0** · bundle **71.7 kB gzipped** against the 300 kB budget. The suite now
   runs the drift script four times and leaves the results file unmodified — the fix, observed
-  rather than asserted. `bench:solverkit` was **not** run this run; the 30th run's `position-verlet`
-  soft-warn is neither confirmed nor refuted here and is not restated as fresh.
+  rather than asserted. `bench:solverkit` was **not** run locally this run.
+- **CI is green at `1d12483`, and it is the first real test of the `--record` path.** Run **222**
+  passed **every** step, including `Cross-engine drift check` — the one environment with actual
+  Playwright browsers, so the write branch this task added has now executed against real engines
+  rather than only against its own tests. Run 221 covers `deaa6d3`, one commit earlier.
+  `bench:solverkit` also passed on that runner, which does **not** refute the 30th run's 16.8%
+  `position-verlet` soft-warn — different machine, different moment — but is consistent with its
+  reading of that as runner load rather than a regression. Recorded as a data point, not a verdict.
 - **A second commit, `35cc2e7`, is formatting only.** One line of the P0.102 change wrapped where
   prettier would not; fixing it cleared the file entirely, since all 10 lines of pre-existing drift
   sat inside the region P0.102 rewrote. Worth noting for **P0.94**: lint-staged's glob is
