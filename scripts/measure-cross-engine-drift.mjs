@@ -164,9 +164,7 @@ if (exceeded.length > 0) {
     "::warning::No engine could be measured, so no cross-engine drift was checked. This is not a pass.",
   );
 } else {
-  console.log(
-    `All ${measured.length} measured engine(s) are within the drift threshold.`,
-  );
+  console.log(`All ${measured.length} measured engine(s) are within the drift threshold.`);
 }
 
 if (!shouldRecord) {
