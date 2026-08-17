@@ -36,6 +36,13 @@
 // nothing over something is never the useful outcome, so the flag buys the
 // right to write a *measurement*, not the right to erase one.
 //
+// CI passes --record, but note what that does and does not do: the write lands
+// in the runner's workspace and is discarded, because nothing commits it back
+// (nor did it before P0.102). Its value there is that the recording path runs
+// on the one machine with real browsers instead of rotting untested. Updating
+// the committed results file remains a deliberate act -- run with --record
+// locally and commit what it produces.
+//
 // Requires packages/{engine,solverkit}/dist to already be built (`pnpm
 // typecheck`, already a prior CI step), same precondition as P2.43's script.
 

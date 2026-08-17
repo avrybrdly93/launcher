@@ -39,10 +39,15 @@ jobs:
         run: pnpm bench:solverkit
 
       - name: Cross-engine drift check (soft warn)
-        # --record so the committed results file is refreshed from the runner,
-        # where Playwright's browsers are actually installed. Without the flag
-        # the script measures and reports but writes nothing (P0.102), which is
-        # what a local pre-push gate run should do.
+        # --record here because this is the one environment with real browsers,
+        # so it is the only place the recording path gets exercised at all --
+        # an untested write path would rot silently. Note the write lands in
+        # the runner's workspace and is discarded: nothing commits it back, and
+        # nothing did before P0.102 either. Refreshing the committed
+        # scripts/cross-engine-drift-results.json is still a deliberate act —
+        # run with --record locally and commit the result.
+        # Without the flag the script measures and reports but writes nothing
+        # (P0.102), which is what a local pre-push gate run should do.
         run: pnpm check:cross-engine-drift --record
 
       - name: Engine API docs
