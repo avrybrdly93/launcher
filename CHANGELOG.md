@@ -52,6 +52,18 @@ prettier-clean` was this same gap having already bitten once.
   bundle **71.7 kB gzipped** against the 300 kB budget. Test count is identical to the 32nd run,
   which is what a config-only task should produce. `bench:solverkit` and `check:cross-engine-drift`
   were **not** run locally this run.
+- **CI run 226 at `e632668` went red on the P0.96 flake, not on this change.** The single failure
+  is `chunked-integration.test.ts:318` (P2.40), `expect(maxSliceMs).toBeLessThan(10)`, measuring
+  **13.065580 ms** — the wall-clock assertion P0.96 was filed for. **2252 of 2253 passed.** Three
+  things rule this change out as the cause, checked rather than assumed: the failing test is in
+  `packages/solverkit`, which this run did not touch; the same suite was **2253/2253 locally**
+  minutes earlier; and the new `format:check` step **passed**, since it sits before Test in the
+  job and Test ran. This is the fourth recorded sighting (runs at `5bafdff`, `57eb22a`, 223, now 226) and it stays consistent with the 18th run's evidence that it is load-sensitive rather than
+  code-sensitive. The failed job was re-run rather than the assertion touched — **P0.96 still
+  wants a human to choose between its two named options**, and weakening the test to get green is
+  forbidden here. **Attempt 2 of run 226 is `success` at the same `e632668`**, on the same code,
+  which is the cleanest form the load-sensitivity evidence has taken yet: identical tree, identical
+  commit, red then green with nothing changed in between. `main` is green.
 - **One thing left undone on purpose, named so it is not mistaken for an oversight.** Nothing
   pins the new `format:check` CI step itself — a later edit could delete it silently, the same way
   the un-enforced formatting drifted in the first place. No CI step in this repo is guarded that
