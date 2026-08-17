@@ -21,6 +21,21 @@
 // are a checked-in, reviewable artifact rather than only a transient CI log
 // line.
 //
+// WRITING IS OPT-IN (P0.102). Pass `--record` to update that committed file;
+// without it the script measures and reports but touches nothing. Before
+// P0.102 the script always wrote, which meant running the documented pre-push
+// gate in a sandbox lacking Playwright's exact browser revisions silently
+// replaced a real chromium measurement with two `status: unavailable` records
+// and a launcher stack trace -- and still exited 0, because "all *measured*
+// engines are within threshold" is vacuously true of zero engines. A checked-in
+// artifact that any local gate run can quietly downgrade is not evidence.
+//
+// A `--record` run still refuses to write when nothing was measured. That case
+// is not hypothetical in CI either: if `playwright install` fails there, the
+// run would otherwise overwrite a good record with a stack trace. Recording
+// nothing over something is never the useful outcome, so the flag buys the
+// right to write a *measurement*, not the right to erase one.
+//
 // Requires packages/{engine,solverkit}/dist to already be built (`pnpm
 // typecheck`, already a prior CI step), same precondition as P2.43's script.
 
@@ -35,6 +50,9 @@ const fixtureEntry = join(rootDir, "scripts", "cross-engine-drift-fixture.mjs");
 const RELATIVE_DRIFT_THRESHOLD = 1e-13;
 /** Below this magnitude, compare absolute rather than relative difference (avoids a divide-by-near-zero blowup, e.g. around the ground-impact y crossing). */
 const RELATIVE_FLOOR = 1e-9;
+
+/** P0.102: writing the committed results file is opt-in. See the header. */
+const shouldRecord = process.argv.slice(2).includes("--record");
 
 const { computeDriftFixtureTrajectory } = await import(fixtureEntry);
 const reference = computeDriftFixtureTrajectory();
@@ -127,6 +145,8 @@ for (const r of results) {
   }
 }
 
+const measured = results.filter((r) => r.status === "measured");
+
 if (exceeded.length > 0) {
   for (const r of exceeded) {
     console.warn(
@@ -136,26 +156,48 @@ if (exceeded.length > 0) {
   console.warn(
     `${exceeded.length} engine(s) exceeded the drift threshold -- soft warn only, not failing CI.`,
   );
+} else if (measured.length === 0) {
+  // P0.102: do not report an all-clear derived from an empty set. "All
+  // measured engines are within the threshold" is true of zero engines and
+  // reads exactly like a passing check.
+  console.warn(
+    "::warning::No engine could be measured, so no cross-engine drift was checked. This is not a pass.",
+  );
 } else {
-  console.log("All measured engines are within the drift threshold.");
+  console.log(
+    `All ${measured.length} measured engine(s) are within the drift threshold.`,
+  );
 }
 
-writeFileSync(
-  resultsPath,
-  JSON.stringify(
-    {
-      schemaVersion: 1,
-      recordedAt: new Date().toISOString().slice(0, 10),
-      thresholdRelativeDrift: RELATIVE_DRIFT_THRESHOLD,
-      provenance:
-        'Measured by `node scripts/measure-cross-engine-drift.mjs`, comparing the same gravity+quadratic-drag dopri5 trajectory computed under Node against the identical fixture bundled (esbuild) and run inside Playwright-driven Chromium/Firefox. A browser not installed in the environment that produced this file is recorded as "unavailable" rather than measured -- see the `status` field per engine.',
-      results,
-    },
-    null,
-    2,
-  ) + "\n",
-);
-console.log(`Wrote measured results to ${resultsPath}`);
+if (!shouldRecord) {
+  console.log(
+    `Not writing ${resultsPath} (pass --record to update it). Measured this run: ` +
+      (measured.length > 0 ? measured.map((r) => r.engine).join(", ") : "none"),
+  );
+} else if (measured.length === 0) {
+  // Refuse even under --record: overwriting a real measurement with a record
+  // of having measured nothing destroys evidence and creates none.
+  console.warn(
+    `::warning::--record was passed but no engine was measured; leaving ${resultsPath} unmodified rather than downgrading it to a non-measurement.`,
+  );
+} else {
+  writeFileSync(
+    resultsPath,
+    JSON.stringify(
+      {
+        schemaVersion: 1,
+        recordedAt: new Date().toISOString().slice(0, 10),
+        thresholdRelativeDrift: RELATIVE_DRIFT_THRESHOLD,
+        provenance:
+          'Measured by `node scripts/measure-cross-engine-drift.mjs --record`, comparing the same gravity+quadratic-drag dopri5 trajectory computed under Node against the identical fixture bundled (esbuild) and run inside Playwright-driven Chromium/Firefox. A browser not installed in the environment that produced this file is recorded as "unavailable" rather than measured -- see the `status` field per engine. Writing requires --record and is skipped entirely when no engine could be measured, so a gate run in an environment without browsers cannot replace a real measurement here (P0.102).',
+        results,
+      },
+      null,
+      2,
+    ) + "\n",
+  );
+  console.log(`Wrote measured results to ${resultsPath}`);
+}
 
 // Soft warn (P2.45's own validation text: "test warns if exceeded", not
 // "test fails"): always exit 0 so a genuine but tiny cross-engine ULP
