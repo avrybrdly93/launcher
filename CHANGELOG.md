@@ -15,6 +15,81 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-17 (30th run) — P0.92 done: the difference stencil no longer steps outside an active bound; P0.102 filed
+
+- **P0.92 is done, and it was taken because it is the only open correctness item an unattended run
+  can finish.** P0.99 is parked on ADR-016's three options, P1.00 wants a resting-contact model
+  blueprint §4.9 does not specify, and P0.101 wants a rebound-speed cutoff `restitution.ts` has
+  none of — all three need a human. P5.24 remains the next task by `seq` and remains marked
+  optional in its own title.
+- **The fix is opt-in, and that is the whole design.** `JacobianOptions` gains
+  `feasible?: (aim) => boolean`. Omitted, every number the module produces is unchanged — asserted
+  bit-for-bit on the matrix, the steps and the evaluation count, not merely to a tolerance. Given,
+  a column whose stencil would cross a face differences **inward** instead. The module comment has
+  always said a one-sided fallback on a _failed evaluation_ would be exactly the invisible accuracy
+  loss it exists to prevent, and that stays true: the swap happens only where the caller has
+  declared the region, never as a rescue. `ShootingJacobian.stencils` reports per column which
+  stencil actually ran.
+- **Five rules, and rules 1 and 5 are the ones worth knowing.** The hook engages only at a
+  **feasible base aim** — at an infeasible one "inward" has no single meaning, so behaviour is what
+  it was before. And when _neither_ side is feasible the region is narrower than the step, there is
+  no stencil to fall back to, and the requested scheme runs unchanged rather than inventing
+  something. Rule 4: a column that goes one-sided re-derives its step for the order it now has
+  (`ε^{1/2}`, not `ε^{1/3}`) unless the caller pinned it, because the plateau sweeps depend on
+  pinned steps being honoured verbatim.
+- **`constrainedShooting` now hands the hook over automatically** under the projection strategy,
+  reusing `aimActiveSet(...).feasible` rather than re-deriving "inside the box" — so the predicate
+  the stencil obeys and the one the answer is judged against are the same code with the same
+  tolerance. An explicit hook from the caller wins, since a caller may know a tighter domain than
+  the box: an elevation at which the terminal event cannot fire is not an `AimBounds` face.
+- **The order drop is measured, which is what the filing asked for rather than an assertion.** Same
+  problem, same pinned steps, both stencils, fitted log-log slope over `h = 1e-4 … 1e-1`: **central
+  2.00** (6.6e-9 → 6.7e-3), **one-sided 1.00** (3.6e-4 → 3.5e-1). At the default first-order step
+  `ε^{1/2} = 1.49e-8` the face measures **3.5e-6** relative against central's **~2e-9** on the same
+  column. **Three orders, and that gap is the cost of the trade** — `O(h²)` → `O(h)`, in that
+  column, at that face, nowhere else. Rule 4 is justified by measurement too: keeping the central
+  step for the one-sided column gives **2.2e-5**, six times worse.
+- **Both perturbations confirm the tests fail for the right reason, and the first one is the
+  satisfying part.** Forcing the stencil to stay central turns **8 of 19** new cases red — and the
+  `constrainedShooting` case then reports exactly **`count: 5, of: 56`**, reproducing P5.16's
+  original measurement from the filing three months of runs ago. Skipping the step re-derivation
+  turns exactly **2** red, the step assertion and the accuracy one.
+- **One existing test was inverted on purpose, and it is not a weakened test.**
+  `constraints.test.ts`'s "keeps every iterate feasible, while the difference stencil reaches just
+  past the face" _asserted the defect_ — five excursions of `4.8444e-4` — as a characterization of
+  P0.92. Its belief is what the task changed. It now asserts zero excursions, with a control beside
+  it that disables the hook and reproduces all five exactly, so the historical measurement is kept
+  rather than deleted.
+- **P0.102 filed, and it nearly ate this run's clean tree.** `pnpm check:cross-engine-drift` is in
+  the documented pre-push gate. Run here it **overwrote the committed
+  `scripts/cross-engine-drift-results.json`**, replacing a real chromium measurement
+  (`status: measured`, maxRelativeDrift 0, bit-identical over 101 rows × 5 series) with
+  `status: unavailable` and a Playwright launcher stack trace — this sandbox has Chromium but not
+  at revision `chromium_headless_shell-1228`, and no Firefox. **It still printed "All measured
+  engines are within the drift threshold" and exited 0**, because zero measured engines satisfies
+  that vacuously. So a soft-warn check silently downgrades committed evidence and reports success.
+  Reverted with `git checkout --`; filed rather than fixed, since it was not this run's task.
+- **Full gate green at `dc1dc11`** (Node **22.22.2**, pnpm **11.9.0**, `--frozen-lockfile` clean in
+  10.4s): `typecheck` clean · `lint` clean · `lint:deps` **no violations, 1401 modules / 3955
+  dependencies** · `pnpm test` **2243 passed across 241 files** (2223/240 → +20 cases, +1 file) ·
+  root `pnpm build` **exit 0** · bundle **71.7 kB gzipped** against the 300 kB budget.
+  `bench:solverkit` **soft-warns** on `position-verlet` at 16.8% against a 15% threshold — this run
+  touched nothing under `packages/solverkit`, so it is runner load on a ratio benchmark, not a
+  regression this change could have caused. Recorded rather than dismissed.
+- **Untouched, and deliberately:** P0.99, P1.00 and P0.101, all three of which need a human
+  decision before an unattended run should go near them; and P0.95, which this environment still
+  cannot satisfy — `git push origin --delete` does not work here.
+- **Next run:** no open correctness item is startable without a human. Of what remains, **P0.96**
+  (the wall-clock assertion that flakes on CI) is the highest-value one, but read its notes first:
+  it names two options and says explicitly they are _for a human to choose between_, so an
+  unattended run should pick the conservative half — keep the deterministic assertions, report the
+  milliseconds without asserting them — or leave it. Otherwise **P0.100** (task-id uniqueness
+  assertion, 15m) and **P0.91** (consolidate the four `downrangeAxisOf` copies, 10m) are both small,
+  fully specified and independent. **P0.102** is likewise small and would stop the gate from
+  corrupting a committed artefact.
+
+---
+
 ## 2026-08-16 (29th run) — P0.98 done with a fixed step; P0.101 filed: bounces silently missed, projectile falls through the ground
 
 - **P0.98 is done, and the thing that unblocked it was a fixed step, not the Hermite wrapper alone.**
