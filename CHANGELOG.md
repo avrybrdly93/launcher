@@ -15,6 +15,60 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-18 (32nd run) — P0.91 done: one `downrangeAxisOf`, and it was fourteen copies rather than four
+
+- **P0.91 was taken because it is first by `seq` among the startable open items** (289, ahead of
+  P0.94 at 292 and P0.100 at 300), and the 31st run's shortlist named it. `policy.taskSelection`
+  says work in `seq` order; the earlier-`seq` items in the open set are the ones that need a human
+  (P0.95 is a permissions gap, P0.96 asks a human to choose between two named options, P0.99/P1.00/
+  P0.101 each need a decision). P5.24 is still first by `seq` overall and still marked optional in
+  its own title.
+- **The filing said four private copies. There were seven, and seven inline expressions besides.**
+  `ill-conditioning.ts:256`, `basin-of-attraction.ts:182` and `trajectory-designer.ts:181` each
+  grew a copy in the eight days since it was filed — which is precisely the quiet divergence the
+  filing predicted, arriving on schedule and worth recording as such. The filing also missed the
+  unnamed form: `layout.vertical === 0 ? 1 : 0` written inline at `shooting-residual.ts:203`,
+  `tangent-linear.ts` (four sites), `targets.ts:228`, and `observables.ts:227` — inside the very
+  file that now exports the helper. Fourteen sites in total; all fourteen now call one function.
+- **They were not all identical, and the one difference decided the task.** Six copies were the
+  ternary. `min-energy.ts`'s scanned for the first non-vertical axis and threw when there was
+  none. On every layout with two or more position axes the two agree exactly — checked across
+  every 2-to-4-axis layout, not argued — so the consolidation is a refactor. They part company on
+  a one-dimensional layout: the ternary returns axis `1`, which does not exist and is read a few
+  frames later as `undefined`-turned-`NaN`. **The scan-and-throw is what was kept**, for the same
+  reason `requireLayout` in that file checks the whole layout up front rather than letting `at()`
+  discover a missing channel later. Neither shipped layout can reach the throw.
+- **Five tests, and the fifth is the one that matters.** Four cover the agreement, including a
+  sweep asserting the helper matches the replaced ternary on every layout either can describe. The
+  fifth covers the disagreement. **Mutation-checked**: restoring the ternary in `observables.ts`
+  turns exactly the fifth red and leaves the other four green — the split the consolidation
+  claimed, observed rather than asserted.
+- **One test deliberately keeps its own copy of the rule.** `arcs.test.ts:518` restates
+  `vertical === 0 ? 1 : 0` independently. That is not a fourteenth site to clean up: a test that
+  restates a convention is a check on the helper, and rewriting it to call the helper would make
+  it assert only that the helper equals itself.
+- **Full gate green** (Node **22.22.2**, pnpm **11.9.0**): `typecheck` clean · `lint` clean ·
+  `lint:deps` **no violations, 1405 modules / 3965 dependencies** · `pnpm test` **2253 passed
+  across 242 files** (2248/242 → +5 cases, no new file) · `pnpm --filter @ballista/app build` exit
+  0 · bundle **71.7 kB gzipped** against the 300 kB budget. The 2248 → 2253 delta is the five new
+  cases and nothing else, which is what a pure consolidation should produce. `bench:solverkit` and
+  `check:cross-engine-drift` were **not** run locally this run.
+- **A lint detail worth naming, since it is the only way this refactor could have landed dirty.**
+  Deleting the seven copies left `type TrajectoryLayout` imported and unused in five modules —
+  five `@typescript-eslint/no-unused-vars` **warnings**, and `pnpm lint` is `eslint .` with no
+  `--max-warnings`, so they would have passed CI silently. Cleaned in the same commit. Anyone
+  adding `--max-warnings 0` later should expect that to be uneventful; it is today.
+- **Next run:** **P0.94** is the cheapest remaining and is fully diagnosed — add `.mjs` (and
+  `.mts`/`.cjs`) to lint-staged's `*.{ts,tsx,js,json,md}` glob, which currently excludes every
+  script in `scripts/`, then add `format:check` to CI. **P0.100** (task-id uniqueness assertion,
+  15m) is the other fully-specified one; note its own filing says to rename the seq-299 task and
+  `P1.00` out of the `P1` namespace rather than touching blueprint-derived phase-1 ids, and to put
+  the assertion in `root-scripts.test.ts` or a sibling. P0.96 still wants a human to choose
+  between its two options; P0.95, P0.99, P1.00 and P0.101 still need a human each. No open
+  correctness item beyond those is startable without a decision.
+
+---
+
 ## 2026-08-17 (31st run) — P0.102 done: the pre-push gate can no longer overwrite its own committed evidence
 
 - **P0.102 was taken because it is the one open correctness item an unattended run can finish, and
