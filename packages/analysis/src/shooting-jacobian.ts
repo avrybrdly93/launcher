@@ -61,6 +61,19 @@ import type { Aim, ResidualFunction, ShootingResidual } from "./shooting-residua
 export type FiniteDifferenceScheme = "forward" | "central";
 
 /**
+ * The stencil a single column was actually differenced with.
+ *
+ * Distinct from {@link FiniteDifferenceScheme}, which is what the caller
+ * *asked* for. The two differ only when {@link JacobianOptions.feasible} is
+ * supplied and a column's stencil would otherwise have stepped out of the
+ * feasible region — see {@link shootingJacobian} for the rule and for what the
+ * swap costs. `"backward"` is not a requestable scheme because no caller has a
+ * reason to prefer it; it exists only as the inward one-sided fallback at an
+ * upper face.
+ */
+export type StencilKind = "central" | "forward" | "backward";
+
+/**
  * The relative accuracy assumed for the residual when the caller does not say.
  *
  * This is machine epsilon, i.e. **the assumption that the inner solve is
@@ -110,6 +123,37 @@ export interface JacobianOptions {
   readonly thetaScale?: number;
   /** Typical magnitude of `v₀`. Defaults to `max(|v₀|, 1)`. */
   readonly speedScale?: number;
+  /**
+   * Whether an aim lies in the region the residual is allowed to be evaluated
+   * at. Omitted means "everywhere", which is the historical behaviour and stays
+   * the default.
+   *
+   * **This exists because keeping the *iterates* feasible does not keep the
+   * *evaluations* feasible** (P0.92). `constrainedShooting`'s projection
+   * strategy clamps every Newton iterate onto the box, but the Jacobian
+   * differences about that iterate, and a central stencil at an aim sitting on
+   * a face necessarily puts one of its two evaluations outside — measured on
+   * P5.16's speed-capped exhibit at `4.8444e-4` m/s past a 70 m/s cap, one
+   * difference step, 5 of 56 evaluations.
+   *
+   * Whether that matters depends entirely on what the bound *means*. Past a
+   * machine limit like a maximum draw the residual is still perfectly well
+   * defined, so the Jacobian is right and nothing is wrong. Past a bound that
+   * marks the edge of the **model's domain** — a non-negative speed, or an
+   * elevation below which the terminal event cannot fire — the stencil asks for
+   * a trajectory that does not exist, the residual returns `ok: false`, and the
+   * whole Jacobian fails at an otherwise healthy iterate. This hook is how a
+   * caller says which kind of bound theirs is.
+   *
+   * The predicate is called only with candidate stencil points and never with
+   * anything else, so it may be as cheap as a comparison; it must not evaluate
+   * the residual. The region is assumed **convex** — true of the box this was
+   * written for — in that a point closer to a feasible base aim is taken to be
+   * feasible too. That assumption is re-checked rather than trusted whenever it
+   * would change a step, so a non-convex region degrades to the historical
+   * behaviour rather than to a wrong answer.
+   */
+  readonly feasible?: (aim: Aim) => boolean;
 }
 
 /** One finite-difference Jacobian evaluation. */
@@ -135,9 +179,23 @@ export interface ShootingJacobian {
   readonly matrix: number[][] | null;
   /** Whether every evaluation the scheme needed succeeded. */
   readonly ok: boolean;
-  /** The scheme actually used. */
+  /** The scheme the caller asked for, echoed back. */
   readonly scheme: FiniteDifferenceScheme;
-  /** The absolute steps used, in the aim's own units. */
+  /**
+   * The stencil each column was actually differenced with.
+   *
+   * Equal to {@link scheme} on both columns unless
+   * {@link JacobianOptions.feasible} forced an inward one-sided fallback. **A
+   * column reading `"forward"` or `"backward"` where `scheme` is `"central"`
+   * is first-order accurate rather than second** — read this before trusting a
+   * convergence rate measured through a face.
+   */
+  readonly stencils: { readonly theta: StencilKind; readonly speed: StencilKind };
+  /**
+   * The absolute steps used, in the aim's own units. Per column, because a
+   * column that fell back to a one-sided stencil also re-derives its step for
+   * the order it actually has (unless the caller pinned it).
+   */
   readonly steps: { readonly theta: number; readonly speed: number };
   /** Residual evaluations spent, including the base point for `"forward"`. */
   readonly evaluations: number;
@@ -146,7 +204,10 @@ export interface ShootingJacobian {
   /**
    * The base-point evaluation `F(aim)`. Present for `"forward"`, which needs it
    * anyway, so a Newton iteration gets the residual and its Jacobian from one
-   * call. `null` for `"central"`, which never evaluates the base point.
+   * call. Normally `null` for `"central"`, which does not evaluate the base
+   * point — **except when a column falls back to a one-sided stencil**, which
+   * needs `F(aim)` as its second point. It is evaluated at most once and shared
+   * between the columns.
    */
   readonly base: ShootingResidual | null;
   /**
@@ -221,10 +282,38 @@ function perturb(aim: Aim, column: (typeof AIM_COLUMNS)[number], delta: number):
  * {@link ResidualFunction}'s contract and for the same reason: a Newton line
  * search (P5.06) that differentiates near the reachability boundary will step
  * outside it, and that is an ordinary incident in an optimization which the
- * caller handles by shortening its step. It is reported rather than
- * silently one-sided — falling back to a one-sided difference would quietly
- * halve the scheme's order and move the plateau, which is precisely the kind of
- * invisible accuracy loss this module exists to prevent.
+ * caller handles by shortening its step.
+ *
+ * **The stencil never goes one-sided on its own** — an automatic fallback on a
+ * failed evaluation would quietly halve the scheme's order and move the
+ * plateau, which is precisely the kind of invisible accuracy loss this module
+ * exists to prevent. A caller who knows where the feasible region is says so
+ * through {@link JacobianOptions.feasible}, and then the rule is:
+ *
+ * 1. The hook engages only at a **feasible base aim**. At an infeasible one
+ *    "inward" has no single meaning, so behaviour is exactly what it was
+ *    before the hook existed.
+ * 2. Per column, prefer the requested scheme when every point it needs is
+ *    feasible. This is the ordinary case and costs one predicate call per
+ *    point — no residual evaluation is saved or spent by the check.
+ * 3. Otherwise difference **inward**: `"backward"` when only `aim − h` is
+ *    feasible, `"forward"` when only `aim + h` is. The base point `F(aim)` is
+ *    evaluated once and shared.
+ * 4. A column that goes one-sided **re-derives its step for first order**
+ *    (`scale · ε_F^{1/2}` rather than `scale · ε_F^{1/3}`), because a stencil
+ *    of one order run at another order's optimum sits needlessly far up the
+ *    truncation branch. An explicit `thetaStep`/`speedStep` is honoured
+ *    verbatim instead — the plateau sweeps depend on that.
+ * 5. When neither side is feasible the box is narrower than the step. There is
+ *    no stencil to fall back to, so the requested scheme runs unchanged and
+ *    whatever the residual says about the infeasible point stands.
+ *
+ * **What the fallback costs, stated plainly: `O(h²)` becomes `O(h)`, in that
+ * column, at that face, and nowhere else.** The other column keeps its central
+ * stencil and its order. {@link ShootingJacobian.stencils} reports which
+ * happened so a caller measuring a convergence rate through a face is not
+ * measuring second-order behaviour that is not there.
+ * `shooting-jacobian.test.ts` measures both slopes rather than asserting them.
  */
 export function shootingJacobian(
   residual: ResidualFunction,
@@ -236,9 +325,12 @@ export function shootingJacobian(
   const thetaScale = options.thetaScale ?? 1;
   const speedScale = options.speedScale ?? Math.max(Math.abs(aim.speed), 1);
 
+  const scaleOf = { theta: thetaScale, speed: speedScale };
+  const pinned = { theta: options.thetaStep, speed: options.speedStep };
+
   const steps = {
-    theta: options.thetaStep ?? finiteDifferenceStep(noiseFloor, scheme, thetaScale),
-    speed: options.speedStep ?? finiteDifferenceStep(noiseFloor, scheme, speedScale),
+    theta: pinned.theta ?? finiteDifferenceStep(noiseFloor, scheme, thetaScale),
+    speed: pinned.speed ?? finiteDifferenceStep(noiseFloor, scheme, speedScale),
   };
   for (const column of AIM_COLUMNS) {
     const step = steps[column];
@@ -246,6 +338,15 @@ export function shootingJacobian(
       throw new Error(`shootingJacobian: ${column} step must be finite and positive; got ${step}`);
     }
   }
+
+  const stencils: { theta: StencilKind; speed: StencilKind } = {
+    theta: scheme,
+    speed: scheme,
+  };
+  // Rule 1: the hook engages only at a feasible base aim. One call, not one per
+  // column, because the answer cannot differ between them.
+  const feasible = options.feasible;
+  const hookActive = feasible !== undefined && feasible(aim);
 
   let evaluations = 0;
   const evaluate = (at: Aim): ShootingResidual => {
@@ -257,6 +358,7 @@ export function shootingJacobian(
     matrix: null,
     ok: false,
     scheme,
+    stencils,
     steps,
     evaluations,
     aim,
@@ -264,33 +366,90 @@ export function shootingJacobian(
     failure,
   });
 
-  const base = scheme === "forward" ? evaluate(aim) : null;
-  if (base !== null && (!base.ok || base.residual === null)) {
-    return failed(
-      "the base aim produced no impact, so a forward difference has nothing to difference from",
-      base,
-    );
+  // `"forward"` needs `F(aim)` for every column; `"central"` needs it only if a
+  // column falls back. Either way it is evaluated at most once.
+  let base: ShootingResidual | null = null;
+  const baseValue = (): ShootingResidual => (base ??= evaluate(aim));
+
+  if (scheme === "forward") {
+    const at = baseValue();
+    if (!at.ok || at.residual === null) {
+      return failed(
+        "the base aim produced no impact, so a forward difference has nothing to difference from",
+        at,
+      );
+    }
   }
+
+  // Rules 2-5. Decides the stencil for one column from the hook alone; costs
+  // predicate calls only, never a residual evaluation.
+  const chooseStencil = (column: (typeof AIM_COLUMNS)[number]): void => {
+    if (!hookActive) return;
+    const check = feasible!;
+    const step = steps[column];
+    const plusOk = check(perturb(aim, column, step));
+    const minusOk = check(perturb(aim, column, -step));
+
+    if (scheme === "forward") {
+      // Rule 2/3: a forward stencil needs only `aim + h`. Swap it for the
+      // mirror image when that is the side that left the region.
+      if (!plusOk && minusOk) stencils[column] = "backward";
+      return;
+    }
+
+    if (plusOk && minusOk) return; // Rule 2: central, unchanged.
+    if (!plusOk && !minusOk) return; // Rule 5: nowhere to fall back to.
+
+    stencils[column] = plusOk ? "forward" : "backward";
+
+    // Rule 4: re-derive for the order this column now has, unless pinned. The
+    // first-order step is the *smaller* of the two (`ε_F^{1/2} < ε_F^{1/3}` for
+    // `ε_F < 1`), so it moves further inside the region rather than out of it —
+    // but the region is only assumed convex, so verify instead of trusting.
+    if (pinned[column] !== undefined) return;
+    const inward = finiteDifferenceStep(noiseFloor, "forward", scaleOf[column]);
+    const signed = stencils[column] === "forward" ? inward : -inward;
+    if (inward > 0 && Number.isFinite(inward) && check(perturb(aim, column, signed))) {
+      steps[column] = inward;
+    }
+  };
 
   const columns: number[][] = [];
   for (const column of AIM_COLUMNS) {
+    chooseStencil(column);
+    const stencil = stencils[column];
     const step = steps[column];
-    const plus = evaluate(perturb(aim, column, step));
-    if (!plus.ok || plus.residual === null) {
-      return failed(`the +${column} perturbation (step ${step}) produced no impact`, base);
-    }
 
-    if (scheme === "forward") {
-      const from = base!.residual!;
-      columns.push(plus.residual.map((value, row) => (value - from[row]!) / step));
+    if (stencil === "central") {
+      const plus = evaluate(perturb(aim, column, step));
+      if (!plus.ok || plus.residual === null) {
+        return failed(`the +${column} perturbation (step ${step}) produced no impact`, base);
+      }
+      const minus = evaluate(perturb(aim, column, -step));
+      if (!minus.ok || minus.residual === null) {
+        return failed(`the -${column} perturbation (step ${step}) produced no impact`, base);
+      }
+      columns.push(plus.residual.map((value, row) => (value - minus.residual![row]!) / (2 * step)));
       continue;
     }
 
-    const minus = evaluate(perturb(aim, column, -step));
-    if (!minus.ok || minus.residual === null) {
-      return failed(`the -${column} perturbation (step ${step}) produced no impact`, base);
+    // One-sided, first order: `(F(aim ± h) − F(aim)) / (± h)`. The sign carries
+    // through the divisor, so a backward stencil needs no separate expression.
+    const signed = stencil === "forward" ? step : -step;
+    const at = baseValue();
+    if (!at.ok || at.residual === null) {
+      return failed(
+        `the ${column} column needs the base aim for its one-sided stencil, and the base aim produced no impact`,
+        at,
+      );
     }
-    columns.push(plus.residual.map((value, row) => (value - minus.residual![row]!) / (2 * step)));
+    const offset = evaluate(perturb(aim, column, signed));
+    if (!offset.ok || offset.residual === null) {
+      const sign = stencil === "forward" ? "+" : "-";
+      return failed(`the ${sign}${column} perturbation (step ${step}) produced no impact`, base);
+    }
+    const from = at.residual;
+    columns.push(offset.residual.map((value, row) => (value - from[row]!) / signed));
   }
 
   const rows = columns[0]!.length;
@@ -299,5 +458,5 @@ export function shootingJacobian(
     matrix.push(columns.map((column) => column[row]!));
   }
 
-  return { matrix, ok: true, scheme, steps, evaluations, aim, base };
+  return { matrix, ok: true, scheme, stencils, steps, evaluations, aim, base };
 }

@@ -25,9 +25,13 @@ import type { Aim, ResidualFunction, ShootingResidual } from "./shooting-residua
  *   solver as {@link NewtonShootingOptions.projection}, every iterate — and
  *   therefore the answer — is feasible *exactly*, at every stage of the
  *   iteration, by construction. The *iterates*, note, not every evaluation: the
- *   Jacobian's difference stencil still reaches one difference step past an
- *   active face — measured at `4.8e-4` m/s past a 70 m/s cap, and filed as
- *   P0.92 because it would matter at a bound that marks the model's domain.
+ *   Jacobian's difference stencil used to reach one difference step past an
+ *   active face — measured at `4.8e-4` m/s past a 70 m/s cap, filed as P0.92
+ *   and fixed there. The projection strategy now also hands
+ *   `JacobianOptions.feasible` to the Jacobian, which differences inward
+ *   at a face instead, so **every evaluation is feasible too, not just every
+ *   iterate**. That trades `O(h²)` for `O(h)` in the column that touches the
+ *   face and nowhere else; `ShootingJacobian.stencils` reports when it happens.
  * - {@link withBoundsPenalty} adds a cost for leaving the box instead of
  *   forbidding it. Iterates may be infeasible, and so may the answer: feasibility
  *   holds only for weights inside a **measured four-order window**, and fails at
@@ -496,6 +500,26 @@ export function constrainedShooting(
       ? newtonShooting(residual, initialAim, {
           ...options,
           projection: (aim: Aim) => projectAim(aim, bounds),
+          // P0.92: projection keeps the ITERATES in the box; this keeps the
+          // Jacobian's difference stencil in it too. Without it a central
+          // stencil at an aim sitting on a face necessarily evaluates one of
+          // its two points outside — harmless past a machine limit, fatal past
+          // a bound that marks the edge of the model's domain, where the
+          // residual comes back `ok: false` and the whole Jacobian fails at an
+          // otherwise healthy iterate.
+          //
+          // Reuses `aimActiveSet` rather than re-deriving "inside the box" so
+          // the predicate the stencil obeys and the one the result is judged
+          // against are the same code with the same tolerance. An explicit
+          // hook from the caller wins: they may know a tighter domain than the
+          // box (an elevation at which the terminal event cannot fire is not
+          // an `AimBounds` face).
+          jacobian: {
+            ...options.jacobian,
+            feasible:
+              options.jacobian?.feasible ??
+              ((candidate: Aim) => aimActiveSet(candidate, bounds, options.activeSet).feasible),
+          },
         })
       : newtonShooting(withBoundsPenalty(residual, bounds, options.penalty), initialAim, options);
 
