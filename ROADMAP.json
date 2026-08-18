@@ -2484,8 +2484,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "CI compares within tolerances",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "CLAIMED 2026-08-18 (35th run). Taken as the first open blueprint task by seq that is not optional and not human-gated: P5.24 sits one seq earlier but is marked optional in its own title, and every open P0 correctness item (P0.95, P0.96, P0.99, P0.101, P0.103) is waiting on a human decision that this session must not make unattended. A regression pin over existing optimizer code also ranks above new functionality in this repo's own priority order."
     },
     {
       "id": "P5.26",
