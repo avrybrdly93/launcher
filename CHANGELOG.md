@@ -86,6 +86,16 @@ forcing a fallback to commit timestamps.
   onto one line and the recorder does not — so the command previously left a tree its own CI would
   reject. Re-recording `golden-trajectories.json` through the new command reproduced it **byte for
   byte**, which is a free determinism check on the older store.
+- **P0.95 re-tested, and this run made it slightly worse — recorded rather than glossed.** The
+  stale-`claude/*` count is now **82**, up from the 76 the task was filed with, and **one of the new
+  ones is this run's**: it created `claude/upbeat-ride-ywti18` through the API as a write-access
+  probe _before it had any commit to put there_, then could not delete it. Deletion failed exactly
+  as the 18th and 30th runs recorded (`send-pack: unexpected disconnect` / `the remote end hung up
+unexpectedly`), and the MCP server still offers `create_branch` with no delete counterpart —
+  re-checked here, not assumed. **A detail worth having: the failing delete exits `0` and prints
+  `Everything up-to-date`**, so a cleanup script that checks only `$?` will believe it worked. The
+  run's commits reached `main` by fast-forward, so the branch holds nothing. The rule that would
+  have prevented it: **do not create the branch until there is a commit for it.**
 - **Next run:** nothing new became startable, so the shortlist is unchanged apart from the two
   filings. **P0.106 is the cheapest genuinely unblocked item on the board** (20 min, needs no
   decision, and it is what makes every future run's gate trustworthy) — take it. After that P5.26
