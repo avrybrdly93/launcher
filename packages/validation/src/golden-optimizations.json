@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "provenance": "Recorded via `UPDATE_GOLDENS=1 pnpm run update-goldens` (P5.25; blueprint §7). Any intentional change to an inverse solver requires re-running that command with a commit message explaining *why* a solution or an iteration count moved -- never hand-edit this file. The tolerances these values are compared against are not stored here: they live in `golden-optimization-store.ts` next to the reasoning for each one, so that widening one is a reviewable source change rather than a number edited in a fixture.",
+  "entries": [
+    {
+      "id": "newton-drag-free-point",
+      "status": "converged",
+      "converged": true,
+      "solution": [0.560196586103884, 40.42212822644218],
+      "objective": 1.4808094306317798e-7,
+      "iterations": 3,
+      "evaluations": 16
+    },
+    {
+      "id": "newton-quadratic-drag-point",
+      "status": "converged",
+      "converged": true,
+      "solution": [0.5491262469512022, 46.251368368194655],
+      "objective": 2.8428046436212884e-14,
+      "iterations": 3,
+      "evaluations": 16
+    },
+    {
+      "id": "newton-drag-and-headwind-point",
+      "status": "converged",
+      "converged": true,
+      "solution": [0.5668303415968557, 49.51044105833316],
+      "objective": 2.8443814738681776e-14,
+      "iterations": 3,
+      "evaluations": 16
+    },
+    {
+      "id": "newton-raised-platform-unreachable",
+      "status": "stalled",
+      "converged": false,
+      "solution": [1.0313982570461662, 42.482001720481186],
+      "objective": 14.999999999999991,
+      "iterations": 4,
+      "evaluations": 26
+    },
+    {
+      "id": "newton-ground-ring",
+      "status": "converged",
+      "converged": true,
+      "solution": [0.5797876037832338, 54.309599259092636],
+      "objective": 1.415050689956844e-7,
+      "iterations": 3,
+      "evaluations": 16
+    },
+    {
+      "id": "nelder-mead-quadratic-drag-point",
+      "status": "max-evaluations",
+      "converged": false,
+      "solution": [0.6553444592741139, 44.627235756497754],
+      "objective": 2.1632001745430784e-15,
+      "iterations": 457,
+      "evaluations": 1602
+    },
+    {
+      "id": "maximize-range-drag-free",
+      "status": "converged",
+      "converged": true,
+      "solution": [0.7853981633974432],
+      "objective": 367.0978366720539,
+      "iterations": 5,
+      "evaluations": 31
+    },
+    {
+      "id": "maximize-range-quadratic-drag",
+      "status": "converged",
+      "converged": true,
+      "solution": [0.7238770667605248],
+      "objective": 232.61580676320042,
+      "iterations": 9,
+      "evaluations": 35
+    },
+    {
+      "id": "min-energy-drag-free-point",
+      "status": "converged",
+      "converged": true,
+      "solution": [38.353585230066834, 0.7853981633974513],
+      "objective": 38.353585230066834,
+      "iterations": 2,
+      "evaluations": 177
+    }
+  ]
+}
