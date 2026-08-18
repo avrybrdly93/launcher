@@ -6,3 +6,4 @@ export const VALIDATION_PACKAGE = "@ballista/validation";
 export * from "./analytic-references.js";
 export * from "./reference-solution.js";
 export * from "./golden-trajectory-store.js";
+export * from "./golden-optimization-store.js";
