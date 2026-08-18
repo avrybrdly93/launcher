@@ -2473,8 +2473,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "adjoint gradient matches tangent-linear to 1e-8 on 3-param case",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "CLAIMED 2026-08-18 (36th run) as the first open task by seq that is not human-gated. It is the first 'todo' by seq outright; the previous two runs skipped it on the strength of the word '(optional)' in its own title, but blueprint 9.2 is explicit about what the option is: the prototype 'documents the many-parameter scaling story (O(1) backward solves vs O(n_mu) tangent solves) WITHOUT committing the platform to full adjoint infrastructure'. Optional is the infrastructure, not the note. Deferring it a third time would leave it permanently stuck at the head of the queue. Plan: a backward adjoint solve for dR/dmu over the SAME ShootingProblem the tangent-linear module uses, validated against createTangentLinearFlight/rangeSensitivity on a 3-parameter case (theta, v0, C_d) to the criterion's 1e-8."
     },
     {
       "id": "P5.25",
