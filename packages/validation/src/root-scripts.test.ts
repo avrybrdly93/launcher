@@ -9,7 +9,8 @@
 // (`--workspace-concurrency=1`) parses correctly and builds all eight.
 //
 // The fix is one character. It took the repo eleven changelog entries and three
-// duplicate task filings (P0.90, P0.93, P1.01) to land, because nothing failed
+// duplicate task filings (P0.90, P0.93, P0.104 — filed as P1.01, renamed by
+// P0.100 because that id collided with a real phase-1 task) to land, because nothing failed
 // when it regressed: CLAUDE.md names `build` in the pre-push gate every session is
 // told to run, but CI never calls the root script — `.github/workflows/ci.yml`
 // invokes `pnpm --filter @ballista/app build` directly, which is green either way.
