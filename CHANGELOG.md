@@ -15,6 +15,85 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-18 (35th run) — P5.25 done: the inverse solvers' answers and iteration counts are pinned, and two of them are checked against closed forms
+
+- **P5.25 was taken as the first open blueprint task by `seq` that is neither optional nor
+  human-gated.** P5.24 sits one `seq` earlier and is still marked optional in its own title, and
+  all five open P0 correctness items (P0.95, P0.96, P0.99, P0.101, P0.103) are each waiting on a
+  decision this session must not make unattended — unchanged from the 34th run, re-read in
+  `ROADMAP.json` rather than inherited. A regression pin over existing optimizer code also ranks
+  above new functionality in this repo's own order.
+- **What it pins, and why the two halves are compared differently.** Nine cases across four solver
+  families: `newtonShooting` on point, ring and platform targets with and without drag and a
+  headwind, `nelderMead` on the same drag problem, `maximizeRange` with and without drag, and
+  `minimumSpeedToHit`. `status`, `converged`, `iterations` and `evaluations` are pinned **exactly**
+  — integers off deterministic arithmetic have no tolerance to apply, and a move in one is the
+  whole signal, the same way `golden-trajectories.test.ts` pins `nSteps`. Solutions and objectives
+  get a per-case tolerance taken from **the solver's own documented resolution**: `optimal-angle.ts`
+  says θ at a smooth maximum cannot resolve below ~`1e-4` rad, so that case gets `1e-4` and not a
+  number chosen to fit. Those tolerances live in the **store**, not the fixture, so widening one is
+  a source change sitting next to its justification.
+- **Four assertions never touch the fixture, which is what stops the store being self-referential.**
+  A recorded fixture can only prove today equals record day; a wrong answer baked in at record time
+  would match its own hash forever. So: drag-free maximum range at **π/4** with `R = v₀²/g`
+  (recorded 367.0978366720539 against 60²/9.80665), the drag-induced shift **below** π/4 (0.7239 rad),
+  the minimum launch speed **√(gR)** at the tangency aim (38.353585230066834 against
+  √(9.80665·150)), and the claim that every case reporting `converged` really is inside
+  `newtonShooting`'s 1e-6 m residual test while every case not reporting it is outside.
+- **Mutation-checked in two different modules, because one mutation only proves one path.**
+  `residualTolerance` 1e-6 → 1e-8 in `newton-shooting.ts` turns 2 entries red; `sweepSamples`
+  25 → 21 in `optimal-angle.ts` turns 3 entries **plus an analytic check** red. Both reverted. An
+  earlier third attempt — `backtrackFactor` 0.5 → 0.4 — changed **nothing**, and that is also worth
+  recording: these cases converge in 3 iterations on full steps, so the line search never
+  backtracks and the store does not cover it. It is honest coverage, not total coverage.
+- **Newton and Nelder–Mead converge to different aims on the same problem, and that is correct.**
+  Measured: (0.549 rad, 46.25 m/s) against (0.655 rad, 44.63 m/s), both with a miss under
+  **3e-14 m**. The ground event pins the impact height, leaving one constraint over two unknowns,
+  so the aims that hit 150 m form a **curve** — this is P5.05's rank-1 Jacobian seen from the other
+  side. The store's `nelder-mead` entry says so at length, specifically so a later session does not
+  "fix" the disagreement by changing a solver. It also pins the cost gap: **16** residual
+  evaluations against **1602**.
+- **P0.105 filed, and pinned rather than fixed.** A raised `PlatformTarget` can never be hit:
+  `createShootingResidual` reads the miss at `impactPoint`, and `createFlight` requires a _terminal_
+  event, which for `createPlanarProjectileModel` is ground impact — so a target 15 m up leaves the
+  vertical miss at `-15` for **every** aim. Measured: `stalled`, `converged: false`, merit
+  `14.999999999999991`. **This is not the P0.97/P0.99/P0.101 shape** — `converged` is false and the
+  merit is honest, so a caller who checks is not misled; what is wrong is that `targets.ts`
+  documents `PlatformTarget` as modelling a landing on top of a platform and this entry point
+  cannot do it, while "stalled" names the line search rather than the cause. Kept as the store's
+  deliberate non-convergence case; **rewrite that entry when P0.105 lands, do not delete it.**
+- **P0.106 filed for the build-heavy test timeouts, which the P4.38 entry left "for a task that
+  claims it" and nobody ever filed.** New sighting: `app-shell.responsive.test.ts` failed with
+  `Hook timed out in 60000ms` in one full-suite run and **passed standalone in 34.4 s** in the same
+  container minutes later — the same margin story P4.38 measured on `canvas-viewport.test.ts`
+  (48.6 s against 60 s) and `lazy-plotly-pane.bundle.test.ts` (22.1 s against 30 s). **This run
+  first blamed its own change and was wrong**: the addition is ~1.75 s of test CPU against a suite
+  total that varied between **224.9 s and 296.3 s across runs of the same tree**, and one run _with_
+  the change finished faster than the pre-change baseline and still timed out. Under 1%, inside the
+  container's own variance. Unlike P0.96 these are timeouts rather than assertions, so raising them
+  weakens nothing and needs no human. The 34th run's P0.96 flake was also seen once here
+  (`maxSliceMs` 15.018633 against 10) and was **not** touched.
+- **Full gate green** (Node **22.22.2**, pnpm **11.9.0**): `typecheck` clean · `lint` clean ·
+  `lint:deps` **no violations, 1414 modules / 3994 dependencies** · `pnpm test` **2286 passed across
+  244 files** (2261/243 → +25 cases in one new file) · `pnpm --filter @ballista/app build` exit 0 ·
+  `check-bundle-size` **71.7 kB gzipped** against the 300 kB budget, unchanged from the 34th run,
+  as it should be for a change that adds nothing the app imports. `bench:solverkit` and
+  `check:cross-engine-drift` were **not** run locally. The 2286 figure is from the final run; two
+  earlier full runs were red on the load-sensitive tests above and are described there rather than
+  averaged away.
+- **`update-goldens` now records both fixtures and runs prettier over them.** `JSON.stringify`
+  output with short arrays does not satisfy `format:check` — prettier collapses a two-element array
+  onto one line and the recorder does not — so the command previously left a tree its own CI would
+  reject. Re-recording `golden-trajectories.json` through the new command reproduced it **byte for
+  byte**, which is a free determinism check on the older store.
+- **Next run:** nothing new became startable, so the shortlist is unchanged apart from the two
+  filings. **P0.106 is the cheapest genuinely unblocked item on the board** (20 min, needs no
+  decision, and it is what makes every future run's gate trustworthy) — take it. After that P5.26
+  (Levenberg–Marquardt fallback) and P5.27 (multi-start) are the next non-optional blueprint tasks
+  by `seq`, and P5.27 is the one that would make the Newton/Nelder–Mead curve above tractable to
+  reason about. **P0.105 needs a human** to choose between three named options before any code.
+  P0.95, P0.96, P0.99, P0.101 and P0.103 each still need a human, unchanged.
+
 ## 2026-08-18 (34th run) — P0.100 done: the roadmap's task ids are unique now, and a test says so
 
 - **P0.100 was taken because the 33rd run named it** and it was the only fully-specified open
