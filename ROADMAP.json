@@ -3376,7 +3376,7 @@
       "title": "Task IDs collide: the filed-bug counter ran past P0.99 into the P1.xx namespace, which phase 1 already occupies",
       "estMinutes": 15,
       "difficulty": "S",
-      "status": "todo",
+      "status": "in-progress",
       "validation": "every task id in ROADMAP.json is unique, and a test or script asserts it",
       "notes": "Filed 2026-08-16 (28th run), hit while marking P1.01 done. Discovered-bug tasks are appended with ids P0.90, P0.91, ... and the counter rolled P0.99 -> P1.00 -> P1.01. But `P1.01` and `P1.02` are ALREADY TAKEN by phase 1's real blueprint tasks at seq 12 and 13, so `P1.01` now names two different tasks: 'Define ChannelMeta, Params, Schema types; adopt zod for schemas' (seq 12, phase 1, done) and 'Root pnpm build script is broken under pnpm 11' (seq 299, phase 0, done as of this run). `P1.00` is free only by luck. This is why this run's roadmap edit had to disambiguate on `seq >= 288` rather than on id -- any future script or session that looks a task up by id gets whichever one it finds first, silently. NOT URGENT: nothing automated reads ids today, and both current collisions are on done tasks. Whoever takes it: rename the seq-299 task (and P1.00) out of the P1 namespace rather than touching the blueprint-derived phase-1 ids, pick a prefix that cannot collide with a phase number for future filings, and add the uniqueness assertion to root-scripts.test.ts or a sibling so the next collision fails a test instead of being found by hand."
     },
