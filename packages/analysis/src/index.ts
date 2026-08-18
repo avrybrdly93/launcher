@@ -3,6 +3,7 @@
 // the surface is still the Phase 0 package skeleton.
 export const ANALYSIS_PACKAGE = "@ballista/analysis";
 
+export * from "./adjoint-range-gradient.js";
 export * from "./arcs.js";
 export * from "./basin-of-attraction.js";
 export * from "./brent-minimize.js";
