@@ -15,6 +15,86 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-18 (36th run) — P5.24 done: the adjoint range gradient, agreeing with the tangent-linear one to 4e-13, and the note that says why it is the continuous adjoint
+
+- **P5.24 was taken because it is the first open task by `seq`, and the two runs that skipped it
+  skipped it on the strength of one word.** Its title ends "(optional, documents scaling to many
+  params)", and both the 34th and 35th runs read that as permission to move past it. Blueprint §9.2
+  says what the option is: the prototype "documents the many-parameter scaling story … **without
+  committing the platform to full adjoint infrastructure**". The _infrastructure_ is optional; the
+  note is the task. A third deferral would have left it wedged at the head of the queue forever.
+  Note this diverges from the 35th run's own handoff, which said to take P0.106 next — `seq` order
+  is `ROADMAP.json`'s stated selection rule and P5.24 sits 87 `seq` earlier, so the rule won.
+  P0.106 is still the right next pick and is named again below.
+- **VALIDATION MET BY FOUR ORDERS.** The criterion is "adjoint gradient matches tangent-linear to
+  1e-8 on 3-param case". On `(θ, v₀, C_d)` with drag at `rtol = 1e-12`, the worst **relative**
+  disagreement against `createTangentLinearFlight`/`rangeSensitivity` is **4.265e-13** on the flat
+  shot — adjoint `24.1873987362973 / 5.12531951694258 / −53.4687545700258` against tangent
+  `24.1873987363076 / 5.12531951694283 / −53.4687545700752` — and **1.808e-12** from a 12 m launch
+  point where no closed form applies. It holds across a sweep of six elevations from 0.25 to 1.1 rad.
+- **The identity, which is the whole content.** Fold the event-time correction into a terminal
+  covector `λ(T) = e_R − (e_R·f / ∇g·f)∇g` and run `λ' = −Aᵀλ` backwards; then
+  `d/dt(λᵀS_k) = λᵀb_k`, so `dR/dμ_k = λ(0)ᵀS_k(0) + ∫₀ᵀ λᵀb_k dt` **with `S_k` never formed**.
+  Those two terms are exactly `TangentParameter`'s two ways into the problem, and the tests assert
+  the split rather than describing it: a launch-state parameter's quadrature is `toEqual([0, 0])`
+  — not small, never accumulated — and a dynamics parameter's gradient is `toBe` its quadrature.
+- **It is the CONTINUOUS adjoint and the module says so in its first paragraph.** The task title
+  says "discrete-adjoint"; this differentiates the ODE and _then_ discretises. A true discrete
+  adjoint transposes the Runge–Kutta scheme and needs stage values, a transposed tableau and
+  checkpointing — which is precisely the "full adjoint infrastructure" §9.2 forbids here. **The cost
+  of the choice is measured, not waved at**: agreement is set by integration tolerance, which is why
+  it is 4e-13 and not 1e-15, and why loosening `rtol` would move it where a discrete adjoint's
+  number would not. `docs/notes/adjoint-sensitivity.md` §5 carries the comparison table.
+- **The one shortcut is instrumented rather than hidden.** `A(t)` is needed along the base
+  trajectory, and this replays it by integrating `ẏ = f` _backwards_ from impact instead of
+  checkpointing. Reversing a dissipative system is anti-dissipative and it does drift, so the result
+  reports `stateRoundTripError`: measured **1.105e-11** flat and **8.413e-12** raised. The field
+  exists so that a longer or stiffer problem fails visibly instead of returning a quietly wrong
+  gradient.
+- **The scaling claim is checked including the row where it loses.** `forwardDimension` `n(1+m)` and
+  `backwardDimension` `2n+m` are both reported and asserted at `m = 1, 3, 30`: **8 vs 9, 16 vs 11,
+  124 vs 38**. The `m = 1` row, where the forward method is the smaller one, is asserted too —
+  leaving it out would make the exhibit an advertisement. Measured solver cost on the flat
+  3-parameter case: forward base **83 steps / 541 RHS**, backward **117 / 801**. The note also
+  records where this direction does _not_ pay: Phase 5's shooting solves want a 2×2 Jacobian, which
+  is the shape adjoints lose on (one backward solve per output row); Phase 6's §9.4 sensitivity work
+  is the shape they win.
+- **Mutation-checked with four perturbations, all applied, run and reverted.** Dropping the `Aᵀ`
+  transpose (using `A`) turns **8** tests red; seeding `λ(T) = e_R`, i.e. no event-time correction,
+  turns **6** red — including the 45° drag-free case where the true `∂R/∂θ` is zero and the
+  uncorrected answer is the −163 m/rad `tangent-linear.ts` already records; forgetting the sign flip
+  on `dy/ds` turns **6** red; contracting the quadrature against `y` instead of `λ` turns **3** red.
+  The third and fourth are the ones a reviewer would not have caught by reading.
+- **Two references, because two implementations agreeing is not the same as two being right.** The
+  criterion names the tangent-linear module, and that comparison is genuinely of two formulations —
+  `n(1+m)` forward against `2n+m` backward with a transposed Jacobian. But both apply the _same_
+  event-time correction, so a shared misunderstanding of it would agree perfectly. The drag-free
+  cases are therefore checked against `R = v₀²sin2θ/g` and its derivatives, which neither module
+  evaluates anywhere.
+- **Full gate green** (Node **22.22.2**, pnpm **11.9.0**): `typecheck` clean · `lint` clean ·
+  `format:check` clean · `lint:deps` **no violations, 1420 modules / 4023 dependencies** ·
+  `pnpm test` **2305 passed across 245 files** (2286/244 → +19 cases in one new file) · `pnpm build`
+  exit 0 · `check-bundle-size` **71.7 kB gzipped** against the 300 kB budget, **unchanged** from the
+  34th and 35th runs, as it must be for a change nothing in the app imports. `bench:solverkit` and
+  `check:cross-engine-drift` were **not** run locally. Both full-suite runs of this tree were green
+  first time; none of the P0.96/P0.106 flakes appeared in either.
+- **`docs/notes/` is new, and `docs/physics/` was deliberately not used.** That directory is
+  generated from blueprint §3 and `physics-docs.test.ts` asserts it holds _exactly_ the generated
+  set, so a hand-written page there would have turned the suite red. ADR-017 was also not used: it
+  is reserved by P5.31.
+- **No new findings filed.** Nothing surfaced that was not already an open item, and the run created
+  no `claude/*` branch (P0.95's count is untouched at 82 — the 35th run's rule, "do not create the
+  branch until there is a commit for it", was followed by not creating one at all).
+- **Next run: P0.106**, still the cheapest genuinely unblocked item on the board (20 min, needs no
+  decision, and it is what makes every future run's gate trustworthy). After that, by `seq`, P5.26
+  (Levenberg–Marquardt fallback) and P5.27 (multi-start with deduplication) — and P5.27 is the one
+  that would make the Newton/Nelder–Mead solution-curve disagreement the 35th run measured tractable
+  to reason about. **P0.105 needs a human** to choose between three named options before any code.
+  P0.95, P0.96, P0.99, P0.101 and P0.103 each still need a human, unchanged. A thing worth knowing
+  for Phase 6: P5.24's note and prototype exist precisely so that P6.16–P6.20's sensitivity work
+  starts with the adjoint identity, the event-time subtlety and the checkpointing question already
+  written down and tested.
+
 ## 2026-08-18 (35th run) — P5.25 done: the inverse solvers' answers and iteration counts are pinned, and two of them are checked against closed forms
 
 - **P5.25 was taken as the first open blueprint task by `seq` that is neither optional nor
