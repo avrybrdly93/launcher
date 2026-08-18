@@ -15,6 +15,66 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-18 (37th run) — P5.26 done: the Levenberg–Marquardt fallback, converging at 1 cm inside the envelope where pure Newton crawls to a stop
+
+- **P5.26 was taken because it is the first open task by `seq` (219), and its shape was fixed
+  before it was claimed.** `newton-shooting.ts` names it in its own doc comment — "Levenberg–Marquardt
+  — regularizing rather than truncating — is P5.26 and deliberately not this task" — so there was no
+  design question to settle, only a construction to get right. Note this again diverges from the
+  previous run's handoff, which named P0.106; `seq` order is `ROADMAP.json`'s stated selection rule
+  and P0.106 sits at `seq` 304, 85 later. It stays the right pick for whoever wants a short task.
+- **VALIDATION MET.** The criterion is "converges on case where pure Newton fails (constructed
+  near-envelope)". From `(0.7 rad, 50 m/s)` at a 60 m/s speed cap, against a point target **1 cm**
+  inside the **232.615806763 m** envelope that cap allows: pure `newtonShooting` reaches
+  `max-iterations` at **‖F‖ = 3.6e-3** after 40 iterations, and `levenbergMarquardt` **converges
+  below 1e-6 in 14 iterations** on the same tolerance and the same budget.
+- **The construction is the substantive half, because a case where Newton fails is easy to produce
+  by accident and proves nothing about why.** An **unconstrained** aim problem **has no fold at
+  all**: the solution set of a ground-impact shot is a _curve_ in `(θ, v₀)`, and a target past the
+  envelope at one speed is simply reached at a higher one. The degeneracy the blueprint pairs LM
+  with — _"the envelope is a fold: the two solution arcs merge and det J → 0"_ — therefore only
+  exists once the launch speed is **bounded**, which is what a real machine is. So the case is a
+  quadratic-drag shot with the speed capped through P5.16's projection, and the cap is not set
+  dressing: it is the thing that creates the fold.
+- **Newton's failure is a crawl, not a divergence, and the test asserts both halves.** It gets three
+  orders of magnitude closer than it started and stops two orders short of tolerance with the cap
+  active. Asserting only "did not converge" would pass just as well against a solver that blew up,
+  and would not be evidence about the fold.
+- **Mechanism, measured rather than argued.** On the rank-1 Jacobian every ground-impact shot
+  carries, with surviving scaled row `(a, b)`, the minimum-norm step is _parallel to_ `(a, b)`: the
+  correction is allocated in proportion to sensitivity, so it goes almost entirely into speed —
+  which the cap then clips away. The tests measure each link: `b/a > 3` at the start aim, the
+  vertical row zero to `<1e-8`, `∂R/∂θ` at the peak more than **100×** smaller than at `θ = 0.5`,
+  and the two arcs closed to under **2.3°** at that shortfall. Marquardt's `diag(JᵀJ)` damping (not
+  Levenberg's `I`) is invariant to column scaling and collapses on a rank-1 system to a step along
+  **`(b, a)`** — the reciprocal direction, giving the largest correction to the variable the
+  residual is least sensitive to, which near the envelope is `θ`. That is the whole fix.
+- **Two smaller choices worth naming.** `λ` moves by Nielsen's gain-ratio rule rather than the
+  older multiply-by-10 schedule, which is discontinuous in `ρ` and oscillates exactly where the
+  truth is in between — approaching a fold, that is most iterates. And the gain ratio is stated in
+  `‖F‖²`, since that is the quantity the least-squares model predicts; `newtonShooting`'s Armijo
+  test is stated in `‖F‖` and the two are **deliberately not shared**.
+- **LM is a fallback, not a replacement, and that is asserted, not conceded in prose.** Where both
+  solvers work Newton takes **3–4** iterations and LM **14**, because an undamped Gauss–Newton step
+  near a solution is quadratically convergent and a damped one is not. That measurement is what
+  fixes `shootingWithFallback`'s order: Newton first, LM only on non-convergence, warm started from
+  Newton's best aim.
+- **An honest limit, recorded rather than papered over.** Neither solver reaches the target from a
+  start on the far side of the peak. That is a **basin** problem and belongs to P5.27, not here.
+  Warm starting does not rescue it; what it buys there is measured instead — `‖F‖` **8.6e-6**
+  chained against **3.8e-1** cold, four to five orders, with both still reporting `max-iterations`.
+  The test asserts that comparison, because asserting convergence would have been false.
+- **Gate green before push**: `pnpm typecheck`, `pnpm lint`, `pnpm lint:deps`, `prettier --check .`
+  all clean; `pnpm test` **2319 tests across 246 files** in **133.3 s**, measured after the last
+  two assertions were added (2317 before them). No golden trajectories moved — nothing here changes an
+  existing numeric path, it adds a solver beside one.
+- **Next: P5.27**, multi-start with deduplication, now the first open task by `seq` (220) and the
+  task the limit above hands work to directly. P5.29's method-selection decision table also has its
+  numbers now: Newton comfortably inside the envelope, LM near it, multi-start when the initial aim
+  may be on the wrong side of the peak. P0.105 and P0.106 remain open at `seq` 303/304.
+
+---
+
 ## 2026-08-18 (36th run) — P5.24 done: the adjoint range gradient, agreeing with the tangent-linear one to 4e-13, and the note that says why it is the continuous adjoint
 
 - **P5.24 was taken because it is the first open task by `seq`, and the two runs that skipped it
