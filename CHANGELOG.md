@@ -15,7 +15,67 @@ forcing a fallback to commit timestamps.
 
 ---
 
-## 2026-08-17 (33rd run) — P0.94 done: `format:check` is a CI step now, and the filing's diagnosis was wrong
+## 2026-08-18 (34th run) — P0.100 done: the roadmap's task ids are unique now, and a test says so
+
+- **P0.100 was taken because the 33rd run named it** and it was the only fully-specified open
+  item. Everything else open at low `seq` still needs a human: P0.95 (ref-deletion permissions,
+  which this environment does not have), P0.96 (a two-option choice), and the correctness bugs
+  P0.99 / P0.103 / P0.101, each measured and each waiting on a decision. P5.24 remains first by
+  `seq` overall and is still marked optional in its own title. The criterion — every task id in
+  `ROADMAP.json` unique, and a test or script asserting it — is met.
+- **ID RENAMES, and the mapping matters because past entries in this file still use the old
+  names.** Two phase-0 bug filings wore phase-1 ids:
+
+  | seq | old id  | new id       | title                                                            |
+  | --- | ------- | ------------ | ---------------------------------------------------------------- |
+  | 298 | `P1.00` | **`P0.103`** | ball tunnels through the ground after the last resolvable bounce |
+  | 299 | `P1.01` | **`P0.104`** | root `pnpm build` script broken under pnpm 11                    |
+
+  `P1.01` was the actual collision — it also names the real phase-1 blueprint task at seq 12,
+  "Define `ChannelMeta`, `Params`, `Schema` types". `P1.00` was free only by luck. The
+  blueprint-derived phase-1 ids at seq 12 and 13 were **not** touched, per the filing. Earlier
+  entries in this file are not rewritten (this file's own rule), so a reader who finds `P1.00` or
+  `P1.01` in a phase-0 context below should read this table.
+
+- **The new ids sit at a lower `seq` than `P0.100` and `P0.101`, on purpose.** Renumbering 300 and
+  301 into `seq` order would have been tidier to look at and would have invalidated every
+  reference to them in this file and in the roadmap's own notes — including the id of the task
+  doing the renaming. Ids are labels, not an ordering, and 103/104 were simply the next free
+  minors after the existing `P0.102`.
+- **The guard is `packages/validation/src/roadmap-ids.test.ts`, 8 tests, and it was verified red
+  before it was verified green.** Restoring the pre-fix ids fails three of them independently:
+  duplicate id, phase disagreement, and a reused minor within phase 0. That check was run and
+  reverted, not asserted from reading the code. **Phase agreement is the assertion that matters** —
+  the `<phase>` component of `P<phase>.<n>` must equal the task's own `phase` field. Both strays
+  declared `"phase": 0` while wearing a phase-1 id, so phase agreement would have failed the
+  moment either was **filed**; plain uniqueness only failed later, once the second one happened to
+  land on a blueprint task. As it was, the collision was found by hand, twice, while someone was
+  doing something else. The blueprint/filing split is asserted two-sided as well: blueprint tasks
+  (seq 0..287) keep minors below 90, and everything appended after sits in phase 0 — so if a
+  blueprint phase ever grows into the reserved range it fails **before** the next filing collides.
+- **The convention is now written down rather than inferred**, as `policy.taskIds` in
+  `ROADMAP.json`, and one of the tests asserts it is still there. A guard that encodes a rule
+  nobody wrote down is a trap: it fails, and the fix is not discoverable from the failure.
+- **`seq` is 0-based, which is worth knowing before writing anything that partitions on it.** The
+  blueprint is 288 tasks at seq **0..287**, and filings start at seq **288** (`P0.90`). This run's
+  first attempt used `seq <= 288` and failed on `P0.90`; the 28th run's note already said
+  `seq >= 288` and was right.
+- **Full gate green** (Node **22.22.2**, pnpm **11.9.0**): `typecheck` clean · `lint` clean ·
+  `format:check` clean · `lint:deps` **no violations, 1408 modules / 3973 dependencies** ·
+  `pnpm test` **2261/2261 across 243 files** (2253 before this run; the 8 new tests are the whole
+  difference, which is what a guard-only task should produce) · `build` clean. `bench:solverkit`
+  and `check:cross-engine-drift` were **not** run this run.
+- **P0.96 did not fire locally this run** — `chunked-integration.test.ts` passed in the 2261. That
+  is one more data point for load-sensitivity and not evidence it is fixed; it still wants a human
+  to choose between its two named options.
+- **Next run:** every remaining low-`seq` item needs a human, so the honest next pick is
+  **P5.24** (first by `seq` at 217, phase 5, difficulty H) unless a human has by then answered one
+  of the open decisions — in which case take that instead, because three correctness bugs
+  (P0.99, P0.103, P0.101) outrank an optional adjoint prototype and all three are one decision
+  away from being startable. The two with the clearest ask: P0.101 needs a Zeno cutoff chosen
+  (its snap fix is implemented and measured, and is the right first half), and P0.99 needs one of
+  ADR-016's three options picked. **P0.95 remains unmeetable by an agent session** — ref deletion
+  is refused with HTTP 403, so the stale `claude/*` branches need a human or a credential change.: `format:check` is a CI step now, and the filing's diagnosis was wrong
 
 - **P0.94 was taken because the 32nd run named it** and it is the first startable open item by
   `seq` (292): every earlier-`seq` open item needs a human — P0.95 is the branch-deletion
