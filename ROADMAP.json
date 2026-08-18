@@ -2495,8 +2495,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "converges on case where pure Newton fails (constructed near-envelope)",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed 2026-08-18 (37th run) as the first open task by seq (219), which is the selection rule in policy.taskSelection. newton-shooting.ts already names this task as its own sequel -- 'Levenberg-Marquardt -- regularizing rather than truncating -- is P5.26 and deliberately not this task' -- so the shape is fixed by that module rather than open. Remaining: construct the near-envelope case the validation criterion asks for, confirm pure Newton fails on it, and show LM converges."
     },
     {
       "id": "P5.27",
