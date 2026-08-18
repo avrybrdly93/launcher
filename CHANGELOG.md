@@ -68,6 +68,7 @@ forcing a fallback to commit timestamps.
   all clean; `pnpm test` **2319 tests across 246 files** in **133.3 s**, measured after the last
   two assertions were added (2317 before them). No golden trajectories moved — nothing here changes an
   existing numeric path, it adds a solver beside one.
+- **Filed P0.107 while confirming this run left no branch behind: 84 `claude/*` refs on the remote, 79 of them not ancestors of `main`.** CLAUDE.md says not to leave them, and no run has recorded that they are there. **This is not a claim that work was lost, and the filing says so** — four of the largest were spot-checked and all end at tasks that are `done` on `main` (`nice-keller-vp78r0` at P0.97, `keen-bohr-fkdyhu` and `upbeat-ride-uhifsa` at P5.16, `clever-pasteur-gox9dy` at P4.13), and `git diff origin/main origin/claude/nice-keller-vp78r0` is 5594 deletions, i.e. `main` far ahead rather than the branch holding something. Filed rather than done because deleting 79 remote branches is irreversible and four spot checks are not 79. This run created no branch of its own; it committed to `main`, as CLAUDE.md prescribes.
 - **Next: P5.27**, multi-start with deduplication, now the first open task by `seq` (220) and the
   task the limit above hands work to directly. P5.29's method-selection decision table also has its
   numbers now: Newton comfortably inside the envelope, LM near it, multi-start when the initial aim
