@@ -2506,8 +2506,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "finds both arcs without user hint",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "IN PROGRESS (38th run). Claimed as the first open task by seq (220). Design settled by measurement before any code was written -- see the commit that adds multi-start.ts."
     },
     {
       "id": "P5.28",
