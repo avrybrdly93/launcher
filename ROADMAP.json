@@ -2517,8 +2517,8 @@
       "estMinutes": 30,
       "difficulty": "E",
       "validation": "checker validates against stored solutions",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed 2026-08-19 (39th run). First task by seq (221) with nothing in-progress or in review ahead of it, per policy.taskSelection."
     },
     {
       "id": "P5.29",
