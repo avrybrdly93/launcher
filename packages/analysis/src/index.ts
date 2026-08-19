@@ -12,6 +12,7 @@ export * from "./envelope.js";
 export * from "./ill-conditioning.js";
 export * from "./levenberg-marquardt.js";
 export * from "./min-energy.js";
+export * from "./multi-start.js";
 export * from "./nelder-mead.js";
 export * from "./newton-convergence-order.js";
 export * from "./newton-shooting.js";
