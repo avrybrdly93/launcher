@@ -15,6 +15,69 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-19 (39th run) — P5.28 done: five inverse problems, and an answer key that can be recomputed rather than trusted
+
+- **P5.28 was taken because it is the first open task by `seq` (221)**, with nothing `in-progress`
+  and nothing in `review` ahead of it. That is `ROADMAP.json`'s `taskSelection` applied as written;
+  P0.106 remains the short task for whoever wants one, at `seq` 304.
+- **VALIDATION MET.** The criterion is "checker validates against stored solutions", and
+  `packages/runtime/src/inverse-exercises.test.ts` meets it in **42 tests**. But the criterion was
+  read as **three** claims, because the literal one is nearly vacuous on its own:
+  `checkAnswer(ex, ex.answer.solution)` compares a number with itself and **would pass against a
+  key of five zeros**. So: (1) it accepts the stored solutions; (2) it **rejects** — the tolerance
+  is probed either side, exactly at the boundary, on non-finite input, and against the specific
+  wrong answer each exercise exists to catch; and (3) the stored key is **right**, not merely
+  stored.
+- **Claim 3 is the one that carries the weight, and four of the five keys are anchored to
+  references this codebase did not produce.** Low arc **18.90031076438649°** against the closed
+  form `½·asin(gR/v₀²)`, agreeing to **13 significant figures**; high arc **71.09968923561345°** as
+  its complement to 90°; their midpoint at exactly **45°**, the drag-free peak; minimum launch
+  speed **54.24016039799292 m/s**, which is `√(g·300)` to every digit shown. Each exercise also
+  carries a `recompute()` that re-derives its key from `@ballista/analysis`, asserted to agree
+  within **1e-9** — which doubles as a drift guard: if a solver moves, `recompute()` moves and the
+  key does not, and the file goes red instead of the exercise quietly teaching a stale number.
+- **The rejection tests are the ones that would catch a useless checker.** A grader returning
+  `correct: true` unconditionally passes claim 1 perfectly. So: the two arcs must not accept each
+  other (same target, same launch energy); the drag optimum must not accept the **45° folklore**;
+  and the envelope exercise must not accept the **drag-free parabola of safety**, which puts the
+  ceiling at 70.5 m where the real one is 28.277 m.
+- **The projectile was chosen by measurement, not assumed.** Exercises 3 and 5 exist to show how
+  far drag moves an answer, so the ball matters. Measured both: a **regulation baseball** (145 g,
+  36.6 mm) at 40 m/s puts the maximum-range elevation **4.94° below 45°**, while a 1 kg 5 cm sphere
+  in the same air moves it only **1.86°** — enough to make the lesson look like rounding. The
+  baseball is used and the dense sphere is recorded here as rejected.
+- **One finding, and the test was right.** The module documents its tolerance as _inclusive at the
+  boundary_, and it was not delivering that. `solution + tolerance` is a rounded double whose
+  distance back from `solution` is **not** `tolerance` — for exercise 1 it lands **7.1e-16 too
+  large** — so a naive `error <= tolerance` graded the exact stated boundary **wrong**. The test
+  encoded the correct belief, so **the checker was fixed and the test was not relaxed**: it allows
+  4 ulps of the operands back, which is the representation error and nothing more. A further test
+  pins that the slack stays at ulp scale by rejecting an answer outside by one part in a billion.
+- **Five different inverse problems, not one five times** — low root, high root, maximization
+  (`maximizeRange`), nested minimization (`minimumSpeedToHit`), reachability
+  (`assessReachability`) — and a test asserts the five `method` strings are distinct so the set
+  cannot silently collapse into one crank turned five times.
+- **No UI, deliberately, and filed rather than smuggled in.** The blueprint's L5 table (line 123)
+  assigns "exercise content" to `@ballista/app`, but every exercise already in the repo splits it:
+  P4.20's `computeNeglectedEffects` and P4.29's `computeDensityAltitudeComparison` live in
+  `@ballista/runtime` and `app` holds only the route. This followed that precedent, so the content
+  and checker are exported from `@ballista/runtime` and nothing renders them yet. The route is
+  **P0.108** — phase 0 not phase 5 because `roadmap-ids.test.ts` requires every task at `seq >= 288`
+  to sit in phase 0, which it rejected this filing for on the first attempt. The test is right and
+  was left alone.
+- **Gate, all run locally at `43f641f`:** `pnpm typecheck` clean, `pnpm lint` clean, `pnpm lint:deps`
+  clean (1438 modules, 4098 dependencies), `pnpm format:check` clean, `pnpm test` **248 files /
+  2382 tests green** (up 42 from the 38th run's 2340), `pnpm build` clean in 23.3s. **P0.106 did not
+  reproduce** in either full-suite run this session — both completed with no timeout, at 104.3s and
+  105.7s — which is one more data point for its "close to the limit, not over it" reading and not
+  evidence it is fixed.
+- **Next run:** P5.29 (`seq` 222, analysis API docs + the Newton/NM/LM decision table) is the first
+  open task and is a natural continuation — the five `method` strings this run wrote are the
+  decision table's rows in miniature. P0.108 renders what this run built. P0.106 remains the short
+  one.
+
+---
+
 ## 2026-08-19 (38th run) — P5.27 done: multi-start finds both arcs with no peak and no bracket, once the right problem is being multi-started
 
 - **P5.27 was taken because it is the first open task by `seq` (220)**, immediately after the
