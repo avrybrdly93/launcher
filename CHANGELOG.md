@@ -60,6 +60,18 @@ forcing a fallback to commit timestamps.
   The false claim is now pinned **as false** in the test file so it cannot quietly return.
 - **Gate, all clean:** `pnpm typecheck`, `pnpm lint`, `pnpm lint:deps`, `pnpm format:check`,
   `pnpm test` **2340/2340 across 247 files** (up from 2319/246), `pnpm build` in 21.9 s.
+- **Branch hygiene, and a limit worth recording against P0.107.** This run worked on
+  `claude/upbeat-ride-6bupp2`, fast-forwarded `main` onto it and pushed `main`, per `CLAUDE.md`'s
+  commit-to-main policy. Deleting the branch afterwards — which the same policy asks for —
+  **failed**: both `git push origin --delete` and `git push origin :branch` die with
+  `send-pack: unexpected disconnect while reading sideband packet`, while an ordinary push over
+  the identical remote and credentials succeeds. So a delete-ref push does not get through this
+  environment, and the GitHub App exposed here has no delete-branch call either. The local branch
+  is deleted and the remote one is left at `2469a3f`, identical to `main` and fully merged. **That
+  is a mechanism for P0.107's 84 stale branches, not just a count**: a run cannot clean up after
+  itself from here even when it tries, so the pile grows by one per run regardless of intent.
+  Whoever acts on P0.107 should do it with a tool that can delete refs, not from a session like
+  this one.
 - **Environment note for the next run, because it costs a confusing ten minutes otherwise.**
   `pnpm test` on a fresh clone fails 4 tests in 2 files —
   `cross-engine-drift-record.test.ts` and its neighbour — with `ERR_MODULE_NOT_FOUND` on
