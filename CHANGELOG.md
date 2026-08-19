@@ -15,6 +15,61 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-19 (38th run) — P5.27 done: multi-start finds both arcs with no peak and no bracket, once the right problem is being multi-started
+
+- **P5.27 was taken because it is the first open task by `seq` (220)**, immediately after the
+  previous run's P5.26, and it needed no design question settled by a human. `ROADMAP.json`'s
+  `taskSelection` is the rule; the previous run's handoff again named P0.106, which sits at
+  `seq` 304 and is still the right pick for whoever wants a short task.
+- **VALIDATION MET.** The criterion is "finds both arcs without user hint". 16 starts spread over
+  `θ ∈ [0.05, 1.5]` at a fixed 55 m/s, against a 140 m target, collapse onto exactly **two**
+  solutions — `θ = 0.303042401650` (low, `∂R/∂θ = +322.1`, 7 starts) and `1.185648587950` (high,
+  `−282.3`, 8 starts) — agreeing with `solveArcs` to **6 decimal places**. `solveArcs` found the
+  same two the _other_ way, by locating the maximum-range elevation with a 24-sample sweep and
+  bracketing one root either side of it. That peak is the hint; this has none of it.
+- **The substantive half was deciding which problem to multi-start ON, and it was settled by
+  measurement before a line was written.** Deduplication presupposes _isolated_ solutions, and the
+  obvious reading of this task does not have any. A multi-start over `(θ, v₀)` is searching a
+  problem whose solution set is a **curve** — P5.05's zero vertical Jacobian row makes `F` one
+  scalar equation in two unknowns, and P5.06's minimum-norm step lands on whichever point of that
+  curve is nearest the start. Measured: **21 starts, 21 distinct converged aims**, every one a
+  genuine hit under `3e-10` m, speeds spanning over 20 m/s. Any deduplication rule that respects
+  those answers returns 21, and it is _right_ to — "low" and "high" are not defined on a curve.
+  That run is kept in the test file as a negative control rather than described in a comment.
+- **Fixing the speed is what makes the two arcs exist**, which is how P5.08 states the problem in
+  the first place. So the starts vary elevation only and the local solve is P5.16's
+  `constrainedShooting` under a **degenerate speed box `[v₀, v₀]`** — `validateAimBounds` permits
+  `min == max` and rejects only `min > max`. Labels come from the **sign of `∂R/∂θ` at each
+  solution** (P5.20's `rangeSlopeAt`), not from ordering the pair, because ordering breaks the
+  moment a bound clips one arc away — which the test checks by clipping one away.
+- **15 of 16 starts are accepted, not 16, and the one lost is the finding.** It lands at
+  `θ = 0.7346`, **3.3 mrad** from the measured peak at `0.7313`, where `∂R/∂θ` passes through
+  zero; the projected step is near zero there too, so the iteration stops on its step tolerance
+  after **one** iteration with 66 m of miss outstanding. That is P5.20's basin boundary, sampled.
+  The peak belongs to neither arc and rejecting it is correct. The test asserts _exactly_ that one
+  start is lost and no other.
+- **Three of the first-draft assertions were wrong, and each was corrected against measurement
+  rather than loosened.** (1) The accepted count, above. (2) Cluster spread is `6.1e-9` rad, set by
+  where the projected solve stops rather than by the residual tolerance — so the `1e-6` merge
+  tolerance has **two** orders of room below it, not the five first claimed, and both the
+  assertion and the docstring now say two. (3) The golden-ratio start sequence **does not** beat a
+  uniform grid on largest gap at a fixed count — `0.0902` against `0.0625` at `n = 16` — and that
+  was the reason the docstring originally gave for choosing it. The real reasons are the
+  three-distance theorem (exactly three gap lengths, measured) and prefix extension (the first `n`
+  of `n + k` points are the first `n`, so raising `startCount` keeps every solve already paid for).
+  The false claim is now pinned **as false** in the test file so it cannot quietly return.
+- **Gate, all clean:** `pnpm typecheck`, `pnpm lint`, `pnpm lint:deps`, `pnpm format:check`,
+  `pnpm test` **2340/2340 across 247 files** (up from 2319/246), `pnpm build` in 21.9 s.
+- **Environment note for the next run, because it costs a confusing ten minutes otherwise.**
+  `pnpm test` on a fresh clone fails 4 tests in 2 files —
+  `cross-engine-drift-record.test.ts` and its neighbour — with `ERR_MODULE_NOT_FOUND` on
+  `packages/engine/dist/index.js`. Nothing is broken: those tests spawn a script that imports the
+  _built_ output, and `dist/` is produced by `pnpm typecheck` (`tsc -b`), which CI happens to run
+  first. **Run `pnpm typecheck` before `pnpm test`**, or use `pnpm verify`, which orders them
+  correctly. This is not filed as a bug: CI's ordering is correct and the suite is green there.
+
+---
+
 ## 2026-08-18 (37th run) — P5.26 done: the Levenberg–Marquardt fallback, converging at 1 cm inside the envelope where pure Newton crawls to a stop
 
 - **P5.26 was taken because it is the first open task by `seq` (219), and its shape was fixed
