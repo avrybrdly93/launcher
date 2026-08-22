@@ -6,6 +6,8 @@ export * from "./vec2.js";
 export * as vec3 from "./vec3.js";
 export * from "./units.js";
 export * from "./random.js";
+export * from "./normal-distribution-functions.js";
+export * from "./distribution.js";
 export * from "./ou-gust.js";
 export * from "./schema.js";
 export * from "./env-sample.js";
