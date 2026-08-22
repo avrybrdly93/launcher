@@ -76,6 +76,30 @@ forcing a fallback to commit timestamps.
   across 1447 modules / 4127 dependencies**, `pnpm test` **2448 passed across 250 files** (2429
   across 249 before this run's additions — exactly the 19 tests and 1 file added), `pnpm build`
   **✓ in 21.06s**.
+- **CI run 238 at `7c9b417` is green** — all 35 steps, `Test` **2m10s**, whole job **4m01s**,
+  which is the ordinary shape for this repo.
+- **A follow-up commit moves the live measurement out of vitest's collect phase**, and the
+  reason it was written is worth recording alongside the reason it was kept, because they are
+  not the same. Code in a `describe` body runs during **collect**, which neither `testTimeout`
+  nor `hookTimeout` governs — so the first version of the file put ~120 integrations into
+  collection with nothing bounding them, and a solve that hung would have hung the run instead
+  of failing it. Given P0.106 is a standing filing about exactly this suite's build-heavy files
+  and their timeouts, that is the wrong thing to add to it. It is now in `beforeAll` with a
+  120 s ceiling and does half the work (1 warm-up + 2 timed passes, against the recording
+  path's unchanged 3 + 40). Measured: this file's collect **4.00 s → 0.70 s**, its total
+  **4.28 s → 2.73 s**; suite still 2448 across 250 files, and the live non-convergence probe
+  re-run against the restructured file still fails the intended test.
+- **The correction: this run started that change believing CI was stalled, and it was not.**
+  Polling `list_workflow_jobs` returned `in_progress` for the `Test` step long after the job
+  had finished, and the run read ~24 minutes of that stale status as a hang on its own push.
+  **Run 238 had completed `success` at 14:47:34, four minutes after it started.** The stale
+  read is the mistake; it is recorded rather than quietly dropped, because "my push hung CI"
+  and "I was reading a cached status" call for very different responses and this run acted on
+  the first for several minutes. **For future runs: do not conclude a job is hung from repeated
+  `in_progress` responses on this endpoint — check `completed_at` on the run, or re-read after
+  a longer gap.** The restructure was kept because the collect-phase argument stands on its own
+  and the numbers above are real; the comment in the file cites that argument and **not** the
+  stall, since the stall did not happen.
 - **No UI, and no drive-by.** Lazy-loading Plotly — still **4.84 MB** in this run's build
   output, unchanged from the 40th run — remains a backlog item to be claimed, not smuggled into
   a perf task that happens to have "perf" in its name.
