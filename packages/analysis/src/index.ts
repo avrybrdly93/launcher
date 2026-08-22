@@ -26,3 +26,4 @@ export * from "./smart-init.js";
 export * from "./tangent-linear.js";
 export * from "./trajectory-designer.js";
 export * from "./targets.js";
+export * from "./tolerance-coupling.js";

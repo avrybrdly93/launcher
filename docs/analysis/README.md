@@ -60,6 +60,19 @@ Two facts about `F` shape every module below, and both are measured rather than 
 Forward mode costs one extra ODE solve per parameter; adjoint costs one backward solve
 regardless of parameter count. See [the adjoint notes](../notes/adjoint-sensitivity.md).
 
+### Tolerances
+
+| Symbol                   | File                    | What it is                                       |
+| ------------------------ | ----------------------- | ------------------------------------------------ |
+| `coupleTolerances`       | `tolerance-coupling.ts` | Inner-IVP tolerances from the outer solver's ask |
+| `checkToleranceCoupling` | `tolerance-coupling.ts` | Audits tolerances a caller already has           |
+
+Two nested methods, two sets of tolerances, and nothing in the type system relating
+them. A loose inner solve does not make the outer one fail — it makes it converge, in
+three iterations, to a residual five orders of magnitude smaller than its true miss.
+The rule and that measurement are in
+[ADR-017](../adr/ADR-017-inner-outer-tolerance-coupling.md).
+
 ### Solving for an aim
 
 | Symbol                 | File                     | What it is                                             |
