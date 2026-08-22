@@ -82,7 +82,11 @@ forcing a fallback to commit timestamps.
   exactly what the repo asks and still land red. Filed as **P0.110** (`seq` 308) rather than
   fixed here, with the suggestion that CLAUDE.md point at a single `verify` script instead of a
   list that drifts. `typedoc`'s fail-on-warnings setting is **not** the thing to change: it
-  caught a real omission.
+  caught a real omission. **Confirmed from both ends**: run 241 at `a7f09b9` failed at step 14
+  of 34 with steps 15-17 skipped, and run **242** at `1fe368b` is **green on all 35 steps** —
+  `Engine API docs` 5s, `SolverKit API docs` 4s, `Test` 2m24s, 4m27s end to end. The fix was
+  verified by running all eleven `ci.yml` steps locally by hand before pushing, not by pushing
+  and hoping.
 - **Next**: `seq` 226 is `P6.02` (`UncertainScenarioSpec`: base spec + distribution overlays +
   N + seed), which is what actually attaches these distributions to named `ScenarioSpec` fields
   — deliberately not done here. It should reuse `distributionSpecSchema` as-is; the schema was
