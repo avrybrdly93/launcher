@@ -15,6 +15,81 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-22 (42nd run) — P5.31 done: the square is the forward-difference case, and a loose inner solve converges
+
+- **P5.31 was taken because it is the first `todo` by `seq` (224)**, with nothing `in-progress`
+  and nothing in `review` ahead of it — `ROADMAP.json`'s `taskSelection` applied as written.
+  P0.106 remains the short task for whoever wants one, at `seq` 304; P0.109, filed by the
+  previous run, is at 307.
+- **VALIDATION MET.** The criterion is "rule implemented (inner tol ≤ outer tol²-style
+  heuristic) + test". `packages/analysis/src/tolerance-coupling.ts` (`coupleTolerances`,
+  `checkToleranceCoupling`), **16 tests**, and
+  `docs/adr/ADR-017-inner-outer-tolerance-coupling.md`.
+- **The criterion quotes the square, and the square is the wrong exponent for this package.**
+  `finiteDifferenceStep` already derives the optimal step `h* ∝ ε^{1/(p+1)}` for a scheme of
+  truncation order `p`; substituting it back into the same error model gives the _achievable_
+  relative Jacobian accuracy `η ≈ ε^{p/(p+1)}`, so the inner tolerance must satisfy
+  `ε ≤ η^{(p+1)/p}`. For a **forward** difference that is `η²` — the heuristic in the form it
+  is always quoted. For a **central** difference, which is `JacobianOptions.scheme`'s default
+  and what every solve in this repo actually uses, it is `η^{3/2}`: **31.6× looser** at
+  `η = 1e-3`, and `η^{-1/2}` looser in general. Hard-coding the square would over-tighten the
+  inner solve by an order and a half of magnitude, which against `inverse-solve-perf.json`'s
+  9.66 ms p50 is real time. The scheme is an input; the exponent follows from it.
+- **The rule has two clauses and neither dominates.** Clause 1, the noise floor:
+  `rtol ≤ 0.1·τ/L`, linear in the outer tolerance and dependent on the trajectory scale `L`.
+  Clause 2 is the Jacobian one above, which does not involve `τ` at all. On the ADR's own
+  295.32 m shot the crossover sits near **τ = 0.09 m** — a centimetre target is noise-limited,
+  a half-metre target is Jacobian-limited — so both bindings are exhibited on one problem and
+  `ToleranceCoupling.binding` reports which decided.
+- **THE FINDING, and it is not the failure the task title implies.** A loose inner solve does
+  **not** make the outer one thrash, stall or fail to converge. Measured on a drag-and-wind
+  shot at `rtol = 1e-3` against a `1e-6` m outer tolerance: `newtonShooting` returns
+  **`converged` in 3 iterations** with a reported residual of **2.148e-07 m**, at an aim that
+  actually misses by **4.392e-02 m** — a discrepancy of **2.0e5**, with no diagnostic anywhere
+  in the report, history or iteration count. The residual is a _smooth deterministic_ function
+  of the aim at any fixed `rtol`, so the solver finds an **exact root of the wrong function**
+  rather than an approximate root of the right one, and an exact root looks exactly like
+  success. Same shape as P0.97 and ADR-016: a wrong answer with `ok: true`.
+- **The clause-1 error model is measured, not assumed.** Across `rtol` from `1e-3` to `1e-8` —
+  six decades — the true miss stays between **1.6e-2 and 1.5e-1 times `rtol · L`**, never above
+  it and never near zero. The upper end is what justifies the bound; the lower end is what
+  stops the test from being vacuous, since a true miss of zero would satisfy the bound and mean
+  the inner tolerance never mattered. And the rule's own recommendation was run: at
+  τ = 1e-6, 1e-4, 1e-2 and 0.5 m the returned aim lands inside tolerance every time, with one
+  to three orders of headroom, under both bindings.
+- **The rule audits rather than enforces, and `newtonShooting` is unchanged.** Three reasons,
+  all in the ADR: a library that threw could not be used to _measure_ the inconsistency, which
+  is what this task's own test does; deliberately loose solves are legitimate
+  (`basin-of-attraction`, `multi-start`, the perf harness); and `ShootingProblem` does not carry
+  `L`, which is a property of the target and has no defensible default — a 30 m lob and a 3 km
+  shot differ by two orders of magnitude in what the same `rtol` buys.
+- **A third failure the rule catches is not a tolerance at all.** `JacobianOptions.noiseFloor`
+  and `SolverConfig.rtol` are independent numbers that must agree, and nothing else in the
+  codebase relates them. `DEFAULT_NOISE_FLOOR` is `Number.EPSILON`, so a caller who integrates
+  at `1e-6` and does not set it gets a difference step derived for a residual ten orders
+  cleaner than the one it is differencing — the noise branch of `shooting-jacobian.ts`'s own
+  V-curve, reached while every tolerance in sight looks conservative.
+- **Verified in both directions.** Five faults were injected in turn and reverted: the Jacobian
+  clause made linear instead of `^(p+1)/p` (4 tests fail), the stale-`noiseFloor` check removed
+  (1), the trajectory scale stripped out of clause 1 (1 — and it is the _measurement_ test that
+  catches it, not an arithmetic one), the binding tie-break inverted (4), and the test itself
+  made to re-fly the converged aim at the loose `rtol` instead of the reference (2, including
+  the headline finding). Each failed exactly the assertions it should; the suite was restored
+  green after every probe.
+- **One repo guard caught a real omission during the run**, which is worth recording because it
+  worked: `analysis-docs.test.ts` fails if a module the package re-exports has no row in
+  `docs/analysis/README.md`. Adding the export without the row turned it red immediately.
+- **Gate green**: `pnpm typecheck` clean, `pnpm lint` clean, `pnpm lint:deps` **no violations
+  across 1453 modules / 4150 dependencies**, `pnpm test` **2464 passed across 251 files** (2448
+  across 250 before this run — exactly the 16 tests and 1 file added), `pnpm build` **✓ in
+  26.30s**.
+- **Next**: `seq` 225 opens Phase 6 (`P6.01`, the distribution schema for Monte Carlo). ADR-017
+  records one follow-up it deliberately did not take — putting the coupling audit's verdict on
+  the four outer solvers' result objects, so a `converged` status with an inconsistent
+  configuration would say so. That is a breaking change to four public result types and wants
+  its own task; it is **not** filed yet, because Phase 6 is the ordered work and filing it as a
+  `P0.1xx` would jump the queue for something that is an enhancement rather than a bug.
+
 ## 2026-08-22 (41st run) — P5.30 done: the budget met with 5x headroom, and a p99 that is not a tail
 
 - **P5.30 was taken because it is the first `todo` by `seq` (223)**, with nothing `in-progress`
