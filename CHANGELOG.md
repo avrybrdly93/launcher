@@ -15,6 +15,50 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-22 (40th run) — P5.29 done: a decision table whose claims are checked against the code, and four statuses that did not exist
+
+- **P5.29 was taken because it is the first `todo` by `seq` (222)**, with nothing `in-progress`
+  and nothing in `review` ahead of it — `ROADMAP.json`'s `taskSelection` applied as written.
+  P0.106 remains the short task for whoever wants one, at `seq` 304.
+- **VALIDATION MET.** The criterion is "docs build; decision table present", and
+  `packages/validation/src/analysis-docs.test.ts` meets it in **47 tests** against
+  `docs/analysis/README.md` (the API map) and `docs/analysis/method-selection.md` (the decision
+  table, **15 rows**). It was read as **two** claims, because both halves are documentary as
+  literally stated: "docs build" is true of any two files that exist, and "decision table
+  present" would be satisfied by three invented rows naming functions that do not exist.
+- **The finding, and it arrived inside this task rather than from auditing someone else's.** The
+  table's "How it fails" column quotes each solver's status literals. The first draft named
+  **`singular-jacobian`**, **`trust-region-collapsed`**, **`collapsed`** and
+  **`no-interior-optimum`** — and **not one of the four is declared anywhere in the package**.
+  The real unions are `stalled` / `line-search-failed` / `evaluation-failed` / `max-iterations`
+  for `newtonShooting`, `damping-exhausted` for `levenbergMarquardt`, `max-evaluations` for
+  `nelderMead`, and `at-bound` / `no-impact` for `maximizeRange`. They were plausible, which is
+  the problem: a table that reads as authoritative and quotes statuses that do not exist sends a
+  reader to write a `switch` arm that never fires. The check was written first and caught all
+  four before the page shipped.
+- **The coverage check is what stops the table rotting**, and it is guarded against becoming
+  vacuous. Fifteen solver entry points in `packages/analysis/src` must each have a row; the
+  coverage list is _itself_ asserted against the real exports, so renaming a solver fails the
+  suite rather than leaving the check quietly asserting nothing. A new solver added without a row
+  lands red instead of undocumented.
+- **Verified in both directions, not just the passing one.** A fake symbol, an invented status, a
+  deleted row, a broken relative link and an undocumented module were each injected in turn; each
+  failed with the intended message, and the suite was restored green after every probe. Without
+  that, 47 passing tests would say only that 47 assertions ran.
+- **Gate green**: `pnpm typecheck` clean, `pnpm lint` clean, `pnpm lint:deps` **no violations
+  across 1441 modules / 4106 dependencies**, `pnpm test` **2429 passed across 249 files** (2382
+  across 248 before this run's additions), `pnpm build` **✓ in 28.96s**.
+- **One thing not claimed as clean.** The _first_ full-suite run after adding the test reported
+  **`1 failed | 248 passed`** and **the failing file was not captured** — this run read the tail
+  before the failure block, which is its own mistake and is recorded rather than glossed. It did
+  **not** reproduce: three subsequent full runs were 2429/2429, and `canvas-viewport.test.ts`
+  passed standalone twice. In the captured run that file took **37.6 s**, the same margin story
+  P4.38 measured at 48.6 s against a 60 s hook timeout. Logged as a **sighting on P0.106**, not a
+  new filing and not a proof — the file was never identified, and saying otherwise would be
+  inventing a result.
+- **No UI, deliberately.** This task is documentation. Lazy-loading Plotly — still **4.84 MB**
+  in this run's build output — remains a backlog item to be claimed, not smuggled in here.
+
 ## 2026-08-19 (39th run) — P5.28 done: five inverse problems, and an answer key that can be recomputed rather than trusted
 
 - **P5.28 was taken because it is the first open task by `seq` (221)**, with nothing `in-progress`
