@@ -2539,8 +2539,8 @@
       "estMinutes": 25,
       "difficulty": "M",
       "validation": "benchmark artifact meets budget",
-      "status": "in-progress",
-      "notes": "Claimed by the 41st run. Harness + benchmark artifact not yet written."
+      "status": "done",
+      "notes": "VALIDATION MET. Benchmark artifact packages/validation/src/inverse-solve-perf.json: warm p50 9.66 ms (budget 50) and p99 147.48 ms (budget 300) over 800 samples -- 20 SCENARIO_LIBRARY targets x 40 passes, 3 warm-up passes discarded, at rtol 1e-12 (the tolerance the finite-difference Jacobian needs, and the pessimistic end: a budget met there is met at every looser one). Recorded on a 4-core Xeon @ 2.10GHz / Node 22.22.2; the machine block is in the artifact because wall-clock is hardware-specific. Every target converged in <= 5 Newton iterations. packages/validation/src/inverse-solve-perf.test.ts checks it in 19 tests, reading the criterion as four claims so it is not satisfied by a file of zeros: library coverage asserted against the SCENARIO_LIBRARY export, internal consistency of the percentiles against the per-target rows, a live solve that must converge on every target, and only then the budget. Live timing is held to 4x budget per this repo's no-flaky-perf-gate policy. Re-record with `pnpm run record:inverse-perf`. The tail is structural, not a rare event: frozen-ou-gust (143 ms), dust-grain (105 ms) and density-altitude-2000m (89 ms) are 3 of 20 targets, so everything above pooled p95 is those three -- p99 here is a target-mix statistic, not a latency-tail one. Filed as P0.109 for whoever wants the tail itself."
     },
     {
       "id": "P5.31",
@@ -3452,6 +3452,17 @@
       "validation": "the route renders all five exercises, grades a submitted answer, and shows the insight only after a correct one",
       "notes": "Filed 2026-08-19 (39th run) by P5.28, which built the content and the checker but deliberately no UI. ON THE ID: this is a follow-on, not a defect, but `roadmap-ids.test.ts` requires every task at seq >= 288 to sit in phase 0 -- filings are phase 0 by convention here regardless of the phase they serve -- so it is P0.108 and not P5.32, which is what the test rejected when this was first written. WHY IT IS SEPARATE: the blueprint's L5 table (line 123) assigns 'exercise content' to `@ballista/app`, but every exercise already in the repo splits it -- P4.20's `computeNeglectedEffects` and P4.29's `computeDensityAltitudeComparison` live in `@ballista/runtime`, and `app` holds only `neglected-effects-route.tsx` / `density-altitude-route.tsx`. P5.28 followed that precedent, so `INVERSE_EXERCISES`, `checkAnswer` and `checkAll` are exported from `@ballista/runtime` and nothing renders them. SHAPE: a presentational page in `@ballista/ui` plus a route in `@ballista/app` mounted off `location.hash`, matching the two routes named above. `checkAnswer` is pure and instant -- it grades against stored keys and integrates nothing -- so no worker is needed; `recompute()` DOES integrate and must not be called from render. The data already carries everything the page needs: `prompt`, `givens`, `steps`, `method`, `answer.unit`, `answer.tolerance` and a `feedback` string that is the insight on success and a direction-plus-magnitude nudge on failure. Note the checker never puts the answer in the failure feedback, and `inverse-exercises.test.ts` asserts that -- a UI must not undo it by rendering `check.expected` on a wrong attempt.",
       "status": "todo"
+    },
+    {
+      "id": "P0.109",
+      "phase": 0,
+      "seq": 307,
+      "estMinutes": 30,
+      "difficulty": "M",
+      "title": "Three library scenarios cost 10-100x the inverse-solve median and set the whole pooled tail",
+      "validation": "the cost of frozen-ou-gust, dust-grain and density-altitude-2000m is attributed to a named cause (step count, rhs cost, or stiffness) with a measurement per target, and either reduced or documented as irreducible",
+      "status": "todo",
+      "notes": "Filed 2026-08-22 (41st run) by P5.30, which measured it rather than guessed it. P5.30's budget is MET and this is not a regression -- it is a shape worth naming before someone reads the p99 as a latency tail. THE NUMBERS, warm p50 per target at rtol 1e-12: frozen-ou-gust 143.25 ms, dust-grain 105.09 ms, density-altitude-2000m 89.14 ms, against a pooled p50 of 9.66 ms and a cheapest target of 0.04 ms. That is a 3600x spread across the library. THE CONSEQUENCE: those three are 3 of 20 targets, so 15% of pooled samples are theirs and EVERYTHING ABOVE POOLED p95 IS ONE OF THEM. The recorded p99 of 147.48 ms is therefore frozen-ou-gust's own median, not a rare slow event -- p99 over this pool is a target-mix statistic and moves if the library gains or loses a slow scenario, which is worth knowing before anyone treats it as a latency SLO. Iteration counts do NOT explain it: all three converge in 3-5 Newton iterations, the same as the fast targets, so the cost is per-iteration integration work rather than a harder solve. Suspects, in the order worth measuring: step count (a stochastic OU gust field and a drag-crisis-adjacent dust grain both plausibly force tiny steps), rhs evaluation cost, and genuine stiffness. Start by recording nSteps per solve -- the harness already builds every problem, so this is an instrumentation change, not a new harness. If irreducible, say so in the artifact's provenance so the next reader does not re-derive it."
     }
   ]
 }
