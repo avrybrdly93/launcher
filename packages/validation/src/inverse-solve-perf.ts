@@ -263,11 +263,13 @@ const CONVERGED_MISS_M = 1e-6;
 export function measureSolves(
   cases: readonly InverseSolvePerfCase[],
   repeats: number,
+  warmupPasses: number = WARMUP_PASSES,
 ): InverseSolveMeasurement {
   if (cases.length === 0) throw new Error("no cases to measure");
   if (repeats < 1) throw new Error(`repeats must be >= 1, got ${repeats}`);
+  if (warmupPasses < 0) throw new Error(`warmupPasses must be >= 0, got ${warmupPasses}`);
 
-  for (let pass = 0; pass < WARMUP_PASSES; pass++) {
+  for (let pass = 0; pass < warmupPasses; pass++) {
     for (const c of cases) c.solve();
   }
 
@@ -312,7 +314,7 @@ export function measureSolves(
     .filter((c) => !(lastResult.get(c.id)!.miss < CONVERGED_MISS_M))
     .map((c) => c.id);
 
-  return { repeats, warmupPasses: WARMUP_PASSES, samplesMs, perTarget, nonConverged };
+  return { repeats, warmupPasses, samplesMs, perTarget, nonConverged };
 }
 
 /**

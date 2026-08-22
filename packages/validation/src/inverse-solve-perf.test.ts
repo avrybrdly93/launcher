@@ -3,7 +3,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { arch, cpus, totalmem, version as osVersion, platform, release } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import {
   INVERSE_SOLVE_BUDGET_MS,
   type InverseSolveMeasurement,
@@ -57,10 +57,20 @@ const ARTIFACT_PATH = join(HERE, "inverse-solve-perf.json");
 const RECORD_REPEATS = 40;
 
 /**
- * Passes run live in the suite. Three keeps the added suite time near a second
- * while still exercising every target more than once.
+ * Timed passes run live in the suite, and the warm-up in front of them. Two and
+ * one, rather than the recording's forty and three: the live check is a
+ * fabrication guard, and three whole passes buy that at half the CPU of this
+ * file's first version. Every target is still solved more than once.
  */
-const LIVE_REPEATS = 3;
+const LIVE_REPEATS = 2;
+const LIVE_WARMUP_PASSES = 1;
+
+/**
+ * Ceiling on the live measurement, in ms. Deliberately generous: it exists so
+ * that a stall becomes a failure naming this file rather than a job that hangs.
+ * Policing the measurement is {@link LIVE_SLACK}'s job, not this one's.
+ */
+const LIVE_TIMEOUT_MS = 120_000;
 
 /**
  * Multiple of the budget the *live* measurement is held to. See the docstring:
@@ -249,8 +259,25 @@ describe("P5.30: inverse-solve performance over the scenario library", () => {
   /* ---------------------------------------------------------------- */
 
   describe("live measurement", () => {
-    const cases = libraryPerfCases();
-    const live = measureSolves(cases, LIVE_REPEATS);
+    // Both of these run in `beforeAll`, with an explicit timeout, and NOT in
+    // this describe body. The distinction is load-bearing rather than
+    // stylistic: code in a describe body executes during vitest's *collect*
+    // phase, which neither `testTimeout` nor `hookTimeout` governs. The first
+    // version of this file measured there, which put ~120 integrations into
+    // collection with nothing bounding them -- so a solve that hung would have
+    // hung the run instead of failing it, and P0.106 is already a standing
+    // filing about this suite's build-heavy files and their timeouts.
+    //
+    // Moving it here cut this file's collect from 4.00 s to 0.70 s locally, and
+    // halving the live work (3 whole passes, not 6) cut the file's total from
+    // 4.28 s to 2.73 s. Both measured, not estimated.
+    let cases: ReturnType<typeof libraryPerfCases>;
+    let live: ReturnType<typeof measureSolves>;
+
+    beforeAll(() => {
+      cases = libraryPerfCases();
+      live = measureSolves(cases, LIVE_REPEATS, LIVE_WARMUP_PASSES);
+    }, LIVE_TIMEOUT_MS);
 
     it("builds a case for every library target", () => {
       expect(cases.map((c) => c.id)).toEqual(SCENARIO_LIBRARY.map((s) => s.id));
