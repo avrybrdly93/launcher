@@ -82,21 +82,26 @@ const uniformSpecSchema = z.object({
 /**
  * The three families before the cross-field checks below.
  *
- * Split out so that {@link standardBounds}, which the refinement calls, can be
- * typed against the union without the type of the exported schema depending on
+ * Split out so that the bound-standardising helper the refinement calls can be
+ * typed against the union, without the type of the exported schema depending on
  * a function that depends on the type of the exported schema.
+ *
+ * Exported because {@link DistributionSpec} is inferred from it, following the
+ * same convention as `scenario-spec.ts`'s component schemas. Parse with
+ * {@link distributionSpecSchema}, not this: this one accepts an inverted
+ * interval and an unsampleable tail window.
  */
-const distributionSpecUnion = z.discriminatedUnion("kind", [
+export const distributionSpecUnionSchema = z.discriminatedUnion("kind", [
   normalSpecSchema,
   lognormalSpecSchema,
   uniformSpecSchema,
 ]);
 
 /** Parsed type of {@link distributionSpecSchema}. */
-export type DistributionSpec = z.infer<typeof distributionSpecUnion>;
+export type DistributionSpec = z.infer<typeof distributionSpecUnionSchema>;
 
 /** Serializable description of one uncertain scalar parameter. */
-export const distributionSpecSchema = distributionSpecUnion.superRefine((spec, ctx) => {
+export const distributionSpecSchema = distributionSpecUnionSchema.superRefine((spec, ctx) => {
   const { min, max } = spec;
   if (min !== undefined && max !== undefined && !(max > min)) {
     ctx.addIssue({
