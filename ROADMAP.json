@@ -3454,6 +3454,17 @@
       "status": "todo"
     },
     {
+      "id": "P0.110",
+      "phase": 0,
+      "seq": 308,
+      "estMinutes": 15,
+      "difficulty": "E",
+      "title": "CLAUDE.md's pre-push gate omits the two typedoc steps CI runs, so a fully green local gate can still land red",
+      "validation": "the documented pre-push gate includes every step ci.yml runs, or the omissions are named in CLAUDE.md as deliberate with the reason",
+      "status": "todo",
+      "notes": "Filed 2026-08-22 (43rd run) by P6.01, which hit it. CLAUDE.md lists the gate as 'pnpm typecheck, pnpm lint, pnpm lint:deps, pnpm test, build'. ci.yml runs eleven steps, and two of them are 'pnpm --filter @ballista/engine run docs' and the same for @ballista/solverkit. typedoc is configured to fail on warnings, so adding an exported type inferred from an unexported const turns CI red while every documented local check is green -- which is exactly what happened at a7f09b9 and was fixed in b833aa2. Also missing from the documented gate: Format, Bundle size budget, and the two soft-warn steps. The 38th run's changelog already noted a related ordering trap (pnpm test on a fresh clone needs typecheck first, because four tests import packages/engine/dist). Suggested: either extend the documented gate to match ci.yml step for step, or add a 'pnpm verify' script that is the gate, and have CLAUDE.md point at the script rather than a list that drifts. NOT a code change to typedoc's config: failing on warnings is the right setting and caught a real omission."
+    },
+    {
       "id": "P0.109",
       "phase": 0,
       "seq": 307,

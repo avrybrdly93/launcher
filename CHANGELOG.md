@@ -69,12 +69,27 @@ forcing a fallback to commit timestamps.
   across 1465 modules / 4173 dependencies**, `pnpm test` **2512 passed across 253 files** (2464
   across 251 before this run — exactly the 48 tests and 2 files added), `pnpm build` **✓ in
   29.37s**.
+- **And the gate was still not enough, which is this run's other finding.** All five documented
+  checks passed and CI still went red at `a7f09b9`, on step 14 of 34: `pnpm --filter
+@ballista/engine run docs`. `typedoc` is configured to fail on warnings, and
+  `DistributionSpec` was inferred from an **unexported** const, which it reports as a documented
+  type referencing an undocumented symbol. Fixed in `b833aa2` by exporting
+  `distributionSpecUnionSchema` — which `scenario-spec.ts` already does for its own component
+  schemas, so the fix is the convention rather than an appeasement — and by dropping a
+  doc-comment `{@link}` to a private helper, which is the same problem in a comment.
+  **CLAUDE.md's pre-push gate lists five commands; `ci.yml` runs eleven steps.** The two
+  `docs` steps, `Format` and `Bundle size budget` are all absent from it, so a run can do
+  exactly what the repo asks and still land red. Filed as **P0.110** (`seq` 308) rather than
+  fixed here, with the suggestion that CLAUDE.md point at a single `verify` script instead of a
+  list that drifts. `typedoc`'s fail-on-warnings setting is **not** the thing to change: it
+  caught a real omission.
 - **Next**: `seq` 226 is `P6.02` (`UncertainScenarioSpec`: base spec + distribution overlays +
   N + seed), which is what actually attaches these distributions to named `ScenarioSpec` fields
   — deliberately not done here. It should reuse `distributionSpecSchema` as-is; the schema was
   written with no opinion about what its number means for exactly that reason. One thing P6.02
   will need to decide and this run did not: whether an overlay names a field by a dotted path
-  string or by a typed accessor, given `ScenarioSpec` is a nested discriminated union.
+  string or by a typed accessor, given `ScenarioSpec` is a nested discriminated union. And run
+  the two `docs` steps before pushing, until P0.110 makes that unnecessary.
 
 ---
 
