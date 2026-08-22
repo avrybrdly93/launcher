@@ -63,12 +63,21 @@ import { type SolverConfig, createDormandPrince54Stepper } from "@ballista/solve
  *
  * **Timings are warm.** {@link WARMUP_PASSES} whole passes over the library run
  * and are discarded before anything is recorded, matching
- * `scripts/check-benchmark-regression.mjs`'s `WARMUP_STEPS`. A cold first solve
- * on this codebase runs several times its warm cost -- almost all of it V8
- * tiering up through a numerical inner loop, which is a property of the
- * first shot a process ever takes and not of the solver. Both are real; the
- * budget is about the interaction, so the warm one is measured, and the cold
- * one is left to {@link measureColdSolves} rather than silently averaged in.
+ * `scripts/check-benchmark-regression.mjs`'s `WARMUP_STEPS`. The cold cost is
+ * measured separately by {@link measureColdSolves} rather than averaged in,
+ * because a first-shot cost is paid once per process and folding it into a
+ * distribution of 800 solves would understate it and overstate everything else
+ * at once.
+ *
+ * **What the cold numbers turned out to say** (measured, not assumed -- the
+ * first draft of this comment claimed a cold solve costs "several times" its
+ * warm one, and the recorded artifact says otherwise): the cold penalty scales
+ * *inversely* with how long the solve itself runs. `drag-free-reference` warms
+ * in 0.04 ms and pays 16x cold; `density-altitude-2000m` warms in 89 ms and
+ * pays 1.01x. A solve long enough to tier V8 up inside a single call has
+ * already paid for its own warm-up by the time it returns, so the targets that
+ * dominate the tail are the ones cold-start barely touches. Pooled, cold p50 is
+ * 1.36x warm p50 and cold max lands *below* warm max.
  */
 
 /** The budget P5.30 states, in milliseconds. */
@@ -310,10 +319,14 @@ export function measureSolves(
  * Time one cold solve per target: a freshly built problem, solved once, with no
  * warm-up at all.
  *
- * Recorded alongside the warm numbers rather than folded into them. A user's
- * *first* aim in a session pays this, and it is several times the warm cost --
- * but it is a one-off per process, so averaging it into a distribution of 800
- * solves would understate it and overstate everything else at the same time.
+ * Recorded alongside the warm numbers rather than folded into them: a user's
+ * *first* aim in a session pays this, once per process. See the module
+ * docstring for what the measurement actually showed -- the penalty is large
+ * only on the targets that are already cheap, and negligible on the ones that
+ * set the tail.
+ *
+ * Must run before any warm-up in the same process, or it measures a warm solve
+ * and calls it cold.
  */
 export function measureColdSolves(): TargetTiming[] {
   return libraryPerfCases().map((c) => {

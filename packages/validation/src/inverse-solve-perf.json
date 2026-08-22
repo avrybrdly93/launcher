@@ -1,0 +1,362 @@
+{
+  "schemaVersion": 1,
+  "task": "P5.30",
+  "provenance": "Recorded via `RECORD_INVERSE_PERF=1 pnpm run record:inverse-perf` (P5.30; blueprint §7). Never hand-edit: the per-target rows and the pooled percentiles are measured together and inverse-solve-perf.test.ts asserts they agree, so an edited percentile lands red rather than passing. Wall-clock is hardware-specific -- the `machine` block says which machine, and re-recording on a different one is expected to move every number. What must not move without an explanation is the shape: which targets are slow, and by how much relative to each other.",
+  "budgetMs": {
+    "p50": 50,
+    "p99": 300
+  },
+  "tolerance": {
+    "stepper": "dopri5",
+    "rtol": 1e-12,
+    "atol": 1e-14,
+    "maxSteps": 200000
+  },
+  "machine": {
+    "platform": "linux",
+    "release": "6.18.44-fc-v21",
+    "osVersion": "#1 SMP PREEMPT_DYNAMIC @0",
+    "arch": "x64",
+    "cpuModel": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+    "cpuCount": 4,
+    "totalMemGb": 15.6985,
+    "nodeVersion": "v22.22.2"
+  },
+  "warm": {
+    "repeats": 40,
+    "warmupPasses": 3,
+    "samples": 800,
+    "p50Ms": 9.6625,
+    "p95Ms": 110.9615,
+    "p99Ms": 147.4808,
+    "maxMs": 170.1074,
+    "perTarget": [
+      {
+        "id": "drag-free-reference",
+        "samples": 40,
+        "p50Ms": 0.0355,
+        "maxMs": 0.064,
+        "iterations": 0,
+        "status": "converged"
+      },
+      {
+        "id": "shot-put",
+        "samples": 40,
+        "p50Ms": 1.9807,
+        "maxMs": 2.4006,
+        "iterations": 2,
+        "status": "converged"
+      },
+      {
+        "id": "table-tennis",
+        "samples": 40,
+        "p50Ms": 9.4764,
+        "maxMs": 10.9753,
+        "iterations": 3,
+        "status": "converged"
+      },
+      {
+        "id": "golf-drive",
+        "samples": 40,
+        "p50Ms": 22.1605,
+        "maxMs": 23.4994,
+        "iterations": 4,
+        "status": "converged"
+      },
+      {
+        "id": "dust-grain",
+        "samples": 40,
+        "p50Ms": 105.0936,
+        "maxMs": 110.9615,
+        "iterations": 4,
+        "status": "converged"
+      },
+      {
+        "id": "headwind",
+        "samples": 40,
+        "p50Ms": 8.1271,
+        "maxMs": 9.7185,
+        "iterations": 3,
+        "status": "converged"
+      },
+      {
+        "id": "tailwind",
+        "samples": 40,
+        "p50Ms": 5.1959,
+        "maxMs": 6.4872,
+        "iterations": 2,
+        "status": "converged"
+      },
+      {
+        "id": "cannonball-muzzle",
+        "samples": 40,
+        "p50Ms": 9.7596,
+        "maxMs": 19.792,
+        "iterations": 3,
+        "status": "converged"
+      },
+      {
+        "id": "smooth-sphere-drag-crisis",
+        "samples": 40,
+        "p50Ms": 30.2537,
+        "maxMs": 59.0876,
+        "iterations": 5,
+        "status": "converged"
+      },
+      {
+        "id": "table-tennis-topspin-decay",
+        "samples": 40,
+        "p50Ms": 9.4746,
+        "maxMs": 11.9857,
+        "iterations": 3,
+        "status": "converged"
+      },
+      {
+        "id": "lateral-launch-3d",
+        "samples": 40,
+        "p50Ms": 9.0326,
+        "maxMs": 9.9083,
+        "iterations": 3,
+        "status": "converged"
+      },
+      {
+        "id": "log-profile-boundary-layer",
+        "samples": 40,
+        "p50Ms": 13.2393,
+        "maxMs": 14.5905,
+        "iterations": 3,
+        "status": "converged"
+      },
+      {
+        "id": "one-cosine-gust",
+        "samples": 40,
+        "p50Ms": 12.2556,
+        "maxMs": 17.0535,
+        "iterations": 3,
+        "status": "converged"
+      },
+      {
+        "id": "frozen-ou-gust",
+        "samples": 40,
+        "p50Ms": 143.2495,
+        "maxMs": 170.1074,
+        "iterations": 3,
+        "status": "converged"
+      },
+      {
+        "id": "vortex-crossing",
+        "samples": 40,
+        "p50Ms": 14.2167,
+        "maxMs": 15.8572,
+        "iterations": 3,
+        "status": "converged"
+      },
+      {
+        "id": "density-altitude-sea-level",
+        "samples": 40,
+        "p50Ms": 5.0156,
+        "maxMs": 6.1761,
+        "iterations": 2,
+        "status": "converged"
+      },
+      {
+        "id": "density-altitude-2000m",
+        "samples": 40,
+        "p50Ms": 89.1446,
+        "maxMs": 99.3871,
+        "iterations": 5,
+        "status": "converged"
+      },
+      {
+        "id": "buoyancy-visible",
+        "samples": 40,
+        "p50Ms": 9.7366,
+        "maxMs": 11.3853,
+        "iterations": 3,
+        "status": "converged"
+      },
+      {
+        "id": "energy-drift-gravity-only",
+        "samples": 40,
+        "p50Ms": 0.0316,
+        "maxMs": 0.0862,
+        "iterations": 0,
+        "status": "converged"
+      },
+      {
+        "id": "lofted-mortar",
+        "samples": 40,
+        "p50Ms": 7.163,
+        "maxMs": 7.8922,
+        "iterations": 3,
+        "status": "converged"
+      }
+    ]
+  },
+  "cold": {
+    "p50Ms": 13.1582,
+    "maxMs": 155.0113,
+    "perTarget": [
+      {
+        "id": "drag-free-reference",
+        "samples": 1,
+        "p50Ms": 0.5848,
+        "maxMs": 0.5848,
+        "iterations": 0,
+        "status": "converged"
+      },
+      {
+        "id": "shot-put",
+        "samples": 1,
+        "p50Ms": 4.4981,
+        "maxMs": 4.4981,
+        "iterations": 2,
+        "status": "converged"
+      },
+      {
+        "id": "table-tennis",
+        "samples": 1,
+        "p50Ms": 11.0798,
+        "maxMs": 11.0798,
+        "iterations": 3,
+        "status": "converged"
+      },
+      {
+        "id": "golf-drive",
+        "samples": 1,
+        "p50Ms": 24.1273,
+        "maxMs": 24.1273,
+        "iterations": 4,
+        "status": "converged"
+      },
+      {
+        "id": "dust-grain",
+        "samples": 1,
+        "p50Ms": 107.304,
+        "maxMs": 107.304,
+        "iterations": 4,
+        "status": "converged"
+      },
+      {
+        "id": "headwind",
+        "samples": 1,
+        "p50Ms": 9.3793,
+        "maxMs": 9.3793,
+        "iterations": 3,
+        "status": "converged"
+      },
+      {
+        "id": "tailwind",
+        "samples": 1,
+        "p50Ms": 5.443,
+        "maxMs": 5.443,
+        "iterations": 2,
+        "status": "converged"
+      },
+      {
+        "id": "cannonball-muzzle",
+        "samples": 1,
+        "p50Ms": 10.0726,
+        "maxMs": 10.0726,
+        "iterations": 3,
+        "status": "converged"
+      },
+      {
+        "id": "smooth-sphere-drag-crisis",
+        "samples": 1,
+        "p50Ms": 31.2796,
+        "maxMs": 31.2796,
+        "iterations": 5,
+        "status": "converged"
+      },
+      {
+        "id": "table-tennis-topspin-decay",
+        "samples": 1,
+        "p50Ms": 15.419,
+        "maxMs": 15.419,
+        "iterations": 3,
+        "status": "converged"
+      },
+      {
+        "id": "lateral-launch-3d",
+        "samples": 1,
+        "p50Ms": 15.1944,
+        "maxMs": 15.1944,
+        "iterations": 3,
+        "status": "converged"
+      },
+      {
+        "id": "log-profile-boundary-layer",
+        "samples": 1,
+        "p50Ms": 13.8385,
+        "maxMs": 13.8385,
+        "iterations": 3,
+        "status": "converged"
+      },
+      {
+        "id": "one-cosine-gust",
+        "samples": 1,
+        "p50Ms": 13.1582,
+        "maxMs": 13.1582,
+        "iterations": 3,
+        "status": "converged"
+      },
+      {
+        "id": "frozen-ou-gust",
+        "samples": 1,
+        "p50Ms": 155.0113,
+        "maxMs": 155.0113,
+        "iterations": 3,
+        "status": "converged"
+      },
+      {
+        "id": "vortex-crossing",
+        "samples": 1,
+        "p50Ms": 15.8107,
+        "maxMs": 15.8107,
+        "iterations": 3,
+        "status": "converged"
+      },
+      {
+        "id": "density-altitude-sea-level",
+        "samples": 1,
+        "p50Ms": 6.4431,
+        "maxMs": 6.4431,
+        "iterations": 2,
+        "status": "converged"
+      },
+      {
+        "id": "density-altitude-2000m",
+        "samples": 1,
+        "p50Ms": 90.4255,
+        "maxMs": 90.4255,
+        "iterations": 5,
+        "status": "converged"
+      },
+      {
+        "id": "buoyancy-visible",
+        "samples": 1,
+        "p50Ms": 18.7445,
+        "maxMs": 18.7445,
+        "iterations": 3,
+        "status": "converged"
+      },
+      {
+        "id": "energy-drift-gravity-only",
+        "samples": 1,
+        "p50Ms": 0.0764,
+        "maxMs": 0.0764,
+        "iterations": 0,
+        "status": "converged"
+      },
+      {
+        "id": "lofted-mortar",
+        "samples": 1,
+        "p50Ms": 7.9359,
+        "maxMs": 7.9359,
+        "iterations": 3,
+        "status": "converged"
+      }
+    ]
+  }
+}
