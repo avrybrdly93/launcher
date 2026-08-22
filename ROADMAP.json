@@ -2539,8 +2539,8 @@
       "estMinutes": 25,
       "difficulty": "M",
       "validation": "benchmark artifact meets budget",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed by the 41st run. Harness + benchmark artifact not yet written."
     },
     {
       "id": "P5.31",
