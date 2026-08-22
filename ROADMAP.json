@@ -2550,8 +2550,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "rule implemented (inner tol ≤ outer tol²-style heuristic) + test",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed on the 42nd run. Three deliverables: docs/adr/ADR-017, the rule as an exported function in packages/analysis, and a test that MEASURES the coupling on a real shooting problem rather than only unit-testing the arithmetic."
     },
     {
       "id": "P6.01",
