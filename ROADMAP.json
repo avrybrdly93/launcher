@@ -2528,8 +2528,8 @@
       "estMinutes": 25,
       "difficulty": "E",
       "validation": "docs build; decision table present",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed 2026-08-22 (40th run) as the first todo by seq (222), with nothing in-progress and nothing in review ahead of it. Reading the criterion as two falsifiable claims rather than one documentary one: (a) 'docs build' -> the pages exist, their cross-links and code references resolve, and their math delimiters balance, checked the way docs/physics is checked; (b) 'decision table present' -> a table that actually covers every solver the analysis package exports and whose claims about each are true of the code."
     },
     {
       "id": "P5.30",
