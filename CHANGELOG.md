@@ -15,6 +15,69 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-22 (43rd run) — P6.01 done: phase 6 opens, and the tail is the whole problem
+
+- **P6.01 was taken because it is the first `todo` by `seq` (225)**, with nothing `in-progress`
+  and nothing in `review` ahead of it — `ROADMAP.json`'s `taskSelection` applied as written.
+  It opens phase 6. P0.106 is still the short task for whoever wants one, at `seq` 304; P0.109
+  is at 307.
+- **VALIDATION MET.** The criterion is "sampling moments match analytics (1e5 draws, 3σ bands)".
+  `packages/engine/src/distribution.ts` and `normal-distribution-functions.ts`, **48 tests**
+  (27 + 21), and seven separate 1e5-draw assertions — one per family and truncation shape.
+- **The bands are the estimators' own standard errors, and that is the point.** `SE(mean) =
+σ/√n`, `SE(s²) = σ²√(2/(n−1))`. A tolerance written this way **tightens as `n` grows**, so a
+  biased sampler cannot be hidden by drawing more samples; a hand-picked epsilon would have the
+  opposite property. Only the lognormal variance band carries slack (a factor of 4), because
+  excess kurtosis near 1.6 genuinely widens the variance estimator beyond the normal-theory
+  formula — derived in a comment, not fitted until green.
+- **Truncation is inverse-CDF, and the reason is a cost curve, not taste.** Rejection sampling's
+  runtime depends on how unlikely the retained region is: the `[3σ, 4σ]` window one test draws
+  from has an acceptance rate of **1.3e-3**, so producing its 1e5 samples by rejection would
+  need about **8e7** draws. P6.04 runs 1e4 replicates and cannot carry a sampler whose cost is
+  a function of the study's own parameters. Inverse-CDF is O(1) at every window.
+- **THE FINDING, and it is arithmetic rather than statistics.** Every probability in this
+  module is computed in whichever of `Φ` or `Q = 1 − Φ` stays away from 1, because the
+  retained-mass `Z` is a **divisor in every truncated moment** and it is exactly the quantity
+  that cancellation destroys. `standardNormalIntervalMass(4, 5)` keeps sixteen digits where
+  `Φ(5) − Φ(4)` keeps eleven — both endpoints are within 3.2e-5 of 1 — and at `[10, 11]` the
+  naive form has nothing left at all. A truncated distribution is _only ever used_ where its
+  bounds bite, so the tail is not an edge case here; it is the normal operating regime.
+- **`erf`/`erfc` carry no fitted coefficients.** They come from the regularised incomplete gamma
+  at `a = 1/2` — series below `x² = 1.5`, continued fraction above — iterated to
+  double-precision convergence rather than truncated at a fixed polynomial order, so there is no
+  error floor to document. `normalQuantile` Halley-refines against `normalCdf`, which is why its
+  A&S 26.2.23 seed (good to 4.5e-4) can sit under assertions at 1e-14: the seed sets the
+  iteration count and nothing else, and a test asserts exactly that.
+- **A spec can be legal on its face and unsampleable.** `[40σ, 41σ]` has both bounds finite and
+  correctly ordered, and probability mass that underflows to exactly zero. The schema rejects it
+  at parse time, where the study's author can see it, rather than dividing by zero at sample time.
+- **Verified in both directions.** Four faults were injected in turn and reverted: the
+  truncated-normal mean shift's sign (4 tests fail), truncation dropped from the sampler (4),
+  the `shift²` term of the variance factor (4), and the `k·s` shift in the lognormal raw moment
+  (2). Worth recording from the second of those: it is **not** caught by the support test,
+  because `clampToSupport` masks it — the moment tests are what catch it. A sampler can respect
+  its bounds perfectly and still be wrong inside them.
+- **Two tests of the first draft encoded wrong beliefs, and were fixed rather than loosened.**
+  One compared `erfc` at two points 2e-9 apart and expected agreement to 1e-14, ignoring that
+  `erfc`'s own slope there is −0.2518 and produces 5e-10 of entirely genuine difference. The
+  other used a trapezoid reference integral for `normalCdf` whose **own** O(h²) truncation error
+  was 8e-11, which would have set the tolerance instead of the function under test; it is
+  Simpson now. In both cases the implementation was already agreeing with an independently
+  written Taylor series to **3e-16**. The failure was in the reference, and the fix was to make
+  the reference better rather than the assertion weaker.
+- **Gate green**: `pnpm typecheck` clean, `pnpm lint` clean, `pnpm lint:deps` **no violations
+  across 1465 modules / 4173 dependencies**, `pnpm test` **2512 passed across 253 files** (2464
+  across 251 before this run — exactly the 48 tests and 2 files added), `pnpm build` **✓ in
+  29.37s**.
+- **Next**: `seq` 226 is `P6.02` (`UncertainScenarioSpec`: base spec + distribution overlays +
+  N + seed), which is what actually attaches these distributions to named `ScenarioSpec` fields
+  — deliberately not done here. It should reuse `distributionSpecSchema` as-is; the schema was
+  written with no opinion about what its number means for exactly that reason. One thing P6.02
+  will need to decide and this run did not: whether an overlay names a field by a dotted path
+  string or by a typed accessor, given `ScenarioSpec` is a nested discriminated union.
+
+---
+
 ## 2026-08-22 (42nd run) — P5.31 done: the square is the forward-difference case, and a loose inner solve converges
 
 - **P5.31 was taken because it is the first `todo` by `seq` (224)**, with nothing `in-progress`
