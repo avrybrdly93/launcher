@@ -15,6 +15,71 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-22 (41st run) — P5.30 done: the budget met with 5x headroom, and a p99 that is not a tail
+
+- **P5.30 was taken because it is the first `todo` by `seq` (223)**, with nothing `in-progress`
+  and nothing in `review` ahead of it — `ROADMAP.json`'s `taskSelection` applied as written.
+  P0.106 remains the short task for whoever wants one, at `seq` 304.
+- **VALIDATION MET.** The criterion is "benchmark artifact meets budget" and the budget is
+  `p50 < 50 ms, p99 < 300 ms on library targets`. Recorded:
+  **p50 9.66 ms** and **p99 147.48 ms** over **800 samples** — 20 `SCENARIO_LIBRARY` targets ×
+  40 passes, 3 warm-up passes discarded — with every target converging in **≤ 5 Newton
+  iterations**. Artifact at `packages/validation/src/inverse-solve-perf.json`, checked by
+  `packages/validation/src/inverse-solve-perf.test.ts` in **19 tests**.
+- **Three things the criterion does not decide were decided in the open, because each moves the
+  number.** The timed region is `smartInitialAim` + `newtonShooting` and **excludes problem
+  construction**, which is paid per scenario load, not per solve. The targets are read the way
+  P5.07 reads them — each entry's target is the impact of _its own_ launch aim, so every one is
+  reachable by construction and the measurement is of the solve rather than of an impossible
+  ask. And the tolerance is **rtol 1e-12, not the library's own 1e-6**: the finite-difference
+  Jacobian is not correct at 1e-6, and a budget met at the tight tolerance is met at every
+  looser one. The recorded cost is a **ceiling** on what the app pays, not an estimate of it.
+- **"Artifact meets budget" is one assertion against a stored file, and a file of twenty zeros
+  satisfies it.** So it was read as **four** claims, and the first three are what make the
+  fourth mean anything: the artifact's target ids are asserted **against the `SCENARIO_LIBRARY`
+  export** (a renamed scenario lands red, not silently uncovered); the percentiles must be
+  ordered, the pooled max must equal some target's max, and `samples == targets × repeats`, so
+  an edited number contradicts the rows printed beside it; **the solve is run live in the suite
+  and must converge on every target**, because a solver that returned instantly without
+  converging would _improve_ every number in the file; and only then, the budget.
+- **The live timing check is held to 4× the budget, deliberately.** This repo's own perf policy
+  — `scripts/check-benchmark-regression.mjs`, "a flaky regression here should never block a
+  push to main" — rules out a hard absolute-ms assertion on an unknown runner. 4× survives a
+  runner several times slower than this one and does not survive an order-of-magnitude
+  regression, which is the failure worth catching. The **exact** budget check is against the
+  artifact, whose `machine` block names what produced the numbers.
+- **Verified in both directions, not just the passing one.** An edited `p99`, a deleted target
+  row, a renamed target, a status flipped off `converged`, a `p50` pushed over budget, a pooled
+  max detached from the rows, and a live solve made to stop converging were each injected in
+  turn; **each failed with the intended message**, and the suite was restored green after every
+  probe. Without that, 19 passing tests would say only that 19 assertions ran.
+- **One claim of this run's own was wrong, and the artifact is what caught it.** The harness
+  docstring's first draft said a cold first solve costs "several times" its warm one. It does
+  not. The cold penalty scales **inversely with how long the solve runs**: `drag-free-reference`
+  warms in 0.04 ms and pays **16×**, while `density-altitude-2000m` warms in 89 ms and pays
+  **1.01×** — a solve long enough to tier V8 up inside a single call has already paid for its
+  own warm-up by the time it returns. Pooled, cold p50 is **1.36×** warm and cold max lands
+  **below** warm max. The docstring now says what was measured, and the cold pass is asserted
+  against the p99 budget as a first-shot latency in its own right.
+- **The finding, and it is about how to read the number rather than about a defect.** Three of
+  the twenty targets — **frozen-ou-gust 143.25 ms, dust-grain 105.09 ms,
+  density-altitude-2000m 89.14 ms** — cost 10-100× the 9.66 ms median, a **3600× spread** from
+  the cheapest target to the dearest. They are 3 of 20, so **15% of pooled samples are theirs
+  and everything above pooled p95 is one of them**: the recorded p99 is frozen-ou-gust's _own
+  median_, not a rare slow event. **p99 over this pool is a target-mix statistic, not a
+  latency tail** — it moves if the library gains or loses a slow scenario. Iteration counts
+  rule out the obvious cause: all three converge in 3-5 iterations like everything else, so it
+  is per-iteration integration work. Filed as **P0.109** (`seq` 307) with "record `nSteps`
+  first" as the opening move. `P0.107` and `P0.108` were already taken; the id was checked
+  rather than assumed.
+- **Gate green**: `pnpm typecheck` clean, `pnpm lint` clean, `pnpm lint:deps` **no violations
+  across 1447 modules / 4127 dependencies**, `pnpm test` **2448 passed across 250 files** (2429
+  across 249 before this run's additions — exactly the 19 tests and 1 file added), `pnpm build`
+  **✓ in 21.06s**.
+- **No UI, and no drive-by.** Lazy-loading Plotly — still **4.84 MB** in this run's build
+  output, unchanged from the 40th run — remains a backlog item to be claimed, not smuggled into
+  a perf task that happens to have "perf" in its name.
+
 ## 2026-08-22 (40th run) — P5.29 done: a decision table whose claims are checked against the code, and four statuses that did not exist
 
 - **P5.29 was taken because it is the first `todo` by `seq` (222)**, with nothing `in-progress`
