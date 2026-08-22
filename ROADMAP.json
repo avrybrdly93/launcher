@@ -2561,8 +2561,8 @@
       "estMinutes": 25,
       "difficulty": "M",
       "validation": "sampling moments match analytics (1e5 draws, 3σ bands)",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed 2026-08-22 (43rd run). First todo by seq (225) with nothing in-progress and nothing in review, per policy.taskSelection. Opens phase 6."
     },
     {
       "id": "P6.02",
