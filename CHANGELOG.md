@@ -15,6 +15,67 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-23 (44th run) — P6.02 done: an ordered array, because the index is a promise
+
+- **P6.02 was taken because it is the first `todo` by `seq` (226)**, with nothing `in-progress`
+  and nothing in `review` ahead of it — `ROADMAP.json`'s `taskSelection` applied as written.
+  P0.106 (`seq` 304) and P0.109 (`seq` 307) are still the short tasks for whoever wants one.
+- **VALIDATION MET.** The criterion is "serialize round-trip; validates against base schema".
+  `packages/engine/src/uncertain-scenario-spec.ts` and **51 tests**, both halves asserted
+  directly rather than implied.
+- **The round trip is compared as text, not only as shape, and that is the point.** A
+  `JSON.stringify`/`parse`/re-parse cycle is deep-equal, idempotent on a second pass, **and
+  byte-identical as serialized text** — and it runs over _every_ `PRESET_SCENARIOS` entry as the
+  base, since the base is the half most likely to quietly drop a field (optional spin and lateral
+  channels, nested wind variants, tabulated drag tables). Deep equality alone would tolerate the
+  overlays coming back reordered, and overlay order is precisely what the next two tasks rest on.
+- **Overlays are an ordered array of `{path, distribution}`, not a `Record<path, …>`, and the
+  reason is downstream rather than aesthetic.** P6.03 assigns each uncertain parameter its own
+  PCG32 substream **by index**, and P6.05 requires statistics to reduce in a fixed order however a
+  worker pool partitioned the batch. An array states that index and carries it across
+  serialization; a keyed object would leave it resting on JS property-order, which is a language
+  detail rather than a promise the format makes. Duplicate paths are rejected in the same spirit —
+  two distributions on one parameter has no defined meaning, and last-one-wins would make a
+  study's result depend on key order.
+- **The base is parsed by `scenarioSpecSchema` itself, unmodified.** That is what turns "validates
+  against base schema" into a property of the type instead of a convention: a study cannot
+  describe a scenario the deterministic engine could not run. A negative mass, a wrong
+  `schemaVersion` or an absent base each fail the study, and the issue is reported under the
+  `base` path rather than the study root, so a caller can tell a broken scenario from a broken
+  study.
+- **Paths are resolved against the study's own base at parse time.** A typo becomes a
+  configuration error naming the path, rather than a `NaN` that surfaces ten thousand replicates
+  later as a quietly wrong mean. `readSpecNumberAtPath` is exported so P6.03 shares one definition
+  of what a path means instead of growing a second that can drift, and it refuses
+  `__proto__`/`constructor`/`prototype` and inherited keys — a path is data, and a study can
+  arrive from a shared URL. It returns `undefined` rather than `0` or `NaN` for an unresolved
+  path, because `initialConditions.x0` is legitimately `0` in most presets and the two must not
+  be confusable.
+- **Two seeds, deliberately.** `base.seed` fixes the nominal realization (the frozen-OU wind path,
+  ADR-011); the study `seed` fixes the ensemble. P6.03 derives each replicate's substreams from
+  the latter and the replicate index, so a study reproduces regardless of worker-pool size.
+- **Applying a drawn parameter vector back onto a spec is deliberately not here** — that is
+  P6.03's replicate generator. This module owns the description and its validation.
+- **A latent typedoc failure surfaced and was fixed first, in its own commit.** `vz0`'s doc
+  comment in `scenario-spec.ts` carried `{@link z0}`, a sibling of the anonymous object type zod
+  infers for `initialConditionsSchema`. Typedoc resolves that only where it renders the type as a
+  named page — and P6.02's `nominalOverlayValues`/`overlayDistributions` are the **first engine
+  exports whose signatures inline a `ScenarioSpec`**, so the comment got re-rendered where the
+  target has no page, producing two "exists but does not have a link" warnings. `typedoc` is
+  configured to fail on warnings (exit 5). That is why CI 242 was green at `ac22925` and this
+  change would have been red: the warning was always latent and P6.02 was the first thing to
+  reach it. Demoted to code formatting with the reason recorded inline, so it does not get
+  "improved" back into a link.
+- **Full gate green before every commit**: `pnpm typecheck`, `pnpm lint`, `pnpm format:check`,
+  `pnpm lint:deps` (1471 modules, 4195 dependencies, no violations), `pnpm test` **2563 passed
+  across 254 files**, engine and solverkit `typedoc` both exit 0, `pnpm --filter @ballista/app
+build`, and the bundle-size budget at **72.8 kB gzipped against 300 kB (§2.6)**.
+- **Next**: P6.03 (`seq` 227), the replicate generator — seed + index substreams to param vectors,
+  validated by "replicate i identical regardless of batch partitioning". It consumes this task's
+  overlay array in order and is where `readSpecNumberAtPath` gains its write-side counterpart.
+
+---
+
 ## 2026-08-22 (43rd run) — P6.01 done: phase 6 opens, and the tail is the whole problem
 
 - **P6.01 was taken because it is the first `todo` by `seq` (225)**, with nothing `in-progress`
