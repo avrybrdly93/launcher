@@ -2583,8 +2583,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "replicate i identical regardless of batch partitioning",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed 2026-08-23 (44th run) before any code was written. SCOPE: turn (UncertainScenarioSpec, replicate index) into a drawn parameter vector and a concrete ScenarioSpec, with each (replicate, overlay) pair on its own PCG32 substream derived from the study seed -- which is what makes the criterion 'replicate i identical regardless of batch partitioning' a property of the construction rather than of the call order. P6.02 stopped deliberately short of this and exported readSpecNumberAtPath for it to share."
     },
     {
       "id": "P6.04",
