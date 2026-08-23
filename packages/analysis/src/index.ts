@@ -16,6 +16,7 @@ export * from "./multi-start.js";
 export * from "./nelder-mead.js";
 export * from "./newton-convergence-order.js";
 export * from "./newton-shooting.js";
+export * from "./observable-sink.js";
 export * from "./observables.js";
 export * from "./optimal-angle.js";
 export * from "./range-root.js";

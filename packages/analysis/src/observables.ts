@@ -430,8 +430,12 @@ export function apexTime(traj: Trajectory, layout: TrajectoryLayout = PLANAR_LAY
  * matching {@link hermiteInterpolant}'s basis but for one component, so this
  * module can interpolate a single channel without allocating an output
  * `Float64Array` per candidate crossing.
+ *
+ * Exported for `observable-sink.ts` (P6.04), which runs {@link apex}'s scan
+ * incrementally and must reproduce it bit for bit. Sharing the function is
+ * the only way that claim stays true as either side changes.
  */
-function hermiteValue(
+export function hermiteValue(
   y0: number,
   d0: number,
   y1: number,
@@ -464,8 +468,10 @@ function hermiteValue(
  * Both roots are tried because a cubic has two stationary points and only
  * their bracketing decides which is the maximum here; the caller compares
  * heights, so returning the one inside $[0,1]$ is enough.
+ *
+ * Exported alongside {@link hermiteValue}, and for the same reason.
  */
-function hermiteStationaryPoint(
+export function hermiteStationaryPoint(
   y0: number,
   d0: number,
   y1: number,
