@@ -70,6 +70,18 @@ forcing a fallback to commit timestamps.
   diagnose.
 - **Gate before every commit**, in CI's order: `pnpm typecheck`, `pnpm lint`, `pnpm lint:deps`
   (1471 modules, 4195 dependencies, no violations), `pnpm format:check`, `pnpm test`. All clean.
+- **CI run 247 at `cfc2df8`'s successor `3e52cb9` is green, all 35 steps**, `Test` in 91 s. Read
+  from the **job** record, not the run record: `get_workflow_run` still reported `in_progress` with
+  an `updated_at` of 14:57:11 while `list_workflow_jobs` showed `conclusion: success` and a
+  `completed_at` of 15:00:36. That is precisely the stale-status trap the 39th run recorded and
+  acted wrongly on — **check `completed_at` on the job, not `status` on the run.** Worth noting for
+  P0.106 specifically: this is one more green CI observation on the changed tree, but CI is a
+  single unloaded run and the loaded local runs are the stronger evidence.
+- **Corrected in this run, rather than left standing.** P0.111's filing first said the fresh-clone
+  failure was "found while establishing that run's baseline", which reads as a discovery. The 38th
+  run had already hit it and written it into commit `2469a3f`'s message. The filing now says so —
+  and that history is the argument _for_ filing it, since a note in one commit message among 247 is
+  not somewhere a session looks, which is how it came to be rediscovered seven runs later.
 
 ---
 
