@@ -15,6 +15,46 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-23 (44th run, addendum) — CI 244 is RED at `07e7b23`, on two different flaky tests
+
+- **`main` is red and this run did not get it green.** Stated plainly at the top rather than buried:
+  CI run 244 at `07e7b23` failed on the `Test` step on **both** attempts, so the push that closed
+  P6.02 sits on a red `main`. Everything else passed — typecheck, lint, format, import boundaries
+  on both attempts.
+- **The two attempts failed on _different_ tests, and each one passed in the other attempt.** That
+  is the whole finding, and it is the cleanest evidence either flake has produced:
+  - **Attempt 1** — `packages/solverkit/src/chunked-integration.test.ts:318`, `maxSliceMs`
+    **11.982128** against the 10 ms budget (**P0.96**). `solver-lab-route.test.tsx` passed in this
+    attempt, in 505 ms.
+  - **Attempt 2** — `packages/app/src/solver-lab-route.test.tsx:91`, `expected '' to contain
+'Explicit (Forward) Euler'` (**P0.106**). `chunked-integration.test.ts` passed in this attempt.
+  - Same commit, same tree, not one byte changed between them. 2562/2563 passing both times.
+- **Neither is a P6.02 regression, and the argument is mechanical rather than an appeal to
+  history.** The diff touches `packages/engine` plus `ROADMAP.json`/`CHANGELOG.md`. The
+  chunked-integration measurement wraps `continuation.runSlice()` on a dim-1 decay model with a
+  mock Euler stepper; that file's `@ballista/engine` imports are atmosphere/gravity/wind/eval-context
+  helpers this run did not touch, and the new module reaches it only as one extra barrel re-export
+  evaluated at import time, outside the timed region. The full suite was **2563/2563 green
+  locally** before the push, and `solver-lab-route.test.tsx` passes **3/3 standalone** in this
+  container after it.
+- **The solver-lab failure now has a mechanism, not just a margin — and it is a race, not a
+  timeout.** The test awaits a _real_ dynamic import of KaTeX by spinning a **fixed five macrotask
+  turns** and then asserting. Under the parallel suite the import plus module transform needs more
+  than five turns, the panel is still empty, and `textContent` is `''`. So P0.106's "raise the
+  timeout" remedy does not apply to this file; the equivalent fix that decides nothing is to poll
+  for the rendered content up to a bounded deadline and then assert **exactly the same two things**
+  (the heading text and a `.katex` node). Recorded against P0.106 rather than done: this run had
+  already claimed P6.02, and P0.106's own criterion demands repeated loaded-container suite runs to
+  verify, which is the task rather than a drive-by.
+- **Nothing was weakened to get green, and nothing will be.** P0.96 is a wall-clock _assertion_ and
+  its filing is explicit that raising the constant buys a longer gap between flakes rather than a
+  fix, and that choosing between its two options is a human's call. One re-run was spent — the
+  legitimate use, confirming whether the first failure reproduced — and it is not spent again here.
+- **What a human needs to decide**: P0.96, which can redden `main` at any commit until it is
+  resolved. P0.106 needs no decision, only a session that claims it.
+
+---
+
 ## 2026-08-23 (44th run) — P6.02 done: an ordered array, because the index is a promise
 
 - **P6.02 was taken because it is the first `todo` by `seq` (226)**, with nothing `in-progress`
