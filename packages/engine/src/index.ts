@@ -31,6 +31,7 @@ export * from "./pendulum-model.js";
 export * from "./kepler-model.js";
 export * from "./finite-difference-jacobian.js";
 export * from "./scenario-spec.js";
+export * from "./uncertain-scenario-spec.js";
 export * from "./characteristic-scales.js";
 export * from "./solver-advisor.js";
 export * from "./scenario-migration.js";
