@@ -136,7 +136,14 @@ export const initialConditionsSchema = z.object({
    */
   z0: z.number().optional(),
   /**
-   * Lateral launch velocity, m/s -- the `vz0` counterpart to {@link z0}.
+   * Lateral launch velocity, m/s -- the `vz0` counterpart to `z0` above.
+   * Written as code rather than `{@link z0}` because this comment sits on a
+   * property of an anonymous inferred object type: typedoc can resolve the
+   * link only where it renders that type as a named page, so any exported
+   * function whose signature inlines a `ScenarioSpec` turns the link into a
+   * "exists but does not have a link" warning -- and typedoc is configured
+   * to fail the build on warnings. P6.02's `uncertain-scenario-spec.ts` was
+   * the first such signature.
    * Same "spatial-only, defaults to 0" scope.
    */
   vz0: z.number().optional(),
