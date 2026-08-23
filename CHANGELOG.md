@@ -15,12 +15,18 @@ forcing a fallback to commit timestamps.
 
 ---
 
-## 2026-08-23 (44th run, addendum) — CI 244 is RED at `07e7b23`, on two different flaky tests
+## 2026-08-23 (44th run, addendum) — CI 244 red at `07e7b23` on two different flaky tests; **CI 245 green at `cfc2df8`, `main` recovered**
 
-- **`main` is red and this run did not get it green.** Stated plainly at the top rather than buried:
-  CI run 244 at `07e7b23` failed on the `Test` step on **both** attempts, so the push that closed
-  P6.02 sits on a red `main`. Everything else passed — typecheck, lint, format, import boundaries
-  on both attempts.
+- **`main` ended this run GREEN, at `cfc2df8`, but it was red at `07e7b23` first and the sequence
+  is the point.** CI run 244 at `07e7b23` failed the `Test` step on **both** attempts; the commit
+  recording that failure then went green as **run 245 at `cfc2df8`, all 35 steps**. Everything
+  outside `Test` passed on all three — typecheck, lint, format, import boundaries. So the code
+  that closed P6.02 is verified green on CI; what reddened 244 was the flake pair below, and this
+  is a **third** data point on the same tree-plus-docs.
+- **A note for whoever reads only headlines**: this entry's first draft said "`main` is red and
+  this run did not get it green", which was true when written and false forty minutes later. It is
+  corrected here rather than left standing, since a wrong headline is exactly the kind of thing
+  later sessions inherit as fact.
 - **The two attempts failed on _different_ tests, and each one passed in the other attempt.** That
   is the whole finding, and it is the cleanest evidence either flake has produced:
   - **Attempt 1** — `packages/solverkit/src/chunked-integration.test.ts:318`, `maxSliceMs`
