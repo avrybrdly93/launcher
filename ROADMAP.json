@@ -2594,8 +2594,8 @@
       "estMinutes": 30,
       "difficulty": "M",
       "validation": "1e4 replicates without retaining trajectories; memory < 50 MB",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed 2026-08-23 (47th run) before any code was written. SCOPE: an `mc` worker job in packages/runtime alongside sweep-job.ts and optimize-job.ts, consuming P6.03's generateReplicateRange and integrating each drawn spec with observables-only sinks. THE TASK IS THE SINK SELECTION, not the loop: sweep-job.ts attaches a TrajectoryRecorder, and 1e4 retained Trajectory objects is exactly what the 50 MB budget forbids -- so this needs a sink that carries the running state an observable needs and nothing per-step. Observables are the ones P6.07/P6.09/P6.11 consume (range, apex height, time of flight, impact speed, impact point), computed to the same definitions as P5.01's analysis/observables.ts rather than a second set. Results land in caller-provided Float64Arrays so a worker can transfer them back, as runSweepRange already does."
     },
     {
       "id": "P6.05",
