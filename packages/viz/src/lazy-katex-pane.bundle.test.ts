@@ -71,5 +71,10 @@ describe("lazy KaTeX pane bundle splitting (P3.45)", () => {
     for (const katexChunk of katexChunks) {
       expect(katexChunk.code.length).toBeGreaterThan(50_000);
     }
-  }, 30_000);
+    // P0.106: 90 s, not 30 s. A real unminified vite build of a multi-MB
+    // dependency; 0.8 s standalone here, and measured at 22.1 s against
+    // the old 30 s limit in P4.38 -- under the parallel suite that margin is not
+    // enough. 90 s is ~4x the slowest standalone measurement on record. The
+    // assertions above are untouched; only the deadline moved.
+  }, 90_000);
 });

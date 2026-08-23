@@ -103,7 +103,15 @@ beforeAll(async () => {
   const address = server.resolvedUrls?.local[0];
   if (!address) throw new Error("vite preview server did not report a local URL");
   appUrl = address;
-}, 60_000);
+  // P0.106: 180 s, not 60 s. This hook vite-builds the app and launches
+  // Chromium; standalone it takes 22.9 s in this container, but under the
+  // 254-file parallel suite the same class of hook has been measured at 48.6 s
+  // (P4.38, canvas-viewport) and has crossed 60 s outright (app-shell.responsive,
+  // 35th run) while passing standalone minutes later. 180 s is ~3.7x the slowest
+  // standalone measurement on record, so a genuine hang still fails well before
+  // vitest's own limits, while machine load alone no longer can. Ordinary unit
+  // tests keep the 5 s default.
+}, 180_000);
 
 afterAll(async () => {
   await new Promise<void>((resolve, reject) =>
@@ -131,7 +139,10 @@ for (const target of BROWSER_TARGETS) {
           `[app.e2e.test] Skipping ${target.name}: no usable browser binary in this environment (expected in CI, which installs it explicitly).`,
         );
       }
-    }, 60_000);
+      // P0.106: 180 s, not 60 s. Launching a browser binary is the same
+      // build-heavy class as the suite-level hook above, and shares its fate
+      // under the parallel suite.
+    }, 180_000);
 
     afterAll(async () => {
       await browser?.close();

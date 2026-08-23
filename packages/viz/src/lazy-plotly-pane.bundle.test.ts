@@ -79,5 +79,10 @@ describe("lazy Plotly pane bundle splitting (P3.30)", () => {
     for (const plotlyChunk of plotlyChunks) {
       expect(plotlyChunk.code.length).toBeGreaterThan(500_000);
     }
-  }, 30_000);
+    // P0.106: 90 s, not 30 s. A real unminified vite build of a multi-MB
+    // dependency; 13.0 s standalone here, and measured at 22.1 s against
+    // the old 30 s limit in P4.38 -- under the parallel suite that margin is not
+    // enough. 90 s is ~4x the slowest standalone measurement on record. The
+    // assertions above are untouched; only the deadline moved.
+  }, 90_000);
 });
