@@ -15,6 +15,64 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-23 (45th run) — **P0.106 done**: the flaky-test class fixed at both ends, and P0.96 given a reproduction recipe
+
+- **P0.106 is done, and its validation criterion was met as written rather than declared met.**
+  The criterion is "the full `pnpm test` suite passes repeatedly on a loaded container without any
+  build-heavy test crossing a timeout, and no assertion was changed to achieve it". Seven full-suite
+  runs: **four on a deliberately loaded container** (two of four cores busy-looping — the load was
+  real and measurable, suite duration **136-140 s under load against 100-103 s unloaded**) and three
+  unloaded. **Zero build-heavy timeout failures in any of the seven.** No `Hook timed out`, and no
+  failure in `canvas-viewport`, `app-shell.responsive`, `app.e2e`, `worker-pool.e2e` or either
+  bundle test. Unloaded runs were **2563/2563 across 254 files** every time.
+- **The class had two halves and they needed different fixes; conflating them is what kept it
+  open.** The 44th run diagnosed this and its diagnosis held up.
+  - **The race.** `solver-lab-route.test.tsx` awaited a real dynamic import of KaTeX by spinning a
+    **fixed five macrotask turns**. No constant fixes that — five turns is not a short wait, it is a
+    wait for the wrong thing. Replaced with `waitForRenderedDerivation`, polling until the panel is
+    non-empty up to a 20 s deadline. **The wait condition is deliberately weaker than what the test
+    asserts**: it waits for "non-empty", and the assertions still check the heading text and a real
+    `.katex` node. Waiting on the assertion's own condition would have made the assertion vacuous,
+    which is precisely the weakening this repo forbids. On deadline the failure now reads _"the lazy
+    KaTeX import never resolved (this is a hang, not a slow machine)"_ rather than an assertion diff
+    against `''` — the diff is what sent four sessions looking at the wrong thing. Verified by
+    temporarily setting the deadline to 0 and confirming that message surfaces.
+  - **The timeouts.** Seven call sites across six build-heavy files; hooks **60 s → 180 s**, bundle
+    tests **30 s → 90 s**, per-file so an ordinary unit test that hangs still fails against vitest's
+    5 s default. Standalone times were **measured first** rather than picking a round multiple and
+    asserting it was enough: `canvas-viewport` 24.8 s, `app-shell.responsive` 25.8 s, `app.e2e`
+    22.9 s, `worker-pool.e2e` 2.3 s, `lazy-plotly-pane` 13.0 s, `lazy-katex-pane` 0.8 s. 180 s is
+    **~3.7× the slowest hook measurement on record** (P4.38's 48.6 s) and 90 s is **~4× the slowest
+    bundle-test one** (22.1 s), against an observed suite-parallel inflation of ~2.4×. These are
+    deadlines, not assertions, which is exactly why this half needed no human decision.
+- **P0.96 now has a reproduction recipe, and it is the reason two of the four loaded runs were red.**
+  This flake had only ever been seen sporadically on CI; it can now be provoked on demand. **Recipe:
+  full `pnpm test` plus external CPU load.** It reproduced in **2 of 4** such runs. **Both halves are
+  necessary** — the same file standalone under the same load passed **3/3**, and the full suite
+  unloaded passed **3/3** — so it needs suite parallelism _and_ external load together. That is
+  consistent with the filing: it is a wall-clock assertion measuring a machine that is busy doing
+  something else. **It was not weakened, silenced or worked around**, and it still needs the same
+  human decision it always did: whether the 10 ms cooperative-yield target is _asserted_ or merely
+  _measured and reported_. No maxSliceMs number is claimed from these runs — the output was filtered
+  to the failure line, so the only measured value on record remains CI 244's 11.982128 ms.
+- **Task taken out of `seq` order, deliberately and on the policy's own terms.** `P0.*` filings take
+  minors from 90 upward and are _appended_, so P0.106's seq of 304 records when it was filed, not
+  where it belongs — `policy.taskIds` says "Ids are labels, not an ordering". Read literally,
+  first-todo-by-seq is P6.03, which starts a new Phase 6 feature while a known flake can redden
+  `main` at any commit.
+- **Filed: P0.111 — `pnpm test` is red on a fresh clone.** Found while establishing this run's
+  baseline, and filed rather than fixed as a drive-by. `pnpm install && pnpm test` fails 3 assertions
+  in `cross-engine-drift-record.test.ts`, because its fixture imports `packages/engine/dist/index.js`
+  and nothing has emitted it yet; `pnpm typecheck` (`tsc -b` over composite projects) is what does,
+  and `ci.yml` runs Typecheck before Test so CI never sees it. The failure is actively misleading —
+  it surfaces as `ERR_MODULE_NOT_FOUND` inside a drift-measurement assertion, which reads like the
+  measurement is broken rather than like a missing build. It cost this run one 103 s suite run to
+  diagnose.
+- **Gate before every commit**, in CI's order: `pnpm typecheck`, `pnpm lint`, `pnpm lint:deps`
+  (1471 modules, 4195 dependencies, no violations), `pnpm format:check`, `pnpm test`. All clean.
+
+---
+
 ## 2026-08-23 (44th run, addendum) — CI 244 red at `07e7b23` on two different flaky tests; **CI 245 green at `cfc2df8`, `main` recovered**
 
 - **`main` ended this run GREEN, at `cfc2df8`, but it was red at `07e7b23` first and the sequence
