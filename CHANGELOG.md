@@ -15,6 +15,81 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-23 (47th run) — **P6.04 done**: observables without the trajectory, and a criterion that its own counterexample passes
+
+- **P6.04 is done and its criterion is met as measured.** 1e4 replicates retain **0.35 MB**
+  against the 50 MB budget, read as `heapUsed` across a forced GC on both sides — P1.21's
+  methodology, not an estimate. `ObservableSink`
+  (`packages/analysis/src/observable-sink.ts`) plus the `mc` job
+  (`packages/runtime/src/mc-job.ts`); 66 tests, 56 + 10. Full API and reasoning are in
+  `ROADMAP.json`.
+- **The task was the sink selection, not the batch loop.** `sweep-job.ts` attaches a
+  `TrajectoryRecorder`, whose cost is O(steps × channels), and nothing downstream of a Monte
+  Carlo batch ever reads those rows. The sink keeps the first row, the last row and the best
+  apex candidate — O(`model.dim`) for a whole solve — and one instance is reused across the
+  batch.
+- **It is the same arithmetic as `observables.ts`, not an approximation, and the tests say so
+  with `Object.is` rather than a tolerance.** A tolerance is precisely what would let a
+  streaming reimplementation drift a little and keep passing. Exactness is reachable because
+  `TrajectoryRecorder` records the initial state plus one row per `accept`, so the sink sees
+  the same rows, and because `apex`'s scan is already local to consecutive pairs. Only the
+  candidate _order_ had to be reproduced: `apex` compares row 0, then the final row, then
+  interior crossings, on strict-greater — so ties go to the earliest **considered**, not the
+  earliest in time. Streaming meets the crossings first, so the crossing maximum is kept
+  separate and folded in after the endpoints.
+- **The criterion is met, and the criterion is also not sufficient — that is the finding.**
+  Restoring a per-replicate `TrajectoryRecorder` and retaining every trajectory, which is the
+  exact implementation the criterion exists to forbid, costs **10.5 MB here and passes the
+  50 MB assertion**. A drag-free preset flight is a few dozen accepted steps, so 1e4 retained
+  trajectories are ~10 MB and never reach the threshold. The 50 MB number is a property of
+  the fixture, not of the code. The acceptance test is kept verbatim and a second test
+  measures the property instead — quadrupling N must not grow retained memory beyond the
+  output columns — which fails the retaining variant by ~8 MB. **Nobody should read the
+  50 MB test as protection against retention.**
+- **Two bugs the tests found, both fixed rather than worked around.** The apex scan paired the
+  row _before_ last with the incoming row, so every refinement after the first used a stale
+  row; the sink needs one row of history, not two, and no longer keeps the second. And the
+  sink's own memory test ran its long and short solves on DOPRI5, where the configured `h` is
+  only an initial guess — the controller converged both to ~395 steps and the comparison was
+  vacuous. It is now fixed-step RK4 under Hermite dense output, 100× apart in step count, and
+  measured while holding 20 finished sinks so the signal scales with the count while GC slack
+  does not.
+- **One documented claim was wrong and is corrected.** `SolveReport.status` is `"ok"` for a
+  solve that merely runs out of `tspan`, identically to one that hit the ground, and the
+  report carries no terminal-event flag — so the first draft's "status tells an impact from an
+  exhausted horizon" was false. `mc-job.ts` reports a per-replicate `landed` computed from
+  `tFinal < MC_T_MAX_SECONDS`. It matters: a truncated flight's "impact point" is wherever it
+  happened to be at 60 s, and averaging those in with real impacts would bias P6.07's and
+  P6.11's estimators by an amount nothing in the output would show.
+- **What the tests deliberately do not pin.** Relaxing the downward-crossing guard
+  (`vy0 >= 0 && vy1 < 0`) to any sign change is **not** caught by any case, the bouncing arc
+  included. An upward crossing refines to a local _minimum_, and a running maximum never takes
+  it, so the fault cannot move the reported apex. The guard mirrors `observables.ts` and is
+  right; it is simply not observable at the value level, and the passing suite is not a claim
+  about it. Same shape as the 46th run's note on `splitmix64`'s second multiply.
+- **Verification.** `pnpm typecheck`, `pnpm lint`, `pnpm lint:deps` (1489 modules, 4268
+  dependencies, zero violations) and `pnpm format:check` all clean. `pnpm test` **2661/2661
+  across 257 files**, up from 2595/255. Seven faults injected into the sink in turn and
+  reverted; five caught, two of them only by the bouncing arc and the still-climbing solve and
+  one only by a non-zero launch epoch — all three cases added after the first draft passed
+  everything.
+- **Repository state worth recording, because it is not the code.** The clone's `main` and
+  `origin/main` had **no merge base at all** — 50 commits each side, unrelated histories, and
+  the fetch reported `origin/main` as a forced update. `origin/main` is the live line (P6.03,
+  46th run, 2026-08-23) and the local one was stale at P5.24 from the 36th run, so this run
+  reset local `main` onto `origin/main` and worked from there. Nothing was force-pushed and no
+  remote history was touched. Flagged rather than diagnosed: if a future run finds the same
+  split, the remote is still the one to trust, but somebody should find out what re-rooted it.
+
+**Next run should pick up P6.05** (deterministic reduction order by replicate index for all
+statistics), the next task in `seq` order. It has what it needs: `McColumns` is already
+indexed by replicate and `runMcRange` already writes chunk-locally, so the reduction order
+question is about the statistics layer and not about the job. Note that `landed` is a column
+now — P6.05 has to decide whether a non-landing replicate is excluded from a statistic or
+poisons it, and that decision belongs in the reduction, not in the job.
+
+---
+
 ## 2026-08-23 (46th run) — P6.03 done: one substream per _pair_, and the two faults the first draft could not see
 
 - **P6.03 is done and its criterion is met as written.** "Replicate `i` identical regardless of
