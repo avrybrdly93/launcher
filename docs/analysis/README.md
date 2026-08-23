@@ -129,6 +129,21 @@ The rule and that measurement are in
 take a solved trajectory and a layout (`PLANAR_LAYOUT` or `SPATIAL_LAYOUT`) and do no
 solving of their own.
 
+### Reading a trajectory you cannot afford to keep
+
+`observable-sink.ts` computes the same quantities without the trajectory. `ObservableSink`
+is a solver `Sink`: attach it in place of a `TrajectoryRecorder` and read `.observables`
+once the solve concludes. Its footprint is `O(model.dim)` for the whole solve rather than
+`O(steps × channels)`, which is what makes a 1e4-replicate Monte Carlo batch (P6.04,
+`runtime`'s `mc-job.ts`) fit in a memory budget. One instance can be reused across solves;
+`start` resets it.
+
+It is the same arithmetic as `observables.ts`, not an approximation of it, and the tests
+assert agreement with `Object.is` rather than a tolerance. Two caveats carry over
+unchanged: the impact observables read the final row, and `status` is `"ok"` for a solve
+that merely runs out of `tspan` — so `"ok"` is not a claim that anything landed. `mc-job.ts`
+reports a separate per-replicate `landed` flag for that reason.
+
 ## Conventions
 
 - **Angles are radians** throughout the API. Degrees appear only in UI and docs.
