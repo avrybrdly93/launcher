@@ -15,6 +15,47 @@ const TABLE_TENNIS = PRESET_SCENARIOS.find((s) => s.projectile.id === "table-ten
 
 let container: HTMLDivElement | undefined;
 
+/**
+ * How long to wait for a lazily-imported derivation panel to render before
+ * giving up (P0.106). Generous on purpose: it is a deadline for a hang, not a
+ * budget for a machine — the test normally satisfies it in a few milliseconds
+ * and only approaches it if the dynamic import never resolves at all.
+ */
+const DERIVATION_RENDER_DEADLINE_MS = 20_000;
+
+/**
+ * Wait until a derivation panel has rendered *something*, then hand the
+ * element back for the caller to assert on.
+ *
+ * This replaces a fixed spin of five macrotask turns, which was the mechanism
+ * behind P0.106's fourth sighting: under the parallel suite the real dynamic
+ * import of KaTeX plus its module transform needs more turns than any
+ * constant, the panel is still empty when the turns run out, and the caller
+ * asserts against `''`. It failed on CI and passed 3/3 standalone in the same
+ * container minutes later.
+ *
+ * Deliberately weaker than what the caller asserts: this waits only for the
+ * panel to be non-empty, so the assertions about *what* rendered keep their
+ * discriminating power. Waiting on the assertion's own condition would make it
+ * vacuous.
+ */
+async function waitForRenderedDerivation(details: HTMLDetailsElement): Promise<Element> {
+  const deadline = Date.now() + DERIVATION_RENDER_DEADLINE_MS;
+  for (;;) {
+    const content = details.querySelector('[data-testid="derivation-panel-content"]');
+    if (content && content.textContent !== "") return content;
+    if (Date.now() >= deadline) {
+      throw new Error(
+        `derivation panel was still empty after ${DERIVATION_RENDER_DEADLINE_MS} ms; ` +
+          "the lazy KaTeX import never resolved (this is a hang, not a slow machine)",
+      );
+    }
+    // A macrotask, so the import's promise chain and the module transform both
+    // get real turns to make progress between polls.
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+}
+
 function mount(children: ComponentChildren): HTMLDivElement {
   container = document.createElement("div");
   document.body.appendChild(container);
@@ -79,13 +120,10 @@ describe("SolverLabRoute (P3.41)", () => {
     eulerDetails.dispatchEvent(new Event("toggle"));
     // The lazy KaTeX module load is a real dynamic import (unmocked here,
     // unlike the Plotly panes, since KaTeX does pure DOM/string rendering
-    // and needs none of jsdom's unimplemented canvas/URL APIs) -- give its
-    // promise chain (plus the module transform itself) real turns to settle.
-    for (let i = 0; i < 5; i++) {
-      await new Promise((resolve) => setTimeout(resolve, 0));
-    }
-
-    const content = eulerDetails.querySelector('[data-testid="derivation-panel-content"]')!;
+    // and needs none of jsdom's unimplemented canvas/URL APIs) -- wait for its
+    // promise chain and the module transform to actually settle, rather than
+    // for a fixed number of turns. See waitForRenderedDerivation (P0.106).
+    const content = await waitForRenderedDerivation(eulerDetails);
     // The real explicit-euler-stepper.derivation.md source, KaTeX-rendered:
     // its own title heading text and a real KaTeX-produced class.
     expect(content.textContent).toContain("Explicit (Forward) Euler");
