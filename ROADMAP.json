@@ -2572,8 +2572,8 @@
       "estMinutes": 20,
       "difficulty": "E",
       "validation": "serialize round-trip; validates against base schema",
-      "status": "todo",
-      "notes": ""
+      "status": "done",
+      "notes": "VALIDATION MET. packages/engine/src/uncertain-scenario-spec.ts + 51 tests. Criterion is 'serialize round-trip; validates against base schema' and both halves are asserted directly: a JSON.stringify/parse/re-parse cycle is deep-equal and byte-identical as text (deep equality alone would tolerate a reordering the substream mapping does not), is idempotent on a second pass, and runs over EVERY entry in PRESET_SCENARIOS as the base -- the base is the half most likely to drop a field, carrying optional spin/lateral channels, nested wind variants and tabulated drag. The base is parsed by scenarioSpecSchema itself, unmodified, so an invalid base (negative mass, wrong schemaVersion, absent) fails the study, and the issue is reported under the 'base' path rather than the study root. SHAPE: base ScenarioSpec + ordered array of {path, distribution} + replicates (N, positive int) + seed. The array is ordered rather than a keyed record because P6.03 assigns substreams by overlay index and P6.05 needs a fixed reduction order; duplicate paths are rejected because last-one-wins would make a result depend on key order. Dotted paths are resolved against this study's own base at parse time, so a typo names itself instead of becoming a NaN 1e4 replicates later; readSpecNumberAtPath is exported for P6.03 to share, and refuses __proto__/constructor/prototype since a path can arrive from a shared URL. Two seeds: base.seed fixes the nominal realization (ADR-011 frozen wind), study seed fixes the ensemble. NOT HERE, deliberately: applying a drawn parameter vector back onto a spec -- that is P6.03's replicate generator. FOUND WHILE DOING THIS: adding the first engine export whose signature inlines a ScenarioSpec made typedoc's unresolvable {@link z0} in scenario-spec.ts fire, and typedoc fails on warnings; fixed in the preceding commit."
     },
     {
       "id": "P6.03",
