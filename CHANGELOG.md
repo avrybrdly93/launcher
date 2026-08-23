@@ -15,6 +15,55 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-23 (46th run) — P6.03 done: one substream per _pair_, and the two faults the first draft could not see
+
+- **P6.03 is done and its criterion is met as written.** "Replicate `i` identical regardless of
+  batch partitioning" is asserted three ways rather than declared: a replicate generated alone
+  equals the same index taken from any range containing it; every contiguous partition of `0..N-1`
+  into chunks of 1, 2, 3, 5, 7, 16 and 64 reassembles into the identical sequence; and asking for the
+  ranges **backwards** gives the same result as forwards — the one that catches hidden state rather
+  than a hidden index. Full API and reasoning are in `ROADMAP.json`.
+- **The design decision was to give each `(replicate, overlay)` pair its own substream, not each
+  replicate.** One generator per replicate meets the criterion and is still wrong, for a reason that
+  only shows up when a study is _edited_ rather than re-run: distributions consume different numbers
+  of raw uniforms — `normal` takes two through Box–Muller, `uniform` takes one, a truncated variant
+  takes one through the inverse CDF — so changing overlay 0's _kind_ shifts every later parameter in
+  every replicate. Comparing two studies that differ in one parameter, which is the whole of P6.17,
+  would be comparing two unrelated ensembles. Two cases assert the independence, and both pass under
+  a per-replicate stream, which is why they are kept outside the batch-partitioning block.
+- **PCG32 discards the top bit of a stream id**, and that shaped the implementation. Its increment
+  is `(streamId << 1) | 1` masked to 64 bits, so `s` and `s + 2^63` are the _same_ stream and any
+  64-bit hash of `(i, j)` is two-to-one onto the streams. The stream id is therefore not hashed: it
+  is the plain packing `i * 2^20 + j`, injective by construction and bounded below `2^63`. What is
+  hashed is the seed.
+- **Two injected faults were not caught by the first draft, and both were in that hashing.**
+  Removing the seed hash, and replacing the derived seed with the study seed, each passed every
+  value-level assertion in the file — because the streams alone already differ, so the drawn values
+  differ anyway and nothing noticed the seeds had collapsed. That is what `replicateSeed` is
+  exported for: two cases now grade the hash itself. **Worth carrying forward as a pattern** — when
+  a module has two independent sources of variation, a test on the observable output cannot tell you
+  that one of them died.
+- **What those cases deliberately do not pin.** Neutering `splitmix64`'s second multiply still
+  passes, because a one-round mixer still meets both properties. They grade the property, not the
+  constants, and that is the right level; it is recorded so nobody reads the passing suite as a
+  claim about the exact mixer.
+- **Validation is on, and the cost was measured rather than guessed.** Each drawn spec is re-parsed
+  by `scenarioSpecSchema` at **24.7 µs**, so 10^4 replicates pay a quarter of a second against 10^4
+  trajectory integrations. A failing draw throws rather than being dropped — dropping is rejection
+  sampling on the output and biases the estimator; integrating a negative mass poisons it silently.
+- **Verification.** `pnpm typecheck`, `pnpm lint`, `pnpm lint:deps`, `pnpm format:check` and the
+  engine's `typedoc` build all clean. `pnpm test` **2595/2595 across 255 files**, up from 2563/254.
+  Eight faults injected in turn and reverted.
+
+**Next run should pick up P6.04** (`mc` worker job: batch integrate, record observables only), the
+next task in `seq` order. It consumes `generateReplicateRange` directly — that is the shape it was
+given for — and its criterion is a memory budget (1e4 replicates, < 50 MB, no retained
+trajectories), so read this module's note on structural sharing before changing
+`writeSpecNumberAtPath`: it copies only the objects along the path precisely so a tabulated drag
+curve is not cloned ten thousand times, and a test pins that.
+
+---
+
 ## 2026-08-23 (45th run) — **P0.106 done**: the flaky-test class fixed at both ends, and P0.96 given a reproduction recipe
 
 - **P0.106 is done, and its validation criterion was met as written rather than declared met.**
