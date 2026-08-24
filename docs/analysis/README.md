@@ -144,6 +144,29 @@ unchanged: the impact observables read the final row, and `status` is `"ok"` for
 that merely runs out of `tspan` — so `"ok"` is not a claim that anything landed. `mc-job.ts`
 reports a separate per-replicate `landed` flag for that reason.
 
+### Reducing a Monte Carlo batch in a deterministic order
+
+`mc-stats.ts` folds a Monte Carlo batch's per-replicate observables — the `McColumns` a
+worker pool produces via `runtime/mc-job.ts` — into per-observable summary statistics, and
+does it in **canonical replicate-index order**. IEEE-754 addition is not associative, so
+without that discipline the same batch would produce different LSBs depending on which
+worker finished first, and any reproducibility check that hashed the numbers
+(P6.27) would show drift that was only scheduling jitter (P6.05).
+
+The pipeline is two steps and a hash:
+
+| Symbol              | File          | Meaning                                                                       |
+| ------------------- | ------------- | ----------------------------------------------------------------------------- |
+| `assembleMcColumns` | `mc-stats.ts` | Copy each worker chunk into its global slice; reject overlaps and gaps        |
+| `mcStats`           | `mc-stats.ts` | Walk the assembled buffer index 0 → N-1, sum landed replicates per observable |
+| `hashMcStats`       | `mc-stats.ts` | 64-bit splitmix64 fold of the full stats, so equality is checkable            |
+
+Non-landing replicates (`landed === 0`) count toward `count` and `landedCount` but
+contribute to no observable sum — a truncated flight's "impact" is wherever it happened
+to be at the horizon, and averaging that in silently biases every estimator. Mean is left
+to the caller so the denominator (`landedCount`) is visible at the call site; Welford
+mean/variance is P6.06.
+
 ## Conventions
 
 - **Angles are radians** throughout the API. Degrees appear only in UI and docs.
