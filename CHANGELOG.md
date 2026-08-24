@@ -69,6 +69,21 @@ forcing a fallback to commit timestamps.
   in 23.1s. `docs/analysis/README.md` gained the section `packages/validation`'s API-map test requires
   for every re-exported module — that test is what caught the omission, and it is worth knowing it
   will catch the next one too.
+- **CI 253 at `7772d14`: steps 1–10 green, `Test` still running when this run ended.** Said plainly
+  rather than rounded up to "green": `Typecheck` 9s, `Lint` 5s, `Format` 7s and `Import boundaries`
+  3s all concluded `success`, so every static gate is confirmed on CI as well as locally; `Test`
+  started 22:37:57 and had not concluded in the job record before the session closed. **Nothing is
+  known to be red.** Next run should read the conclusion at this SHA before anything else.
+- **The stale-status trap has a second form, and it cost this run about 13 minutes.** The 39th and
+  45th runs recorded that the _run_ record lags the _job_ record — check `completed_at` on the job.
+  That is still true (run 253's run-level `updated_at` sat at 22:36:39 while its job had steps
+  finishing at 22:37:47), **but the job record's `steps` array lags too.** `list_workflow_jobs`
+  reported `Install Playwright browsers` as `in_progress` across four polls spanning ~13 minutes,
+  and when it finally refreshed, that step had actually completed at **22:37:33, in 40 seconds**,
+  with two later steps already green. So a step that appears stuck is not evidence of a hang either.
+  The guidance to carry: **no polled field here is fresh — only a `completed_at` timestamp that has
+  actually appeared is evidence, and its absence is evidence of nothing.** Do not re-run a job, and
+  do not diagnose an infrastructure fault, on repeated `in_progress` responses alone.
 - **Next run: P6.08** (CI bands on estimates, t-based, displayed honestly with `N`), whose criterion
   is a coverage test — 95% CI covers truth ~95% over 200 repeats against the drag-free analytic range.
   `standardErrorOfMean` is already exported for exactly that caller, and the drag-free closed form the
