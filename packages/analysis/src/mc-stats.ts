@@ -27,10 +27,14 @@
  *    averaging that in with real impacts silently biases the estimator by an
  *    amount nothing in the output shows).
  *
- * **This module deliberately does not do streaming moments.** Welford is
- * P6.06. Fold-into-a-sum here is the reference the streaming version has to
- * agree with, and having the simplest possible reduction live at this seam
- * makes the eventual comparison unambiguous.
+ * **Mean and variance are computed with Welford, in this same loop (P6.06).**
+ * `sum`/`sumSquares` are kept as the order-sensitive reduction primitives and
+ * as what {@link hashMcStats} folds; `mean` and `variance` are folded in
+ * beside them by a {@link WelfordAccumulator} per observable, because the
+ * one-line `(sumSquares - sum^2/n)/(n-1)` derivation catastrophically cancels
+ * on the shapes this project's observables take (an impact-speed column with a
+ * mean 600x its spread loses five leading digits before the subtraction
+ * begins). See `streaming-moments.ts` for the argument and the measurement.
  *
  * Structural typing on the columns is what keeps analysis free of a
  * runtime-package import (that would be a dependency cycle -- runtime already
@@ -38,6 +42,8 @@
  * {@link McObservableColumns} shape matches `runtime/mc-job.ts`'s `McColumns`
  * one-for-one so its buffers can be passed in unchanged.
  */
+
+import { WelfordAccumulator } from "./streaming-moments.js";
 
 /**
  * The column-of-`Float64Array`s shape {@link assembleMcColumns} and
@@ -76,8 +82,9 @@ export interface McChunk {
 /**
  * Per-observable statistics over the landed subset of one batch. Sum,
  * sum-of-squares, min and max are the reduction-order-sensitive quantities
- * P6.05 is here to pin; mean/variance derive from them and belong to P6.06
- * (which will do it streaming, and cross-check against these).
+ * P6.05 pinned; mean and variance (P6.06) are computed by Welford in the same
+ * canonical loop rather than derived from `sum`/`sumSquares`, for the
+ * numerical reason on {@link mcStats}.
  *
  * `min` and `max` are `+Infinity` and `-Infinity` respectively when
  * `landedCount === 0`. `sum` and `sumSquares` are `0` in that case. The
@@ -89,6 +96,22 @@ export interface McObservableStats {
   readonly sumSquares: number;
   readonly min: number;
   readonly max: number;
+  /**
+   * Welford mean over the landed subset. `NaN` when `landedCount === 0` — not
+   * `0`, which is a legitimate mean and would let an empty batch read as a
+   * centred one. This is the numerically stable answer, computed alongside
+   * `sum` rather than as `sum / landedCount`, so `mean * landedCount` need not
+   * reproduce `sum` to the bit.
+   */
+  readonly mean: number;
+  /**
+   * Sample variance (Bessel-corrected, `n - 1`) over the landed subset,
+   * computed by Welford's recurrence. `NaN` when `landedCount < 2`: one
+   * landed replicate carries no information about spread. This is the field
+   * P6.06 exists to make trustworthy — the `sumSquares`-derived form is one
+   * subtraction away and is the one that cancels.
+   */
+  readonly variance: number;
 }
 
 /**
@@ -240,6 +263,15 @@ export function mcStats(columns: McObservableColumns): McStats {
   let ispMin = Number.POSITIVE_INFINITY;
   let ispMax = Number.NEGATIVE_INFINITY;
 
+  // Welford accumulators run in lockstep with the running sums above. They see
+  // the same replicates in the same canonical order, so the mean and variance
+  // they produce are as reproducible as the sums are -- and, unlike the sums,
+  // are numerically stable to read as a variance.
+  const rangeMoments = new WelfordAccumulator();
+  const apexMoments = new WelfordAccumulator();
+  const tofMoments = new WelfordAccumulator();
+  const ispMoments = new WelfordAccumulator();
+
   // The one loop that decides the reduction order for the whole batch. Every
   // observable's sum sees replicates in the same fixed order, so cross-column
   // consistency (all four columns' means from the same replicate set) is a
@@ -253,34 +285,49 @@ export function mcStats(columns: McObservableColumns): McStats {
     rangeSq += r * r;
     if (r < rangeMin) rangeMin = r;
     if (r > rangeMax) rangeMax = r;
+    rangeMoments.push(r);
 
     const a = apexHeight[i]!;
     apexSum += a;
     apexSq += a * a;
     if (a < apexMin) apexMin = a;
     if (a > apexMax) apexMax = a;
+    apexMoments.push(a);
 
     const t = timeOfFlight[i]!;
     tofSum += t;
     tofSq += t * t;
     if (t < tofMin) tofMin = t;
     if (t > tofMax) tofMax = t;
+    tofMoments.push(t);
 
     const s = impactSpeed[i]!;
     ispSum += s;
     ispSq += s * s;
     if (s < ispMin) ispMin = s;
     if (s > ispMax) ispMax = s;
+    ispMoments.push(s);
   }
 
   return {
     count,
     landedCount,
-    range: { sum: rangeSum, sumSquares: rangeSq, min: rangeMin, max: rangeMax },
-    apexHeight: { sum: apexSum, sumSquares: apexSq, min: apexMin, max: apexMax },
-    timeOfFlight: { sum: tofSum, sumSquares: tofSq, min: tofMin, max: tofMax },
-    impactSpeed: { sum: ispSum, sumSquares: ispSq, min: ispMin, max: ispMax },
+    range: statsOf(rangeSum, rangeSq, rangeMin, rangeMax, rangeMoments),
+    apexHeight: statsOf(apexSum, apexSq, apexMin, apexMax, apexMoments),
+    timeOfFlight: statsOf(tofSum, tofSq, tofMin, tofMax, tofMoments),
+    impactSpeed: statsOf(ispSum, ispSq, ispMin, ispMax, ispMoments),
   };
+}
+
+/** Assembles one observable's stats block from its running reductions. */
+function statsOf(
+  sum: number,
+  sumSquares: number,
+  min: number,
+  max: number,
+  moments: WelfordAccumulator,
+): McObservableStats {
+  return { sum, sumSquares, min, max, mean: moments.mean, variance: moments.variance };
 }
 
 // --- Hashing ---------------------------------------------------------------
@@ -362,6 +409,14 @@ export function hashMcStats(stats: McStats): string {
     h = foldFloat(h, s.sumSquares);
     h = foldFloat(h, s.min);
     h = foldFloat(h, s.max);
+    // mean and variance are derived from the reduction, so folding them adds
+    // no independent bits -- but the hash's contract is to cover the WHOLE
+    // struct, and a field the hash ignores is a field a reproducibility check
+    // silently stops guarding. `NaN` (empty/singleton batches) is
+    // canonicalised by `foldFloat`, so an all-non-landing batch still has a
+    // well-defined hash.
+    h = foldFloat(h, s.mean);
+    h = foldFloat(h, s.variance);
   }
   return "0x" + h.toString(16).padStart(16, "0");
 }

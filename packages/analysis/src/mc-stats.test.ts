@@ -200,6 +200,105 @@ describe("mcStats", () => {
     };
     expect(() => mcStats(bad)).toThrow(/column lengths do not agree/);
   });
+
+  it("reports Welford mean and variance over the landed subset (P6.06)", () => {
+    // Landed values 100, 101; the -1e9 is non-landing and must touch neither
+    // mean nor variance, the same exclusion the sum test above pins.
+    const columns: McObservableColumns = {
+      range: new Float64Array([100, 101, -1e9]),
+      apexHeight: new Float64Array([20, 22, -1e9]),
+      timeOfFlight: new Float64Array([4, 4, -1e9]),
+      impactSpeed: new Float64Array([30, 29, -1e9]),
+      landed: new Uint8Array([1, 1, 0]),
+    };
+    const stats = mcStats(columns);
+    // mean of {100, 101} = 100.5; sample variance = 0.5.
+    expect(stats.range.mean).toBe(100.5);
+    expect(stats.range.variance).toBe(0.5);
+    // A constant landed column has exactly zero variance, not "close to".
+    expect(stats.timeOfFlight.variance).toBe(0);
+    expect(stats.timeOfFlight.mean).toBe(4);
+  });
+
+  it("mean and variance are NaN when the landed subset cannot support them", () => {
+    const none: McObservableColumns = {
+      range: new Float64Array([1, 2, 3]),
+      apexHeight: new Float64Array([1, 2, 3]),
+      timeOfFlight: new Float64Array([1, 2, 3]),
+      impactSpeed: new Float64Array([1, 2, 3]),
+      landed: new Uint8Array([0, 0, 0]),
+    };
+    const emptyStats = mcStats(none);
+    // No landed replicate: mean has no value and variance has no meaning.
+    // NaN, not 0 -- a zero mean would read as a centred batch.
+    expect(emptyStats.range.mean).toBeNaN();
+    expect(emptyStats.range.variance).toBeNaN();
+
+    const single: McObservableColumns = {
+      range: new Float64Array([42, 0]),
+      apexHeight: new Float64Array([1, 0]),
+      timeOfFlight: new Float64Array([1, 0]),
+      impactSpeed: new Float64Array([1, 0]),
+      landed: new Uint8Array([1, 0]),
+    };
+    const singleStats = mcStats(single);
+    // One landed replicate has a mean but no spread.
+    expect(singleStats.range.mean).toBe(42);
+    expect(singleStats.range.variance).toBeNaN();
+  });
+
+  it("the Welford variance beats the sumSquares formula on a cancellation shape", () => {
+    // The impact-speed shape: a mean far larger than the spread. mcStats keeps
+    // sumSquares for the hash, but reading a variance off it cancels. The
+    // stored `variance` field must be the stable one -- assert it agrees with
+    // the two-pass reference far better than the sumSquares derivation does.
+    const n = 2000;
+    const range = new Float64Array(n);
+    const apexHeight = new Float64Array(n);
+    const timeOfFlight = new Float64Array(n);
+    const impactSpeed = new Float64Array(n);
+    const landed = new Uint8Array(n);
+    // Deterministic spread around a large mean; 30 ± ~0.05, unrepresentable.
+    for (let i = 0; i < n; i++) {
+      const jitter = (((i * 2654435761) % 1000) / 1000 - 0.5) * 0.1;
+      range[i] = 1850 + jitter;
+      apexHeight[i] = 420 + jitter;
+      timeOfFlight[i] = 4 + jitter;
+      impactSpeed[i] = 30 + jitter;
+      landed[i] = 1;
+    }
+    const stats = mcStats({ range, apexHeight, timeOfFlight, impactSpeed, landed });
+
+    // Two-pass reference variance on impactSpeed.
+    let sum = 0;
+    for (let i = 0; i < n; i++) sum += impactSpeed[i]!;
+    const mean = sum / n;
+    let ss = 0;
+    for (let i = 0; i < n; i++) ss += (impactSpeed[i]! - mean) * (impactSpeed[i]! - mean);
+    const twoPass = ss / (n - 1);
+
+    const naive = (stats.impactSpeed.sumSquares - stats.impactSpeed.sum ** 2 / n) / (n - 1);
+    const welfordError = Math.abs(stats.impactSpeed.variance - twoPass) / twoPass;
+    const naiveError = Math.abs(naive - twoPass) / twoPass;
+    expect(welfordError).toBeLessThan(1e-12);
+    expect(naiveError).toBeGreaterThan(welfordError * 100);
+  });
+
+  it("hashMcStats covers the mean and variance fields", () => {
+    // Two batches with identical sum/sumSquares/min/max but a different
+    // variance are distinguished by the hash -- otherwise a reproducibility
+    // check would silently stop guarding the new fields. Constructed by
+    // reordering values so the naive sums match while the (order-sensitive)
+    // Welford variance differs at the LSB is fragile; instead compare a real
+    // batch against one with a perturbed variance field directly.
+    const columns = makeSourceColumns(64);
+    const base = mcStats(columns);
+    const twisted: McStats = {
+      ...base,
+      range: { ...base.range, variance: base.range.variance * (1 + 1e-12) },
+    };
+    expect(hashMcStats(twisted)).not.toBe(hashMcStats(base));
+  });
 });
 
 describe("hashMcStats", () => {
@@ -282,10 +381,10 @@ describe("hashMcStats", () => {
     const base: McStats = {
       count: 100,
       landedCount: 94,
-      range: { sum: 100, sumSquares: 200, min: 1, max: 2 },
-      apexHeight: { sum: 0, sumSquares: 0, min: 0, max: 0 },
-      timeOfFlight: { sum: 0, sumSquares: 0, min: 0, max: 0 },
-      impactSpeed: { sum: 0, sumSquares: 0, min: 0, max: 0 },
+      range: { sum: 100, sumSquares: 200, min: 1, max: 2, mean: 50, variance: 2 },
+      apexHeight: { sum: 0, sumSquares: 0, min: 0, max: 0, mean: 0, variance: 0 },
+      timeOfFlight: { sum: 0, sumSquares: 0, min: 0, max: 0, mean: 0, variance: 0 },
+      impactSpeed: { sum: 0, sumSquares: 0, min: 0, max: 0, mean: 0, variance: 0 },
     };
     const swapped: McStats = { ...base, count: 94, landedCount: 100 };
     expect(hashMcStats(base)).not.toBe(hashMcStats(swapped));
@@ -303,14 +402,14 @@ describe("hashMcStats", () => {
     const withPos: McStats = {
       count: 1,
       landedCount: 1,
-      range: { sum: 0, sumSquares: 0, min: 0, max: 0 },
-      apexHeight: { sum: 0, sumSquares: 0, min: 0, max: 0 },
-      timeOfFlight: { sum: 0, sumSquares: 0, min: 0, max: 0 },
-      impactSpeed: { sum: 0, sumSquares: 0, min: 0, max: 0 },
+      range: { sum: 0, sumSquares: 0, min: 0, max: 0, mean: 0, variance: 0 },
+      apexHeight: { sum: 0, sumSquares: 0, min: 0, max: 0, mean: 0, variance: 0 },
+      timeOfFlight: { sum: 0, sumSquares: 0, min: 0, max: 0, mean: 0, variance: 0 },
+      impactSpeed: { sum: 0, sumSquares: 0, min: 0, max: 0, mean: 0, variance: 0 },
     };
     const withNeg: McStats = {
       ...withPos,
-      range: { sum: -0, sumSquares: -0, min: -0, max: -0 },
+      range: { sum: -0, sumSquares: -0, min: -0, max: -0, mean: -0, variance: -0 },
     };
     expect(hashMcStats(withPos)).toBe(hashMcStats(withNeg));
   });
