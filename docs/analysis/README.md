@@ -188,6 +188,40 @@ merged in a fixed order for reproducibility. The P6.06 criterion — mean/varian
 and quantiles to ±0.5% against offline numpy — is checked in
 `packages/validation/src/mc-moments-numpy.test.ts` against a committed fixture.
 
+### Measuring the Monte Carlo convergence rate
+
+`mc-convergence.ts` answers whether an estimated mean's standard error really falls as
+`N^{−1/2}` (P6.07). For iid samples of finite variance `Var(mean of N) = σ²/N` _exactly_ —
+no CLT argument and no large-`N` limit — so the law is testable at batch sizes as small as 16. What is actually under test is the premise rather than the algebra: correlated
+replicates (a reused substream, a seeding scheme that aligns) still produce a mean and a
+plausible spread, but that spread stops shrinking at the Monte Carlo rate.
+
+| Symbol                | File                | Meaning                                                                     |
+| --------------------- | ------------------- | --------------------------------------------------------------------------- |
+| `mcConvergenceStudy`  | `mc-convergence.ts` | Re-partition a pool into disjoint batches at each size; fit log SE vs log N |
+| `sampleStdDev`        | `mc-convergence.ts` | Two-pass Bessel-corrected sample standard deviation                         |
+| `standardErrorOfMean` | `mc-convergence.ts` | The derived `s/√n`, for callers reporting one batch's estimate              |
+
+**The standard error is measured across batches, not derived within one.** Reporting
+`s/√N` from a single batch cannot detect a violation, because it assumes the `1/√N` law in
+the act of applying it — on perfectly correlated draws it returns a flawless −0.5. So the
+pool is split into disjoint batches of size `N` and the sample standard deviation _across
+the batch means_ is what the slope is fitted to. Each point still carries the derived value
+as `predictedStandardError` for comparison; the two agree on iid input and part company
+when independence fails, which is asserted both ways.
+
+Batch sizes re-partition one pool rather than each drawing fresh replicates: that costs `M`
+integrations instead of `Σ Kᵢ·Nᵢ` for the same precision, and correlates the standard-error
+estimates across sizes — which moves the fitted line up or down but not its slope — while
+batches within any one size stay disjoint and independent.
+
+The P6.07 criterion — log–log slope of −0.50 ± 0.05 — is measured on the real range
+observable in `packages/runtime/src/mc-convergence-range.test.ts`, since `analysis` may not
+import `runtime`. That test excludes replicates that never landed (their "impact" is
+wherever the horizon caught them) and asserts none were lost, so a batch of `N` holds `N`
+samples. Nothing in it is random: replicate `i` is a pure function of seed and index
+(P6.03), so the slope is a fixed number rather than a draw and the test cannot flake.
+
 ## Conventions
 
 - **Angles are radians** throughout the API. Degrees appear only in UI and docs.
