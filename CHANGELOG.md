@@ -15,6 +15,70 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-24 (50th run) — **P6.07 done**: the Monte Carlo rate measured, not assumed, on the range observable
+
+- **P6.07 is done and its criterion is met.** `log–log slope −0.50±0.05` is **measured at
+  −0.51162** on the real range observable in `packages/runtime/src/mc-convergence-range.test.ts`,
+  over a pool of 49,152 replicates from the actual pipeline — P6.03's substream generator, P6.04's
+  observable sink, the same integrator an interactive solve uses. Full API and reasoning are in
+  `ROADMAP.json`.
+- **The standard error is measured across batches, and that is the whole point.** The cheap route —
+  take one batch of `N`, report `s/√N` — cannot detect a violation of the law it is testing, because
+  it computes `σ/√N` by construction and so returns a flawless `−0.5` even on perfectly correlated
+  draws. `mcConvergenceStudy` (`packages/analysis/src/mc-convergence.ts`) instead splits the pool
+  into disjoint batches of size `N` and takes the sample standard deviation **across the batch
+  means**, a quantity that knows nothing about `√N`. Each point still carries the derived value as
+  `predictedStandardError`; on the range pool the two agree at ratios 0.92–1.00, and the analysis
+  suite asserts they part company when independence fails.
+- **What is actually under test is the premise, not the algebra.** `Var(mean of N) = σ²/N` is
+  _exact_ for iid samples of finite variance — no CLT appeal, no large-`N` limit — so starting the
+  sweep at `N = 16` is legitimate rather than a small-sample cheat. What breaks in practice is
+  independence: correlated replicates (a reused substream, a seeding scheme that aligns) still
+  produce a mean and still produce a plausible spread, but that spread stops shrinking at the Monte
+  Carlo rate. A slope of `−0.5` is evidence this pipeline's replicates really are independent end to
+  end.
+- **Measured figures.** Pool: drag-free preset, normal jitter `stdDev 2` on `vx0` and `vy0`, seed
+  `20260824`; mean range **91.7817 m**, per-replicate **σ 12.2285 m**. Measured SE **3.04905 /
+  2.09942 / 1.48275 / 1.05380 / 0.74520 / 0.52770 / 0.35166** at batch sizes 16 / 32 / 64 / 128 /
+  256 / 512 / 1024. Seven sizes over a factor of 64 because the SE estimate at size `N` comes from
+  `POOL/N` batch means — the largest size is the least certain (48 batches, ~10% relative error) —
+  and a wide lever arm in `log N` divides that noise down to an expected slope uncertainty near 0.02.
+- **Batch sizes re-partition one pool, deliberately.** Drawing fresh replicates per batch would cost
+  `Σ Kᵢ·Nᵢ` integrations for the precision one pool of `M` buys for `M`. The reuse correlates the
+  SE estimates across sizes, which moves the fitted line up or down but **not its slope**; within any
+  one size the batches stay disjoint and independent.
+- **Not flaky, by construction — and this repo has P0.96 as the reason to care.** Replicate `i` is a
+  pure function of seed and index, so the slope is a fixed number rather than a draw. One runtime
+  assertion re-runs the pool in two halves and requires the _identical_ slope, which is P6.03's
+  partitioning guarantee restated at the value level. The robustness argument that the passing slope
+  is not one tuned seed lives in the analysis suite, where a pool costs microseconds instead of an
+  integration each: five independent fixed seeds give **−0.4744 / −0.4982 / −0.5095 / −0.4810 /
+  −0.5340**, all inside ±0.05.
+- **The counterexamples are asserted, not just the passing case.** A perfectly correlated pool (each
+  draw repeated 16×) has a measured SE more than 3× the derived one at the smallest batch; a pool
+  whose batch means never shrink yields `slope === null` rather than a fabricated number.
+- **It decides the question `mc-job.ts` explicitly deferred to this task.** A replicate that never
+  reached the ground inside `MC_T_MAX_SECONDS` is excluded from the pool _before_ the estimator sees
+  it — its "impact" is wherever the horizon caught it, and averaging that in biases the estimator by
+  an amount nothing in the output shows. The runtime test asserts this study loses none, so a batch
+  of `N` really holds `N` samples. A study that did truncate would need its batch sizes recomputed
+  against the landed count, which is why the exclusion is the caller's step rather than hidden inside
+  `mcConvergenceStudy`.
+- **Gate green:** `pnpm typecheck`, `pnpm lint`, `pnpm lint:deps`, `pnpm format:check`, **2741/2741
+  tests across 262 files** (27 new: 20 analysis + 7 runtime), and `pnpm --filter @ballista/app build`
+  in 23.1s. `docs/analysis/README.md` gained the section `packages/validation`'s API-map test requires
+  for every re-exported module — that test is what caught the omission, and it is worth knowing it
+  will catch the next one too.
+- **Next run: P6.08** (CI bands on estimates, t-based, displayed honestly with `N`), whose criterion
+  is a coverage test — 95% CI covers truth ~95% over 200 repeats against the drag-free analytic range.
+  `standardErrorOfMean` is already exported for exactly that caller, and the drag-free closed form the
+  coverage check needs is `dragFreeRange` in `range-root.ts`. Note the criterion is a _coverage_
+  proportion, so unlike P6.07 it is a count of successes out of 200 and wants a tolerance band chosen
+  against the binomial spread (±~3% at 1σ for p=0.95, n=200) rather than an exact figure; fix the
+  seeds as here so it cannot flake.
+
+---
+
 ## 2026-08-24 (49th run) — **P6.06 done**: streaming Welford moments and P² quantiles, matched to offline numpy
 
 - **P6.06 is done and its criterion is met.** `matches offline numpy on fixture to 1e-10 (mean/var),
