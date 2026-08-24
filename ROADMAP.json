@@ -2627,8 +2627,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "log–log slope −0.50±0.05",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed 2026-08-24 (50th run). Plan: generic estimator in packages/analysis/src/mc-convergence.ts (SE of the mean across independent batches, log-log slope via the existing logLogSlope), measured on the real range observable from a runtime test since analysis may not import runtime (dependency layering)."
     },
     {
       "id": "P6.08",
