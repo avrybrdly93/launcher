@@ -2616,8 +2616,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "matches offline numpy on fixture to 1e-10 (mean/var), quantile ±0.5%",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "In progress 2026-08-24 (49th run). Plan: packages/analysis/src/streaming-moments.ts -- a Welford accumulator with the Chan et al. pairwise merge (so worker chunks combine without ever seeing the raw values again) and a P-square quantile estimator (Jain & Chlamtac 1985); mean/variance then added to McObservableStats and computed inside mcStats's existing canonical loop rather than in a second module, per the 48th-run handoff. numpy reference generated offline into a committed fixture and compared in packages/validation."
     },
     {
       "id": "P6.07",
