@@ -2605,8 +2605,8 @@
       "estMinutes": 15,
       "difficulty": "M",
       "validation": "shuffled worker completion ⇒ identical stats hash",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed 2026-08-24 (48th run). Introducing analysis/mc-stats: assemble chunk McColumns into a canonical-order buffer, reduce per-observable statistics in replicate-index order over the landed subset, hash the result. Non-landing replicates are excluded from every observable sum (they would poison estimators, per mc-job.ts landed doc); a landedCount is reported so the caller can tell."
     },
     {
       "id": "P6.06",
