@@ -90,6 +90,21 @@ forcing a fallback to commit timestamps.
   actually appeared is evidence, and its absence is evidence of nothing.** Read the steps, not the
   status. Do not re-run a job, and
   do not diagnose an infrastructure fault, on repeated `in_progress` responses alone.
+- **P0.95's count goes 87 → 88, and this run is the one that added to it.** Recorded rather than left
+  for the next run to discover, as the 30th run did for its own probe branch. The work itself went to
+  `main` by explicit refspec (`git push origin claude/upbeat-ride-o0f6w5:main`), so no `claude/*`
+  branch was needed and none was created — but this session's harness runs a stop-hook that counts
+  commits absent from `origin/<current-branch-name>`, and it reads a branch pushed only to `main` as
+  7 unpushed commits. It is a false positive (branch HEAD and `origin/main` were the same SHA,
+  `9bed120`, with `git log origin/main..HEAD` empty), but it fires on every attempt to end the
+  session, so the branch was pushed to clear it. **The cost is exactly what P0.95 documents**: the
+  18th, 30th and 35th runs each established that deleting a remote branch here fails with
+  `send-pack: unexpected disconnect` _and exits 0 while doing so_, and the GitHub App exposes no
+  delete-branch call — so this branch cannot be cleaned up from inside a session and joins the pile.
+  **The fix is the hook, not the next run's behaviour**: it should compare against the branch's
+  configured upstream (set here to `origin/main`) rather than assuming `origin/<name>`. Until then a
+  run in this harness cannot both satisfy the hook and honour CLAUDE.md's "don't leave long-lived
+  `claude/*` branches", and it should not waste time trying to.
 - **Next run: P6.08** (CI bands on estimates, t-based, displayed honestly with `N`), whose criterion
   is a coverage test — 95% CI covers truth ~95% over 200 repeats against the drag-free analytic range.
   `standardErrorOfMean` is already exported for exactly that caller, and the drag-free closed form the
