@@ -69,11 +69,13 @@ forcing a fallback to commit timestamps.
   in 23.1s. `docs/analysis/README.md` gained the section `packages/validation`'s API-map test requires
   for every re-exported module — that test is what caught the omission, and it is worth knowing it
   will catch the next one too.
-- **CI 253 at `7772d14`: steps 1–10 green, `Test` still running when this run ended.** Said plainly
-  rather than rounded up to "green": `Typecheck` 9s, `Lint` 5s, `Format` 7s and `Import boundaries`
-  3s all concluded `success`, so every static gate is confirmed on CI as well as locally; `Test`
-  started 22:37:57 and had not concluded in the job record before the session closed. **Nothing is
-  known to be red.** Next run should read the conclusion at this SHA before anything else.
+- **CI 253 at `7772d14` is green — all 35 steps `success`, 3m51s.** `Typecheck` 9s, `Lint` 5s,
+  `Format` 7s, `Import boundaries` 3s, **`Test` 113s**, both soft-warn checks, both API-docs steps,
+  `Build app` 18s and `Bundle size budget` 1s, last step completing 22:40:27. This bullet first read
+  "steps 1–10 green, `Test` still running", which was true when written and understated once the run
+  finished; corrected in place rather than left standing, as the 46th run's entry argues — a stale
+  headline is what a later session inherits as fact. No re-run, no re-trigger: the same run was read
+  again.
 - **The stale-status trap has a second form, and it cost this run about 13 minutes.** The 39th and
   45th runs recorded that the _run_ record lags the _job_ record — check `completed_at` on the job.
   That is still true (run 253's run-level `updated_at` sat at 22:36:39 while its job had steps
@@ -81,8 +83,12 @@ forcing a fallback to commit timestamps.
   reported `Install Playwright browsers` as `in_progress` across four polls spanning ~13 minutes,
   and when it finally refreshed, that step had actually completed at **22:37:33, in 40 seconds**,
   with two later steps already green. So a step that appears stuck is not evidence of a hang either.
+  **And the job's own `status` is the least reliable field of all: it still read `in_progress` after
+  every one of the 35 steps carried `conclusion: success` and a `completed_at`** — the run was green
+  and finished while the field said otherwise, which is how the green above was established.
   The guidance to carry: **no polled field here is fresh — only a `completed_at` timestamp that has
-  actually appeared is evidence, and its absence is evidence of nothing.** Do not re-run a job, and
+  actually appeared is evidence, and its absence is evidence of nothing.** Read the steps, not the
+  status. Do not re-run a job, and
   do not diagnose an infrastructure fault, on repeated `in_progress` responses alone.
 - **Next run: P6.08** (CI bands on estimates, t-based, displayed honestly with `N`), whose criterion
   is a coverage test — 95% CI covers truth ~95% over 200 repeats against the drag-free analytic range.
