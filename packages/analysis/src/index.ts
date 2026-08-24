@@ -11,6 +11,7 @@ export * from "./constraints.js";
 export * from "./envelope.js";
 export * from "./ill-conditioning.js";
 export * from "./levenberg-marquardt.js";
+export * from "./mc-convergence.js";
 export * from "./mc-stats.js";
 export * from "./min-energy.js";
 export * from "./multi-start.js";
