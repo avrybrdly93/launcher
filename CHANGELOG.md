@@ -15,6 +15,58 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-24 (48th run) — **P6.05 done**: reduce a Monte Carlo batch in canonical order, and hash it so the property is checkable
+
+- **P6.05 is done and its criterion is met.** "Shuffled worker completion ⇒ identical stats hash" is
+  asserted three ways in `packages/analysis/src/mc-stats.test.ts` rather than declared: the same
+  chunks handed to `assembleMcColumns` as-partitioned, reversed, and interleaved assemble to a
+  byte-identical full-length buffer; two 256-replicate batches on different partitionings, each
+  arriving in a shuffled order, hash the same as the source; and a right-to-left `sum` twist on the
+  reduced stats DOES change the hash — the fault the module exists to prevent is the one the hash
+  catches. Full API and reasoning are in `ROADMAP.json`.
+- **The property is IEEE-754 non-associativity, not chunking.** A worker pool completes chunks in
+  whatever order the OS scheduled them; a sum built from those chunks in arrival order therefore
+  drifts at the LSB from run to run and any downstream check that hashes the numbers (P6.27's
+  reproducibility test) reports drift where there was only scheduling jitter. The fix is
+  assemble-then-reduce: `Float64Array.set` writes each chunk into its global slice, and one
+  left-to-right loop over the assembled buffer folds the sums.
+- **A coverage bitmap catches the two shapes a partition bug can take** — an overlap (two workers
+  handed the same range) and a gap (a message dropped in transit) — both regardless of chunk
+  arrival order. Neither is a NaN or a silent zero downstream; both throw at the seam.
+- **Non-landing replicates count toward `count` and `landedCount` only.** They contribute to no
+  observable sum, sumSquares, min or max, because a truncated flight's "impact point" is wherever
+  it happened to be at 60 s and averaging that in with real impacts silently biases every
+  estimator by an amount nothing in the output would reveal. `mc-job.ts` already flagged this per
+  replicate (47th run); this session picks the reduction side of the decision the 47th-run handoff
+  named. Mean is left to the caller precisely so the denominator is visible at the call site;
+  Welford is P6.06.
+- **Structural typing on the columns keeps the analysis package cycle-free.** Runtime already
+  imports `ObservableSink` from analysis, so `mc-stats` cannot import `McColumns` from runtime; it
+  declares an `McObservableColumns` interface that matches `runtime/mc-job.ts`'s shape one-for-one
+  and accepts the runtime type unchanged. `splitmix64` is inlined rather than re-exported from
+  `@ballista/engine` — both to avoid coupling to that module's seed-derivation property tests (46th
+  run: "grade the property, not the constants" is right precisely because two callers of one mixer
+  would couple two unrelated properties) and because `engine`'s copy is not exported.
+- **What the tests deliberately do not pin.** Reversing the CHUNK ARRIVAL order for singleton
+  chunks (1024 chunks of one replicate each, reversed) does NOT change the hash and is not caught,
+  because the assembled buffer is bit-identical either way; only the REDUCTION direction matters,
+  and the reversal-of-reduction case is inlined in the same test rather than exposed as a knob on
+  `mcStats`. Same "test the property, not the constant" pattern as the 46th-run splitmix64 note.
+- **Verification.** `pnpm typecheck`, `pnpm lint`, `pnpm lint:deps` (1495 modules, 4275
+  dependencies, zero violations) and `pnpm format:check` all clean. `pnpm test` **2676/2676 across
+  258 files**, up from 2661/257 — the 15 new cases in `mc-stats.test.ts`. One pre-existing test
+  had to be satisfied on the way (`packages/validation/src/analysis-docs.test.ts` asserts every
+  re-exported module has a section in `docs/analysis/README.md`; that section was added).
+
+**Next run should pick up P6.06** (streaming moments: Welford mean/variance; P² or reservoir
+quantiles). `mc-stats.ts`'s `sum` and `sumSquares` are the reference the Welford pass must agree
+with byte-for-byte on the same input, and its `hashMcStats` is how "agree" is checked. The
+mean-computation gap is deliberate — P6.06 fills it — so P6.06 should extend `McStats` with
+`mean` and `variance` fields rather than adding a second module. Non-landing exclusion stays a
+property of the reduction, not of the estimator.
+
+---
+
 ## 2026-08-23 (47th run) — **P6.04 done**: observables without the trajectory, and a criterion that its own counterexample passes
 
 - **P6.04 is done and its criterion is met as measured.** 1e4 replicates retain **0.35 MB**
