@@ -2605,8 +2605,8 @@
       "estMinutes": 15,
       "difficulty": "M",
       "validation": "shuffled worker completion ⇒ identical stats hash",
-      "status": "in-progress",
-      "notes": "Claimed 2026-08-24 (48th run). Introducing analysis/mc-stats: assemble chunk McColumns into a canonical-order buffer, reduce per-observable statistics in replicate-index order over the landed subset, hash the result. Non-landing replicates are excluded from every observable sum (they would poison estimators, per mc-job.ts landed doc); a landedCount is reported so the caller can tell."
+      "status": "done",
+      "notes": "Done 2026-08-24 (48th run). packages/analysis/src/mc-stats.ts (+ .test.ts, 15 tests, all passing). Pipeline: assembleMcColumns copies each chunk into its global slice via Float64Array.set (a coverage bitmap catches overlaps/gaps regardless of chunk arrival order); mcStats walks the assembled buffer 0..N-1 folding per-observable sum/sumSquares/min/max over landed replicates only; hashMcStats folds the full stats through an inlined splitmix64 into a 16-hex-digit 0x-prefixed string. Assembly-order invariance verified across three arrival orders (as-partitioned, reversed, interleaved) on a 64-replicate fixture and again on 256-replicate arrival-order permutations across two different partitionings. The right-to-left reduction fault is caught by the hash; assembly-order permutation of singleton chunks is (correctly) not, because the assembled buffer is identical either way and the mcStats loop always walks it left-to-right. Non-landing replicates count toward count/landedCount only; a poison-value test confirms they contribute to no observable sum/min/max. Structural typing on the columns keeps analysis import-free of runtime (would be a cycle: runtime already imports ObservableSink). splitmix64 inlined rather than imported from engine both to avoid coupling to that module property tests and because engine does not export it."
     },
     {
       "id": "P6.06",
