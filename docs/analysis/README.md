@@ -163,9 +163,30 @@ The pipeline is two steps and a hash:
 
 Non-landing replicates (`landed === 0`) count toward `count` and `landedCount` but
 contribute to no observable sum — a truncated flight's "impact" is wherever it happened
-to be at the horizon, and averaging that in silently biases every estimator. Mean is left
-to the caller so the denominator (`landedCount`) is visible at the call site; Welford
-mean/variance is P6.06.
+to be at the horizon, and averaging that in silently biases every estimator.
+
+### Streaming moments and quantiles
+
+`streaming-moments.ts` supplies the single-pass, O(1)-storage estimators `mcStats` uses for
+its `mean` and `variance` fields, and that P6.10's per-time-grid quantile bands will use over
+a batch that is not retained (P6.06).
+
+| Symbol                | File                   | Meaning                                                                                                  |
+| --------------------- | ---------------------- | -------------------------------------------------------------------------------------------------------- |
+| `WelfordAccumulator`  | `streaming-moments.ts` | Running mean and variance by Welford's recurrence, with a Chan/Golub/LeVeque `merge` for parallel chunks |
+| `welfordMoments`      | `streaming-moments.ts` | One-pass mean and variance of an array, the convenience wrapper                                          |
+| `P2QuantileEstimator` | `streaming-moments.ts` | Jain & Chlamtac P² estimator of one quantile from five markers, no sample kept                           |
+| `p2Quantiles`         | `streaming-moments.ts` | Several quantiles of a stream in one pass                                                                |
+| `exactQuantile`       | `streaming-moments.ts` | The sorted answer (numpy's `linear` convention), for grading the estimators                              |
+
+Welford is used over the one-line `(sumSquares − sum²/n)/(n−1)` because that derivation
+cancels catastrophically when the mean dwarfs the spread — an impact-speed column near
+30 m/s with a 0.05 m/s spread loses five leading digits before the subtraction begins. The
+estimators are order-dependent by construction; `mc-stats.ts` feeds them canonical index
+order, and `merge` is deliberately not bit-identical to sequential pushing, so chunks must be
+merged in a fixed order for reproducibility. The P6.06 criterion — mean/variance to `1e-10`
+and quantiles to ±0.5% against offline numpy — is checked in
+`packages/validation/src/mc-moments-numpy.test.ts` against a committed fixture.
 
 ## Conventions
 
