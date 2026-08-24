@@ -15,6 +15,66 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-24 (49th run) — **P6.06 done**: streaming Welford moments and P² quantiles, matched to offline numpy
+
+- **P6.06 is done and its criterion is met.** `matches offline numpy on fixture to 1e-10 (mean/var),
+quantile ±0.5%` is checked in `packages/validation/src/mc-moments-numpy.test.ts` against a committed
+  numpy fixture, not declared. Measured maxima: mean and sample variance agree with numpy to well under
+  `1e-10` relative on all three columns; the worst P² quantile lands at **~0.33%** (apex height, p=0.95),
+  every other estimate tighter. Full API and reasoning are in `ROADMAP.json`.
+- **Two estimators, both single-pass, both O(1) storage.** `packages/analysis/src/streaming-moments.ts`:
+  `WelfordAccumulator` (running mean and `M2` by Welford's recurrence) and `P2QuantileEstimator` (Jain &
+  Chlamtac 1985 — one quantile tracked by five markers, no sample retained). The quantile estimator keeping
+  five numbers regardless of N is the property P6.10's per-time-grid bands need over a batch that
+  `ObservableSink` (P6.04) deliberately does not retain.
+- **Welford, not `(sumSquares − sum²/n)/(n−1)`, and the reason is measured.** That one-line derivation from
+  `mc-stats.ts`'s existing sums is catastrophic cancellation when the mean dwarfs the spread: the
+  impact-speed column near 30 m/s with a 0.05 m/s spread has `sumSquares/n ≈ 900` against a variance of
+  `2.5e-3`, so five leading digits cancel before the answer begins. A test in both
+  `streaming-moments.test.ts` and `mc-stats.test.ts` measures Welford beating the naive form by **>100×** on
+  exactly that shape. `sum`/`sumSquares` stay as the order-sensitive reduction primitives and as what
+  `hashMcStats` folds; `mean`/`variance` are added beside them.
+- **`McObservableStats` gained `mean` and `variance`, computed in `mcStats`'s existing canonical loop** by a
+  `WelfordAccumulator` per observable — the 48th-run handoff's instruction to extend `McStats` rather than
+  add a second module. They see the landed subset only, in the same fixed order the sums do, so they are as
+  reproducible as the sums. `mean` is `NaN` for an empty landed subset and `variance` `NaN` for fewer than
+  two landed — never `0`, which would read as a centred/precise batch. `hashMcStats` now folds both, so a
+  reproducibility check keeps covering the whole struct rather than silently dropping the new fields.
+- **The merge is deterministic but not associative-exact, and both halves are asserted.**
+  `WelfordAccumulator.merge` (Chan, Golub & LeVeque 1979) combines chunk-local accumulators without
+  revisiting values — the parallel-reduction path a worker pool takes — and it evaluates a different
+  expression from sequential pushing, so it lands _within rounding_ rather than on the same bits. A test
+  pins that it is not bit-identical, because a session reading "merge is equivalent" would wrongly conclude
+  chunks can be merged in arrival order. They cannot; canonical merge order is the P6.05 property one level
+  up. The numpy suite checks the three-chunk merge reaches the whole-stream answer to `1e-10`.
+- **The fixture is committed, not regenerated in TypeScript.** `scripts/generate-mc-moments-fixture.py`
+  draws a deterministic sample with numpy's Mersenne Twister across three column shapes (a well-behaved
+  normal, the cancellation case, a right-skewed lognormal where P²'s markers are unevenly spaced) and writes
+  the sample plus numpy's mean/variance/percentiles to `packages/validation/src/mc-moments-fixture.json`.
+  The criterion is agreement with numpy on the _same_ values; reproducing numpy's RNG in TypeScript would
+  test an RNG port, not the estimators, and would fail this suite while blaming the wrong code. If the
+  fixture is ever regenerated the reference numbers change — say so here when doing it.
+- **One property the tests do not over-claim.** `P2QuantileEstimator.markers()` before the fifth push is the
+  raw unsorted buffer — the algorithm sorts on initialisation — so the ascending-marker invariant is
+  asserted only for `count ≥ 5`. And P² is an estimator, not a sort: fed a monotone-sorted stream (its
+  pathological case, which no real batch is) its median drifts ~0.57% on a 1001-point ramp. The unit test
+  feeds a shuffled ramp and the fixture columns arrive as numpy generated them; the ±0.5% criterion is the
+  fixture's, measured.
+- **Verification.** `pnpm typecheck`, `pnpm lint`, `pnpm lint:deps` (1504 modules, 4294 dependencies, zero
+  violations), `pnpm format:check` and `pnpm --filter @ballista/app build` all clean. `pnpm test`
+  **2714/2714 across 260 files**, up from 2676/258 — 38 new cases (23 in `streaming-moments.test.ts`, 4 in
+  `mc-stats.test.ts`, 11 in `mc-moments-numpy.test.ts`).
+
+**Next run should pick up P6.07** (MC convergence check: `SE ∝ N^{−1/2}` measured on the range observable).
+`WelfordAccumulator.standardError` is the instrument it needs — `s / sqrt(n)`, already present and NaN-safe
+below two samples — so P6.07 is a study over growing N asserting the log-log slope is `−1/2` within a
+tolerance, not new estimator code. It should reuse the committed numpy fixture's `range` column or draw
+fresh replicates through the existing MC job rather than inventing a third sample source. Note P6.08 (t-based
+CI bands) then builds directly on the same standard error, so keeping P6.07's harness reusable pays off one
+task later.
+
+---
+
 ## 2026-08-24 (48th run) — **P6.05 done**: reduce a Monte Carlo batch in canonical order, and hash it so the property is checkable
 
 - **P6.05 is done and its criterion is met.** "Shuffled worker completion ⇒ identical stats hash" is
