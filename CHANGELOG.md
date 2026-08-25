@@ -15,6 +15,43 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-25 (52nd run, addendum) — **CI 260 green on all 35 steps at `c136275`**; and `main` was **red** before this run's push
+
+- **CI 260 at `c136275` is green on all 35 steps**, 3m59s end to end (Test **1m59s**, Build app 18s,
+  Bundle size 1s, last step 14:48:20). Read from the job record, per the 39th and 46th runs' trap.
+  **All four steps the local gate cannot cover passed** — `Benchmark regression check` 9s,
+  `Cross-engine drift check` 3s, `Engine API docs` 4s, `SolverKit API docs` 3s — so the two this run
+  had _not_ verified locally are now verified, and P6.09 is checked against the typedoc path as well.
+- **The finding this addendum exists for: `main` was red when this run arrived, and no entry said so.**
+  **CI 259 at `60c2090` — the 51st run's own final commit, and `main`'s HEAD for the seven hours
+  before this push — failed.** It is **P0.96**, the filed wall-clock flake:
+  `chunked-integration.test.ts:318`, `expect(maxSliceMs).toBeLessThan(10)` measuring **12.372 ms**,
+  1 failed / 2783 passed. Steps 12-17 were skipped as a consequence. The diff at that commit is
+  `CHANGELOG.md`-only, so nothing in it can have caused a wall-clock regression; this is the
+  known machine-load sensitivity and not a new fault. **No test was touched.**
+- **Why nobody saw it, and the lesson that generalises.** The 51st run's instruction — "do not open
+  with a check on 258" — is sound and was followed. But it names run **258**, and the run that went
+  red is **259**: the one created by the very commit that recorded 258's result. **Each closing entry
+  is itself a commit whose run no session ever reads**, because that session ends first and the next
+  one is told not to look back. The convention of "one follow-up entry and then stop" therefore has a
+  structural blind spot exactly one run wide, and a red landing in it survives until a later run
+  happens to list the history. **A later run should check the last completed run on `main`, whatever
+  its number, rather than a number a previous entry named.**
+- **P0.96 is unchanged and still needs a human** (seq 294, `todo`, behind P6.09's 233 so
+  `taskSelection` correctly did not pick it). This is a further sighting for its record: a red on a
+  docs-only commit, which is the cleanest possible demonstration that the assertion fails from load
+  alone. Nothing about it was weakened, worked around, or re-run to get green.
+- **Correction to the entry above.** It presents local `main` being an unrelated history as a fresh
+  trap. It is not new: **the 47th run already recorded it** ("the clone's `main` and `origin/main`
+  had no merge base — 50 commits each side, unrelated histories, `origin/main` force-updated"), and
+  the counts still match exactly (ahead 50, behind 50). The practical advice stands and this run
+  re-derived it rather than reading it, which is the cost of it living in one run's entry and
+  nowhere a session reads first. Recorded as a re-derivation, not as a discovery.
+- Nothing further is chased from here: this addendum's own push creates run 261, and per the 51st
+  run's convention that is where the recording stops.
+
+---
+
 ## 2026-08-25 (52nd run) — **P6.09 done**: a downsample whose guarantee is a ceiling, not a ratio
 
 - **P6.09 is done and its criterion is met.** `packages/viz/src/impact-scatter.ts` supplies the two
