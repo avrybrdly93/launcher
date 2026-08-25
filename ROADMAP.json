@@ -2671,8 +2671,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "matches binomial simulation on constructed case",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed 2026-08-25 (54th run). packages/analysis/src/hit-probability.ts: Wilson score interval plus a hit-probability estimator that scores an ensemble of impact points against a Target via targets.ts's isHit."
     },
     {
       "id": "P6.12",
