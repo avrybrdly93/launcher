@@ -222,6 +222,48 @@ wherever the horizon caught them) and asserts none were lost, so a batch of `N` 
 samples. Nothing in it is random: replicate `i` is a pure function of seed and index
 (P6.03), so the slope is a fixed number rather than a draw and the test cannot flake.
 
+### Confidence bands on an estimate
+
+`confidence-interval.ts` turns a Monte Carlo sample into `mean ± t·SE` and carries the `n`
+that produced it (P6.08).
+
+| Symbol                         | File                     | Meaning                                                 |
+| ------------------------------ | ------------------------ | ------------------------------------------------------- |
+| `meanConfidenceInterval`       | `confidence-interval.ts` | Two-sided `t` interval for a mean, with `n` and `df`    |
+| `formatMeanConfidenceInterval` | `confidence-interval.ts` | Renders `91.78 ± 3.06 m (95% CI, n = 64)`               |
+| `coverageOfMean`               | `confidence-interval.ts` | How often an interval contains a known truth            |
+| `studentTQuantile`             | `confidence-interval.ts` | Inverse Student-t, by guarded Newton in the upper tail  |
+| `studentTCdf`                  | `confidence-interval.ts` | Student-t cumulative distribution function              |
+| `studentTUpperTail`            | `confidence-interval.ts` | `P(T > t)`, computed as itself rather than as `1 − cdf` |
+
+**Why `t` and not `z`.** The multiplier has to account for `SE` being estimated from the
+same sample it describes. Using `z = 1.96` pretends the per-replicate `σ` was known in
+advance. At the sample sizes an interactive run actually uses the difference is not
+academic: at `n = 5` the 95% multiplier is `2.776`, so a `z` band is 29% too narrow and
+covers about 88% of the time instead of 95%.
+
+**"Displayed honestly with `N`" is a property of the value, not of the chart.** `± 3.1 m`
+means something different from 8 replicates than from 8000, and a reader cannot tell which
+without being told. So the interval carries `sampleSize`, `degreesOfFreedom` and `level`
+alongside the bounds, and there is no formatting option that omits `n`.
+
+`meanConfidenceInterval` returns `null` below two samples rather than a zero-width
+interval, which would read as infinite precision. A genuinely degenerate sample — every
+value identical — does give a zero-width interval, because the estimated variance really
+is zero.
+
+The P6.08 criterion — a 95% interval covering the truth about 95% of the time over 200
+repeats — is measured in `packages/runtime/src/mc-confidence-coverage.test.ts`. The truth
+it covers is exact rather than estimated: drag-free ground-launch range is `2·vx₀·vy₀/g`,
+which is _bilinear_, so under independent jitter on the two components
+`E[range] = 2·E[vx₀]·E[vy₀]/g` holds with no linearisation and no CLT appeal. The
+independence is what P6.03's substream-per-pair generator supplies.
+
+Coverage is a proportion, so any assertion on it has to be written against the binomial
+spread rather than against `0.95` directly — `CoverageResult.standardError` reports that
+scale (`0.0154` at 200 repeats), and a run landing on `0.94` is a third of a sigma away and
+evidence of nothing.
+
 ## Conventions
 
 - **Angles are radians** throughout the API. Degrees appear only in UI and docs.
