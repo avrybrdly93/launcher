@@ -15,6 +15,65 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-25 (54th run) — **P6.11 done**: a Wilson interval, and two numbers checked instead of trusted
+
+- **P6.11 is done and its criterion is met.** `packages/analysis/src/hit-probability.ts` scores an
+  ensemble of impact points against a `Target` and reports the hit fraction with a Wilson score
+  interval. Impacts go through `targets.ts`'s existing `isHit`, so the package still has exactly one
+  definition of a hit. Full detail is in `ROADMAP.json` and is not restated here.
+- **Wald is not a stylistic runner-up here, it is unusable.** Its half-width is proportional to
+  `√(p̂(1−p̂))`, so at `k = 0` or `k = n` it is **exactly zero** — "0 hits in 20, ± 0", certainty
+  claimed from twenty observations. And a hit probability is a quantity that _lives_ at its
+  endpoints: a tight ring at long range is missed every time until it isn't, an over-wide tolerance
+  is hit every time. The two configurations a user is most likely to try are the two Wald cannot
+  report on. Wilson inverts the score test instead, keeps non-zero width there, and stays inside
+  `[0, 1]` without clamping.
+- **The criterion turned out to be a coverage measurement, not a formula check, and that is the
+  point.** "Matches binomial simulation on constructed case" is satisfied by 4000 seeded binomial
+  samples at each of four `(n, p)`, asserting the interval covers the true `p` near its nominal 95%.
+  Every realistic implementation error — a wrong `z`, a wrong denominator, a half-width off by a
+  factor — surfaces as coverage that is not nominal, which no closed-form spot check would catch.
+  A head-to-head in the same suite shows **Wald under-covering at `p = 0.05, n = 40`**, where `k = 0`
+  makes its interval empty of the truth about 13% of the time.
+- **The first draft's "published" reference values were wrong, and the test was corrected rather
+  than the code.** The 7-of-20 case was written as `[0.18106, 0.56890]` from recall. An independent
+  evaluation of the Wilson formula at `z = 1.9599639845400536` gives **`[0.1811918241,
+0.5671457233]`**, which is what the implementation returns to ten digits. Worth recording because
+  the failure was two assertions disagreeing with correct code, and the tempting move — nudging the
+  tolerance until it passed — would have cemented a wrong reference in the suite forever. The values
+  now carry their provenance in a comment and are asserted to 8 decimals rather than to
+  `toBeCloseTo`'s loose default.
+- **The finding, fixed rather than tolerated:** at `k = n` the analytic upper bound is
+  `denom/denom = 1`, but `center + halfWidth` rounds **one ulp low**, to `0.9999999999999999`. One
+  ulp is numerically irrelevant and semantically not — "every shot hit, so the bound is 1" is a
+  thing a caller may reasonably test for, and an interval that never quite reaches 1 makes that test
+  silently false. Endpoints are now exact, and a companion test asserts the _far_ bound is still
+  strictly interior, so exactness cannot have been bought by collapsing the interval.
+- **A `NaN` impact throws instead of voting.** A diverged solve is not evidence about where the shot
+  landed, and `NaN <= tolerance` is `false`, so scoring it naively would record a **miss** and bias
+  `p̂` downward by exactly the failure rate — invisibly, since the result still looks like a
+  probability. Callers must filter failures deliberately, which also keeps `n` honest.
+- **One assumption the arithmetic cannot check, so it is documented rather than implied:**
+  independence. The interval assumes `n` Bernoulli trials with a common `p`, true for ADR-011's
+  per-replicate substreams and false for an ensemble sharing one frozen wind path or sweeping a
+  parameter grid. Nothing in the counts can detect the difference, and the error runs toward an
+  interval that is **too narrow**.
+- **Local gate green before the push**: `pnpm typecheck`, `pnpm lint`, `pnpm lint:deps`,
+  `pnpm format:check`, **2860/2860 tests across 267 files** (up from 2836/266; the 24 are this
+  task's), app build, bundle **72.8 kB gzipped** against the 300 kB budget — _unchanged_, since the
+  new module tree-shakes out until a UI consumes it. The four steps the local gate cannot cover
+  (benchmark regression, cross-engine drift, and the two typedoc API-docs jobs) are CI-only, as
+  always.
+- **Not touched, and still open:** P0.96's wall-clock flake (`chunked-integration.test.ts:318`) did
+  not fire in this run's suite. The stale `claude/*` branches of P0.95/P0.107 were not counted or
+  cleared. **Next**: `P6.12` (antithetic variates option, `M`, criterion "variance reduction measured
+  > 0 on monotone observable (range vs v₀)") is the topmost `todo` by `seq`. Note that its criterion
+  > needs the _monotonicity_ to be real — antithetic pairing only reduces variance for an observable
+  > monotone in the uniform driving it, so the pairing must be applied to the input draw, not to the
+  > output samples, and a non-monotone observable is the counterexample worth including.
+
+---
+
 ## 2026-08-25 (53rd run) — **P6.10 done**: a fan whose nesting is structural, and a resampler that really is dense output
 
 - **P6.10 is done and both halves of its criterion are met.** `packages/analysis/src/ensemble-fan.ts`
