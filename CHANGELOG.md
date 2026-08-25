@@ -15,6 +15,53 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-25 (53rd run) — **P6.10 done**: a fan whose nesting is structural, and a resampler that really is dense output
+
+- **P6.10 is done and both halves of its criterion are met.** `packages/analysis/src/ensemble-fan.ts`
+  puts an ensemble of adaptively-integrated replicates onto one time grid and reduces each grid point
+  to its quantiles. Nothing renders here; P6.20 and P6.24 consume the arrays, the same split P6.09
+  used. Full detail is in `ROADMAP.json` and is not restated here.
+- **The two counterexamples are what make the criterion mean anything**, and they are the part worth
+  carrying forward. "Bands nested" would be satisfied by an implementation that clamped the output
+  afterwards, so the sweep over twenty-one levels also asserts that the outermost pair is _exactly_
+  the sample min and max — which a repaired band is not. "Median ≈ nominal for symmetric inputs" would
+  be satisfied by an implementation that averaged, since the mean of a symmetric ensemble is also the
+  nominal, so a skewed ensemble is asserted to separate the two by more than a metre. Neither
+  counterexample was asked for by the task; both are the difference between a criterion and a
+  formality.
+- **"Dense-output resampling" was read as a requirement, not as a description.** The obvious
+  implementation — linear interpolation between accepted steps — is second-order and would discard
+  three orders of the accuracy a DOPRI5 solve was paid for, invisibly, since the result still looks
+  like a trajectory. What landed instead is cubic Hermite from the two endpoint values and the two
+  endpoint _slopes_, which is available from the recorded rows alone because **for a ballistic state
+  the derivative channels are already there**: `dx/dt` is `vx`, `dy/dt` is `vy`. No change to `Sink`,
+  no second integration. That is a property of this model family rather than a general fact, so the
+  derivative channel is an explicit argument and never a guess. Measured both ways: exact to 1e-12 on
+  the ballistic parabola where linear is off by **1.226 m** at a step midpoint with `h = 1`.
+- **The finding, asserted rather than patched:** a `NaN` in a recorded row takes out **both** adjacent
+  intervals _including their far endpoints_, because the interpolation weights it by zero and
+  `0 * NaN` is `NaN`, not `0`. The affected columns thin to the surviving replicates rather than
+  voiding, which is the property that matters. A short-circuit returning `y0` at exactly `t0` while
+  returning `NaN` an instant later would be a stranger surface than a clean hole, so the behaviour is
+  documented in the header and in a test instead of being special-cased.
+- **Local gate green before the push**: `pnpm typecheck`, `pnpm lint`, `pnpm lint:deps`,
+  `pnpm format:check`, **2836/2836 tests across 266 files**, app build, bundle **72.8 kB gzipped**
+  against the 300 kB budget. The four steps the local gate cannot cover (benchmark regression,
+  cross-engine drift, and the two typedoc API-docs jobs) are CI-only, as always.
+- **On checking CI**: the 52nd run's addendum established that each closing entry is itself a commit
+  whose run nobody reads, so a red can hide in a one-run blind spot. The next run should check **the
+  last completed run on `main`, whatever its number** rather than a number named here.
+- **P0.96 is still open and still needs a human** (seq 294, `todo`): the wall-clock flake in
+  `chunked-integration.test.ts:318`. It did not fire in this run's local suite. Nothing about it was
+  touched.
+- **Next**: `P6.11` (hit-probability estimator for a target + Wilson interval, `M`, criterion "matches
+  binomial simulation on constructed case") is the topmost `todo` by `seq`. Note it is the natural
+  consumer of P6.09's impact arrays, and that a Wilson interval is chosen over Wald precisely because
+  Wald degenerates to zero width at `p̂ = 0` or `1` — which is exactly where a hit probability lives
+  for a shot that misses every time, so the constructed case should include that end.
+
+---
+
 ## 2026-08-25 (52nd run, addendum) — **CI 260 green on all 35 steps at `c136275`**; and `main` was **red** before this run's push
 
 - **CI 260 at `c136275` is green on all 35 steps**, 3m59s end to end (Test **1m59s**, Build app 18s,
