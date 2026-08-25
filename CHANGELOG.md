@@ -15,6 +15,89 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-25 (52nd run) — **P6.09 done**: a downsample whose guarantee is a ceiling, not a ratio
+
+- **P6.09 is done and its criterion is met.** `packages/viz/src/impact-scatter.ts` supplies the two
+  displays the task title names: `buildImpactHistogram` for the planar model's one-dimensional
+  `x_impact` distribution, and `buildImpactScatter` for the spatial model's two-dimensional
+  ground-plane impacts, collapsed to at most one marker per screen cell with that cell's replicate
+  count carried alongside. 1e4 points reduce in **best 0.62 ms, median 0.72 ms, worst-of-15
+  1.44 ms** against the criterion's 16 ms, best-of-15 after 20 warmups. Full API in `ROADMAP.json`.
+- **The interesting part was discovering that the obvious claim is false.** "Density downsample"
+  invites the reading that 1e4 points become a small number of markers. They do not, necessarily:
+  at the default 4 px cell over a realistic dispersion ellipse, 1e4 replicates occupy **5224
+  cells** — a 1.9x cut, and a different zoom gives a different figure. The ratio is a property of
+  how many replicates share a cell, which is to say of the camera, and nothing here can promise
+  one. **What can be promised, and what the 16 ms actually needs, is the ceiling**: markers never
+  exceed occupied cells, and cells are set by the viewport. So the render cost stops growing once
+  the ensemble saturates the grid, and the test asserts _that_ — replaying the same ensemble 2x and
+  4x multiplies the replicates without adding a single marker — rather than a ratio picked from a
+  cluster that flatters it. A tighter cluster would have made the headline number look far better
+  and would have measured the cluster, not the algorithm.
+- **Speed alone cannot establish this criterion, and the implementation that fails it is the fast
+  one.** A pass-through returning its input unchanged beats 0.62 ms and hands the renderer 1e4 draw
+  calls, which is precisely the problem the criterion exists to prevent. Three counterexamples are
+  asserted alongside the timing: the marker count (5224, so no pass-through), the dial (a finer
+  `cellPx` yields strictly more markers, so a downsample that ignored its own resolution would pass
+  a one-sided reading and fail here), and the saturation bound above.
+- **Two design commitments that a later renderer must not undo.** The per-cell **count is
+  permutation-invariant** — that is what makes density readable off the markers — while the marker
+  **position is not**, because it is a real replicate's landing point, chosen first-arrival, rather
+  than a centroid. A centroid would be permutation-invariant and wrong: it is a position no shot
+  occupies, and where shots actually land is this chart's entire subject. Off-viewport points are
+  **culled and reported**, never clamped, since clamping piles every long shot onto the frame and
+  invents a dense band there. A zero-variance histogram likewise collapses to a single `[v, v]` bin
+  rather than accepting an invented width that would read as a spread the data does not have.
+- **The camera transform is inlined and is now checked against its source.** `buildImpactScatter`
+  inlines `worldToScreen` for the same reason `buildDecimatedTrajectoryPath` does — the per-call
+  `{x, y}` allocation dominates at 1e4 points — and an inlined copy is a copy that can drift. A
+  marker half a pixel off its own landing point is not a visible bug, it is a wrong chart, so the
+  two formulas are compared directly in a test. The decimation module carries the same inline and
+  the same warning comment without such a test; filing that gap is left to a future run rather than
+  taken as a drive-by.
+- **Gate green** at every commit: typecheck, lint, `lint:deps`, `format:check`, **2808/2808 tests
+  across 265 files** (from 2784/264), app build, bundle **72.8 kB gzipped** — unchanged from the
+  51st run — within the 300 kB budget (§2.6).
+- **Three of the four CI-only steps were run locally this time**, which the local gate normally
+  misses (P0.110's gap): `Engine API docs` and `SolverKit API docs` both regenerate clean, and
+  `Bundle size budget` passes. That matters for the same reason the 51st run gave: the 44th run's
+  `{@link z0}` failure showed a doc comment can be latently broken and surface only when something
+  new inlines the type. `Benchmark regression check` and `Cross-engine drift check` are soft-warn
+  and were **not** run locally — read them from this push's CI run, and note that neither was
+  verified here.
+- **CI run 258 was not checked**, per the 51st run's explicit instruction: it is a `CHANGELOG.md`-only
+  diff that cannot reach any of the 35 steps, and a red there would be a finding about CI, not
+  about P6.08. This run's own push should be read by the 53rd.
+- **A trap in the clone that cost a few minutes and would cost a cold run more: local `main` is an
+  unrelated history.** `git checkout main && git merge --ff-only origin/main` fails with _refusing
+  to merge unrelated histories_; local `main` sits at `947948e` (the 36th run) and is **not an
+  ancestor of `origin/main`**, which is at `60c2090`. The harness branch `claude/upbeat-ride-na8p42`
+  is the ref created at `origin/main` and is the one to work from. **Do not try to bring local
+  `main` forward** — check out the harness branch, confirm it equals `origin/main`, and work there.
+  This is a property of how the sandbox clone was set up, not of the repository.
+- **The stop-hook was left firing rather than paid off**, following the 51st run: this run pushed to
+  `main` directly as CLAUDE.md requires, so any "unpushed commits on branch" report is to be
+  verified against `origin/main` and then ignored. No `claude/*` branch was pushed and none is left
+  behind.
+- **Note on the routine's description of this repo**: it still says "Currently in Phase 4 (advanced
+  aerophysics)", read in this run's own text. Stale for a second consecutive run — phases 4 and 5
+  are complete and the work is in phase 6. `ROADMAP.json`'s `taskSelection` picked P6.09
+  unambiguously (no `in-progress`, no `review`, first `todo` by `seq`) and the 51st run's handoff
+  named it too, so the stale pointer cost nothing. Recorded once, not acted on.
+- **The lazy-load-Plotly item remains untouched and remains legitimate.** This run's build still
+  emits `plotly.min` at **4,840.69 kB raw / 1,468.51 kB gzipped** as a static chunk. It is not
+  counted by the bundle-size budget, which measures the app entry (72.8 kB) — worth knowing before
+  claiming it, since the budget being green is not evidence the problem is gone.
+- **Next run: P6.10** (trajectory ensemble fan — quantile envelope bands at 5/25/50/75/95% over time
+  via dense-output resampling onto a common grid). It needs dense output rather than recorded rows,
+  since replicates have different step sequences and different flight times, so the first question
+  is what the common grid is and what happens past a short replicate's impact — a quantile over a
+  shrinking sample is not the same object as one over the full ensemble, and saying which it is
+  belongs in that task. `MeanConfidenceInterval` (P6.08) and this run's arrays are both available to
+  P6.10 and P6.11.
+
+---
+
 ## 2026-08-25 (51st run) — **P6.08 done**: a confidence band checked against a truth that is exact rather than estimated
 
 - **P6.08 is done and its criterion is met.** A 95% `t` interval covers the truth in **192 of
