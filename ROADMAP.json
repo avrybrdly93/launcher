@@ -2638,8 +2638,8 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "coverage test: 95% CI covers truth ~95% over 200 repeats (drag-free analytic)",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "CLAIMED 2026-08-25 (51st run), not yet implemented. PLAN, and the one thing that makes the criterion checkable at all: the coverage test needs a TRUTH to cover, and for the drag-free range there is an exact one even under jitter. Ground-launch drag-free range is 2*vx0*vy0/g, which is BILINEAR in the two velocity components, so if vx0 and vy0 are jittered INDEPENDENTLY then E[range] = 2*E[vx0]*E[vy0]/g exactly -- no CLT, no linearisation, no large-N appeal. That resolves the 50th run's handoff: the analytic form it points at (dragFreeRange in range-root.ts) gives the truth for a jittered ensemble only because of independence, which P6.03's substream-per-pair generator is what supplies. Split as P6.07 was: the generic t-based interval and the coverage counter go in packages/analysis (analysis may not import runtime, section 2.1), and the criterion itself is measured runtime-side against the real pipeline. The criterion is a COVERAGE PROPORTION, so the assertion band comes from the binomial spread at p=0.95, n=200 (1 sigma = sqrt(.95*.05/200) = 1.54%, about 3 successes) and NOT from whatever number the run happens to produce; seeds fixed so it cannot flake."
     },
     {
       "id": "P6.09",
