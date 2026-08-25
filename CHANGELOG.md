@@ -64,6 +64,15 @@ forcing a fallback to commit timestamps.
   new module tree-shakes out until a UI consumes it. The four steps the local gate cannot cover
   (benchmark regression, cross-engine drift, and the two typedoc API-docs jobs) are CI-only, as
   always.
+- **Addendum — CI 263 green at `06637a2`, all 35 steps**, read from the job record rather than the
+  run record per the 39th and 46th runs' stale-status trap. Test 2m00s, 4m24s end to end. The four
+  steps the local gate cannot cover all passed: benchmark regression, cross-engine drift, Engine API
+  docs, SolverKit API docs. **Scoped honestly:** the two typedoc steps build `engine` and
+  `solverkit`, not `analysis`, so they are _not_ evidence that this run's new TSDoc renders — the
+  44th run's latent-`{@link}` trap lives in exactly that gap, and `hit-probability.ts` carries
+  several `{@link}` tags that no CI step resolves today. One `{@link MeanConfidenceInterval}` was
+  demoted to plain code text before the push for that reason, since the symbol lives in another
+  module. This is the one follow-up entry; per the 51st run's convention, run 264 is not chased.
 - **Not touched, and still open:** P0.96's wall-clock flake (`chunked-integration.test.ts:318`) did
   not fire in this run's suite. The stale `claude/*` branches of P0.95/P0.107 were not counted or
   cleared. **Next**: `P6.12` (antithetic variates option, `M`, criterion "variance reduction measured
