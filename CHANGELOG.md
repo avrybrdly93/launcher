@@ -15,6 +15,78 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-25 (51st run) — **P6.08 done**: a confidence band checked against a truth that is exact rather than estimated
+
+- **P6.08 is done and its criterion is met.** A 95% `t` interval covers the truth in **192 of
+  200 repeats = 0.960**, which is **0.65 binomial sigma** from the nominal 0.95, measured on the
+  real range observable in `packages/runtime/src/mc-confidence-coverage.test.ts`. The estimator is
+  `packages/analysis/src/confidence-interval.ts`. Full API and reasoning are in `ROADMAP.json`.
+- **The interesting part of this task was finding something to cover.** A coverage test needs a
+  truth, and a jittered ensemble does not obviously have one: `E[f(X)] ≠ f(E[X])`, so the analytic
+  range evaluated at the mean inputs is the wrong target for a general observable. Drag-free
+  ground-launch range is the exception, and that is why the blueprint's criterion names it. It is
+  `R = 2·vx₀·vy₀/g` — **bilinear**, not merely nonlinear — so under _independent_ jitter on the two
+  components `E[R] = 2·E[vx₀]·E[vy₀]/g` holds **exactly**: no linearisation, no CLT appeal, no
+  error term to bound. The independence is exactly what P6.03's substream-per-pair generator
+  supplies, so this criterion doubles as a second check on that generator — correlated overlays
+  would shift `E[R]` off the truth and the coverage would collapse. `y0` is forced to 0 because the
+  raised-launch form carries a `√(vy₀² + 2gy₀)` term that is not bilinear and would silently break
+  the identity.
+- **The truth is asserted before it is used.** Over the 12800-replicate pool the mean range is
+  **91.84957 m** against the analytic **91.77270 m** — **0.71 of its own standard error** away, so
+  there is no detectable integrator or seeding bias. Without that check every coverage figure below
+  could be measuring the wrong target while still looking entirely plausible.
+- **Counterexamples are asserted, not only the passing case.** Three, each killing a different way
+  the criterion could be met by something that does not work:
+  - _Width alone cannot pass it._ Displacing the truth by four standard errors drops coverage to
+    **0.045**. An interval of infinite width would otherwise score 100% and satisfy a one-sided
+    reading of "covers ~95%".
+  - _The level is a dial, not a decoration._ An 80% interval covers **160/200 = 0.800** exactly. A
+    multiplier that ignored `level` and always returned the 95% one would pass the criterion and
+    fail here.
+  - _Why the task says **t**-based._ At `n = 5` the multiplier is 2.776 against the normal's 1.960.
+    Rebuilding the same intervals with `z` gives **183/200 = 0.915**, against `t`'s **194/200 =
+    0.970**. The under-coverage is measured on the real pipeline rather than argued from theory.
+- **A coverage proportion needs its binomial scale or the assertion is theatre.** One sigma here is
+  `√(0.95·0.05/200) = 0.0154`, about 3 successes out of 200, so a run landing on 0.94 is a third of
+  a sigma away and evidence of nothing. Compared naively against 0.95, such a test either never
+  fails or fails at random. `CoverageResult.standardError` reports the scale so a caller cannot skip
+  it, and every band asserted here is written in those units rather than tuned to the number this
+  run happened to produce. Nothing is random in any case: replicate `i` is a pure function of seed
+  and index (P6.03) and each repeat is a fixed disjoint index window.
+- **The `t` quantile is validated against closed forms, not against copied digits.** `df = 1` is the
+  Cauchy (`tan`) and `df = 2` has an elementary inverse; both are held to 1e-12 relative. `df → ∞`
+  is checked against `engine`'s `normalQuantile`, with the multiplier asserted to shrink
+  monotonically toward it. Between those anchors the round-trip `Q(quantile(p)) = 1−p` holds to
+  1e-12 across `df` 1…5000. The textbook 95% table appears too, to the three decimals a printed
+  table actually carries, to catch the wholesale errors self-consistency would happily satisfy — an
+  off-by-one in `df`, or a one-sided multiplier where a two-sided one belongs. The accuracy floor is
+  the incomplete beta continued fraction's ~1e-12 rather than the root find's 1e-15, and the tests
+  say so instead of asserting a precision the special function does not have.
+- **"Displayed honestly with N" is read as a property of the value, not of the chart.** `± 3.1 m`
+  means something different from 8 replicates than from 8000 and a reader cannot tell which, so the
+  interval carries `sampleSize`, `degreesOfFreedom` and `level` alongside the bounds and no format
+  option omits `n`. P6.09–P6.11's plots can render the band however they like; they cannot obtain
+  one without the `n` that produced it. Below two samples `meanConfidenceInterval` returns `null`
+  rather than a zero-width interval that would read as infinite precision.
+- **Gate green** at every commit: typecheck, lint, `lint:deps`, `format:check`, **2784/2784 tests
+  across 264 files** (from 2741/262), app build, bundle **72.8 kB gzipped** within the 300 kB
+  budget (§2.6).
+- **Note on the routine's description of this repo**: it says "Currently in Phase 4 (advanced
+  aerophysics)". That is stale — phases 4 and 5 are complete, every task below `seq` 232 is `done`,
+  and the work is in phase 6. `ROADMAP.json`'s `taskSelection` policy (first `in-progress`, else
+  first `review`, else first `todo`, in `seq` order) picked P6.08 unambiguously, and the 50th run's
+  handoff named it too. No phase was reordered and no task invented; recorded here only because the
+  prompt's phase pointer will keep drifting as the roadmap advances.
+- **Next run: P6.09** (impact-point scatter plot — `x_impact` histogram, or a 2D scatter in 3D
+  mode), whose criterion is a performance one: 1e4 points rendered in under 16 ms, via density
+  downsampling. That is the first phase-6 task with a UI surface, so expect it to need `viz`/`ui`
+  rather than `analysis`, and note that P6.09–P6.11 are the plots that will consume
+  `MeanConfidenceInterval` — the band is available to them now, complete with its `n`. The
+  standing lazy-load-Plotly item remains a legitimate separate claim and was not touched.
+
+---
+
 ## 2026-08-24 (50th run) — **P6.07 done**: the Monte Carlo rate measured, not assumed, on the range observable
 
 - **P6.07 is done and its criterion is met.** `log–log slope −0.50±0.05` is **measured at
