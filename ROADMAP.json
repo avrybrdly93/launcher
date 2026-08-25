@@ -2649,8 +2649,8 @@
       "estMinutes": 25,
       "difficulty": "M",
       "validation": "scatter renders 1e4 pts < 16 ms (density downsample)",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed by the 52nd run. Plan: a pure, screen-space `impact-scatter.ts` in `viz` with the two products the title names -- a 1D x_impact histogram for the planar layout and a density-downsampled 2D ground-plane scatter for the spatial one. Remaining: implementation, tests (correctness, counterexamples, edge cases, the 1e4-pt < 16 ms measurement), index export."
     },
     {
       "id": "P6.10",
