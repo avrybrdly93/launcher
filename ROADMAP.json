@@ -2660,8 +2660,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "bands nested and monotone; median ≈ nominal for symmetric inputs",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed in the 53rd run. Plan: a pure `packages/analysis/src/ensemble-fan.ts` -- resample each replicate onto a common time grid, then per-grid-point quantiles. Nothing renders; P6.20/P6.24 consume the arrays, the same split P6.09 used."
     },
     {
       "id": "P6.11",
