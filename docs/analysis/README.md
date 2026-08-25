@@ -304,6 +304,53 @@ to `NaN` rather than to a clamped endpoint, because repeating an impact point ac
 rest of the grid would draw a projectile resting on the ground and drag the quantiles
 towards it.
 
+### Hit probability against a target
+
+`hit-probability.ts` reduces an ensemble of impact points to "how often did we hit, and
+how sure are we?" (P6.11). Each point is scored through `targets.ts`'s `isHit`, so the hit
+criterion is the target's own geometry and tolerance and there is no second definition of
+a hit anywhere in the package.
+
+| Symbol                          | File                 | Meaning                                                    |
+| ------------------------------- | -------------------- | ---------------------------------------------------------- |
+| `hitProbability`                | `hit-probability.ts` | Score an ensemble against a `Target`; counts plus interval |
+| `wilsonInterval`                | `hit-probability.ts` | Wilson score interval for a binomial proportion            |
+| `formatHitProbability`          | `hit-probability.ts` | Renders `35.0% [18.1%, 56.7%] at 95% (7/20)`               |
+| `DEFAULT_HIT_PROBABILITY_LEVEL` | `hit-probability.ts` | 95%, matching `confidence-interval.ts`'s default           |
+
+**Wilson, not Wald, and the reason is the endpoints.** The textbook interval
+`p̂ ± z·√(p̂(1−p̂)/n)` has width proportional to `√(p̂(1−p̂))`, so at `p̂ = 0` or `p̂ = 1` it
+collapses to _exactly zero_ — 0 hits in 20 shots reports "0, ± 0", claiming certainty from
+twenty observations, and it routinely puts bounds outside `[0, 1]` besides. A hit
+probability is a quantity that lives near its endpoints: a tight ring at long range is
+missed every time until it isn't, and an over-wide tolerance is hit every time. The two
+configurations a user is most likely to try are precisely the two Wald cannot report on.
+Wilson inverts the score test instead of evaluating the standard error at `p̂`, so it keeps
+non-zero width there, stays inside `[0, 1]` by construction rather than by clamping, and
+holds its coverage at small `n`. That last claim is measured against a seeded binomial
+simulation, not asserted — including a direct comparison in which Wald under-covers at
+`p = 0.05, n = 40`.
+
+**The interval is not centred on `p̂`.** Wilson's centre is `(k + z²/2)/(n + z²)`, the count
+shrunk toward `1/2` by `z²/2` pseudo-counts a side, so the interval is asymmetric about the
+point estimate — most visibly near the endpoints, which is where it should be. `pHat` and
+`center` are therefore separate fields, and a plotting layer that draws a symmetric error
+bar around `p̂` from these numbers is drawing something the module did not say.
+
+**Endpoints are exact.** At `k = n` the analytic upper bound is `denom/denom = 1`, but the
+rounded sum lands one ulp low at `0.9999999999999999`. One ulp is numerically irrelevant
+and semantically not — "every shot hit, so the bound is 1" is a thing a caller may test
+for — so `0` and `1` are returned exactly, and a test asserts the far bound is still
+strictly interior so that exactness cannot have been bought by collapsing the interval.
+
+**Two things the arithmetic cannot check, so the caller carries them.** A `NaN` impact
+_throws_ rather than scoring as a miss: a diverged solve is not evidence about where the
+shot landed, and counting it would bias `p̂` downward by exactly the failure rate,
+invisibly. And every interval assumes independent Bernoulli trials with a common `p` —
+true for replicates on ADR-011's independent substreams, false for an ensemble sharing one
+frozen wind path or sweeping a parameter grid. Nothing in the formula can detect the
+difference, and the error is toward an interval that is too narrow.
+
 ## Conventions
 
 - **Angles are radians** throughout the API. Degrees appear only in UI and docs.

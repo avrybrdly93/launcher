@@ -13,6 +13,7 @@ export * from "./ill-conditioning.js";
 export * from "./levenberg-marquardt.js";
 export * from "./confidence-interval.js";
 export * from "./ensemble-fan.js";
+export * from "./hit-probability.js";
 export * from "./mc-convergence.js";
 export * from "./mc-stats.js";
 export * from "./min-energy.js";
