@@ -72,6 +72,22 @@ forcing a fallback to commit timestamps.
 - **Gate green** at every commit: typecheck, lint, `lint:deps`, `format:check`, **2784/2784 tests
   across 264 files** (from 2741/262), app build, bundle **72.8 kB gzipped** within the 300 kB
   budget (§2.6).
+- **The stop-hook false positive recurred, and this run did _not_ pay the branch for it.** The hook
+  reported "4 unpushed commits on branch `claude/upbeat-ride-qukslu`" after the work had already
+  landed on `main`. Verified rather than believed: `HEAD` and `origin/main` are both `0188a84`, and
+  `git log origin/main..HEAD` is empty. **The new detail, and the one that narrows the fix: this
+  run had explicitly set the branch's upstream to `origin/main` beforehand** (`git branch
+--set-upstream-to`), and `git rev-parse --abbrev-ref @{upstream}` confirms it — so the hook is
+  not merely defaulting to `origin/<name>` in the absence of an upstream, it is **ignoring a
+  configured upstream that is present**. The 50th run's recommended fix (compare against the
+  configured upstream) is therefore right and sufficient, and can be verified against this case.
+  Unlike the 50th run, this one did not push the branch to clear the hook: doing so costs an
+  irreversible stale branch — the pile stands at 88, P0.95 shows the delete fails with
+  `send-pack: unexpected disconnect` _while exiting 0_, and there is no delete-branch call in the
+  App — and CLAUDE.md forbids leaving `claude/*` branches behind. Paying permanent litter to
+  silence a check whose premise is demonstrably false is the wrong trade, so the hook was left
+  firing and the facts recorded here instead. **Next run: do not push the branch either; verify the
+  two SHAs and move on.**
 - **Note on the routine's description of this repo**: it says "Currently in Phase 4 (advanced
   aerophysics)". That is stale — phases 4 and 5 are complete, every task below `seq` 232 is `done`,
   and the work is in phase 6. `ROADMAP.json`'s `taskSelection` policy (first `in-progress`, else
