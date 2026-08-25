@@ -2649,8 +2649,8 @@
       "estMinutes": 25,
       "difficulty": "M",
       "validation": "scatter renders 1e4 pts < 16 ms (density downsample)",
-      "status": "in-progress",
-      "notes": "Claimed by the 52nd run. Plan: a pure, screen-space `impact-scatter.ts` in `viz` with the two products the title names -- a 1D x_impact histogram for the planar layout and a density-downsampled 2D ground-plane scatter for the spatial one. Remaining: implementation, tests (correctness, counterexamples, edge cases, the 1e4-pt < 16 ms measurement), index export."
+      "status": "done",
+      "notes": "Done in the 52nd run. `packages/viz/src/impact-scatter.ts` supplies the two displays the title names: `buildImpactHistogram` for the planar model's 1D x_impact distribution, and `buildImpactScatter` for the spatial model's 2D ground-plane impacts, density-downsampled to at most one marker per screen cell with that cell's replicate count carried alongside. Criterion met: 1e4 points reduce in best 0.62 ms / median 0.72 ms / worst-of-15 1.44 ms against the 16 ms frame budget (best-of-15 after 20 warmups, measured in the session sandbox and recorded in CHANGELOG.md). The speed alone does not establish the criterion, so three counterexamples are asserted with it: a pass-through implementation would be faster and is excluded by the marker count (5224 from 1e4 at the default 4 px); the downsample is a dial, since a finer cellPx yields strictly more markers; and the guarantee is a ceiling rather than a ratio -- replaying the same ensemble 2x and 4x multiplies the replicates without adding one marker. Counts are permutation-invariant (density is readable); marker positions are real replicates, not centroids. Off-viewport points are culled and reported, never clamped. A test compares the inlined camera transform against `worldToScreen` directly, since an inlined copy can drift. Nothing renders here: P6.10 and P6.11 consume these arrays."
     },
     {
       "id": "P6.10",
