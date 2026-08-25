@@ -264,6 +264,46 @@ spread rather than against `0.95` directly — `CoverageResult.standardError` re
 scale (`0.0154` at 200 repeats), and a run landing on `0.94` is a third of a sigma away and
 evidence of nothing.
 
+### Quantile envelope bands over time
+
+`ensemble-fan.ts` puts an ensemble of adaptively-integrated trajectories onto one time grid
+and reduces each grid point to its quantiles (P6.10). Nothing here draws; P6.20 and P6.24
+render the arrays.
+
+| Symbol               | File              | Meaning                                                        |
+| -------------------- | ----------------- | -------------------------------------------------------------- |
+| `buildEnsembleFan`   | `ensemble-fan.ts` | Per-grid-point quantile bands, with the count behind each      |
+| `resampleOnGrid`     | `ensemble-fan.ts` | One trajectory onto a common grid, by cubic Hermite            |
+| `buildCommonGrid`    | `ensemble-fan.ts` | Uniform grid spanning the union of the ensemble's flights      |
+| `quantileOfSorted`   | `ensemble-fan.ts` | Type-7 quantile of a sorted sample, linear between order stats |
+| `DEFAULT_FAN_LEVELS` | `ensemble-fan.ts` | The 5/25/50/75/95% levels the fan chart is named for           |
+
+**The resampling really is dense output.** A `Trajectory` holds accepted steps only, so
+reading a value between two of them means interpolating, and linear interpolation is
+second-order — it would throw away three orders of the accuracy a DOPRI5 solve was paid
+for, invisibly, since the result still looks like a trajectory. Instead the caller names a
+**derivative channel** and gets cubic Hermite from the two endpoint values and the two
+endpoint slopes, the same interpolant `HermiteDenseOutputStepper` builds inside the solver.
+For a ballistic state that channel is already recorded: `dx/dt` is `vx` and `dy/dt` is `vy`.
+That is a property of this model family rather than a general fact, which is why the
+channel is an argument and not a guess — a wrong one produces a smooth, plausible curve
+that is not the solution, and the honest linear fallback is better than that.
+
+**Nesting is structural.** Every level is read from the same sorted column through a
+level-to-index map that is non-decreasing in `p`, so `q05 ≤ q25 ≤ q50 ≤ q75 ≤ q95` holds by
+construction and nothing clamps or repairs the output — a repair would hide the only kind
+of bug that could produce a crossing. The tests assert it on real ensembles anyway, over
+twenty-one levels rather than only the five the task names.
+
+**A band past the first impact means something different.** Replicates end at different
+times, so the ensemble thins and a late quantile is conditional on the replicate still
+being airborne. `EnsembleFan` therefore carries `sampleCount` per grid point and
+`commonSupportEnd`, the last time every replicate still contributed — the same commitment
+P6.08 made for confidence intervals. A grid time outside a replicate's own span resamples
+to `NaN` rather than to a clamped endpoint, because repeating an impact point across the
+rest of the grid would draw a projectile resting on the ground and drag the quantiles
+towards it.
+
 ## Conventions
 
 - **Angles are radians** throughout the API. Degrees appear only in UI and docs.
