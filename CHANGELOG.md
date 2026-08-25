@@ -72,6 +72,21 @@ forcing a fallback to commit timestamps.
 - **Gate green** at every commit: typecheck, lint, `lint:deps`, `format:check`, **2784/2784 tests
   across 264 files** (from 2741/262), app build, bundle **72.8 kB gzipped** within the 300 kB
   budget (§2.6).
+- **CI 257 at `0188a84` is green on all 35 steps**, 4m23s end to end (Test 2m27s, Build app 21s,
+  Bundle size 1s, last step 07:07:22). Read from the job record rather than the run record, per the
+  39th and 46th runs' trap. **The part worth recording is the four steps the local gate cannot
+  cover** — this is P0.110's gap, and it is where the 43rd run's CI red came from: `Benchmark
+regression check`, `Cross-engine drift check`, `Engine API docs` and `SolverKit API docs` all
+  passed. So the P6.08 change is verified against the typedoc path too, which matters because the
+  44th run's `{@link z0}` failure showed a doc comment can be latently broken and only surface once
+  something new inlines the type. Nothing here is inlined into `engine`'s public API, and the docs
+  steps confirm it rather than the reasoning alone.
+- **Run 258 at `b87127c` is the stop-hook entry above and is `CHANGELOG.md`-only.** Not chased to
+  completion, deliberately: recording each run's result is itself a commit that triggers the next
+  run, so the convention here is one follow-up entry and then stop. A docs-only diff cannot reach
+  any of the 35 steps except by the typedoc path, and this file is not in any typedoc entry point.
+  **Next run: do not open with a check on 258** — if it is red, that is a finding about CI and not
+  about P6.08.
 - **The stop-hook false positive recurred, and this run did _not_ pay the branch for it.** The hook
   reported "4 unpushed commits on branch `claude/upbeat-ride-qukslu`" after the work had already
   landed on `main`. Verified rather than believed: `HEAD` and `origin/main` are both `0188a84`, and
