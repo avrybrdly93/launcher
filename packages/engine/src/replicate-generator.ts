@@ -58,7 +58,11 @@
  *   P6.05.
  */
 
-import { sampleDistribution } from "./distribution.js";
+import {
+  sampleDistribution,
+  sampleDistributionAntithetic,
+  type AntitheticSense,
+} from "./distribution.js";
 import { PCG32 } from "./random.js";
 import { scenarioSpecSchema, type ScenarioSpec } from "./scenario-spec.js";
 import { readSpecNumberAtPath, type UncertainScenarioSpec } from "./uncertain-scenario-spec.js";
@@ -244,6 +248,23 @@ export interface Replicate {
  *   spec fails the base schema.
  */
 export function generateReplicate(study: UncertainScenarioSpec, index: number): Replicate {
+  return buildReplicate(study, index, "direct");
+}
+
+/**
+ * The single definition of "replicate `index` of `study`", parameterised by
+ * which half of an antithetic pair it is (P6.12).
+ *
+ * Both entry points route through here so that the validation, the error
+ * messages and the substream derivation cannot drift between the primary and
+ * its partner -- a partner built by a second, parallel implementation would be
+ * free to accept a parameter vector the primary rejects.
+ */
+function buildReplicate(
+  study: UncertainScenarioSpec,
+  index: number,
+  sense: AntitheticSense,
+): Replicate {
   if (!Number.isInteger(index) || index < 0 || index > MAX_REPLICATE_INDEX) {
     throw new Error(
       `generateReplicate: replicate index must be an integer in [0, ${MAX_REPLICATE_INDEX}], got ${index}`,
@@ -260,7 +281,10 @@ export function generateReplicate(study: UncertainScenarioSpec, index: number): 
   let spec: ScenarioSpec = study.base;
   study.overlays.forEach((overlay, overlayIndex) => {
     const rng = replicateRng(study.seed, index, overlayIndex);
-    const value = sampleDistribution(overlay.distribution, rng);
+    const value =
+      sense === "direct"
+        ? sampleDistribution(overlay.distribution, rng)
+        : sampleDistributionAntithetic(overlay.distribution, rng);
     values.push(value);
     spec = writeSpecNumberAtPath(spec, overlay.path, value);
   });
@@ -278,6 +302,68 @@ export function generateReplicate(study: UncertainScenarioSpec, index: number): 
   }
 
   return { index, values, spec: parsed.data };
+}
+
+/**
+ * Generates the antithetic partner of replicate `index` (P6.12).
+ *
+ * Draws from the *same* `(replicate, overlay)` substreams as
+ * {@link generateReplicate} for the same index, and mirrors each draw through
+ * {@link sampleDistributionAntithetic}. The pair therefore shares nothing but
+ * its randomness: every marginal law is unchanged, and each drawn parameter is
+ * the reflection of its partner's.
+ *
+ * Reusing the index's own substreams rather than allocating fresh ones is what
+ * makes the pairing a property of the construction, exactly as P6.03's
+ * batch-partition independence is. A partner generated alone, or as part of a
+ * batch of any size, is the same object, and no scheduler can pair the wrong
+ * two replicates because the pairing is not something the scheduler chooses.
+ */
+export function generateAntitheticReplicate(
+  study: UncertainScenarioSpec,
+  index: number,
+): Replicate {
+  return buildReplicate(study, index, "reflected");
+}
+
+/**
+ * The primary and its partner, in that order (P6.12).
+ *
+ * The natural unit for an antithetic estimator: the variance reduction comes
+ * from averaging *within* a pair before averaging across pairs, so the pair is
+ * what a caller should reduce over. Returned as a tuple rather than two calls
+ * so that a caller cannot accidentally pair replicate `i` with the partner of
+ * `j`.
+ */
+export function generateAntitheticPair(
+  study: UncertainScenarioSpec,
+  index: number,
+): readonly [primary: Replicate, partner: Replicate] {
+  return [generateReplicate(study, index), generateAntitheticReplicate(study, index)];
+}
+
+/**
+ * Lazily generates `study`'s replicates as antithetic pairs, in index order
+ * (P6.12).
+ *
+ * Yields `2 * ceil(study.replicates / 2)` replicates -- pair `k` is primary `k`
+ * followed by its partner -- so an odd `replicates` produces one extra rather
+ * than a half pair. Truncating instead would leave the final primary unmatched,
+ * and an unmatched draw does not have the pair's variance and would bias the
+ * estimator's own error bars downward; rounding up keeps every replicate inside
+ * a complete pair, which is the assumption the pair-mean estimator rests on.
+ *
+ * This is the *option* of P6.12's title. {@link replicates} remains the default
+ * because antithetic sampling helps only for observables monotone in the drawn
+ * parameters and hurts for ones symmetric about the draw's mean; see
+ * {@link sampleDistributionAntithetic}'s note.
+ */
+export function* antitheticReplicates(study: UncertainScenarioSpec): Generator<Replicate> {
+  const pairs = Math.ceil(study.replicates / 2);
+  for (let index = 0; index < pairs; index += 1) {
+    yield generateReplicate(study, index);
+    yield generateAntitheticReplicate(study, index);
+  }
 }
 
 /**
