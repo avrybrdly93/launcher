@@ -2682,8 +2682,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "variance reduction measured >0 on monotone observable (range vs v₀)",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed 2026-08-26 (55th run), before any code. Plan: reflect at the standard-variate level, not the raw-uniform level. sampleDistributionAntithetic in distribution.ts mirrors each draw of sampleDistribution -- 1-u for uniform and for the inverse-CDF truncated branches, -z for the untruncated Box-Muller normal -- and generateAntitheticReplicate reuses the SAME (replicate, overlay) substreams as generateReplicate so a pair is exactly a mirrored draw. Validation exhibit goes in packages/analysis (it needs dragFreeRange, and analysis depends on engine, not the reverse)."
     },
     {
       "id": "P6.13",
