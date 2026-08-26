@@ -15,6 +15,23 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-26 (55th run, addendum) — **CI 265 green on all 35 steps at `465af37`**
+
+- Run **265** concluded `success`, 5m17s end to end, Test step **2m32s**. Read from the job record
+  rather than the run record, per the stale-status trap.
+- **The four steps `CLAUDE.md`'s local gate does not cover all passed**: benchmark regression,
+  cross-engine drift, Engine API docs and SolverKit API docs. That last pair matters for this run
+  specifically — `sampleDistributionAntithetic` and the three new `replicate-generator` exports carry
+  `{@link}` tags, and the engine typedoc step is what resolves them. The 44th run's latent-`{@link}`
+  finding says a doc comment can be broken and surface only once something new inlines the type, so
+  the new TSDoc being rendered rather than merely written is worth stating.
+  **Scoped honestly: the typedoc steps build `engine` and `solverkit`, not `analysis`**, so the
+  validation exhibit's own comments are not covered by them.
+- CI also runs a **Format** step (`prettier --check`) that `CLAUDE.md`'s documented five-command gate
+  omits — it passed, because the repo's `lint-staged` hook formats on commit, but the omission is the
+  same P0.110 gap and this run did not close it.
+- One follow-up entry, then stop — run 266 is not chased.
+
 ## 2026-08-26 (55th run) — **P6.12 done**: an antithetic mirror that is per-distribution, and the counterexample asserted rather than warned about
 
 - **P6.12 is done and its criterion is met.** `packages/engine/src/distribution.ts` gains
