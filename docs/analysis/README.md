@@ -351,6 +351,45 @@ true for replicates on ADR-011's independent substreams, false for an ensemble s
 frozen wind path or sweeping a parameter grid. Nothing in the formula can detect the
 difference, and the error is toward an interval that is too narrow.
 
+### Estimating a mean with a control variate
+
+`control-variate.ts` estimates `E[Y]` using a cheap, correlated quantity whose mean is
+known exactly (P6.13). The estimator is `Ŷ_cv = ȳ − c(x̄ − E[X])`, and the control the
+blueprint names is the drag-free analytic range — cheap, correlated, exact mean.
+
+| Symbol                         | File                 | Meaning                                                                  |
+| ------------------------------ | -------------------- | ------------------------------------------------------------------------ |
+| `controlVariateMean`           | `control-variate.ts` | Estimate with a control; reports the reduction factor and both SEs       |
+| `dragFreeRangeControlMean`     | `control-variate.ts` | `E[dragFreeRange]` for a normal `v₀` — the exact control mean            |
+| `formatControlVariateEstimate` | `control-variate.ts` | Renders `138.9 ± 0.2 (plain 142.8 ± 4.9), factor 0.001, rho 0.999, n=64` |
+
+**The reduction factor is an output, not a decoration.** `1 − ρ²` is the entire story of
+whether a control was worth using: at `ρ = 0.9` it removes 81% of the estimator variance,
+at `ρ = 0.3` it removes 9% and is not worth the plumbing. An estimate that arrives without
+its factor and its plain counterpart cannot be checked, only believed — so
+`ControlVariateEstimate` carries the plain mean and both standard errors beside its own.
+The factor is computed from the general `Var(ȳ) − 2c·Cov + c²Var` form rather than the
+`c*` one, so a caller-supplied `c` that is hurting reports a factor **above 1** rather
+than being clamped to look harmless.
+
+**`c` decides precision, never correctness.** `E[x̄ − E[X]] = 0`, so the estimator is
+unbiased for _any_ fixed `c`. The default `ĉ = Cov/Var` is estimated from the same sample
+and is therefore correlated with `x̄`, which biases the result at `O(1/N)`. That bias is
+measured, not asserted: it resolves at more than five standard errors once a few thousand
+studies are pooled, and `N × bias` holds constant across an 8× span of `N`. It stays the
+default because at `N = 64` it is ~17% of a _single study's_ standard deviation — invisible
+in any real run — and shrinks faster than the `O(N^{−1/2})` standard error, so it never
+becomes the binding error term. Pass `coefficient` (from a pilot run) for an estimator
+whose unbiasedness is exact.
+
+**The dangerous input is a wrong control mean, and it fails silently.** A mean wrong by `d`
+shifts the estimate by exactly `c·d` and leaves the standard error bit-identical — nothing
+in the output says the answer moved. This is why `dragFreeRangeControlMean` carries
+`E[v₀²] = μ² + σ²` and not `μ²`: dropping the `σ²` term understates the control mean by
+2.2% of the range at `μ = 40, σ = 6`, many standard errors' worth of shift hidden inside an
+interval that never widens. Both the shift and its invisibility are asserted in
+`control-variate-variance-reduction.test.ts`.
+
 ## Conventions
 
 - **Angles are radians** throughout the API. Degrees appear only in UI and docs.

@@ -12,6 +12,7 @@ export * from "./envelope.js";
 export * from "./ill-conditioning.js";
 export * from "./levenberg-marquardt.js";
 export * from "./confidence-interval.js";
+export * from "./control-variate.js";
 export * from "./ensemble-fan.js";
 export * from "./hit-probability.js";
 export * from "./mc-convergence.js";
