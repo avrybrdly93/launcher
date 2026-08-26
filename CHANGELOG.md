@@ -15,6 +15,63 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-26 (56th run) — **P6.13 done, and the test that was wrong instead of the code**
+
+- **P6.13, control variates, done.** `packages/analysis/src/control-variate.ts`:
+  `controlVariateMean(y, x, knownMeanX, {coefficient?})`, `dragFreeRangeControlMean` for the
+  exact control mean, and `formatControlVariateEstimate`. Exported and documented in
+  `docs/analysis/README.md`; `ROADMAP.json` carries the full notes, as `policy.commitRules`
+  requires, and this entry does not restate them.
+- **Both halves of the criterion measured**, 400 studies of `N = 64`. Factor: estimator
+  variance ratio **0.00115**, a 99.9% cut, mean `rho` **0.99952**, mean reported factor
+  **9.63e-4** — and the _reported_ factor is asserted against the _measured_ reduction, not
+  merely printed. Unbiasedness: held to its **own** standard error (29.5× tighter than plain
+  MC's) against an **analytic** truth.
+- **The analytic truth is why the drag model is a closed form.** The observable is
+  `(v0^2 - b v0^3) sin(2t)/g`, chosen so `E[R]` follows from `E[v0^3] = mu^3 + 3 mu sigma^2`
+  exactly. A large Monte Carlo reference was the first draft, and it would have been useless
+  here: its own error is the same order as the effect the test needs to resolve. Picking the
+  test's reference before picking its tolerance is the lesson worth carrying.
+- **The first draft's unbiasedness assertion failed, and the code was right.** It asserted the
+  default estimator hits the truth within its own standard error; it missed at **4.5 SE**. That
+  is not noise — it is the documented `O(1/N)` bias from estimating `c` on the same sample
+  becoming _resolvable_, because the control-variate standard error is finally small enough to
+  see it. Probing `N = 16..512` over 20k studies settled it: **`N x bias` is constant at
+  1.56-1.95** while the bias itself falls `1.1e-1 -> 3.0e-3`, and the fixed-`c` estimator sits
+  within 1.8 SE at every `N`. So the test encoded a wrong belief about the code, and the suite
+  now asserts what is true: unbiasedness for a **fixed** `c` (a theorem, 4 SE against the
+  analytic truth), the estimated-`c` bias as **real** (>5 SE over 4000 studies) and as
+  **`O(1/N)`** (an 8× span, ratio bounded 4-16, which separates `1/N` from the 2.83 of
+  `N^-1/2` and the 1 of no decay at all). **The bias was not tolerated by loosening a bound;
+  it was measured and then asserted.**
+- **Why the biased estimator stays the default**, stated because "there is a small bias" is not
+  a reason on its own: at `N = 64` it is ~17% of a **single study's** standard deviation, so no
+  real run can see it, and being one order below the `O(N^-1/2)` standard error it shrinks
+  faster and never becomes the binding term. A caller who needs exactness passes `coefficient`.
+- **Two counterexamples measured, per the standard the P6.12 exhibit set.** An uncorrelated
+  control degrades to plain MC (ratio **0.994**) rather than doing harm, because `c-hat`
+  correctly estimates near zero. And a **wrong control mean shifts the estimate by exactly
+  `c*d` while leaving the standard error bit-identical** — the module's silent failure mode,
+  and the concrete reason `dragFreeRangeControlMean` carries the `sigma^2` term in
+  `E[v0^2] = mu^2 + sigma^2` rather than using `mu^2`.
+- **Two figures in an early draft of the source comments were guesses and are now measurements**
+  (the reduction and the uncorrelated-control ratio). The 55th run made the same correction
+  about its own "about 89%"; the pattern is worth naming — a comment written before the
+  measurement lands tends to survive it.
+- **Local gate clean at `adbf8dc`** (Node 22.22.2, pnpm 11.9.0): `pnpm typecheck` 0 errors,
+  `pnpm lint` clean, `pnpm lint:deps` **no violations (1558 modules, 4417 dependencies)**,
+  `pnpm format:check` clean, `pnpm test` **2945 passed across 272 files**, `pnpm build` ✓ in
+  20.65s. Baseline before this run was 2911 across 270; the 34 new tests are P6.13's.
+- **A trap for the next run, and it is not a regression.** `pnpm test` **before** `pnpm
+typecheck` fails 3 tests in `packages/validation/src/cross-engine-drift-record.test.ts`:
+  they shell out to `scripts/cross-engine-drift-fixture.mjs`, which imports
+  `packages/engine/dist/index.js`, and `tsc -b` is what emits it. A fresh clone has no `dist`,
+  so the failure looks like a real one and is only build ordering. CI does not see it because
+  its Typecheck step precedes its Test step. **Run `pnpm typecheck` first; do not go looking
+  for a drift bug.**
+
+---
+
 ## 2026-08-26 (55th run, addendum) — **CI 265 green on all 35 steps at `465af37`**
 
 - Run **265** concluded `success`, 5m17s end to end, Test step **2m32s**. Read from the job record
