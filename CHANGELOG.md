@@ -15,6 +15,71 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-26 (55th run) — **P6.12 done**: an antithetic mirror that is per-distribution, and the counterexample asserted rather than warned about
+
+- **P6.12 is done and its criterion is met.** `packages/engine/src/distribution.ts` gains
+  `sampleDistributionAntithetic`; `replicate-generator.ts` gains `generateAntitheticReplicate`,
+  `generateAntitheticPair` and `antitheticReplicates`. Both flow out through the engine index's
+  `export *`. Full detail is in `ROADMAP.json` and is not restated here.
+- **The obvious implementation is a stream-level `1 - u` wrapper, and it is wrong.** Every textbook
+  statement of antithetic variates says "use `1 − u`", and for an inverse-CDF sampler that is exactly
+  right. This engine is only _partly_ one: an untruncated normal or lognormal goes through
+  Box-Muller, which is **not monotone in either of its two uniforms**. Feed `nextGaussian` the pair
+  `1 − u₁, 1 − u₂` and you get a perfectly valid standard normal bearing **no** relationship to the
+  direct draw — correlation near **zero** instead of −1, so the entire variance reduction quietly
+  does not happen while every determinism test still passes. The sense is therefore threaded down to
+  each sampler, which mirrors in whichever domain is correct for it: `1 − u` for `uniform` and for
+  the inverse-CDF truncated branches, `−z` for the untruncated normal and lognormal. **Neither rule
+  works alone** — `−z` walks off a one-sided support, and `1 − u` has no single `u` under Box-Muller.
+- **The criterion, measured: variance ratio `0.0246`, a 97.5% reduction**, on `dragFreeRange` at π/4
+  with `v₀ ~ N(40, 6)`, N=64 replicates over 400 independent studies. That is a large number and it
+  has a closed-form reason rather than a lucky one: with range ∝ `v₀²` and `v₀ = μ + d`, the pair
+  mean is `((μ+d)² + (μ−d)²)/2 = μ² + d²`, so the linear `2μd` term that carries nearly all the
+  variance **cancels exactly** and only `d²` survives. The assertion is pinned at ratio < 0.10, not
+  at the measured value.
+- **The counterexample is asserted, not warned about.** Antithetic sampling is not free: on
+  `f(v₀) = (v₀ − 40)²`, symmetric about the draw's mean, mirroring cancels nothing and a 32-pair
+  average replaces a 64-draw one — the paired estimator is measurably **worse**, and a test asserts
+  that degradation rather than a comment mentioning it. This is why `replicates()` stays the default
+  and P6.12 shipped as an **option**. A suite that only demonstrated the win would have made the
+  feature look unconditionally good, which it is not.
+- **Three numbers measured instead of trusted.** (1) The lognormal pair attains its _analytic_
+  countermonotonic bound `(e^{−s²} − 1)/(e^{s²} − 1) = −0.852` at `s = 0.4` — reaching the
+  theoretical minimum is not something an approximate mirror does, which makes this the strongest
+  available statement that the partner is the true mirror. (2) A normal truncated to `[2, ∞)` reaches
+  only **−0.731**; that is a property of a skewed marginal, not a defect, since no coupling of that
+  marginal with itself does better — and its mirror-image spec `(−∞, −2]` reaches the _identical_
+  figure to 10 places, which is what checks the `β ≤ 0` reflection branch, the one place a sign error
+  would still look plausible. (3) **A test failure that was the test's fault and is recorded as
+  such:** the marginal-law KS check rejected at 1% on every truncated spec (0.0605 against a 0.0515
+  critical value). The control that settled it was direct-against-direct under the _same_ seeding,
+  which rejects just as hard at 0.0655 — so the non-uniformity was building a fresh `PCG32` per
+  observation from seeds in an arithmetic progression and taking one draw from each, and had nothing
+  to do with the mirror. Drawn sequentially from one stream the same comparison gives 0.0170. That is
+  the concrete cost of the hazard `replicateSeed` hashes through splitmix64 to avoid, so it is
+  written into the test rather than worked around.
+- **Two of this run's own errors, corrected before landing and named here rather than buried.** The
+  validation comment first guessed the reduction at "about 89%" from theory; the measurement says
+  97.5%, and the comment now carries the measured number. And the draw-spread check first asserted a
+  ±15% band on a _single_ seed and drew 1.161 — a 64-draw sample variance carries about 18% standard
+  error, so the interval was narrower than the statistic. Fixed by averaging over the 400 studies,
+  which is the sound measurement, rather than by widening the bound, which would have been the
+  cheaper move.
+- **A red commit landed locally and was amended before push, and the cause is worth naming.** The
+  pairing commit was made with a failing `tsc` because the verification was written as
+  `pnpm typecheck 2>&1 | tail -2 && …` — the pipe makes the exit status `tail`'s, which is always 0,
+  so the `&&` chain sailed past a type error. Nothing was pushed; the commit was amended once the fix
+  was green. **Use `set -o pipefail`, or do not pipe a gate command into `tail`.**
+- **Notes.** No symplectic integrator was touched — nothing here is dissipative-dynamics work.
+  Nothing was wired into the P6.04 `mc` worker job and no UI surface was added: `antitheticReplicates`
+  is a drop-in replacement for `replicates()` at that call site, but **nothing calls it yet**, which
+  is the first thing a follow-up should fix. Full gate green before push: typecheck 0 errors, lint,
+  `lint:deps` (1549 modules, 4398 dependencies), **2911 tests across 270 files** (from 2860/267),
+  build 31.6s. One clause on the scheduled prompt, carrying nothing forward: this run's text says the
+  repo is "currently in Phase 4 (advanced aerophysics)" — phases 4 and 5 are complete and P6.12 is a
+  phase-6 task, so that line is stale. The routine's own precedence rule says the repo's docs win,
+  and `ROADMAP.json` was authoritative here as designed.
+
 ## 2026-08-25 (54th run) — **P6.11 done**: a Wilson interval, and two numbers checked instead of trusted
 
 - **P6.11 is done and its criterion is met.** `packages/analysis/src/hit-probability.ts` scores an
