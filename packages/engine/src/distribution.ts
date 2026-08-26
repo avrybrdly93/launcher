@@ -182,9 +182,27 @@ function isUntruncated(alpha: number, beta: number): boolean {
  * this in the `Phi` domain throughout would resolve `[4, 5]` to about eleven
  * digits and `[10, 11]` to none at all.
  */
-function sampleTruncatedStandardNormal(rng: PCG32, alpha: number, beta: number): number {
-  if (isUntruncated(alpha, beta)) return rng.nextGaussian();
-  const u = rng.nextF64();
+function sampleTruncatedStandardNormal(
+  rng: PCG32,
+  alpha: number,
+  beta: number,
+  sense: AntitheticSense = "direct",
+): number {
+  if (isUntruncated(alpha, beta)) {
+    // Symmetric support, so the antithetic partner is the negation. Box-Muller
+    // is *not* monotone in its two uniforms -- `1 - u` on the pair does not give
+    // `-z`, it gives an unrelated normal -- so the mirror has to be taken on the
+    // variate, which is the whole reason this sense parameter is threaded down
+    // here rather than wrapped around `nextF64` at the top.
+    const z = rng.nextGaussian();
+    return sense === "direct" ? z : -z;
+  }
+  const drawn = rng.nextF64();
+  // Every branch below places `u` through an increasing inverse CDF, so `1 - u`
+  // is exactly the mirrored quantile of the *truncated* law and stays inside the
+  // support. `-z` would not: a distribution truncated to `[1, 3]` has no mass at
+  // `-z`, so the negation used above is correct only for the untruncated case.
+  const u = sense === "direct" ? drawn : 1 - drawn;
   if (beta <= 0) {
     // Reflect: the mirrored interval has a non-negative lower bound, so the
     // branch below applies and its accuracy carries over.
@@ -232,11 +250,76 @@ function clampToSupport(spec: DistributionSpec, value: number): number {
  * @param rng - a seeded generator; see `random.ts`.
  */
 export function sampleDistribution(spec: DistributionSpec, rng: PCG32): number {
+  return sampleWithSense(spec, rng, "direct");
+}
+
+/**
+ * Which half of an antithetic pair a draw is (P6.12).
+ *
+ * `"direct"` reproduces {@link sampleDistribution} exactly. `"reflected"`
+ * consumes the *same* number of raw draws from the same stream and returns the
+ * partner variate -- the value the same underlying randomness maps to under the
+ * distribution's own mirror.
+ */
+export type AntitheticSense = "direct" | "reflected";
+
+/**
+ * Draw the antithetic partner of the sample {@link sampleDistribution} would
+ * take from this generator state (P6.12).
+ *
+ * Pass a generator in the *same* state the direct draw started from -- in
+ * practice the same `(replicate, overlay)` substream, which is what
+ * `generateAntitheticReplicate` does -- and the two values are a matched pair:
+ * identical marginal law, and negatively correlated by construction.
+ *
+ * ## Why the mirror is taken on the variate and not on the uniform stream
+ *
+ * The textbook description of antithetic variates is "use `1 - u`", and for an
+ * inverse-CDF sampler that is exactly right. This module is only *partly* an
+ * inverse-CDF sampler: an untruncated normal or lognormal goes through
+ * Box-Muller ({@link PCG32.nextGaussian}), which is **not monotone** in either
+ * of its two uniforms. Feeding it `1 - u1, 1 - u2` yields a perfectly good
+ * standard normal that has no particular relationship to the direct draw --
+ * near-zero correlation rather than -1, so the variance reduction the option
+ * exists to deliver would silently not happen. A stream-level wrapper is the
+ * obvious implementation and it is the wrong one; hence the sense is threaded
+ * down to each sampler, which mirrors in whichever domain is correct for it:
+ *
+ * | spec | direct | reflected | why |
+ * | --- | --- | --- | --- |
+ * | `uniform` | `min + (max-min) u` | `min + (max-min) (1-u)` | linear, so `1-u` is the exact mirror |
+ * | untruncated `normal`/`lognormal` | `z` | `-z` | support is symmetric about the mean; Box-Muller has no single `u` to invert |
+ * | truncated any | `F^-1(u)` | `F^-1(1-u)` | `-z` would leave a one-sided support; the truncated quantile map is increasing, so `1-u` mirrors within it |
+ *
+ * ## What this does not promise
+ *
+ * Antithetic sampling reduces variance when the observable is **monotone** in
+ * the drawn parameters, and can *increase* it when the observable is symmetric
+ * about the mean of the draw (a pair either side of a parabola's vertex gives
+ * the same value, so the pair average has no cancellation at all). It is an
+ * option, defaulted off, for that reason. The measured reduction on the
+ * criterion's monotone case lives in
+ * `packages/analysis/src/antithetic-variance-reduction.test.ts`, and that file
+ * also measures the non-monotone counterexample rather than merely warning
+ * about it.
+ */
+export function sampleDistributionAntithetic(spec: DistributionSpec, rng: PCG32): number {
+  return sampleWithSense(spec, rng, "reflected");
+}
+
+/**
+ * The single definition of the draw, parameterised by which half of the pair it
+ * is. Both public entry points route through here so that a change to the
+ * mapping cannot apply to one half and not the other.
+ */
+function sampleWithSense(spec: DistributionSpec, rng: PCG32, sense: AntitheticSense): number {
   if (spec.kind === "uniform") {
-    return spec.min + (spec.max - spec.min) * rng.nextF64();
+    const drawn = rng.nextF64();
+    const u = sense === "direct" ? drawn : 1 - drawn;
+    return spec.min + (spec.max - spec.min) * u;
   }
   const [alpha, beta] = standardBounds(spec);
-  const z = sampleTruncatedStandardNormal(rng, alpha, beta);
+  const z = sampleTruncatedStandardNormal(rng, alpha, beta, sense);
   if (spec.kind === "normal") {
     return clampToSupport(spec, spec.mean + spec.stdDev * z);
   }
