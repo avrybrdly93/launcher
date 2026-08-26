@@ -2693,8 +2693,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "variance reduction factor reported; estimator unbiased (test vs plain MC)",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed. Plan: controlVariateMean(y, x, knownMeanX) in packages/analysis, estimating c* = Cov(x,y)/Var(x) and reporting the variance reduction factor 1 - rho^2 alongside the estimate and its SE. Control is dragFreeRange, whose mean under a normal v0 overlay is exact: E[v0^2] sin(2 theta)/g = (mu^2 + sigma^2) sin(2 theta)/g. Unbiasedness measured against plain MC over many independent studies, not argued from theory."
     },
     {
       "id": "P6.14",
