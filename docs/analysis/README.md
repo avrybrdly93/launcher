@@ -436,6 +436,58 @@ to stratified sampling with replacement.
 would give lower variance and a biased estimator: a quadrature rule wearing a Monte Carlo
 costume, whose sample spread no longer estimates anything.
 
+### Quasi-Monte Carlo: a scrambled Sobol' sequence
+
+`sobol.ts` (in `@ballista/engine`) is the fourth way to draw a study's replicates (P6.15),
+and the one that changes the _rate_ rather than the constant. Plain Monte Carlo's standard
+error falls as `N^(-1/2)` whatever the integrand; a low-discrepancy sequence gives that up
+in exchange for points constructed to fill the unit cube evenly at every scale, and for an
+integrand of bounded variation the Koksma–Hlawka inequality turns that into an error
+bounded by the sequence's discrepancy.
+
+These live in `@ballista/engine`, so they are listed rather than tabulated, for the same
+reason as the Latin hypercube entries above.
+
+- `sobolReplicates` — generator over the whole study; the drop-in for `replicates`
+- `generateSobolReplicate` — one replicate by index
+- `sobolUniform` — the scrambled coordinate for a `(replicate, dimension)` pair, before the
+  quantile map
+- `sobolInteger` — the raw, unscrambled Sobol' coordinate as a 32-bit integer
+- `nestedUniformScramble` — the Owen-style digit scramble, exposed because it is the part
+  worth testing directly
+
+**Measured, on a smooth two-parameter problem with a closed-form mean** (drag-free range
+over a uniform speed and a uniform angle, `N = 64 … 8192`, RMSE over 24 independent
+scramble seeds): slope **−1.4598** against plain MC's **−0.4522**, and at `N = 8192` an
+RMSE of **9.557e-5** against MC's **4.994e-1** — better by a factor of **5200**. See
+`sobol-convergence.test.ts`.
+
+**The slope is steeper than `N^(-1)` because the scramble is nested, and that is
+checkable.** Owen (1997) gives `O(N^(-3/2))` RMSE for a smooth integrand under nested
+uniform scrambling against `O(N^(-1))` for a plain digital shift. Five independent seed
+families measure −1.4598, −1.3749, −1.3648, −1.4044, −1.3888; the same points under an XOR
+shift measure −1.0297. The test asserts −1.2 for exactly that reason: replacing the nested
+scramble with a shift is the obvious simplification, and it would leave every structural
+test passing.
+
+**Scrambling is not optional.** An unscrambled Sobol' sequence is a quadrature rule, not a
+Monte Carlo estimator: its error is a fixed number with no distribution, so the standard
+errors of P6.07 and the confidence bands of P6.09 would be reporting a quantity that does
+not exist. A nested uniform scramble restores unbiasedness while preserving the
+stratification, because a permutation of digit `k` that depends only on digits `1..k-1`
+maps every elementary interval onto another of the same size.
+
+**Unlike a Latin hypercube, a Sobol' study is extensible in `N`.** Point `i` depends on `i`
+and the scramble key, not on the replicate count, so the first `N` points of a longer study
+are the same points and an estimator can be refined by appending replicates. That makes
+this the sampler to reach for under a convergence sweep or a progressive display (P6.25),
+where LHS is comparing unrelated designs.
+
+**The advantage decays with dimension, and dies on a discontinuity.** Measured on an
+indicator observable — unbounded variation in the Hardy–Krause sense — the slope is
+**−0.7834**: still better than plain MC, nowhere near the smooth case. The direction-number
+table covers 21 dimensions, which is far more than the QMC advantage survives.
+
 ## Conventions
 
 - **Angles are radians** throughout the API. Degrees appear only in UI and docs.
