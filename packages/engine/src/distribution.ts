@@ -212,6 +212,55 @@ function sampleTruncatedStandardNormal(
 }
 
 /**
+ * The **increasing** inverse CDF of the standard normal restricted to
+ * `[alpha, beta]`.
+ *
+ * ## Why this is a separate function and not a reuse
+ *
+ * {@link placeUniformInTruncatedNormal} is not consistently oriented, and
+ * cannot simply be called here. Its two branches run in opposite directions:
+ *
+ * - `alpha < 0`: works in the `Phi` domain and returns
+ *   `Phi^-1(Phi(alpha) + u (Phi(beta) - Phi(alpha)))`, which **increases** from
+ *   `alpha` to `beta`.
+ * - `alpha >= 0`: works in the upper tail, interpolating from `Q(beta)` up to
+ *   `Q(alpha)` as `u` goes 0 -> 1. More mass above means a smaller value, so it
+ *   **decreases**, from `beta` down to `alpha`. In quantile terms it is
+ *   `F^-1(1 - u)`.
+ *
+ * For a *draw* the inconsistency is invisible and harmless: `u` and `1 - u` are
+ * both uniform, so each branch samples exactly the right law, and the
+ * antithetic mirror still mirrors because a decreasing map is still monotone.
+ * For a *quantile* it is fatal -- stratum `k` of `N` would land in band
+ * `N - 1 - k` whenever the truncation happened to sit above zero, silently
+ * transposing a Latin hypercube along that one dimension while leaving every
+ * marginal law correct and every histogram looking right.
+ *
+ * So each branch is oriented explicitly here, and the sampler above is left
+ * bit-for-bit alone rather than reoriented -- every recorded draw, golden
+ * trajectory and determinism test in the repository depends on its exact
+ * output.
+ *
+ * Correct with infinite bounds: `alpha = -inf`, `beta = +inf` takes the middle
+ * branch and reduces to `normalQuantile(u)`.
+ */
+function standardNormalQuantileInInterval(u: number, alpha: number, beta: number): number {
+  if (beta <= 0) {
+    // Reflect onto `Y = -Z`, whose interval `[-beta, -alpha]` has a
+    // non-negative lower bound and so takes the decreasing branch below.
+    // `place(u, -beta, -alpha) = F_Y^-1(1 - u)`, and `F_Z^-1(u) =
+    // -F_Y^-1(1 - u)`, so the negation of the unflipped call is already the
+    // increasing quantile of `Z`.
+    return -placeUniformInTruncatedNormal(u, -beta, -alpha);
+  }
+  if (alpha >= 0) {
+    // The decreasing branch: feed it `1 - u` to get `F^-1(u)`.
+    return placeUniformInTruncatedNormal(1 - u, alpha, beta);
+  }
+  return placeUniformInTruncatedNormal(u, alpha, beta);
+}
+
+/**
  * The inverse-CDF placement itself, split out so the reflection above can
  * reuse it with an already-drawn uniform.
  */
@@ -320,6 +369,43 @@ function sampleWithSense(spec: DistributionSpec, rng: PCG32, sense: AntitheticSe
   }
   const [alpha, beta] = standardBounds(spec);
   const z = sampleTruncatedStandardNormal(rng, alpha, beta, sense);
+  if (spec.kind === "normal") {
+    return clampToSupport(spec, spec.mean + spec.stdDev * z);
+  }
+  return clampToSupport(spec, Math.exp(spec.logMean + spec.logStdDev * z));
+}
+
+/**
+ * The distribution's inverse CDF: the value with probability `u` below it.
+ *
+ * Increasing in `u` for every spec this module accepts, which is the property
+ * stratified samplers rest on -- P6.14's Latin hypercube needs stratum `k` of
+ * `N` to map into the `k`th `1/N` band of probability mass, and P6.15's Sobol'
+ * sequence needs the same guarantee. Consumes no randomness; the caller
+ * decides where in `(0, 1)` to look.
+ *
+ * Unlike {@link sampleDistribution} this is inverse-CDF *throughout*. The
+ * untruncated normal and lognormal are drawn by Box-Muller there, which is a
+ * perfectly good sampler but not a quantile: it consumes two uniforms and is
+ * monotone in neither, so there is no `u` to hand it. Here they go through
+ * `normalQuantile` instead. The two therefore produce different numbers from
+ * the same generator state, by design -- this is a map, not a draw.
+ *
+ * @param u - a probability in `(0, 1)`. The open interval is required: the
+ *   endpoints are at infinity for any unbounded spec, and silently clamping
+ *   them would put a spike of mass on a bound that the distribution gives
+ *   probability zero.
+ * @throws if `u` is not a finite number strictly inside `(0, 1)`.
+ */
+export function distributionQuantile(spec: DistributionSpec, u: number): number {
+  if (!Number.isFinite(u) || u <= 0 || u >= 1) {
+    throw new Error(`distributionQuantile: u must be a finite probability in (0, 1), got ${u}`);
+  }
+  if (spec.kind === "uniform") {
+    return spec.min + (spec.max - spec.min) * u;
+  }
+  const [alpha, beta] = standardBounds(spec);
+  const z = standardNormalQuantileInInterval(u, alpha, beta);
   if (spec.kind === "normal") {
     return clampToSupport(spec, spec.mean + spec.stdDev * z);
   }
