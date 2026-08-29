@@ -15,6 +15,57 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-29 (57th run) — **P6.14 done, and an orientation bug that only a quantile could see**
+
+- **P6.14, Latin hypercube sampling, done.** `packages/engine/src/latin-hypercube.ts`:
+  `latinHypercubeReplicates`, `generateLatinHypercubeReplicate`, `latinHypercubeStratum`,
+  `latinHypercubeUniform`. Exported from `@ballista/engine` and documented in
+  `docs/analysis/README.md` beside the other two variance-reduction options;
+  `ROADMAP.json` carries the full notes, as `policy.commitRules` requires, and this entry
+  does not restate them.
+- **The design problem was P6.03's guarantee, not the sampling.** Replicate `i` must be a
+  pure function of `(seed, N, overlay, i)` so any worker partition reproduces the same
+  ensemble. LHS is inherently joint across all `N` replicates, and the textbook
+  implementation materialises a Fisher–Yates permutation per dimension — `O(N)` to answer
+  for one replicate, so `O(N²)` to pull a study one at a time, and simply unavailable to a
+  worker that knows only its own range. So the permutation is **never materialised**: a
+  four-round Feistel network over the enclosing power-of-two domain plus cycle walking
+  gives `π_j(i)` pointwise in `O(1)`. A Feistel network is a bijection whatever its round
+  function does, which is the guarantee that matters — "exactly one replicate per stratum"
+  is the entire content of _Latin_, and a hash reduced mod `N` would collide and quietly
+  degrade to stratified sampling with replacement.
+- **A prerequisite, and the bug it exposed.** LHS needs a monotone map from a stratified
+  uniform, and `sampleDistribution` is not one — untruncated normals go through
+  Box–Muller, which consumes two uniforms and is monotone in neither. Adding
+  `distributionQuantile` surfaced that **`placeUniformInTruncatedNormal` is not
+  consistently oriented**: its `alpha < 0` branch increases, its `alpha >= 0` upper-tail
+  branch _decreases_. Harmless for a draw, since `u` and `1 − u` are both uniform and each
+  branch samples the correct law. Fatal and silent for a quantile: stratum `k` would land
+  in band `N − 1 − k` whenever a truncation sat above zero, transposing a hypercube along
+  one dimension while every marginal law stayed correct and every histogram looked right.
+  The quantile orients each branch explicitly; **the sampler was left bit-for-bit alone**,
+  because every golden trajectory and determinism test depends on its exact output.
+- **Both halves of the criterion measured.** Stratification: bijectivity onto `[0, N)` for
+  eleven values of `N` across three dimensions, plus per-dimension independence and
+  end-to-end stratification after the quantile map. SE improvement: 400 studies of
+  `N = 64` on the closed-form range, **6.037 m → 0.410 m**, ratio **0.068** — a 93% cut in
+  standard error, 216× in variance — with unbiasedness held against the analytic
+  `E[range]` at the LHS estimator's own tighter SE.
+- **The counterexample took two attempts, and the failed one is the more interesting.** A
+  threshold observable in one dimension is not a counterexample at all: with the step at
+  the median it lands exactly on a stratum boundary, so 32 of 64 strata sit above it in
+  every study and the estimator is **exact**, SE `0.0000000` against `0.0628`. The real
+  limit is dimensional — LHS removes main-effect variance and leaves interaction variance,
+  measured at ratio **1.10** on a pure interaction. Both are recorded in the test file.
+- **Next run:** P6.15, Sobol' sequence with scrambling, which `distributionQuantile` now
+  unblocks — it needs exactly the same monotone map. Note for whoever takes P6.17: an LHS
+  study cannot be refined incrementally in `N`, so a convergence sweep under it compares
+  unrelated designs.
+- Full suite green: 275 files, 3000 tests. `typecheck`, `eslint`, `lint:deps` and `build`
+  all clean.
+
+---
+
 ## 2026-08-26 (56th run) — **P6.13 done, and the test that was wrong instead of the code**
 
 - **P6.13, control variates, done.** `packages/analysis/src/control-variate.ts`:
