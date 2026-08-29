@@ -2715,8 +2715,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "error ~N^{−1} slope on smooth 2-param problem (measured vs MC)",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed. First unclaimed task by the roadmap's own selection policy: nothing is in-progress or in review, so it is the first 'todo' by seq, and the 57th run's changelog entry names it as next. Plan: (1) sobol.ts -- Joe-Kuo direction numbers and the direct (non-Gray-code) construction, so point i is derivable from i alone and P6.03's batch-partition independence survives; (2) scrambling as a nested uniform (Owen-style) digit scramble via the Laine-Karras hash, which is O(1), keyed, and net-preserving because it is triangular on bit-reversed input -- that triangularity is the thing to TEST, not to assert; (3) sobolUniform / generateSobolReplicate / sobolReplicates mirroring the LHS entry points and reusing distributionQuantile from P6.14; (4) the criterion: measured error-vs-N slope on a smooth 2-parameter problem, against plain MC on the same problem. One contrast worth documenting against LHS: a Sobol' sequence IS extensible in N -- the first 2^m points of a longer study are the same points -- which is exactly the property LHS cannot have."
     },
     {
       "id": "P6.16",
