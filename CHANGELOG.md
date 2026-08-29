@@ -17,6 +17,13 @@ forcing a fallback to commit timestamps.
 
 ## 2026-08-29 (59th run) — **P6.16 done: the wind becomes an uncertain input, by choice rather than by default**
 
+> **Addendum — CI 270 green at `3176717`, all 35 steps; `main` is recovered.** Step 14,
+> **Engine API docs**, the one that was red at `09ae9bf`, passes in 5s, and steps 15-17 —
+> SolverKit API docs, Build app, Bundle size budget — ran rather than being skipped. Test
+> 2m25s, 4m21s end to end. Read from the **job** record rather than the run record, per the
+> standing stale-status trap. Run 271, created by this addendum's own commit, is not chased:
+> one follow-up entry, then stop.
+
 - **P6.16, one frozen OU path per replicate, done.** `windReplication` on
   `UncertainScenarioSpec`; `replicateWindSeed`, `WIND_OVERLAY_INDEX` and `MAX_OVERLAYS` from
   `replicate-generator.ts`; `STOCHASTIC_WIND_KINDS` and `isStochasticWind` from
