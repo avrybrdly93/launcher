@@ -264,9 +264,16 @@ describe("P6.15 — scrambled Sobol' convergence on a smooth two-parameter probl
     const threshold = EXACT_MEAN;
     const indicator = (u0: number, u1: number): number => (observable(u0, u1) > threshold ? 1 : 0);
     const exact = (() => {
-      // Reference probability, by a much finer deterministic grid than any
-      // size under test: 4096 x 4096 midpoint cells.
-      const m = 4096;
+      // Reference probability, by a deterministic midpoint grid far finer than
+      // any size under test. 1024 x 1024 is chosen by measurement, not by
+      // eye: the grid converges to 0.471588135, 0.471549988, 0.471559525,
+      // 0.471562386, 0.471561432, 0.471560806 at m = 256 .. 8192, so m = 1024
+      // sits within 1.3e-6 of m = 8192 -- some three orders of magnitude
+      // below the smallest RMSE being fitted, and so invisible to the slope.
+      // The size matters beyond accuracy: this grid is the dominant cost of
+      // the whole file, and at 4096 it loads the parallel test pool enough to
+      // push a wall-clock assertion elsewhere in the suite over its budget.
+      const m = 1024;
       let hits = 0;
       for (let a = 0; a < m; a += 1) {
         for (let b = 0; b < m; b += 1) {
