@@ -306,7 +306,7 @@ function reverseBits(input: number): number {
 /**
  * A nested uniform (Owen-style) scramble of a 32-bit Sobol' coordinate.
  *
- * The two bit reversals turn {@link laineKarrasPermutation}'s
+ * The two bit reversals turn `laineKarrasPermutation`'s
  * low-bits-influence-high-bits triangularity into the high-bits-influence-low
  * form Owen's scramble needs: the permutation applied to digit `k` depends
  * only on digits `1..k-1`. Two consequences follow, and both are asserted in
