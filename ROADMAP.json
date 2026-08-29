@@ -2704,8 +2704,8 @@
       "estMinutes": 25,
       "difficulty": "M",
       "validation": "stratification verified per-dim; SE improvement on smooth observable",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed. Plan: (1) export an inverse-CDF quantile(spec,u) from distribution.ts -- LHS needs a monotone map from a stratified uniform, and the untruncated normal path currently goes through Box-Muller which has no single u to invert; (2) latin-hypercube.ts with an O(1) keyed Feistel permutation + cycle walking, so replicate i stays derivable alone and batch-partition independence survives; (3) LHS replicate entry points; (4) per-dim stratification test and an SE-reduction measurement."
     },
     {
       "id": "P6.15",
