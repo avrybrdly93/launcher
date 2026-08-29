@@ -34,6 +34,7 @@ export * from "./scenario-spec.js";
 export * from "./uncertain-scenario-spec.js";
 export * from "./replicate-generator.js";
 export * from "./latin-hypercube.js";
+export * from "./sobol.js";
 export * from "./characteristic-scales.js";
 export * from "./solver-advisor.js";
 export * from "./scenario-migration.js";
