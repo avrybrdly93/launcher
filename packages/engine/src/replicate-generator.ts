@@ -45,14 +45,16 @@
  *
  * ## What this module deliberately does not do
  *
- * - **It does not vary `base.seed`.** The base scenario's own seed fixes its
- *   stochastic elements -- the frozen OU wind path of ADR-011 -- and giving
- *   each replicate its own wind realization is P6.16, a separate task with its
- *   own determinism criterion. Every replicate produced here carries the
- *   study's single nominal wind, which is correct for a study whose
- *   uncertainty is in the parameters. P6.16 can build on
- *   {@link writeSpecNumberAtPath} exactly as this module builds on P6.02's
- *   reader.
+ * - **It varies `base.seed` only when the study asks it to** (P6.16). By
+ *   default every replicate carries the study's single nominal wind, which is
+ *   correct for a study whose uncertainty is in the parameters and is what
+ *   common random numbers means: holding the turbulence fixed is what makes a
+ *   difference between two replicates attributable to the parameters. A study
+ *   setting `windReplication: "per-replicate"` instead gets a wind seed derived
+ *   from {@link replicateWindSeed}, on a reserved substream slot so the
+ *   derivation cannot disturb any overlay's draw. See that function and
+ *   `windReplication`'s own doc for why neither setting is the right default in
+ *   the abstract.
  * - **It does not integrate anything.** Batching replicates through the solver
  *   and recording observables is P6.04; reducing them in a fixed order is
  *   P6.05.
@@ -79,6 +81,30 @@ const MASK64 = (1n << 64n) - 1n;
  * that could plausibly be reached would make that guarantee fragile.
  */
 export const OVERLAY_STRIDE = 1 << 20;
+
+/**
+ * The overlay slot reserved for P6.16's per-replicate wind seed.
+ *
+ * The wind realization is a draw like any other, so it needs a substream that
+ * no overlay can also be assigned -- otherwise a study with `OVERLAY_STRIDE`
+ * overlays would derive its last parameter and its wind seed from the same
+ * generator, and the two would move together instead of independently.
+ *
+ * Taking the *top* slot rather than slot 0 is what makes this
+ * backward-compatible: overlay `j` keeps the stream it had before P6.16, so
+ * every existing study reproduces value-for-value. Shifting the overlays down
+ * by one to free slot 0 would have moved every replicate of every study ever
+ * run.
+ */
+export const WIND_OVERLAY_INDEX = OVERLAY_STRIDE - 1;
+
+/**
+ * Maximum number of overlays a study may carry.
+ *
+ * One below {@link OVERLAY_STRIDE}, because {@link WIND_OVERLAY_INDEX} holds
+ * the top slot. Still about a million uncertain parameters.
+ */
+export const MAX_OVERLAYS = OVERLAY_STRIDE - 1;
 
 /**
  * Largest replicate index whose stream id is guaranteed distinct from every
@@ -169,6 +195,34 @@ export function replicateRng(
 }
 
 /**
+ * The `ScenarioSpec.seed` replicate `replicateIndex` runs under when a study
+ * sets `windReplication: "per-replicate"` (P6.16, ADR-011).
+ *
+ * ADR-011 resolves stochastic wind into a frozen path *before* integration, so
+ * "give this replicate its own turbulence" reduces to "give this replicate its
+ * own scenario seed" -- `seed` is the only input `toWind`'s `frozen-ou-gust`
+ * branch reads. No SDE machinery, no second RNG discipline: the existing
+ * substream derivation does the whole job.
+ *
+ * Derived from the study seed and the replicate index and nothing else, through
+ * the same {@link replicateSeed} the overlays use, on the reserved
+ * {@link WIND_OVERLAY_INDEX} slot. That is what makes this task's criterion --
+ * seed determinism across pool sizes -- a property of the construction: a
+ * worker holding one range computes the identical seed for replicate `i`
+ * because nothing in the derivation can observe how the work was split.
+ *
+ * The 64-bit derived value is reduced modulo `2^53` so the result is an exact
+ * JavaScript integer, which `scenarioSpecSchema`'s `seed` field requires and
+ * `toWind`'s `BigInt(seed)` needs to be lossless. The reduction discards 11
+ * bits; that costs nothing, because the seed is fed straight back into
+ * {@link PCG32}'s own 64-bit state expansion and 2^53 distinct wind
+ * realizations is not a bound any study approaches.
+ */
+export function replicateWindSeed(studySeed: number, replicateIndex: number): number {
+  return Number(replicateSeed(studySeed, replicateIndex, WIND_OVERLAY_INDEX) % (1n << 53n));
+}
+
+/**
  * Returns a copy of `spec` with the number at `path` replaced by `value`.
  *
  * The original is never mutated. Only the objects **along the path** are
@@ -244,7 +298,7 @@ export interface Replicate {
  * this optional.
  *
  * @throws if `index` is not an integer in `[0, MAX_REPLICATE_INDEX]`, if the
- *   study carries more than {@link OVERLAY_STRIDE} overlays, or if the drawn
+ *   study carries more than {@link MAX_OVERLAYS} overlays, or if the drawn
  *   spec fails the base schema.
  */
 export function generateReplicate(study: UncertainScenarioSpec, index: number): Replicate {
@@ -270,10 +324,11 @@ function buildReplicate(
       `generateReplicate: replicate index must be an integer in [0, ${MAX_REPLICATE_INDEX}], got ${index}`,
     );
   }
-  if (study.overlays.length > OVERLAY_STRIDE) {
+  if (study.overlays.length > MAX_OVERLAYS) {
     throw new Error(
-      `generateReplicate: a study may carry at most ${OVERLAY_STRIDE} overlays ` +
-        `(the substream stride), got ${study.overlays.length}`,
+      `generateReplicate: a study may carry at most ${MAX_OVERLAYS} overlays ` +
+        `(the substream stride, less the slot reserved for the per-replicate wind seed), ` +
+        `got ${study.overlays.length}`,
     );
   }
 
@@ -288,6 +343,21 @@ function buildReplicate(
     values.push(value);
     spec = writeSpecNumberAtPath(spec, overlay.path, value);
   });
+
+  // P6.16. Written after the overlays, though it cannot collide with one: the
+  // schema refuses a study that both varies "seed" and asks for per-replicate
+  // wind, precisely so this line never has to decide which of the two wins.
+  //
+  // Deliberately *not* mirrored for the antithetic partner. An antithetic pair
+  // reflects each drawn parameter about its distribution's centre, and a seed
+  // has no such centre -- "the opposite turbulence realization" is not a thing
+  // an OU path has. So the pair shares one wind and differs only in the
+  // parameters, which is also what makes the pair-mean estimator's variance
+  // reduction attributable to the reflection rather than to two unrelated
+  // gust fields.
+  if (study.windReplication === "per-replicate") {
+    spec = writeSpecNumberAtPath(spec, "seed", replicateWindSeed(study.seed, index));
+  }
 
   const parsed = scenarioSpecSchema.safeParse(spec);
   if (!parsed.success) {

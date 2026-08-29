@@ -105,6 +105,31 @@ export const windSpecSchema = z.discriminatedUnion("kind", [
 /** Parsed type of {@link windSpecSchema}. */
 export type WindSpec = z.infer<typeof windSpecSchema>;
 
+/**
+ * The wind kinds whose realization depends on the owning spec's `seed` -- i.e.
+ * the ones for which two specs identical but for `seed` describe *different*
+ * wind (ADR-011).
+ *
+ * One entry today. It is a named set rather than an inline `=== "frozen-ou-gust"`
+ * because two places outside this module ask the question -- `toWind`'s seed
+ * plumbing and P6.16's per-replicate realization check -- and a second
+ * stochastic kind added to the union above must not have to be remembered in
+ * each of them independently.
+ */
+export const STOCHASTIC_WIND_KINDS = [
+  "frozen-ou-gust",
+] as const satisfies readonly WindSpec["kind"][];
+
+/**
+ * Whether this wind's realization is a function of the scenario's `seed`.
+ *
+ * The question P6.16 needs answered: varying `seed` per replicate changes the
+ * wind only for these kinds, and silently does nothing for every other one.
+ */
+export function isStochasticWind(spec: WindSpec): boolean {
+  return (STOCHASTIC_WIND_KINDS as readonly string[]).includes(spec.kind);
+}
+
 /** Serializable composition of atmosphere + gravity + wind (§2.3, §5.2 registry pattern). */
 export const environmentSpecSchema = z.object({
   atmosphere: atmosphereSpecSchema,

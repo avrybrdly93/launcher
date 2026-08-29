@@ -38,7 +38,12 @@
 
 import { z } from "zod";
 import { distributionSpecSchema, type DistributionSpec } from "./distribution.js";
-import { scenarioSpecSchema, type ScenarioSpec } from "./scenario-spec.js";
+import {
+  STOCHASTIC_WIND_KINDS,
+  isStochasticWind,
+  scenarioSpecSchema,
+  type ScenarioSpec,
+} from "./scenario-spec.js";
 
 /**
  * A dotted path into a {@link ScenarioSpec}, e.g. `"projectile.mass"`.
@@ -128,6 +133,29 @@ export const uncertainScenarioSpecUnrefinedSchema = z.object({
    * study reproduces regardless of worker-pool size.
    */
   seed: z.number().int().nonnegative(),
+  /**
+   * Whether every replicate integrates the *same* frozen stochastic-wind
+   * realization, or draws its own (P6.16 per ADR-011).
+   *
+   * `"shared"` (the default) leaves `base.seed` alone, so every replicate sees
+   * the one nominal OU path. That is **not** a limitation to be fixed: it is
+   * common random numbers. Holding the wind fixed while the parameters vary is
+   * what makes a difference between two replicates attributable to the
+   * parameters, which is the assumption P6.17's finite-difference sensitivity
+   * rests on. A study whose uncertainty is in the parameters wants this.
+   *
+   * `"per-replicate"` gives replicate `i` its own frozen path, derived from the
+   * study seed and `i` alone. That is what makes the *wind* one of the
+   * uncertain inputs, so the ensemble spread includes turbulence realization
+   * and not only parameter scatter. A study asking "how much does the gust
+   * field alone move the impact point?" wants this.
+   *
+   * The choice is a modelling statement with no safe default in the abstract,
+   * so it is explicit in the spec rather than inferred. `"shared"` is the
+   * default only because it is what every study written before P6.16 already
+   * meant, and a silently changed default would move every existing result.
+   */
+  windReplication: z.enum(["shared", "per-replicate"]).default("shared"),
 });
 
 /**
@@ -165,6 +193,41 @@ export const uncertainScenarioSpecSchema = uncertainScenarioSpecUnrefinedSchema.
         });
       }
     });
+
+    if (spec.windReplication === "per-replicate") {
+      // Refused rather than ignored. `seed` is the only input the frozen-OU
+      // wind reads, so for every other wind kind a per-replicate seed changes
+      // nothing at all -- the study would run, report N replicates, and the
+      // ensemble would carry exactly the parameter scatter it would have had
+      // under "shared". That is the silently-wrong-answer shape this codebase
+      // files bugs about (P0.99, P0.101), and it is worse here than a throw:
+      // the number produced is a plausible one.
+      if (!isStochasticWind(spec.base.environment.wind)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message:
+            `windReplication "per-replicate" requires a stochastic wind in the base scenario, ` +
+            `but environment.wind.kind is "${spec.base.environment.wind.kind}". ` +
+            `Stochastic kinds: ${STOCHASTIC_WIND_KINDS.join(", ")}. ` +
+            'Use "shared" (the default) for a study whose uncertainty is in the parameters.',
+          path: ["windReplication"],
+        });
+      }
+      // Both would write `base.seed`, and the study would silently get whichever
+      // wrote last rather than the two effects it asked for.
+      const seedOverlay = spec.overlays.findIndex((overlay) => overlay.path === "seed");
+      if (seedOverlay !== -1) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message:
+            `overlays[${seedOverlay}] varies "seed", which windReplication "per-replicate" ` +
+            "also sets; one of the two must go. To vary the wind realization use " +
+            "windReplication alone -- it derives each replicate's seed from the study seed " +
+            "and the replicate index, which an overlay distribution cannot do reproducibly.",
+          path: ["overlays", seedOverlay, "path"],
+        });
+      }
+    }
   },
 );
 
