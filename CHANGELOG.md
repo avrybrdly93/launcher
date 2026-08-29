@@ -15,6 +15,56 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-29 (58th run) — **P6.15 done, and a slope that says the scramble is the real thing**
+
+- **P6.15, quasi-Monte Carlo with a scrambled Sobol' sequence, done.**
+  `packages/engine/src/sobol.ts`: `sobolReplicates`, `generateSobolReplicate`,
+  `sobolUniform`, `sobolInteger`, `nestedUniformScramble`. Exported from
+  `@ballista/engine` and documented in `docs/analysis/README.md` beside the other three
+  sampling options; `ROADMAP.json` carries the full notes, as `policy.commitRules`
+  requires, and this entry does not restate them.
+- **The criterion was beaten by more than it should have been, and chasing that down was
+  the interesting part of the run.** The task asks for an `N^(-1)` slope on a smooth
+  two-parameter problem; the measurement came back at **−1.4598** against plain MC's
+  **−0.4522**. That is not a bug and not luck: Owen (1997) gives `O(N^(-3/2))` RMSE for a
+  smooth integrand under _nested_ uniform scrambling, against `O(N^(-1))` for a plain
+  digital shift. Five independent seed families give −1.4598, −1.3749, −1.3648, −1.4044,
+  −1.3888; the same Sobol' points under an XOR shift give **−1.0297**. So the theory is
+  confirmed from both sides, and the file now asserts **−1.2** alongside the criterion's
+  −0.85 — a bound that a shift would fail and that every structural test would miss.
+- **The structural tests exist because a rate cannot localise a fault.** A wrong direction
+  number, a scramble that is not a bijection, and an off-by-one in the index loop all
+  present identically: an error curve that is merely less good than it should be. So the
+  properties underneath the rate are checked directly — every dimension is a
+  `(0,1)`-sequence (which grades the _direction numbers_, failing on any even `m_k` or any
+  wrong recurrence), dimensions 1 and 2 form a `(0,2)`-net (joint, so it grades dimension
+  2's polynomial), and the scramble is a bijection on the leading `k` bits for every `k`,
+  which is bijectivity and Owen nesting in a single assertion.
+- **Two implementation choices that look like premature caution and are not.** The direct
+  XOR-over-set-bits construction is used rather than the faster Gray-code recurrence,
+  because the recurrence makes a point a function of the _enumeration_ rather than of its
+  own index and a worker holding one range cannot start it — P6.03 would be lost. And the
+  set-bit loop is arithmetic rather than bitwise, because `&` sees a negative int32 for
+  indices past `2^31`.
+- **The property P6.14 could not have.** A Sobol' point depends on its index and the
+  scramble key, not on the replicate count, so extending a study keeps every replicate it
+  already drew — asserted directly. Whoever takes **P6.17** should read that together with
+  the 57th run's warning about LHS: a convergence sweep under Sobol' is refining one
+  design, where the same sweep under LHS compares unrelated ones.
+- **Where it does not help, measured rather than hedged.** On an indicator observable —
+  unbounded variation in the Hardy–Krause sense — the slope falls to **−0.7834**. Better
+  than MC, nowhere near the smooth case, and _both_ bounds are asserted so the option
+  cannot drift into looking unconditionally good.
+- **Next run:** P6.16, stochastic-wind replicates with one frozen OU path per replicate
+  (ADR-011 integration). Note for whoever takes it: `ou-gust.ts` already exists, and the
+  question this task really has to settle is which stream the frozen path draws from, so
+  that a replicate stays reproducible from its index alone under all four samplers now
+  available — plain, antithetic, Latin hypercube and Sobol'.
+- Full suite green: 277 files, 3028 tests. `typecheck`, `eslint`, `lint:deps` and `build`
+  all clean.
+
+---
+
 ## 2026-08-29 (57th run) — **P6.14 done, and an orientation bug that only a quantile could see**
 
 - **P6.14, Latin hypercube sampling, done.** `packages/engine/src/latin-hypercube.ts`:
