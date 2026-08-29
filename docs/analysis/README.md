@@ -390,6 +390,52 @@ in the output says the answer moved. This is why `dragFreeRangeControlMean` carr
 interval that never widens. Both the shift and its invisibility are asserted in
 `control-variate-variance-reduction.test.ts`.
 
+### Latin hypercube sampling
+
+`latin-hypercube.ts` (in `@ballista/engine`) is an alternative way to draw a study's
+replicates (P6.14). Plain Monte Carlo leaves random gaps and clumps in its coverage of
+`(0, 1)`; a Latin hypercube splits each dimension into `N` equal-probability strata, takes
+exactly one sample from each, and permutes the stratum-to-replicate assignment
+independently per dimension.
+
+These live in `@ballista/engine`, not in this package, so they are listed rather than
+tabulated — a table on this page means an `@ballista/analysis` module, and
+`analysis-docs.test.ts` reads the second column of every one as a filename.
+
+- `latinHypercubeReplicates` — generator over the whole study; the drop-in for `replicates`
+- `generateLatinHypercubeReplicate` — one replicate by index
+- `latinHypercubeStratum` — which stratum a `(replicate, dimension)` pair occupies
+- `latinHypercubeUniform` — that stratum's jittered uniform, before the quantile map
+- `distributionQuantile` — the inverse CDF the stratified uniform is pushed through
+
+**It is an option, and the choice is about structure, not smoothness.** LHS stratifies
+one-dimensional projections, so it removes the variance carried by an observable's main
+effects and leaves its interaction variance alone. Measured on the drag-free range at
+`N = 64` over 400 studies: standard error **6.037 m → 0.410 m**, a ratio of **0.068**
+(216× in variance), because range is `v₀²` and so almost perfectly additive in the one
+drawn dimension. On a pure interaction `(a − E a)(b − E b)` over two independent draws the
+ratio is **1.10** — no gain and a slight cost. Both are measured in
+`latin-hypercube-variance-reduction.test.ts`.
+
+**Changing `replicates` changes every replicate.** The strata are `1/N` wide, so an LHS
+study cannot be refined incrementally the way an MC one can — there is no Latin hypercube
+that is also a prefix of a larger one. A convergence study that sweeps `N` is measuring a
+sequence of unrelated designs. This is inherent to the method, and it is the main reason
+LHS is not the default.
+
+**The permutation is never materialised.** P6.03 makes replicate `i` a pure function of the
+seed and the index, which is what gives batch-partition independence; a Fisher–Yates
+permutation would cost `O(N)` to answer for one replicate and would be unavailable to a
+worker that knows only its own range. A keyed Feistel network plus cycle walking gives the
+same permutation pointwise in `O(1)`. A Feistel network is a bijection whatever its round
+function does, which is the guarantee that matters — "exactly one replicate per stratum" is
+the whole content of _Latin_, and a hash reduced mod `N` would collide and quietly degrade
+to stratified sampling with replacement.
+
+**The jitter inside each stratum is not decoration.** Placing samples at stratum midpoints
+would give lower variance and a biased estimator: a quadrature rule wearing a Monte Carlo
+costume, whose sample spread no longer estimates anything.
+
 ## Conventions
 
 - **Angles are radians** throughout the API. Degrees appear only in UI and docs.
