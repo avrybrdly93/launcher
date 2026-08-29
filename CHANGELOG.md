@@ -55,6 +55,20 @@ forcing a fallback to commit timestamps.
   unbounded variation in the Hardy–Krause sense — the slope falls to **−0.7834**. Better
   than MC, nowhere near the smooth case, and _both_ bounds are asserted so the option
   cannot drift into looking unconditionally good.
+- **A flake surfaced while establishing the baseline, and it is filed rather than forgotten.**
+  `chunked-integration.test.ts`'s `maxSliceMs < 10` failed once in five full-suite runs, at
+  **10.768 ms**. It is a wall-clock budget measured inside a pool running 277 files in
+  parallel, so it reads machine contention as much as the chunker; standalone the file passed
+  6/6, and `main` passed three full runs clean. This run's own heaviest test was part of the
+  load — the discontinuous-observable case built its reference on a `4096²` grid, 16.7M
+  evaluations — so that grid was cut to `1024²`, which a measured convergence table puts within
+  **1.3e-6** of `8192²`, three orders of magnitude below the smallest RMSE being fitted. All
+  three slopes unchanged to four decimals; the file's test time fell 2070 ms → 647 ms; five
+  consecutive full-suite runs clean after. **That is a mitigation, not a fix**, so **P0.112** is
+  filed: the next heavy test file will tip the assertion again and it will look like a bug in
+  whatever lands beside it. The test was not weakened, skipped or retried — the 10 ms budget is
+  a real P2.40 requirement — and the filing asks for an assertion that measures the chunker
+  rather than the machine.
 - **Next run:** P6.16, stochastic-wind replicates with one frozen OU path per replicate
   (ADR-011 integration). Note for whoever takes it: `ou-gust.ts` already exists, and the
   question this task really has to settle is which stream the frozen path draws from, so
