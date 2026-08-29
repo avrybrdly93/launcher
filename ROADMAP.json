@@ -2726,8 +2726,8 @@
       "estMinutes": 25,
       "difficulty": "M",
       "validation": "seed determinism across pool sizes",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed 2026-08-29 (59th run) before any code, per policy.commitRules. PLAN: replicate-generator.ts currently pins every replicate to the study's single nominal wind and says so -- its module doc defers per-replicate realizations here explicitly. So this task varies base.seed per replicate, which is the one input toWind's frozen-ou-gust branch reads, and does it through a reserved substream index so the derivation cannot collide with an overlay's. OPT-IN, because sharing one frozen path across replicates is not a bug to fix: it is common random numbers, and P6.17's finite-difference sensitivity needs it. Default stays shared."
     },
     {
       "id": "P6.17",
