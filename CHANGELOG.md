@@ -15,6 +15,87 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-29 (59th run) — **P6.16 done: the wind becomes an uncertain input, by choice rather than by default**
+
+- **P6.16, one frozen OU path per replicate, done.** `windReplication` on
+  `UncertainScenarioSpec`; `replicateWindSeed`, `WIND_OVERLAY_INDEX` and `MAX_OVERLAYS` from
+  `replicate-generator.ts`; `STOCHASTIC_WIND_KINDS` and `isStochasticWind` from
+  `scenario-spec.ts`. Documented in `docs/analysis/README.md` beside the four sampling
+  options; `ROADMAP.json` carries the full notes, as `policy.commitRules` requires, and this
+  entry does not restate them.
+- **The task turned out to be three lines of mechanism and one real decision.** ADR-011
+  already resolves stochastic wind into a frozen path _before_ integration, so "give each
+  replicate its own turbulence" reduces to "give each replicate its own scenario `seed`" —
+  `seed` is the only input `toWind`'s `frozen-ou-gust` branch reads. No SDE solver, no second
+  RNG discipline, and the determinism contract carries over untouched. That is ADR-011 paying
+  out exactly as it was written to.
+- **The decision is that this is opt-in, and the reasoning is worth keeping.** Sharing one
+  frozen path across replicates looks like a limitation P6.16 exists to remove. It is not: it
+  is common random numbers. Holding the gust field fixed while the parameters vary is what
+  makes a difference between two replicates attributable to the parameters — which is
+  precisely what **P6.17**'s finite-difference sensitivity rests on. Under per-replicate wind
+  those two replicates differ in their parameters _and_ their weather, and the difference
+  isolates nothing. So neither setting is right in the abstract, the choice is explicit in the
+  spec, and `"shared"` is the default only because it is what every study written before today
+  already meant. **Whoever takes P6.17 wants the default; it is not an oversight if their
+  study does not set this field.**
+- **The reserved slot is the part that would have been easy to get subtly wrong.** The wind
+  seed is drawn on `WIND_OVERLAY_INDEX = OVERLAY_STRIDE - 1`, which no overlay can occupy, so
+  switching the option on changes the wind and _nothing else_ — the drawn parameter vectors
+  are asserted identical either way. Taking the **top** slot rather than slot 0 is what keeps
+  it backward-compatible: freeing slot 0 would have shifted every overlay's substream and
+  moved every replicate of every study ever run, with all tests still green, because they
+  compare a study to itself.
+- **Two refusals rather than two silent no-ops.** A per-replicate study on a non-stochastic
+  wind is rejected at parse time. Ignoring it was the tempting alternative and is the worse
+  one: the seed would change nothing, the study would still run, still report `N` replicates,
+  and hand back parameter scatter dressed as turbulence spread — the silently-wrong-answer
+  shape **P0.99** and **P0.101** were filed for, and worse here because the number produced is
+  entirely plausible. A study that varies `seed` through an overlay _and_ asks for
+  per-replicate wind is refused for the same reason: both write one field, and the study would
+  quietly get whichever wrote last.
+- **Antithetic partners deliberately share their primary's wind.** A seed has no distribution
+  to reflect about — "the opposite gust field" is not a thing an OU path has — and sharing it
+  keeps a pair's variance reduction (P6.12) attributable to the mirrored parameters rather
+  than to two unrelated realizations.
+- **The criterion is a seed criterion and the seed is not what matters, so both are checked.**
+  Six partitions of twelve replicates (one batch, twelve singletons, 5+7, 7+5, 3×4, and an
+  uneven 1+4+2+5) agree with generating each replicate alone and with the lazy generator — on
+  the seed, and on the **frozen wind path** sampled through the PCHIP interpolant. The second
+  is the one that would catch a seed written into the spec but never read by `toWind`, which
+  satisfies every determinism assertion while changing nothing physical. Both path comparisons
+  also assert the path is not identically zero, so neither passes vacuously.
+- **One doc-test friction worth knowing about, since it will catch the next person.**
+  `analysis-docs.test.ts` treats _any_ README table row starting with a backticked cell as an
+  API map and requires cell 1 to name a file exporting cell 0. A prose table whose first
+  column happened to be code-formatted therefore failed it. The table was rewritten as a list;
+  the test was not touched, and should not be — its coverage check is what stops the API map
+  rotting.
+- **`main` was already red when this run started, and P0.110 is exactly why.** CI run **269**
+  at `09ae9bf` — the 58th run's own closing commit — failed step 14, **Engine API docs**, and
+  skipped 15-17 with it. typedoc fails on warnings and reported that
+  `nestedUniformScramble`'s comment links to `laineKarrasPermutation`, a module-private
+  helper, so the `{@link}` resolves to no rendered page. P6.15 therefore landed green locally
+  and red on CI, because CLAUDE.md's documented gate (typecheck, lint, lint:deps, test) does
+  not include the two typedoc steps CI runs. **That is P0.110's filing, unchanged and still
+  open, biting for the second time** — the 43rd run hit the same gap.
+  Fixed here rather than filed: the link is demoted to plain code text, which is what the
+  54th run did to a cross-module link for the same reason, and exporting a private helper to
+  please a doc tool would widen the public API. Pushing P6.16 onto a red `main` would also
+  have attributed run 269's failure to this task.
+  **The transferable part: run the two typedoc steps before pushing, whatever CLAUDE.md
+  says.** A closing docs-only commit still creates a CI run that no session reads, and a
+  `{@link}` can sit latent until something renders it — the 44th run's finding, now with a
+  second instance.
+- Gate green before the push, run in CI's own order rather than CLAUDE.md's: `pnpm typecheck`,
+  `pnpm lint`, `pnpm format:check`, `pnpm lint:deps` (1522 modules, 4306 dependencies) all
+  clean; `pnpm test` **278 files / 3042 tests passed** in 112.51s, up 14 from the 58th run's
+  3028, all of them this task's; **both typedoc steps** exit 0; app build **28.56s**; bundle
+  **73.1 kB gzipped** against the 300 kB budget. `P0.112`'s `chunked-integration` flake did
+  not reproduce in either of this run's two full-suite passes.
+
+---
+
 ## 2026-08-29 (58th run) — **P6.15 done, and a slope that says the scramble is the real thing**
 
 - **P6.15, quasi-Monte Carlo with a scrambled Sobol' sequence, done.**

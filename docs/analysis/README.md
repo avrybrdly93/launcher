@@ -488,6 +488,46 @@ indicator observable — unbounded variation in the Hardy–Krause sense — the
 **−0.7834**: still better than plain MC, nowhere near the smooth case. The direction-number
 table covers 21 dimensions, which is far more than the QMC advantage survives.
 
+### Stochastic wind: shared or per-replicate
+
+The four entries above are about how a study draws its _parameters_. A study whose base
+scenario carries a frozen-OU gust field has a second source of randomness, and
+`UncertainScenarioSpec.windReplication` says what to do with it (P6.16, [ADR-011](../adr/ADR-011-frozen-stochastic-realizations.md)).
+
+- **`"shared"`** (the default) — every replicate integrates the base scenario's one frozen
+  path. For a study whose uncertainty is in the parameters.
+- **`"per-replicate"`** — replicate `i` gets its own path, seeded by
+  `replicateWindSeed(studySeed, i)`. For a study in which the turbulence realization is
+  itself one of the uncertain inputs.
+
+**`"shared"` is the default, and it is not a limitation.** It is common random numbers:
+holding the gust field fixed while the parameters vary is what makes a difference between
+two replicates attributable to the parameters, which is what a finite-difference
+sensitivity (P6.17) needs. Under `"per-replicate"` the same two replicates differ in their
+parameters _and_ their weather, and the difference no longer isolates anything.
+
+**Why a seed is the whole mechanism.** ADR-011 resolves stochastic wind into a frozen,
+PCHIP-interpolated path _before_ integration, so the scenario's `seed` is the only input
+the wind depends on. Giving a replicate its own realization is therefore giving it its own
+`seed` — no SDE solver, no second RNG discipline, and the determinism contract carries over
+unchanged.
+
+**The seed comes from a reserved substream slot**, `WIND_OVERLAY_INDEX`, which no overlay
+can be assigned. So switching the option on changes the wind and nothing else: the drawn
+parameter vectors are identical either way. It is the top slot rather than slot 0 so that
+overlay `j` keeps the stream it had before P6.16, and every study written earlier
+reproduces value-for-value.
+
+**A study that asks for a realization it cannot get is refused at parse time.** On any
+non-stochastic wind kind the per-replicate seed would change nothing, and the study would
+still run, still report `N` replicates, and hand back parameter scatter looking exactly like
+turbulence spread. The schema also refuses a study that varies `seed` through an overlay
+_and_ sets `"per-replicate"`, since both write the same field.
+
+**Antithetic pairs share one wind.** A seed has no distribution to reflect about, so
+"the opposite gust field" is not a thing; sharing it also keeps a pair's variance reduction
+attributable to the mirrored parameters. See `stochastic-wind-replicates.test.ts`.
+
 ## Conventions
 
 - **Angles are radians** throughout the API. Degrees appear only in UI and docs.
