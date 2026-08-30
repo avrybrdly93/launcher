@@ -65,10 +65,13 @@ regardless of parameter count. See [the adjoint notes](../notes/adjoint-sensitiv
 | `firstOrderSpread`              | `first-order-sensitivity.ts` | `σ_R` from `∂R/∂μ` and input `σ`, plus the terms  |
 | `monteCarloSpread`              | `first-order-sensitivity.ts` | Sample spread with a fourth-moment standard error |
 | `compareFirstOrderToMonteCarlo` | `first-order-sensitivity.ts` | The two, swept over input `σ`                     |
+| `oneAtATimeTornado`             | `tornado.ts`                 | `2n` solves, one input moved at a time, ranked    |
+| `compareTornadoToFirstOrder`    | `tornado.ts`                 | Whether the bar order matches the `∂R/∂μ` ranking |
 
 Those propagate the derivatives above into an output uncertainty, and say when the
 propagation stops being trustworthy — see
-[First-order spread](#first-order-spread-and-when-to-stop-believing-it) below.
+[First-order spread](#first-order-spread-and-when-to-stop-believing-it) and
+[One-at-a-time tornado](#one-at-a-time-tornado-and-what-a-bar-chart-cannot-show) below.
 
 ### Tolerances
 
@@ -600,6 +603,69 @@ extremes could read the crossing as agreement. And at the 45° stationary point 
 exactly zero, so the first-order estimate predicts **no spread at all** against a true
 4.6 m: the failure there is not a percentage, and shrinking σ does not fix it. Check the
 gradient is not near-stationary before trusting a tornado chart drawn from it.
+
+### One-at-a-time tornado, and what a bar chart cannot show
+
+`oneAtATimeTornado(problem, options)` holds every input at nominal, moves one of them to
+`μ_k ± c σ_k`, and records where the output goes — `2n` solves for `n` inputs, sorted
+widest-first (P6.18). `compareTornadoToFirstOrder(tornado, contributions)` checks P6.18's
+criterion, that the bar order matches the `|∂R/∂μ_k| σ_k` ranking `firstOrderSpread` returns.
+
+**The two measures are the same quantity computed two ways.** A bar's half-span is a
+_central difference_; a first-order contribution is a _derivative_:
+
+```
+halfSpan_k = |R(+cσ_k) − R(−cσ_k)| / 2 = c·|∂R/∂μ_k|·σ_k + O(c³ σ_k³ R''')
+```
+
+So on a response that is linear over `±cσ` they are equal in floating point — the suite
+asserts that with `toEqual`, not `toBeCloseTo` — and the rankings are identical. Where they
+differ, the difference _is_ curvature over the interval the input actually spans, which is
+the condition [First-order spread](#first-order-spread-and-when-to-stop-believing-it)
+measures, reached from the other side. Agreement comes back as `identical`, Kendall's
+**tau-b**, and the discordant pairs, because one adjacent swap between two
+near-indistinguishable inputs and a wholesale reordering both falsify `identical` and are
+not the same finding.
+
+**Two things a tornado cannot tell you, and neither is visible in the picture.** It explores
+`2n` points, all of them on the axes through the nominal, so it is blind to **interactions**
+by construction — a response whose sensitivity to θ depends on `v₀` has a ridge no axis runs
+along, and no number of extra points fixes it. That gap is P6.19's Sobol' total indices. And
+bars do **not** add up: the spread combines the same contributions in quadrature, so
+half-spans of 3 and 4 give a σ_R of 5, not 7, and a reader who sums the bars overstates the
+total.
+
+**`asymmetry` is a curvature signal and is not bounded by 1.** It is
+`|highShift + lowShift| / span` — zero when the response is linear over the bar, because the
+two shifts cancel. Once the bar straddles a local extremum both endpoints move the _same_
+way, so the numerator survives while the denominator collapses. Measured on the drag-free
+range at `θ₀ = 45° − 0.06`, `σ_θ = 0.05`:
+
+| scale | θ bar span (m) | asymmetry | monotone |
+| ----- | -------------- | --------- | -------- |
+| 1     | 8.77           | 0.415     | yes      |
+| 8     | 63.05          | **3.506** | no       |
+
+Read it as "how far from linear", not as a fraction, and read anything above about 1
+together with `monotone`, which is what says the bar has folded.
+
+**The ranking is a statement about an interval, not about a point**, which is why `scale` is
+a knob rather than a constant. Over the same widening, `v₀`'s bar grows by exactly
+`8.000000` — the linear factor — and θ's by `7.185531`, because widening past the apex adds
+no span. Keep `scale` small when comparing against a first-order ranking; use 2 or 3 when
+asking what could plausibly happen.
+
+**Where both measures agree and both are wrong.** At `θ = 45°` exactly, `∂R/∂θ = 0`, so the
+first-order contribution is zero — and the bar's two endpoints are equal by symmetry, so the
+span is zero too. The rankings agree perfectly, and the response is not flat at all: it drops
+by `v₀²(1 − cos(0.1))/g` on _both_ sides. The only thing that distinguishes the two cases is
+`monotone`, which the tornado reports and a contribution cannot. That case is in
+`tornado.test.ts` so the agreement there is not mistaken for the method working.
+
+**A censored bar is not a short bar.** If an input can be moved to a value where the problem
+has no answer, the bar comes back with `span: null` and sorts _last_, and
+`compareTornadoToFirstOrder` refuses the tornado outright. Giving it a span of zero would
+rank the input that broke the problem as the least influential one.
 
 ## Conventions
 
