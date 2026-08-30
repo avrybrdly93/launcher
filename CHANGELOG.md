@@ -15,6 +15,76 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-30 (62nd run) — **P6.19 done: the variance a tornado cannot attribute, and the invariance this module claimed before it had it**
+
+- **P6.19 done, criterion met with two orders of magnitude to spare.** `sobolIndices` in
+  `packages/analysis/src/sobol-indices.ts`, re-exported from `index.ts` and documented in
+  `docs/analysis/README.md` under "Sobol' indices, and the variance a tornado cannot
+  attribute". 21 tests. Saltelli et al. 2010 for the first-order estimator, Jansen 1999 for
+  the total, over one 2d-dimensional scrambled Sobol' sequence from the engine split into
+  the `A` and `B` matrices. `ROADMAP.json` carries the full numbers, as `policy.commitRules`
+  requires, and this entry does not restate them.
+- **A doc comment claimed an invariance the module did not have, and the test that was
+  written to demonstrate the claim is what disproved it.** The first-order numerator is
+  written `f_B (f_k − f_A)` rather than `f_A f_k − mean²`, and the module header said the
+  differenced form is therefore invariant to an output offset. It is not. Under `f → f + c`
+  the term picks up `c (f_k − f_A)`, whose mean is zero **in expectation** and not in a
+  finite sample; at `c = 10⁶` against a spread of order 1 the residual swamped the estimate
+  and `S₀` came back **13.43** where the analytic value is **0.762**. The fix is to centre
+  both samples on the pooled mean before forming any term, which makes the invariance exact
+  because the pooled mean absorbs `c` by the same arithmetic that introduced it. The header
+  now records the measurement instead of the claim, and the offset test is kept as a
+  regression test. This is the second run running in which a doc comment asserted something
+  the measurement contradicted — see the 61st run's `asymmetry` bullet — and in both cases
+  the correction went into the doc, not the tolerance.
+- **The criterion's own function cannot fail the way this module exists to catch, so it is
+  not the only reference.** "Indices on an additive test function match analytics ±0.05" is
+  met on `4x₀ + 2x₁ + x₂` to a maximum deviation of `1.0e-4` — but an estimator that ignored
+  interactions **entirely** would pass every additive assertion, because an additive model
+  has none. Ishigami is in the suite for that reason, and its third input is the case that
+  matters: `S₃ = 0.000570` against an analytic **0**, `S_T₃ = 0.243593` against **0.243684**.
+  It moves a quarter of the output's variance and none of its mean, so `tornado.ts` draws it
+  a short bar. That short bar is exactly the failure P6.18's own header filed this task to
+  fix, now demonstrated rather than asserted.
+- **A negative index is reported unclamped, and that is the deliberate choice.** Jansen's
+  total form is a mean of squares and so is non-negative by construction; the Saltelli
+  first-order form is not. A small negative `S_k` is a legitimate estimate of a near-zero
+  index, and clamping it to zero would erase the single cheapest signal that `N` is too small
+  to resolve that input. The suite asserts the sign guarantee on the total and the absence of
+  one on the first order, in the same result.
+- **The reported standard error is honest about being the wrong formula for the default
+  sampler, and that gap is filed rather than papered over.** It is the plain i.i.d. figure,
+  which is the quantity its name says only under `sampling: "random"` — asserted there as a
+  three-sigma bracket. The default is scrambled Sobol', whose points are deliberately
+  correlated, so under it the suite only **measures** that the deviation sits inside the
+  figure (`1.0e-4` against `0.0185` on the additive reference) rather than describing the
+  relationship as a bound, which it is not. **`P0.113`** filed for the real fix: the spread
+  across R independent scrambles, which the engine's `sobolUniform` already supports since it
+  takes the scramble seed.
+- **Full gate green at `51a87e7`, run locally in full:** `pnpm typecheck`, `pnpm lint`,
+  `pnpm lint:deps` (1600 modules, 4533 dependencies), `pnpm format:check`, `pnpm test`
+  **3122 passed across 281 files**, and `pnpm build`. **`P0.112`'s `chunked-integration`
+  flake did not fire in this run's full-suite pass** — one datum, in the direction that
+  note's own argument predicts, and not evidence it is fixed.
+
+### Next run
+
+- **`P6.20`: "Sensitivity UI pane: tornado + Sobol' bars with N controls"**, the direct
+  successor now that both of its inputs exist. Read `docs/analysis/README.md`'s two adjacent
+  sections before designing it: the pane's whole job is to show a reader why the two pictures
+  disagree, and `interactionShare` is the number that explains it.
+- **The `N` control is the part that needs a decision, not the bars.** Sobol' indices converge
+  slowly and the slowest case is a _small_ index against a large variance, where the error does
+  not shrink because the quantity does not. A UI that lets a reader turn `N` down until the
+  bars look clean is worse than no UI, so whatever the pane shows must carry the standard error
+  alongside the bar — and note that under the default `"sobol"` sampling that figure is not a
+  confidence interval (see `P0.113`), which the pane must not imply that it is.
+- **Do not treat a red `chunked-integration.test.ts` as your own regression.** It did not fire
+  here, but the 61st run's measurement stands: the assertion measures host contention, not the
+  chunker. Read `P0.112` before reading your own diff.
+
+---
+
 ## 2026-08-30 (61st run) — **P6.18 done: the cheapest ranking of parameter influence, and the three places it lies**
 
 > **Addendum — CI 274 green at `ed6cbe6`, event `push`; `main` is green, and the
