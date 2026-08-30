@@ -15,6 +15,86 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-30 (61st run) — **P6.18 done: the cheapest ranking of parameter influence, and the three places it lies**
+
+- **P6.18 done, criterion met.** `oneAtATimeTornado` and `compareTornadoToFirstOrder` in
+  `packages/analysis/src/tornado.ts`, re-exported from `index.ts` and documented in
+  `docs/analysis/README.md` under "One-at-a-time tornado, and what a bar chart cannot show".
+  32 tests. `ROADMAP.json` carries the full notes, as `policy.commitRules` requires, and this
+  entry does not restate them.
+- **The criterion compares a finite difference against a derivative, and that framing is the
+  task.** "Bar order matches the `|∂R/∂μ|σ` ranking" sounds like a sorting check. It is not:
+  a bar's half-span is a _central difference_, `c|∂R/∂μ|σ + O(c³σ³R''')`, while the
+  contribution is a derivative. On a linear response they are equal in floating point — the
+  suite asserts that with `toEqual` — and where they differ, the difference **is** curvature
+  over the interval the input spans. That is P6.17's condition arrived at from the other
+  side, which is why agreement is reported as `identical` **plus** Kendall tau-b **plus** the
+  discordant pairs: one adjacent swap between two near-indistinguishable inputs and a
+  wholesale reordering both falsify `identical`, and they are not the same finding.
+- **A doc comment made a claim the measurement disproved, and the claim was the one being
+  shipped.** `asymmetry = |highShift + lowShift| / span` was documented as "growing towards
+  1". It is not bounded by 1. Once the bar straddles a local extremum both endpoints move the
+  same way, so the numerator survives while the denominator collapses: measured **0.415** at
+  `scale = 1` and **3.506** at `scale = 8` on the drag-free range at `θ₀ = 45° − 0.06`. The
+  doc was corrected against the measurement rather than the test written around the doc.
+- **The case where both measures agree and both are wrong is in the suite deliberately.** At
+  `θ = 45°` exactly, `∂R/∂θ = 0` so the contribution is zero, and the bar's endpoints are
+  equal by symmetry so the span is zero. The rankings agree perfectly — and the response is
+  not flat: it drops by `v₀²(1 − cos 0.1)/g` on _both_ sides. Only `monotone` separates the
+  two situations. Without that test a future reader would take the agreement at the apex as
+  evidence the method works, which is exactly backwards. It is also the case the P6.17
+  section's closing sentence warned about, now demonstrated rather than asserted.
+- **The ranking is a statement about an interval, so `scale` is a knob, not a constant.**
+  Measured bar growth from `scale = 1` to `scale = 8`: **8.000000** for `v₀` (exactly the
+  linear factor) and **7.185531** for θ, which is sub-linear because widening past the apex
+  adds no span. Two inputs can therefore change relative order with the interval width while
+  neither response changed.
+- **What OAT structurally cannot do**, stated in the module header and the docs so P6.19 is
+  not asked to be a refinement of it: `2n` evaluations, all on the axes through the nominal,
+  are blind to interactions. That is the method's shape, not a resolution problem more points
+  fix — it is what Sobol' total indices exist for. And bars combine **in quadrature**, so
+  summing them overstates the spread.
+- **A censored bar sorts last and blocks the comparison.** An input that can be moved to a
+  value where the problem has no answer gets `span: null`, not `span: 0`; the latter would
+  rank the input that _broke the problem_ as the least influential one, and
+  `compareTornadoToFirstOrder` refuses a censored tornado outright rather than ranking it.
+
+### The gate, and one red test that is not this run's
+
+- **Green:** `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm lint:deps`, app build,
+  `check-bundle-size` (73.1 kB gzipped against a 300 kB budget).
+- **`pnpm test`: 3100 of 3101 passed, and the one failure is the filed flake `P0.112`, not
+  this run's work.** `chunked-integration.test.ts`'s `maxSliceMs < 10` — a wall-clock budget
+  measured inside a vitest pool running 280 files in parallel — came in at **14.228 ms**. It
+  is in `packages/solverkit`, which this run does not touch; it passed **3 of 3** standalone
+  runs immediately afterwards; and the baseline run before P6.18 landed passed it.
+- **`P0.112`'s own note predicted this failure and was right.** It said the next test file
+  heavy enough to load the pool would tip the assertion again, and that the failure would
+  "look like a bug in whatever landed alongside it rather than in the assertion". P6.18's
+  32-test file did exactly that. The note has been updated with this run's measurement: the
+  58th run's mitigation is **spent**, and the overshoot is **growing** (10.768 ms → 14.228
+  ms), so a session reading a red suite here can no longer use the margin to judge whether it
+  is this flake.
+- **The assertion was not weakened, skipped, retried or deleted.** The 10 ms budget is a real
+  P2.40 requirement. The fix wanted is still an assertion that measures the chunker rather
+  than the machine — step count per slice, or the median slice, or a serial benchmark outside
+  the pool — and `P0.112` records that those three are not equivalent and that whoever takes
+  it must decide which one P2.40 needs.
+
+### Next run
+
+- **`P6.19`: Sobol' first-order + total indices (Saltelli estimator)**, validation "indices on
+  an additive test function match analytics ±0.05". It is the direct successor: P6.18's
+  module header and docs both name the interaction blindness that Sobol' total indices exist
+  to fill, so the gap is already written down and does not need rediscovering.
+- The Ishigami function is the conventional analytic reference for this and has closed-form
+  indices, but read `tornado.test.ts`'s header first for the pattern this repo's sensitivity
+  suites use — a reference whose derivatives are _exact_, so a discrepancy is attributable to
+  the estimator rather than to the reference.
+- **Do not treat a red `chunked-integration.test.ts` as your own regression.** See above.
+
+---
+
 ## 2026-08-30 (60th run) — **P6.17 done: the cheap uncertainty estimate, and the measurement that says when to stop trusting it**
 
 > **Addendum — CI 272 green at `890714f`, event `push`; `main` is green.** Read from the run
