@@ -50,7 +50,8 @@ import {
  *   rescaling" below) — under CRN a linear response's Monte Carlo spread must
  *   scale *exactly* with the input σ, and it does.
  * - **mildly curved** (30° elevation, small σ), where agreement inside 10% is
- *   asserted, and is in fact three orders better than the criterion asks.
+ *   asserted and measures 1.0% — and even that residual is the shared draw
+ *   matrix's own sample sd differing from 1 at 4096 draws, not curvature.
  * - **badly curved** (large σ, and the 45° stationary point), where divergence
  *   is asserted *and shown to be resolvable* against the Monte Carlo estimator's
  *   own noise. An out-of-tolerance number from a small sample is not evidence

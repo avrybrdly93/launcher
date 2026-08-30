@@ -60,6 +60,16 @@ Two facts about `F` shape every module below, and both are measured rather than 
 Forward mode costs one extra ODE solve per parameter; adjoint costs one backward solve
 regardless of parameter count. See [the adjoint notes](../notes/adjoint-sensitivity.md).
 
+| Symbol                          | File                         | What it is                                        |
+| ------------------------------- | ---------------------------- | ------------------------------------------------- |
+| `firstOrderSpread`              | `first-order-sensitivity.ts` | `σ_R` from `∂R/∂μ` and input `σ`, plus the terms  |
+| `monteCarloSpread`              | `first-order-sensitivity.ts` | Sample spread with a fourth-moment standard error |
+| `compareFirstOrderToMonteCarlo` | `first-order-sensitivity.ts` | The two, swept over input `σ`                     |
+
+Those propagate the derivatives above into an output uncertainty, and say when the
+propagation stops being trustworthy — see
+[First-order spread](#first-order-spread-and-when-to-stop-believing-it) below.
+
 ### Tolerances
 
 | Symbol                   | File                    | What it is                                       |
@@ -527,6 +537,69 @@ _and_ sets `"per-replicate"`, since both write the same field.
 **Antithetic pairs share one wind.** A seed has no distribution to reflect about, so
 "the opposite gust field" is not a thing; sharing it also keeps a pair's variance reduction
 attributable to the mirrored parameters. See `stochastic-wind-replicates.test.ts`.
+
+### First-order spread, and when to stop believing it
+
+`firstOrderSpread(gradient, sigmas)` propagates input uncertainties through the local
+derivatives `∂R/∂μ_k` that `createTangentLinearFlight` already produces (P6.17,
+blueprint §9.4's second rung):
+
+```
+σ_R ≈ sqrt( Σ_k (∂R/∂μ_k)² σ_k² )
+```
+
+One augmented solve, against a Monte Carlo study's thousands. The per-input terms
+`|∂R/∂μ_k| σ_k` come back as `contributions` — they are what P6.18's tornado chart ranks
+by, and they combine **in quadrature, not additively**: gradients of 3 and 4 at unit σ give
+5, not 7.
+
+**The estimate is conditional, and the condition is measurable.** The expansion drops
+curvature and interactions, both silently. `compareFirstOrderToMonteCarlo` makes the
+condition a measurement: it sweeps a multiplier over the input σ vector, runs a Monte Carlo
+study at each scale, and reports where the two part company.
+
+Each point of the sweep carries:
+
+- **`relativeError`** — `(firstOrder − mc.sigma) / mc.sigma`. Negative means first order
+  _understates_ the spread.
+- **`withinTolerance`** — whether `|relativeError|` is inside `tolerance` (default `0.1`,
+  P6.17's criterion).
+- **`significant`** — whether the discrepancy exceeds `significanceSigmas × standardError`,
+  i.e. whether it is resolvable at all.
+- **`monteCarlo.meanShift`** — `mean − R(μ₀)`. First order predicts zero, so a resolvable
+  shift is curvature.
+- **`monteCarlo.censored`** — some draw had no answer. The spread is then conditional on
+  impact and understates the truth; the comparison is not a valid test of linearity.
+
+**Read `significant` before `withinTolerance`.** A small enough sample disagrees with
+anything, so an out-of-tolerance number on its own is not evidence that the approximation
+broke down — it may only be evidence that the study was too small. The standard error it is
+judged against comes from the sample's fourth central moment,
+`Var(s) ≈ (μ₄ − σ⁴)/(4Nσ²)`, rather than the Gaussian `σ/sqrt(2N)`, because the large-σ end
+where divergence gets claimed is exactly where the output stops being Gaussian. The two
+agree on a normal sample, which `first-order-sensitivity.test.ts` checks.
+
+**The sweep shares one draw matrix across every scale.** Same common-random-numbers argument
+as `windReplication: "shared"` above, one level up: holding the draws fixed while only their
+magnitude varies is what makes the trend in the discrepancy attributable to the response's
+nonlinearity. The cost is that the points are correlated — a four-point sweep is not four
+independent studies, and `standardError` is per-point and claims nothing else.
+
+**What it looks like on a response whose curvature is known.** Against the drag-free
+`R = v₀² sin(2θ)/g` at 30° elevation, 4096 draws:
+
+| σ_θ (rad) | first order (m) | Monte Carlo (m) | relative error | significant  |
+| --------- | --------------- | --------------- | -------------- | ------------ |
+| 0.002     | 0.326           | 0.323           | +1.0%          | no           |
+| 0.3       | 48.95           | 51.90           | −5.7%          | yes          |
+| 0.8       | 130.5           | 108.4           | **+20.4%**     | yes (27.7 σ) |
+
+Two things in that table are worth more than the headline. The discrepancy is **not
+monotone** — it runs negative before turning positive, so a sweep that sampled only the
+extremes could read the crossing as agreement. And at the 45° stationary point `∂R/∂θ` is
+exactly zero, so the first-order estimate predicts **no spread at all** against a true
+4.6 m: the failure there is not a percentage, and shrinking σ does not fix it. Check the
+gradient is not near-stationary before trusting a tornado chart drawn from it.
 
 ## Conventions
 
