@@ -17,6 +17,13 @@ forcing a fallback to commit timestamps.
 
 ## 2026-08-30 (60th run) — **P6.17 done: the cheap uncertainty estimate, and the measurement that says when to stop trusting it**
 
+> **Addendum — CI 272 green at `890714f`, event `push`; `main` is green.** Read from the run
+> record, which concluded `success` — the standing stale-status trap is a run reporting
+> `in_progress` after its jobs finish, so a `completed`/`success` run record is not subject to
+> it, and no job-level re-read was needed. This closes the "CI on this push is not yet
+> observed" caveat in the gate bullet below, which was accurate when written. Run 273, created
+> by this addendum's own commit, is not chased: one follow-up entry, then stop.
+
 - **P6.17 done, both halves of its criterion measured.** `firstOrderSpread`,
   `monteCarloSpread` and `compareFirstOrderToMonteCarlo` from
   `packages/analysis/src/first-order-sensitivity.ts`, re-exported from `index.ts` and
