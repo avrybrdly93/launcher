@@ -17,6 +17,20 @@ forcing a fallback to commit timestamps.
 
 ## 2026-08-30 (61st run) — **P6.18 done: the cheapest ranking of parameter influence, and the three places it lies**
 
+> **Addendum — CI 274 green at `ed6cbe6`, event `push`; `main` is green, and the
+> P0.112 flake did not fire there.** Read from the run record, which concluded
+> `success` — the standing stale-status trap is a run reporting `in_progress`
+> after its jobs finish, so a `completed`/`success` run record is not subject to
+> it. The `Test` step passed, which is the part worth recording: this run's own
+> local full-suite pass came in **red** on `chunked-integration.test.ts` at
+> 14.228 ms and CI's came in green on the same tree. That is one more datum for
+> P0.112 in the direction its notes already argue — the assertion measures the
+> host's contention, not the chunker, so it fires on the local container and not
+> on the CI runner. It is **not** evidence the flake is fixed, and a later run
+> that sees it red locally should still read P0.112 rather than its own diff.
+> Run 275, created by this addendum's own commit, is not chased: one follow-up
+> entry, then stop.
+
 - **P6.18 done, criterion met.** `oneAtATimeTornado` and `compareTornadoToFirstOrder` in
   `packages/analysis/src/tornado.ts`, re-exported from `index.ts` and documented in
   `docs/analysis/README.md` under "One-at-a-time tornado, and what a bar chart cannot show".
