@@ -17,6 +17,20 @@ forcing a fallback to commit timestamps.
 
 ## 2026-08-30 (62nd run) — **P6.19 done: the variance a tornado cannot attribute, and the invariance this module claimed before it had it**
 
+> **Addendum — CI 276 green at `c531467`, event `push`, all 35 steps; `main` is green.**
+> Read from the **job** record rather than the run record, per the standing stale-status
+> trap: `get_workflow_run` still said `in_progress` after steps had completed. Test 1m57s,
+> 3m52s end to end. The four steps the local gate cannot cover all passed — benchmark
+> regression, cross-engine drift, Engine API docs and SolverKit API docs — which is worth
+> naming for this run specifically, because `sobol-indices.ts` carries several `{@link}`
+> tags and the 44th run's finding is that a doc comment can be latently broken until
+> something inlines the type. **Scoped honestly:** those typedoc steps build `engine` and
+> `solverkit`, not `analysis`, so they are not evidence that this run's own TSDoc resolves.
+> **`P0.112` did not fire on CI either**, matching this run's local full-suite pass — the
+> first run in three where both came in green on the same tree, and still not evidence the
+> flake is fixed. Run 277, created by this addendum's own commit, is not chased: one
+> follow-up entry, then stop.
+
 - **P6.19 done, criterion met with two orders of magnitude to spare.** `sobolIndices` in
   `packages/analysis/src/sobol-indices.ts`, re-exported from `index.ts` and documented in
   `docs/analysis/README.md` under "Sobol' indices, and the variance a tornado cannot
