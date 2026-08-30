@@ -2759,8 +2759,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "indices on additive test function match analytics ±0.05",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed by the 62nd run. Saltelli/Jansen estimators over the engine's scrambled Sobol' sequence, in packages/analysis/src/sobol-indices.ts. Additive reference (exact analytics) is the criterion; Ishigami is the interaction case the criterion does not reach."
     },
     {
       "id": "P6.20",
