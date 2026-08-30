@@ -31,6 +31,7 @@ export * from "./robust-aim.js";
 export * from "./shooting-jacobian.js";
 export * from "./shooting-residual.js";
 export * from "./smart-init.js";
+export * from "./sobol-indices.js";
 export * from "./streaming-moments.js";
 export * from "./tangent-linear.js";
 export * from "./trajectory-designer.js";

@@ -67,11 +67,13 @@ regardless of parameter count. See [the adjoint notes](../notes/adjoint-sensitiv
 | `compareFirstOrderToMonteCarlo` | `first-order-sensitivity.ts` | The two, swept over input `σ`                     |
 | `oneAtATimeTornado`             | `tornado.ts`                 | `2n` solves, one input moved at a time, ranked    |
 | `compareTornadoToFirstOrder`    | `tornado.ts`                 | Whether the bar order matches the `∂R/∂μ` ranking |
+| `sobolIndices`                  | `sobol-indices.ts`           | First-order and total variance shares per input   |
 
 Those propagate the derivatives above into an output uncertainty, and say when the
 propagation stops being trustworthy — see
-[First-order spread](#first-order-spread-and-when-to-stop-believing-it) and
-[One-at-a-time tornado](#one-at-a-time-tornado-and-what-a-bar-chart-cannot-show) below.
+[First-order spread](#first-order-spread-and-when-to-stop-believing-it),
+[One-at-a-time tornado](#one-at-a-time-tornado-and-what-a-bar-chart-cannot-show) and
+[Sobol' indices](#sobol-indices-and-the-variance-a-tornado-cannot-attribute) below.
 
 ### Tolerances
 
@@ -666,6 +668,78 @@ by `v₀²(1 − cos(0.1))/g` on _both_ sides. The only thing that distinguishes
 has no answer, the bar comes back with `span: null` and sorts _last_, and
 `compareTornadoToFirstOrder` refuses the tornado outright. Giving it a span of zero would
 rank the input that broke the problem as the least influential one.
+
+### Sobol' indices, and the variance a tornado cannot attribute
+
+`sobolIndices(problem, options)` returns, for each input, the share of output variance it
+explains alone and the share it explains including every interaction it takes part in
+(P6.19). `evaluate` takes a point of the **open unit cube** rather than input units, so each
+input's quantile is folded into the callback — one callback, and the independence the whole
+decomposition rests on is then a property of the cube rather than a claim about the caller.
+
+| Index           | Definition                   | Reads as                                    |
+| --------------- | ---------------------------- | ------------------------------------------- |
+| `first` `S_k`   | `Var(E[Y \| X_k]) / Var(Y)`  | Variance removed by learning `X_k` alone    |
+| `total` `S_T_k` | `E[Var(Y \| X_~k)] / Var(Y)` | Variance left when everything else is fixed |
+
+`S_k ≤ S_T_k` always; `Σ S_k ≤ 1` and `Σ S_T_k ≥ 1`, both tight **only** for an additive
+model. So `interactionShare = 1 − Σ S_k` is the share of variance living in interactions —
+the number [the tornado](#one-at-a-time-tornado-and-what-a-bar-chart-cannot-show) cannot
+produce at any sample size. A near-zero `S_T_k` is also the one result here that licenses
+_dropping_ an input, which no OAT bar can justify.
+
+**Cost is `N(d + 2)`, not `N²`.** Two independent `N × d` samples `A` and `B` are drawn in
+the cube, and for each input `k` the matrix `A_B^k` is `A` with column `k` taken from `B`.
+Then, with `V` the population variance of the pooled `f_A ∪ f_B`:
+
+```
+S_k   ≈ (1/N)  Σ f_B (f_k − f_A) / V      (Saltelli et al. 2010)
+S_T_k ≈ (1/2N) Σ (f_A − f_k)²    / V      (Jansen 1999)
+```
+
+Jansen's form is a mean of squares, so `total` is **non-negative by construction**. `first`
+is not, and is reported **unclamped**: a small negative index is an estimate of a near-zero
+one, and clamping it would hide the only signal that says `N` is too small to resolve that
+input.
+
+**Both samples are centred on the pooled mean before any term is formed, and that is not
+cosmetic.** The differenced numerator alone is invariant to `f → f + c` only _in
+expectation_ — the added `c(f_k − f_A)` has mean zero in the limit but not in a finite
+sample. This module claimed the invariance before it had it, and the measurement is the
+correction: at `c = 10⁶` against a spread of order 1, `S₀` came out **13.43** where the
+analytic value is **0.762**. Centring makes it exact, and `sobol-indices.test.ts` keeps a
+regression test on it.
+
+**Measured against references with no accuracy of their own.** On the additive function
+`4x₀ + 2x₁ + x₂`, `xₖ ~ U(0,1)`, whose indices are exactly `aₖ² / Σ aⱼ²`, at `N = 4096`:
+
+| Input | analytic `S` | measured `S` | measured `S_T` |
+| ----- | ------------ | ------------ | -------------- |
+| `x₀`  | 0.761905     | 0.762003     | 0.761916       |
+| `x₁`  | 0.190476     | 0.190528     | 0.190462       |
+| `x₂`  | 0.047619     | 0.047560     | 0.047606       |
+
+`Σ S_k = 1.000090` and `Σ S_T_k = 0.999984` — both identities tight, as an additive model
+requires. The Ishigami function is in the suite as the case the criterion cannot reach, at
+`N = 16384`: `x₃` has `S₃ = 0.000570` against an analytic **0** while `S_T₃ = 0.243593`
+against **0.243684**. It moves the output's variance by a quarter and its mean not at all,
+so an OAT bar for it is short — and the short bar is a lie.
+
+**The reported standard errors are the i.i.d. formula, and that formula is only valid under
+`sampling: "random"`.** A scrambled Sobol' sample is deliberately not independent, which is
+the point of it; the suite asserts a three-sigma bracket under `"random"` and, under
+`"sobol"`, only _measures_ that the deviation sits inside the i.i.d. figure. Read it there as
+an indicator of scale, never as a confidence interval. A proper randomised-QMC error bar
+needs independent scrambles and is filed as **P0.113**. `V` is treated as known; its own
+sampling error is not propagated.
+
+**Censoring is fatal here, unlike in a tornado.** These estimators are differences between
+_matched_ draws, so dropping one member of a pair biases every index that pair feeds, in a
+direction set by where in input space the failures fall. A `null` is counted, sets
+`censored`, and makes the whole result conditional on the output existing — which is not the
+quantity anyone asked for. And the decomposition is unique only for **independent** inputs: a
+caller who maps the cube onto correlated inputs gets numbers that still sum correctly and
+mean nothing.
 
 ## Conventions
 
