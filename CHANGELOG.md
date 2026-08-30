@@ -15,6 +15,68 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-30 (60th run) — **P6.17 done: the cheap uncertainty estimate, and the measurement that says when to stop trusting it**
+
+- **P6.17 done, both halves of its criterion measured.** `firstOrderSpread`,
+  `monteCarloSpread` and `compareFirstOrderToMonteCarlo` from
+  `packages/analysis/src/first-order-sensitivity.ts`, re-exported from `index.ts` and
+  documented in `docs/analysis/README.md` under "First-order spread, and when to stop
+  believing it". `ROADMAP.json` carries the full notes, as `policy.commitRules` requires,
+  and this entry does not restate them. The headline numbers: **+1.0%** agreement at
+  σ_θ = 0.002 rad and **+20.4%** divergence at σ_θ = 0.8 rad, the latter at **27.7 standard
+  errors** of the Monte Carlo estimate.
+- **The interesting part of the task was not the formula, it was deciding what counts as
+  evidence.** `σ_R ≈ sqrt(Σ (∂R/∂μ_k)² σ_k²)` is four lines. The task's criterion is
+  "divergence shown for large σ", and a discrepancy outside 10% shows nothing on its own —
+  a small enough study disagrees with anything. So a point is `significant` only when the
+  discrepancy beats a multiple of the Monte Carlo σ's own standard error, and that standard
+  error comes from the sample's **fourth central moment** rather than the Gaussian
+  `σ/sqrt(2N)`, because the large-σ end where divergence gets claimed is precisely where the
+  output stops being Gaussian. Using the Gaussian formula there would have been the shape of
+  error where the number is plausible and the reasoning is circular.
+- **Two things about this response that a straightforward sweep would have got wrong, and
+  both are now asserted.** The discrepancy is **not monotone in σ** — on `R = v₀²sin(2θ)/g`
+  at 30° it runs to **−5.7%** near σ = 0.3 rad, the truth spreading _more_ than the slope
+  predicts, before turning positive and running away. A test sampling only the extremes
+  would have read that crossing as agreement, so the dip is pinned at three σ values.
+  And at the **45° stationary point** `∂R/∂θ` is exactly zero, so the first-order estimate
+  predicts **no spread at all** against a true 4.56 m. That failure is not a percentage and
+  shrinking σ does not fix it.
+- **P6.18 should read that second point before it draws anything.** Its criterion is "bar
+  order matches the `|∂R/∂μ|σ_μ` ranking", and `firstOrderSpread` now returns exactly those
+  terms as `contributions` — but a chart that ranks by them is blind in the same way at a
+  near-stationary gradient, and ranks an input that dominates the true spread last. The
+  terms also combine **in quadrature, not additively**: 3 and 4 give 5, not 7, which is the
+  arithmetic a tornado chart's total is easiest to get wrong.
+- **P6.16's default paid out immediately, as its note predicted.** The σ sweep reuses one
+  standard-normal draw matrix across every scale, so the trend in the discrepancy is
+  attributable to the response's nonlinearity rather than to fresh noise per scale — the
+  same common-random-numbers argument as `windReplication: "shared"`, one level up. It is
+  checked to floating point rather than argued: on an exactly linear response the Monte
+  Carlo spread rescales **exactly** with σ, 4× and 16× to ten decimals.
+- **Gate, all measured locally at `5b6eb6a` before the close-out commit**: `pnpm typecheck`
+  clean, `pnpm lint` clean, `pnpm format:check` clean, `pnpm lint:deps` clean (1588 modules,
+  4515 dependencies), `pnpm test` **3069 passed across 279 files** (27 of them new here,
+  0 failed), `pnpm --filter @ballista/app build` ✓ in 23.00s, bundle **73.1 kB gzipped**
+  against the 300 kB budget. CI on this push is **not** yet observed — the run this entry's
+  own commit creates is left for the next session to read, and nothing here claims it green.
+- **One thing this run tripped over and the next should know.**
+  `packages/validation/src/analysis-docs.test.ts` treats **any** `docs/analysis/README.md`
+  table row starting `` | ` `` whose first two cells are both backticked as an API-map row,
+  and asserts the first cell is a named export of the second. A field-description table
+  (``| `relativeError` | `(firstOrder − mc.sigma) / mc.sigma` |``) therefore fails as
+  "`relativeError` is not exported from `(firstOrder − mc.sigma) / mc.sigma`". The guard is
+  right and the fix is to write per-field documentation as a **bullet list**, not a table.
+  Not worth a ROADMAP filing; worth the thirty seconds it costs to know.
+- **Next: P6.18** (`seq` 242), one-at-a-time tornado chart, 20m, E. Its inputs are already
+  in place — `contributions` is its bar length and the 45° caveat above is its known failure
+  mode. **`paper-trader` was not reached this run** and the reason is not budget: the
+  GitHub App's grant there is read-only, `git push --dry-run` returns
+  `403 Resource not accessible by integration`, and per this repo's own standing note the
+  write path was probed **before** any work was done there, so nothing was stranded.
+
+---
+
 ## 2026-08-29 (59th run) — **P6.16 done: the wind becomes an uncertain input, by choice rather than by default**
 
 > **Addendum — CI 270 green at `3176717`, all 35 steps; `main` is recovered.** Step 14,
