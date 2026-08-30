@@ -36,3 +36,4 @@ export * from "./tangent-linear.js";
 export * from "./trajectory-designer.js";
 export * from "./targets.js";
 export * from "./tolerance-coupling.js";
+export * from "./tornado.js";
