@@ -2737,8 +2737,8 @@
       "estMinutes": 25,
       "difficulty": "M",
       "validation": "agreement within 10% for small σ; divergence shown for large σ",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed 2026-08-30 (60th run). Building packages/analysis/src/first-order-sensitivity.ts: the delta-method spread σ_R = sqrt(Σ_k (∂R/∂μ_k)² σ_k²) formed from tangent-linear gradients, compared against a Monte Carlo spread over the same inputs at a sweep of σ scales under common random numbers. Remaining: the module, unit tests against the drag-free closed form, one engine-backed integration test through createTangentLinearFlight, and a docs/analysis/README.md section."
     },
     {
       "id": "P6.18",
