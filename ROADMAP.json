@@ -3507,6 +3507,39 @@
       "validation": "an error bar for the default sampling: 'sobol' path whose coverage is measured, not assumed -- e.g. the spread across R independent scrambles, checked against the known deviation on the additive and Ishigami references",
       "status": "todo",
       "notes": "Filed 2026-08-30 (62nd run) while landing P6.19, and scoped out of it deliberately rather than found later. sobolIndices reports firstStandardError / totalStandardError from the plain i.i.d. formula (term-wise sample sd over sqrt(N), divided by V). That is the quantity its name says only under sampling: 'random'. The DEFAULT is sampling: 'sobol', whose points are deliberately negatively correlated -- that is the entire point of a low-discrepancy sequence -- so the figure is an indicator of scale there and not a confidence interval. Measured on the additive reference at N = 4096: firstStandardError 0.018536 / 0.009556 / 0.004805 against actual deviations of 9.8e-5 / 5.2e-5 / 5.9e-5, i.e. the i.i.d. figure overstates the error by roughly two orders of magnitude on that problem. 'Overstates' is an observation on one problem and two seeds, NOT a bound, and it can go the other way on an integrand of unbounded variation. The standard fix is randomised QMC with R independent scrambles (the engine's sobolUniform already takes the scramble seed, so R runs at seed s_1..s_R cost R x N(d+2) evaluations and nothing new): the sample sd of the R index estimates, over sqrt(R), is an honest standard error. R = 10 to 30 is the usual range. Note the two knobs then trade against each other at fixed budget -- larger R buys a better error bar, larger N a better estimate -- and whoever takes this must say which the caller needs rather than picking one silently. Also unpropagated, and cheaper to fix in the same pass: V in the denominator is treated as known, so neither reported error includes the variance estimate's own uncertainty. Do not 'fix' this by clamping or by widening the tolerance in sobol-indices.test.ts -- the suite's three-sigma bracket under 'random' is the assertion that the i.i.d. path is right, and it must keep passing unchanged."
+    },
+    {
+      "id": "P0.114",
+      "phase": 0,
+      "seq": 312,
+      "estMinutes": 90,
+      "difficulty": "M",
+      "title": "Nine of the ten hash routes have no browser coverage at all; app.e2e.test.ts is a smoke suite for the default route only",
+      "validation": "every hash in ROUTE_HASHES is driven in a real browser -- renders its route element, one non-empty h1, a working back link, and no console errors or uncaught exceptions -- with the cases generated from ROUTE_HASHES so a new route cannot be added uncovered",
+      "status": "in-progress",
+      "notes": "Claimed 2026-08-31 (64th run) against an explicit owner instruction in the scheduled prompt: run the dev server on a port in 3000-3010, write a comprehensive Playwright suite for the UI, run it, iterate until green. Recorded here mid-work rather than before the first draft -- the shape of the gap was only knowable after reading what coverage existed -- and that ordering is stated rather than tidied up. The gap: app.e2e.test.ts (P3.46) covers load/scrub/pin/share-URL on the default route. Each of the nine other routes has a *-route.test.tsx beside it, but those mount one component under jsdom and none goes through main.tsx's renderRoute switch, so nothing asserted a hash actually resolves to a rendered page. routes.test.ts compares the two tables and by construction cannot see it. New suite drives the vite DEV server (port 3002 by default, BALLISTA_E2E_PORT overrides) where app.e2e.test.ts builds and previews -- complementary on purpose, and it fails in seconds rather than after a build. Browser acquisition moved to packages/app/src/e2e-browser.ts and both suites now import it, so the sandbox-vs-CI skip rule exists once."
+    },
+    {
+      "id": "P0.115",
+      "phase": 0,
+      "seq": 313,
+      "estMinutes": 30,
+      "difficulty": "E",
+      "title": "The convergence-study and stability-explorer scenario selects key options by projectile id, so the tailwind preset is unreachable",
+      "validation": "the two routes' scenario options have unique ids and distinct labels for all seven presets, and selecting the tailwind preset studies the tailwind scenario",
+      "status": "in-progress",
+      "notes": "Found 2026-08-31 (64th run) by P0.114's new console-error assertion, which is the only reason anyone noticed: Preact had been warning 'two or more children with the same key attribute: baseball' on every load of both routes and nothing was listening. Both routes built SCENARIO_OPTIONS as PRESET_SCENARIOS.map((spec) => ({ id: spec.projectile.id, label: spec.projectile.name, spec })). A projectile is not a scenario: PRESET_SCENARIOS[5] and [6] are the matched headwind/tailwind pair scenario-library.ts exists to let a user compare -- the same baseball, same launch, wind reversed -- so both options came out id='baseball', label='Baseball'. Consequences, in order of seriousness: (1) SCENARIO_OPTIONS.find((o) => o.id === scenarioId) returns the first match, so picking the second entry silently studied the first, and the tailwind scenario could not be selected from either route; (2) the two entries were indistinguishable in the dropdown; (3) the duplicate React/Preact key. PRESET_CURATION already carries a unique id and human title per preset ('headwind' / 'Batted ball into a headwind'), and curatedPresets() pairs curation with spec by index, spreading over PRESET_SCENARIOS[i] itself -- so a library entry's spec IS the preset object and reference identity is the correct join. New packages/app/src/preset-scenario-options.ts derives the options from SCENARIO_LIBRARY on that basis; both routes consume it. No engine or library data changed: the duplicate projectile id is correct (it IS the same ball) and is not the bug."
+    },
+    {
+      "id": "P0.116",
+      "phase": 0,
+      "seq": 314,
+      "estMinutes": 15,
+      "difficulty": "E",
+      "title": "The app declares no favicon, so every page load logs a 404 for /favicon.ico",
+      "validation": "index.html declares an icon that resolves in both the dev server and the built bundle, or the omission is recorded as deliberate with the reason",
+      "status": "todo",
+      "notes": "Found 2026-08-31 (64th run) while writing P0.114's console-error assertion. packages/app/index.html has no <link rel=\"icon\">, so the browser asks for /favicon.ico unprompted and gets a 404 from the dev server; curl confirms it. Filed rather than fixed because an icon is a product decision, not a test fix, and because it is genuinely low-impact -- but it is not zero: it is a console error on every load for every user, which is exactly the noise that trains people to ignore the console, and P0.114's suite has to filter it by message to assert anything about the rest. Note for whoever takes it: the request is issued by the browser process, so it never appears in Playwright's request events at all -- only as a console message -- which is why the filter matches text rather than a URL. vite.config.ts uses a relative base ('./') because the build gets embedded at arbitrary subpaths, so any icon href must be relative too."
     }
   ]
 }
