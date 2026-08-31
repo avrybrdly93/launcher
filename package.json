@@ -19,7 +19,7 @@
     "lint:deps": "depcruise --config .dependency-cruiser.cjs packages",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "verify": "pnpm typecheck && pnpm lint && pnpm lint:deps && pnpm test",
+    "verify": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm lint:deps && pnpm test && pnpm bench:solverkit && pnpm check:cross-engine-drift && pnpm --filter=@ballista/engine run docs && pnpm --filter=@ballista/solverkit run docs && pnpm --filter=@ballista/app build && pnpm --filter=@ballista/app check-bundle-size",
     "prepare": "husky"
   },
   "devDependencies": {
