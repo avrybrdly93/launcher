@@ -2770,8 +2770,8 @@
       "estMinutes": 25,
       "difficulty": "M",
       "validation": "recompute streams progress; cancellable",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed 2026-08-31 (63rd run). Scope: a UI pane that runs P6.18's oneAtATimeTornado and P6.19's sobolIndices over one scenario and draws both, with an N control for the Sobol' base-sample count. The validation criterion is about the drive, not the drawing: 'recompute streams progress; cancellable', so the work is a runtime study job that reports completed evaluations and honours an abort, plus the panel reducer over its messages. Remaining at claim time: all of it."
     },
     {
       "id": "P6.21",
