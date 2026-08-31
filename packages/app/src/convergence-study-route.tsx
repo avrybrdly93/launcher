@@ -6,7 +6,6 @@
  * split between live state (here) and rendering (there).
  */
 
-import { PRESET_SCENARIOS } from "@ballista/engine";
 import { runConvergenceStudy } from "@ballista/runtime";
 import {
   ConvergenceStudyPage,
@@ -16,13 +15,13 @@ import {
   type ScenarioOption,
 } from "@ballista/ui";
 import { useMemo, useState } from "preact/hooks";
+import { PRESET_SCENARIO_OPTIONS } from "./preset-scenario-options.js";
 import "./solver-lab-route.css";
 
-const SCENARIO_OPTIONS: readonly ScenarioOption[] = PRESET_SCENARIOS.map((spec) => ({
-  id: spec.projectile.id,
-  label: spec.projectile.name,
-  spec,
-}));
+// P0.115: keyed by curated scenario identity, not by projectile id -- two
+// presets share a projectile ("baseball", the matched headwind/tailwind pair)
+// and the old derivation made the second unreachable. See the module doc.
+const SCENARIO_OPTIONS: readonly ScenarioOption[] = PRESET_SCENARIO_OPTIONS;
 
 const DEFAULT_METHOD_IDS: readonly string[] = ["explicit-euler", "classical-rk4", "dopri5"];
 

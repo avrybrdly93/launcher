@@ -9,7 +9,6 @@
  * `StabilityExplorerPage` does itself.
  */
 
-import { PRESET_SCENARIOS } from "@ballista/engine";
 import { sampleTrajectoryEigenvalues } from "@ballista/runtime";
 import {
   DEFAULT_STABILITY_H,
@@ -18,13 +17,12 @@ import {
   type StabilityScenarioOption,
 } from "@ballista/ui";
 import { useMemo, useState } from "preact/hooks";
+import { PRESET_SCENARIO_OPTIONS } from "./preset-scenario-options.js";
 import "./solver-lab-route.css";
 
-const SCENARIO_OPTIONS: readonly StabilityScenarioOption[] = PRESET_SCENARIOS.map((spec) => ({
-  id: spec.projectile.id,
-  label: spec.projectile.name,
-  spec,
-}));
+// P0.115: see preset-scenario-options.ts -- the projectile-id derivation this
+// replaces collided on the headwind/tailwind pair.
+const SCENARIO_OPTIONS: readonly StabilityScenarioOption[] = PRESET_SCENARIO_OPTIONS;
 
 const DEFAULT_METHOD_ID = "classical-rk4";
 
