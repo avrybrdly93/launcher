@@ -1,10 +1,11 @@
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { chromium, firefox, type Browser, type BrowserType, type Page } from "playwright";
+import type { Browser, Page } from "playwright";
 import { build, preview, type PreviewServer } from "vite";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { BROWSER_TARGETS, tryLaunch } from "./e2e-browser.js";
 
 /**
  * Playwright end-to-end smoke suite (P3.46): load the real app shell, run
@@ -24,61 +25,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
  * reproduces the same solve, so any mismatch is a real regression).
  */
 
-const SANDBOX_CHROMIUM_PATH = "/opt/pw-browsers/chromium";
-
 const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-
-interface BrowserTarget {
-  readonly name: string;
-  readonly type: BrowserType;
-}
-
-const BROWSER_TARGETS: readonly BrowserTarget[] = [
-  { name: "chromium", type: chromium },
-  { name: "firefox", type: firefox },
-];
-
-/**
- * This sandbox pre-provisions only a (version-mismatched) Chromium binary
- * under a fixed symlink -- see the identical pattern in
- * `canvas-viewport.test.ts`/`worker-pool.e2e.test.ts` -- and has no Firefox
- * binary anywhere. Real CI installs both via `playwright install
- * --with-deps chromium firefox` into Playwright's own default cache, where
- * `browserType.launch()` resolves them with no override needed at all (the
- * override below never applies there, since `SANDBOX_CHROMIUM_PATH` doesn't
- * exist on a CI runner). `resolveExecutablePath` asks Playwright itself
- * where it would look, so the same "does a binary actually exist here"
- * check works for both browsers without hardcoding a second sandbox path
- * that doesn't exist yet.
- */
-function resolveExecutablePath(target: BrowserTarget): string | undefined {
-  if (target.name === "chromium" && existsSync(SANDBOX_CHROMIUM_PATH)) {
-    return SANDBOX_CHROMIUM_PATH;
-  }
-  try {
-    const path = target.type.executablePath();
-    return existsSync(path) ? path : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-async function tryLaunch(target: BrowserTarget): Promise<Browser | undefined> {
-  const executablePath = resolveExecutablePath(target);
-  if (executablePath === undefined && target.name !== "chromium") {
-    // No SANDBOX_* override exists for this browser and Playwright can't
-    // find an installed binary either -- this environment genuinely
-    // doesn't have it (see module doc). Skip rather than fail: CI, which
-    // installs both browsers itself, still runs this suite for real. A
-    // `launch()` failure past this point (a binary *was* found) is a real
-    // problem and is deliberately left to throw/fail the suite, not
-    // swallowed -- silently downgrading a genuine CI launch failure to a
-    // skip would defeat this task's "green in CI on Chromium+Firefox"
-    // validation criterion.
-    return undefined;
-  }
-  return target.type.launch(executablePath ? { executablePath } : {});
-}
 
 let server: PreviewServer;
 let appUrl: string;
