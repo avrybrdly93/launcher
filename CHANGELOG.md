@@ -17,6 +17,38 @@ forcing a fallback to commit timestamps.
 
 ## 2026-08-31 (63rd run) — **P6.20 done: two charts that must not share a scale, and a cancel that is not a censoring**
 
+> **Addendum — CI 278 red at `f7e4244`, and it is P0.112, not P6.20.** Job `99407111165`,
+> read from the **job** record per the standing stale-status trap. Steps 1-10 green
+> (typecheck, lint, **format**, import boundaries); the **Test** step failed on
+> **one** assertion out of **3172 across 284 files**:
+> `packages/solverkit/src/chunked-integration.test.ts` at **12.195367 ms** against its
+> 10 ms per-slice wall-clock budget. That is the already-filed P0.112 / P0.96 flake, in
+> `solverkit`, **a package this run does not touch** — and all three of this run's new
+> test files passed there, `sensitivity-study-panel.test.tsx` included (9 tests, 112 ms).
+> **The assertion was not weakened, skipped or retried.**
+>
+> **This is the first time it has fired on CI, and that is the part worth carrying
+> forward.** Every earlier sighting was local, and the 61st run's local-red/CI-green
+> split was itself used as evidence that the assertion tracks the developer's machine.
+> A GitHub-hosted runner is a different machine and it fails there too, so the reading
+> narrows to the one P0.112 already argues: **wall-clock under a parallel pool measures
+> contention, not the chunker.** This run added 50 tests in 3 files — precisely the
+> trigger P0.112 predicted would meet it again — so a later session should expect this
+> when it adds tests and **not go hunting for a bug in its own work**. P0.112's notes
+> carry the full record.
+>
+> **A cost not previously recorded:** because steps 12-17 are skipped once Test fails,
+> this flake also takes out the benchmark, cross-engine-drift, both typedoc steps, the
+> app build and the bundle-size budget — the four CI-only checks P0.110 exists for. So
+> `main`'s HEAD has **no CI evidence** for those today. All six were run locally before
+> the push and passed (bundle 73.1 kB gz against 300 kB), which is not the same thing
+> and is not claimed as such.
+>
+> `ci.yml` here has **no `workflow_dispatch`** — unlike the sibling repo's — so there is
+> no way to re-trigger without a commit. This addendum's own commit creates run **279**,
+> which is therefore a de-facto re-run of the flaky assertion on essentially the same
+> tree; per this file's convention it is **not chased**. One follow-up entry, then stop.
+
 - **P6.20 done, criterion met on the half of it that is easy to miss.** `runSensitivityStudy` in
   `packages/runtime/src/sensitivity-study.ts`, `sensitivity-study-panel-logic.ts` and
   `sensitivity-study-panel.tsx` in `packages/ui/src`, all three exported from their package
