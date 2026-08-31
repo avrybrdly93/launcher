@@ -15,6 +15,57 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-08-31 (63rd run) — **P6.20 done: two charts that must not share a scale, and a cancel that is not a censoring**
+
+- **P6.20 done, criterion met on the half of it that is easy to miss.** `runSensitivityStudy` in
+  `packages/runtime/src/sensitivity-study.ts`, `sensitivity-study-panel-logic.ts` and
+  `sensitivity-study-panel.tsx` in `packages/ui/src`, all three exported from their package
+  indexes. 50 tests. `ROADMAP.json` carries the full numbers and the design reasoning, as
+  `policy.commitRules` requires, and this entry does not restate them. The criterion —
+  "recompute streams progress; cancellable" — is about the drive rather than the drawing, so the
+  DOM test holds a **deferred** study open and asserts the progress element reads 0.05 then 0.60
+  **while the study is still unresolved**. A test that only checks a finished study cannot reach
+  that, and would have passed against a pane with no streaming at all.
+- **The one real design decision: stopping a run must not be expressible as censoring.** The
+  obvious way to cancel mid-flight is to have the wrapped `evaluate` return `null` — but `null`
+  already means "this point has no answer" to both estimators, so a cancelled run would come back
+  as a heavily _censored result_: a wrong statement about the physics rather than the absence of a
+  statement. The wrapper throws instead, and unwinds out of whichever estimator is running.
+  Censoring is a claim about the model; cancelling is a claim about the user, and the type system
+  will not keep them apart on its own.
+- **The two charts are normalised separately, and that is the pane's whole honesty argument.** A
+  tornado bar is a length in output units; a Sobol' bar is a dimensionless share of variance.
+  Tornado bars scale against the widest, but Sobol' bars stay on a fixed `[0,1]` scale, because
+  rescaling them to the largest index would render a decomposition where _nothing_ dominates
+  identically to one where something does. Same reasoning one level down: Sobol' bar **widths**
+  clamp at zero while the reported **numbers** keep their sign, so a negative `S_k` — which is the
+  signal that `N` is too small — still reads as `-2.0%` beside a zero-width bar rather than being
+  laundered into a resolved zero.
+- **Progress is counted, not estimated.** Both estimators cost exactly the number of times they
+  call the model, so the module wraps the caller's callback and counts entries rather than
+  instrumenting the estimators. The denominator is then an arithmetic fact — `2d+1` and `N(d+2)` —
+  that cannot drift out of step with the implementations it describes, and a test pins the run to
+  exactly that count, arriving strictly one at a time.
+- **Baseline was red on arrival and that was P0.111, not this work.** `pnpm test` on a fresh clone
+  failed 3 assertions in `cross-engine-drift-record.test.ts`; running `pnpm typecheck` first (which
+  emits `packages/engine/dist`) clears them, exactly as P0.111 says. **Read that task before
+  spending a suite run rediscovering it** — this is the third run to hit it. Final gate in CI's own
+  order: typecheck, lint, `lint:deps` (no violations, 1618 modules), `pnpm test` **3172 passed /
+  284 files**, plus `format:check` clean, `@ballista/app` build green and `check-bundle-size`
+  **73.1 kB gzipped against a 300 kB budget**. Baseline for comparison was 3122 / 281.
+- **Scoped out rather than quietly absorbed.** The pane is not mounted on a route — that is P6.24,
+  and `runStudy` is a prop for the same reason `BasinPanel`'s `runSweep` is. No CSS: no panel in
+  this repo ships a stylesheet and `app-shell.css` carries no panel rules at all, so adding one
+  would have been a new convention rather than this task. **P0.113 is inherited and visible in the
+  UI**: the pane's "within 2 s.e. of zero" flag reads `firstStandardError`, which under the default
+  `sobol` sampling is not the quantity its name says, so the flag is a heuristic and is left as
+  P0.113's to fix rather than worked around here.
+- **Not verified from this run, and not claimed:** CI itself. The two typedoc steps build `engine`
+  and `solverkit`, and this run touched neither — so, as the 62nd run's addendum said of `analysis`,
+  they are not evidence that this run's own TSDoc resolves. No CI run is chased in this entry.
+
+---
+
 ## 2026-08-30 (62nd run) — **P6.19 done: the variance a tornado cannot attribute, and the invariance this module claimed before it had it**
 
 > **Addendum — CI 276 green at `c531467`, event `push`, all 35 steps; `main` is green.**
