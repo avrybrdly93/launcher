@@ -28,3 +28,4 @@ export * from "./annotation-layer.js";
 export * from "./hover-picking.js";
 export * from "./orthographic-views.js";
 export * from "./impact-scatter.js";
+export * from "./cluster-overlay.js";
