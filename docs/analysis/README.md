@@ -460,6 +460,49 @@ in the output says the answer moved. This is why `dragFreeRangeControlMean` carr
 interval that never widens. Both the shift and its invisibility are asserted in
 `control-variate-variance-reduction.test.ts`.
 
+### Estimating a rare-event probability with importance sampling
+
+`importance-sampling.ts` estimates `P(A)` when `A` is rare enough that counting stops
+working (P6.23). Full derivation, the optimal-tilt argument and the measured results are in
+[the rare-event note](../notes/rare-events.md).
+
+| Symbol                             | File                     | Meaning                                                                |
+| ---------------------------------- | ------------------------ | ---------------------------------------------------------------------- |
+| `importanceSamplingProbability`    | `importance-sampling.ts` | Estimate from indicators + likelihood ratios, with the diagnostics     |
+| `normalShiftProposal`              | `importance-sampling.ts` | The tilted proposal: put the proposal mean on the threshold            |
+| `normalShiftLikelihoodRatio`       | `importance-sampling.ts` | `f(x)/g(x)` for a mean-shifted normal, in closed form                  |
+| `validateNormalShiftProposal`      | `importance-sampling.ts` | Argument check shared by the proposal helpers                          |
+| `normalTailProbability`            | `importance-sampling.ts` | `P(X > t)` for a normal `X` — the exact anchor the demo scores against |
+| `bruteForceSampleSize`             | `importance-sampling.ts` | `(1 − p)/(p·rse²)` — what counting would cost                          |
+| `formatImportanceSamplingEstimate` | `importance-sampling.ts` | Renders `p=1.54e-4 ± 7e-6, ESS 402/2000 (20%), max share 0.00`         |
+
+**The cost of counting scales as `1/p`, not as a constant.** The relative standard error of
+`k/N` is `1/√(Np)`, so it is the expected number of _hits_ that sets the accuracy. Worse,
+at `Np ≈ 0.3` the single likeliest outcome of the whole study is zero hits — a point
+estimate of `0` with an estimated standard error of `0`, which is the most confidently
+wrong thing a Monte Carlo run can return. Measured at `p = 1.59 × 10⁻⁴` and `N = 20,000`,
+only **39 of 200** brute-force studies land within 25% of the truth.
+
+**The proposal decides precision, never correctness** — the same asymmetry `c` has for
+control variates, and the same reason this is an option rather than a silent
+transformation. `E_g[1_A · f/g] = p` for any `g` covering `f`'s support.
+
+**A bad proposal does not fail loudly, which is why three diagnostics ship beside `pHat`.**
+The estimate comes out computed from one or two draws, and its sample standard error —
+computed from that same degenerate sample — is _small_, so the estimate and its error bar
+agree with each other and are both wrong. `effectiveSampleSize` (Kish's `(Σw)²/Σw²`),
+`maxWeightShare` and the raw `hits` count are what make it visible. Measured on the demo's
+problem: an over-tilted proposal puts **100%** of draws in the event and returns
+`3.0 × 10⁻¹⁶` against a true `1.59 × 10⁻⁴`, with a weight efficiency of `5.5 × 10⁻⁴` and one
+draw carrying 96% of the answer. Nothing in `pHat` says so; the diagnostics do.
+
+**The demo's exact answer is available, and that is the point of how it is constructed.**
+Drag-free range is strictly increasing in `v₀`, so "the shot carries past `R_t`" is exactly
+"`v₀ > √(R_t g / sin 2θ)`" — a Gaussian upper tail with a closed form. Both estimators are
+scored against that number rather than against each other: two noisy estimators agreeing is
+not evidence. Result over 200 replications: **11.5× smaller RMS error at 10× fewer draws**,
+both unbiased.
+
 ### Latin hypercube sampling
 
 `latin-hypercube.ts` (in `@ballista/engine`) is an alternative way to draw a study's
