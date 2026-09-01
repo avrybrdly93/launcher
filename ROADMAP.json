@@ -2792,8 +2792,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "legend/count per cluster; stable colors across reruns (seeded)",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed 2026-09-01 (66th run) before any code, per policy.commitRules. First todo by seq (246) with nothing in-progress and nothing in review, so policy.taskSelection applies as written."
     },
     {
       "id": "P6.23",
