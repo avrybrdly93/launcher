@@ -10,6 +10,7 @@ export * from "./brent-minimize.js";
 export * from "./constraints.js";
 export * from "./envelope.js";
 export * from "./ill-conditioning.js";
+export * from "./importance-sampling.js";
 export * from "./levenberg-marquardt.js";
 export * from "./confidence-interval.js";
 export * from "./control-variate.js";
