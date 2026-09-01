@@ -2803,8 +2803,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "IS estimate matches brute force at 10× fewer samples (constructed tail)",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed 2026-09-01 (67th run) as the first `todo` by `seq` (247), with nothing `in-progress` and nothing in `review` ahead of it -- `policy.taskSelection` applied as written, and the 66th run's changelog entry nominates it by name. PLAN: a generic importance-sampling estimator in `packages/analysis/src/importance-sampling.ts` (indicators + likelihood ratios -> probability, SE, Kish effective sample size, weight-degeneracy diagnostics), plus the mean-shifted-normal proposal whose likelihood ratio is exact in closed form; then the constructed-tail demo as a separate variance-reduction suite, the shape `control-variate-variance-reduction.test.ts` established. The demo's tail is a real hit probability whose exact value is nevertheless available in closed form: with drag-free range `v0^2 sin(2 theta)/g` monotone in `v0`, 'the shot carries past a target at R_t' is exactly 'v0 > sqrt(R_t g / sin 2theta)', a Gaussian upper tail. So the estimator is checked against an exact number, not only against brute force."
     },
     {
       "id": "P6.24",
