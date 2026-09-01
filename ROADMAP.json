@@ -2781,8 +2781,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "bimodal two-arc ensemble separates into 2 clusters (ARI > 0.9 on labeled fixture)",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed 2026-09-01 (65th run) before any code, per policy.commitRules. First todo by seq (245), nothing in-progress or in review ahead of it -- taskSelection applied as written. Remaining work: feature extraction + k-means in packages/analysis, a labeled bimodal two-arc fixture, and the ARI > 0.9 check the validation criterion names."
     },
     {
       "id": "P6.22",
