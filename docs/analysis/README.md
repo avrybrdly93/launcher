@@ -319,6 +319,61 @@ to `NaN` rather than to a clamped endpoint, because repeating an impact point ac
 rest of the grid would draw a projectile resting on the ground and drag the quantiles
 towards it.
 
+### Clustering a bimodal ensemble
+
+`trajectory-clustering.ts` answers "is this ensemble one population or several, and which
+replicate belongs to which?" (P6.21). Sample a launch angle across the 45° optimum and the
+ensemble splits into a flat, fast arc and a lofted, slow one; a fan chart averages the two
+into a single wide band and reports the median of a distribution with no mass near its
+median. Nothing here draws; P6.22 renders the labels.
+
+| Symbol                    | File                       | Meaning                                                   |
+| ------------------------- | -------------------------- | --------------------------------------------------------- |
+| `clusterTrajectories`     | `trajectory-clustering.ts` | Build features and cluster, in one call                   |
+| `buildTrajectoryFeatures` | `trajectory-clustering.ts` | Resampled `y(t)` + observables, standardised and weighted |
+| `buildCommonSupportGrid`  | `trajectory-clustering.ts` | Uniform grid over the _intersection_ of the flights       |
+| `kMeans`                  | `trajectory-clustering.ts` | Lloyd's algorithm, k-means++ seeded, restarted, canonical |
+| `canonicaliseLabels`      | `trajectory-clustering.ts` | Relabel so cluster 0 holds the lowest-indexed row         |
+| `adjustedRandIndex`       | `trajectory-clustering.ts` | Partition agreement, 0 at chance and 1 at identity        |
+
+**The grid is the intersection, not the union, and that is the whole safety story.**
+`buildCommonGrid` spans the union because a fan chart must thin honestly past the first
+impact, which means a short replicate resamples to `NaN` out there. Feed one `NaN` into a
+Euclidean distance and every distance involving that row is `NaN`; `NaN < best` is `false`,
+so the row silently sticks to whichever centroid it met first and k-means returns a
+confident, meaningless partition. `buildCommonSupportGrid` samples only where every
+replicate has a value, the observables carry what happens after the first landing, and
+`buildTrajectoryFeatures` refuses to emit a non-finite feature at all rather than let one
+reach the distance metric.
+
+**Standardising fixes the units; it does not fix the dimension count.** `y(t)` is in metres
+and runs to hundreds, time of flight is in seconds and runs to tens, so raw columns make
+the distance a statement about metres and the observables decoration. Z-scoring each column
+settles that, but 32 correlated shape columns against 2 observables still outvote them on
+count alone. `blockWeights` defaults to scaling each block by `1/sqrt(blockSize)` so the two
+contribute equally — **a modelling choice, documented as one**, saying "the shape matters as
+much as the endpoints". A caller who disagrees passes explicit weights.
+
+**A partition is not evidence that k populations exist.** k-means is given k and will
+always return k clusters, including on a single population. The test suite pins that
+directly: 80 replicates drawn from _one_ distribution and labelled as two score ARI ≈ 0
+while still being split into two non-empty clusters. `inertia` is what an elbow or
+silhouette sweep would consume to choose k; nothing here chooses it.
+
+**Why the criterion is an ARI and not an accuracy.** The raw Rand index counts agreeing
+pairs, and two random partitions already agree on most pairs — 0.5 on the single-population
+fixture above, which reads like half-right and means nothing. The adjusted index subtracts
+the agreement expected under a hypergeometric null, giving 0 at chance and 1 at identity,
+and it is invariant to relabelling. `adjustedRandIndex` is checked against scikit-learn's
+documented values, including the negative one.
+
+**Labels are canonicalised so colours do not flicker.** Two runs can agree perfectly on the
+partition and still return `[0,0,1,1]` and `[1,1,0,0]`; every metric worth computing is
+invariant to that but a legend is not (P6.22 asks for stable colours across reruns).
+Cluster 0 is always the one containing the lowest-indexed row — a total order that does not
+depend on the feature values, so it survives a rescale. Seeding is `PCG32`, never
+`Math.random`, per §8.5/ADR-011.
+
 ### Hit probability against a target
 
 `hit-probability.ts` reduces an ensemble of impact points to "how often did we hit, and
