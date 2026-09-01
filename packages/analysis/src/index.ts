@@ -38,3 +38,4 @@ export * from "./trajectory-designer.js";
 export * from "./targets.js";
 export * from "./tolerance-coupling.js";
 export * from "./tornado.js";
+export * from "./trajectory-clustering.js";
