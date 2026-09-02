@@ -2825,8 +2825,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "CI band visibly narrows during run",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed 2026-09-02 (69th run) before any code, per the routine's claim-before-coding step. Plan: the progress step gains a partial estimate so the Wilson interval can be watched narrowing during the ensemble stage, which is this task's validation criterion. Remaining work at the time of claiming: emit partials from mcDashboardStudySteps, surface them in the pane, tests at both layers."
     },
     {
       "id": "P6.26",
