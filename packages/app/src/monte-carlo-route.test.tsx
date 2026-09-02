@@ -189,3 +189,56 @@ describe("runGolfDriveStudy keeps Cancel honest", () => {
     expect(result.stats.count).toBe(10);
   });
 });
+
+describe("P6.25 the route streams live estimates from a real study", () => {
+  it("delivers partial estimates through the driver, not just counts", async () => {
+    // End to end on the real golf drive: the criterion is about what reaches
+    // the pane, and the pane is fed by exactly this callback.
+    const partials: NonNullable<McDashboardProgress["partial"]>[] = [];
+    await runGolfDriveStudy({
+      replicates: 32,
+      yieldEvery: 1000,
+      onProgress: (progress) => {
+        if (progress.partial !== undefined) partials.push(progress.partial);
+      },
+    });
+
+    expect(partials.length).toBeGreaterThan(1);
+    // Nested prefixes of one ensemble, so the sample size only grows.
+    const sizes = partials.map((p) => p.sampled);
+    expect(sizes).toEqual([...sizes].sort((a, b) => a - b));
+    expect(sizes.at(-1)).toBe(32);
+  });
+
+  it("the final streamed estimate is the one the result carries", async () => {
+    // If these differed, the number on screen would jump at the instant the
+    // run completed, for no reason a reader could account for.
+    let last: NonNullable<McDashboardProgress["partial"]> | undefined;
+    const result = await runGolfDriveStudy({
+      replicates: 24,
+      yieldEvery: 1000,
+      onProgress: (progress) => {
+        if (progress.partial !== undefined) last = progress.partial;
+      },
+    });
+
+    expect(last).toBeDefined();
+    expect(last!.hit).toEqual(result.hit);
+    expect(last!.unlandedCount).toBe(result.unlandedCount);
+  });
+
+  it("the interval is tighter at the end of a run than at its first estimate", async () => {
+    const partials: NonNullable<McDashboardProgress["partial"]>[] = [];
+    await runGolfDriveStudy({
+      replicates: 64,
+      yieldEvery: 1000,
+      onProgress: (progress) => {
+        if (progress.partial !== undefined) partials.push(progress.partial);
+      },
+    });
+
+    const width = (p: (typeof partials)[number]) => p.hit.upper - p.hit.lower;
+    expect(partials.length).toBeGreaterThan(2);
+    expect(width(partials.at(-1)!)).toBeLessThan(width(partials[0]!));
+  });
+});
