@@ -231,19 +231,28 @@ function recordReplicate(study: UncertainScenarioSpec, index: number): Trajector
 }
 
 /**
- * Runs one dashboard study.
+ * The study as a generator: one `yield` per replicate, the result at the end.
  *
- * @throws {McDashboardStudyCancelled} If the signal aborts mid-run.
- * @throws RangeError via `hitProbability` if no replicate landed -- an
- *   ensemble with nothing in it cannot be scored, and reporting `p̂ = 0` for
- *   "we never found out" would be a fabricated answer rather than an absent
- *   one.
+ * **This exists so a caller on a UI thread can be honest about Cancel.** The
+ * whole study is CPU-bound JavaScript, so a caller that runs it in one
+ * synchronous call blocks the event loop for its whole duration -- during
+ * which no click can be delivered, no progress can paint, and an
+ * `AbortSignal` cannot possibly become aborted. A Cancel button wired to
+ * that is decoration. Driving this generator instead lets a caller await a
+ * macrotask every so often, which is what makes the button real; the
+ * `monte-carlo-route.tsx` runner does exactly that.
+ *
+ * The synchronous {@link runMcDashboardStudy} below is this generator drained
+ * in a loop, so there is one implementation and not two that can drift.
+ *
+ * @throws RangeError on a malformed `fanReplicates`, immediately -- before
+ *   the first `yield`, so a caller cannot receive progress from a study that
+ *   was never going to finish.
  */
-export function runMcDashboardStudy(
+export function* mcDashboardStudySteps(
   spec: McDashboardStudySpec,
   options: McDashboardOptions = {},
-  callbacks: McDashboardCallbacks = {},
-): McDashboardResult {
+): Generator<McDashboardProgress, McDashboardResult, void> {
   const { study, target } = spec;
   const replicates = study.replicates;
   const requestedFan = options.fanReplicates ?? DEFAULT_FAN_REPLICATES;
@@ -255,18 +264,14 @@ export function runMcDashboardStudy(
   }
   const gridPoints = options.fanGridPoints ?? DEFAULT_FAN_GRID_POINTS;
   const cost = mcDashboardCost(replicates, requestedFan);
-  const { onProgress, signal } = callbacks;
 
   const layout = mcObservableLayout(study.base);
   const verticalAxis = layout.vertical;
 
   let completed = 0;
-  const report = (stage: McDashboardStage): void => {
+  const step = (stage: McDashboardStage): McDashboardProgress => {
     completed += 1;
-    onProgress?.({ stage, completed, total: cost.total });
-  };
-  const checkSignal = (): void => {
-    if (signal?.aborted === true) throw new McDashboardStudyCancelled(completed);
+    return { stage, completed, total: cost.total };
   };
 
   // --- stage 1: the ensemble ------------------------------------------- //
@@ -282,7 +287,6 @@ export function runMcDashboardStudy(
   const landedImpacts: number[][] = [];
 
   for (let i = 0; i < replicates; i += 1) {
-    checkSignal();
     const result = runMcReplicate({ study }, i, sink);
     columns.range[i] = result.range;
     columns.apexHeight[i] = result.apexHeight;
@@ -290,7 +294,7 @@ export function runMcDashboardStudy(
     columns.impactSpeed[i] = result.impactSpeed;
     columns.landed[i] = result.landed ? 1 : 0;
     if (result.landed) landedImpacts.push([...sink.observables.impactPoint]);
-    report("ensemble");
+    yield step("ensemble");
   }
 
   const stats = mcStats(columns);
@@ -301,9 +305,8 @@ export function runMcDashboardStudy(
   const fanReplicates = cost.fan;
   const trajectories: Trajectory[] = [];
   for (let i = 0; i < fanReplicates; i += 1) {
-    checkSignal();
     trajectories.push(recordReplicate(study, i));
-    report("fan");
+    yield step("fan");
   }
 
   const grid = buildCommonGrid(trajectories, gridPoints);
@@ -327,4 +330,38 @@ export function runMcDashboardStudy(
     fanReplicates,
     cost,
   };
+}
+
+/**
+ * Runs one dashboard study to completion, synchronously.
+ *
+ * {@link mcDashboardStudySteps} drained in a loop, reporting each yielded step
+ * and checking the signal between them. A caller that can afford to block --
+ * a test, a worker entry, a batch script -- wants this; a caller on a UI
+ * thread wants the generator, because a signal cannot become aborted while
+ * this function is on the stack.
+ *
+ * @throws {McDashboardStudyCancelled} If the signal is already aborted, or
+ *   becomes so between steps.
+ * @throws RangeError via `hitProbability` if no replicate landed -- an
+ *   ensemble with nothing in it cannot be scored, and reporting `p̂ = 0` for
+ *   "we never found out" would be a fabricated answer rather than an absent
+ *   one.
+ */
+export function runMcDashboardStudy(
+  spec: McDashboardStudySpec,
+  options: McDashboardOptions = {},
+  callbacks: McDashboardCallbacks = {},
+): McDashboardResult {
+  const { onProgress, signal } = callbacks;
+  const steps = mcDashboardStudySteps(spec, options);
+  let completed = 0;
+
+  for (;;) {
+    if (signal?.aborted === true) throw new McDashboardStudyCancelled(completed);
+    const next = steps.next();
+    if (next.done === true) return next.value;
+    completed = next.value.completed;
+    onProgress?.(next.value);
+  }
 }

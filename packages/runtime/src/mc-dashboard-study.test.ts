@@ -19,6 +19,7 @@ import {
   DEFAULT_FAN_REPLICATES,
   McDashboardStudyCancelled,
   mcDashboardCost,
+  mcDashboardStudySteps,
   runMcDashboardStudy,
   type McDashboardProgress,
 } from "./mc-dashboard-study.js";
@@ -471,3 +472,51 @@ function referenceTrajectory(spec: UncertainScenarioSpec, index: number): Trajec
   integrate(model, ctx, y0, [0, MC_T_MAX_SECONDS], resolveSolverConfig(drawn), stepper, [recorder]);
   return recorder.trajectory;
 }
+
+describe("P6.24 the generator is what makes a UI Cancel button real", () => {
+  it("yields once per replicate and returns the same result the drain does", () => {
+    // One implementation, not two: runMcDashboardStudy is this generator
+    // drained, so a divergence here would mean the synchronous path and the
+    // UI path disagree about the same study.
+    const spec = { study: study(), target: pointTarget(180, 1e4) } as const;
+    const options = { fanReplicates: 4, fanGridPoints: 16 } as const;
+
+    const steps = mcDashboardStudySteps(spec, options);
+    const yielded: McDashboardProgress[] = [];
+    let next = steps.next();
+    while (next.done !== true) {
+      yielded.push(next.value);
+      next = steps.next();
+    }
+
+    const drained = runMcDashboardStudy(spec, options);
+    expect(yielded).toHaveLength(drained.cost.total);
+    expect(Array.from(next.value.columns.range)).toEqual(Array.from(drained.columns.range));
+    expect(next.value.fan.bands.map((b) => Array.from(b))).toEqual(
+      drained.fan.bands.map((b) => Array.from(b)),
+    );
+  });
+
+  it("stops doing work the moment the caller stops asking", () => {
+    // The property the route depends on: abandoning the generator after k
+    // steps costs k integrations, not N. A driver that awaited the event loop
+    // between steps and then walked away must not leave the study running.
+    const spec = { study: study({ replicates: 40 }), target: pointTarget(180, 1e4) } as const;
+    const steps = mcDashboardStudySteps(spec, { fanReplicates: 4, fanGridPoints: 16 });
+
+    for (let i = 0; i < 3; i += 1) steps.next();
+    expect(steps.return(undefined as never).done).toBe(true);
+    // Once returned, the generator is finished and cannot be resumed.
+    expect(steps.next().done).toBe(true);
+  });
+
+  it("validates its options before the first yield, not partway through", () => {
+    // A caller that received three progress reports and then a RangeError
+    // would have painted a bar for a study that was never going to finish.
+    const steps = mcDashboardStudySteps(
+      { study: study(), target: pointTarget(180, 1e4) },
+      { fanReplicates: 1 },
+    );
+    expect(() => steps.next()).toThrow(/fanReplicates must be an integer >= 2/);
+  });
+});
