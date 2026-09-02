@@ -15,6 +15,13 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-09-02 (71st run, addendum) — **CI 293 green at `3843e54`, all 19 steps**
+
+- **Closes the loop the 71st run's push opened, and this run closed it itself rather than leaving it to the next one.** That is the point of the addendum: the entry below deliberately claimed only the local gate, and the standing trap in this file is that a closing-entry push goes red and survives unnoticed because the session that wrote it is told not to chase its own run. It survived seven hours the last time. Read from the **job** record rather than the run record, per the stale-status trap.
+- **The four steps the local gate cannot cover all passed**, which is the part worth having: benchmark regression (9 s), batch throughput (45 s), cross-engine drift (3 s) and both typedoc steps. **Scoped honestly** — those typedoc steps build `engine` and `solverkit`, not `runtime`, so they are **not** evidence that this run's own `profile-harness-entry.ts` TSDoc resolves. That is exactly the latent-`{@link}` gap the 44th run found, and it is still open.
+- Test **3m23s**, 6m22s end to end; Build app and the bundle budget both passed after it. **P0.117 did not fire** on a push that adds a module to `packages/runtime` — one observation, and it narrows nothing.
+- One follow-up entry, then stop; run **294**, triggered by this addendum, is not chased.
+
 ## 2026-09-02 (71st run) — **P7.01: the profile that says P0.120's first guess is worth 3%**
 
 - **`main` arrived GREEN, and the 70th run's entry is out of date on that point.** It closed saying "`main` arrived red and this run did not fix it", pointing at CI 289 and 288 failing on **P0.117**. CI **291** at `440c464` — that entry's own push — concluded **`success`**, all 19 steps, Test included. So the red spell was 288-290 and it ended without anyone acting on it, which is what P0.117 predicts of a non-deterministic Firefox transport race. **This is one observation and it narrows nothing**: a race that does not fire is not a race that is gone, and P0.117 stays open with its criterion untouched. Nothing was re-run and no target was disabled.
