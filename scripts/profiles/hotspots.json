@@ -1,0 +1,359 @@
+{
+  "task": "P7.01",
+  "generatedBy": "scripts/profile-hotspots.mjs",
+  "note": "Sampled CPU profile. Absolute times include profiler overhead and are NOT comparable to scripts/batch-throughput-results.json; the ranking is what this artifact is for.",
+  "environment": {
+    "node": "v22.22.2",
+    "platform": "linux",
+    "arch": "x64",
+    "cpus": 4
+  },
+  "samplingIntervalMicros": 200,
+  "stepSize": 0.05,
+  "workloads": [
+    {
+      "name": "interactive-solve",
+      "description": "One committed scenario solve as SimulationSession runs it: resolve model/stepper/config, then integrate with a TrajectoryRecorder, StatsCollector and EventCollector.",
+      "iterations": 400,
+      "elapsedSeconds": 0.063392231,
+      "perIterationMillis": 0.1584805775,
+      "sampledMicros": 64897,
+      "distinctFunctions": 39,
+      "topHotspots": [
+        {
+          "rank": 1,
+          "functionName": "EmbeddedRKStepper.interpolant",
+          "source": "profile-harness.mjs",
+          "line": 886,
+          "selfMicros": 9649,
+          "selfShare": 0.14868175724609767,
+          "callSites": 3
+        },
+        {
+          "rank": 2,
+          "functionName": "(garbage collector)",
+          "source": "(native)",
+          "selfMicros": 7651,
+          "selfShare": 0.11789450976162226,
+          "callSites": 1
+        },
+        {
+          "rank": 3,
+          "functionName": "runIntegrationSteps",
+          "source": "profile-harness.mjs",
+          "line": 321,
+          "selfMicros": 6069,
+          "selfShare": 0.09351741991155216,
+          "callSites": 1
+        },
+        {
+          "rank": 4,
+          "functionName": "brentRoot",
+          "source": "profile-harness.mjs",
+          "line": 90,
+          "selfMicros": 4302,
+          "selfShare": 0.06628965899810468,
+          "callSites": 1
+        },
+        {
+          "rank": 5,
+          "functionName": "(anonymous)",
+          "source": "profile-harness.mjs",
+          "line": 554,
+          "selfMicros": 2819,
+          "selfShare": 0.04343806339276084,
+          "callSites": 1
+        },
+        {
+          "rank": 6,
+          "functionName": "attemptAdaptivePIStep",
+          "source": "profile-harness.mjs",
+          "line": 269,
+          "selfMicros": 2796,
+          "selfShare": 0.04308365563893554,
+          "callSites": 1
+        },
+        {
+          "rank": 7,
+          "functionName": "localizeEventRoot",
+          "source": "profile-harness.mjs",
+          "line": 154,
+          "selfMicros": 2789,
+          "selfShare": 0.04297579240951045,
+          "callSites": 1
+        },
+        {
+          "rank": 8,
+          "functionName": "step",
+          "source": "profile-harness.mjs",
+          "line": 899,
+          "selfMicros": 2455,
+          "selfShare": 0.03782917546265621,
+          "callSites": 1
+        },
+        {
+          "rank": 9,
+          "functionName": "integrate",
+          "source": "profile-harness.mjs",
+          "line": 315,
+          "selfMicros": 2282,
+          "selfShare": 0.03516341279257901,
+          "callSites": 1
+        },
+        {
+          "rank": 10,
+          "functionName": "stepEmbeddedRK",
+          "source": "profile-harness.mjs",
+          "line": 816,
+          "selfMicros": 2152,
+          "selfShare": 0.033160238531827355,
+          "callSites": 1
+        },
+        {
+          "rank": 11,
+          "functionName": "evaluateInterpolant",
+          "source": "profile-harness.mjs",
+          "line": 935,
+          "selfMicros": 2143,
+          "selfShare": 0.033021557236852246,
+          "callSites": 2
+        },
+        {
+          "rank": 12,
+          "functionName": "post",
+          "source": "node:inspector",
+          "line": 118,
+          "selfMicros": 1884,
+          "selfShare": 0.02903061774812395,
+          "callSites": 1
+        },
+        {
+          "rank": 13,
+          "functionName": "finish",
+          "source": "profile-harness.mjs",
+          "line": 632,
+          "selfMicros": 1879,
+          "selfShare": 0.028953572584248886,
+          "callSites": 1
+        },
+        {
+          "rank": 14,
+          "functionName": "_PchipInterpolator",
+          "source": "profile-harness.mjs",
+          "line": 5551,
+          "selfMicros": 1505,
+          "selfShare": 0.023190594326394132,
+          "callSites": 1
+        },
+        {
+          "rank": 15,
+          "functionName": "finish",
+          "source": "profile-harness.mjs",
+          "line": 562,
+          "selfMicros": 1250,
+          "selfShare": 0.01926129096876589,
+          "callSites": 1
+        }
+      ],
+      "candidateInclusiveTime": [
+        {
+          "functionName": "integrate",
+          "inclusiveMicros": 46706,
+          "inclusiveShare": 0.7196942847897437
+        },
+        {
+          "functionName": "resolveModel",
+          "inclusiveMicros": 5265,
+          "inclusiveShare": 0.08112855756044193
+        },
+        {
+          "functionName": "resolveStepper",
+          "inclusiveMicros": 0,
+          "inclusiveShare": 0
+        },
+        {
+          "functionName": "resolveSolverConfig",
+          "inclusiveMicros": 0,
+          "inclusiveShare": 0
+        },
+        {
+          "functionName": "generateReplicate",
+          "inclusiveMicros": 0,
+          "inclusiveShare": 0
+        }
+      ]
+    },
+    {
+      "name": "mc-batch",
+      "description": "runMcRange over the P6.26 benchmark study at h=0.05, single-threaded, observables only (no TrajectoryRecorder).",
+      "iterations": 4000,
+      "elapsedSeconds": 1.799984008,
+      "perIterationMillis": 0.449996002,
+      "sampledMicros": 1800381,
+      "distinctFunctions": 100,
+      "topHotspots": [
+        {
+          "rank": 1,
+          "functionName": "stepExplicitRK",
+          "source": "profile-harness.mjs",
+          "line": 779,
+          "selfMicros": 386370,
+          "selfShare": 0.2146045753648811,
+          "callSites": 2
+        },
+        {
+          "rank": 2,
+          "functionName": "runIntegrationSteps",
+          "source": "profile-harness.mjs",
+          "line": 321,
+          "selfMicros": 154287,
+          "selfShare": 0.08569686083112407,
+          "callSites": 2
+        },
+        {
+          "rank": 3,
+          "functionName": "norm",
+          "source": "profile-harness.mjs",
+          "line": 1148,
+          "selfMicros": 153953,
+          "selfShare": 0.08551134454318281,
+          "callSites": 2
+        },
+        {
+          "rank": 4,
+          "functionName": "interpolant",
+          "source": "profile-harness.mjs",
+          "line": 1132,
+          "selfMicros": 150344,
+          "selfShare": 0.08350676884503891,
+          "callSites": 5
+        },
+        {
+          "rank": 5,
+          "functionName": "step",
+          "source": "profile-harness.mjs",
+          "line": 1110,
+          "selfMicros": 109818,
+          "selfShare": 0.06099708894950569,
+          "callSites": 2
+        },
+        {
+          "rank": 6,
+          "functionName": "scanStepForEvents",
+          "source": "profile-harness.mjs",
+          "line": 55,
+          "selfMicros": 103351,
+          "selfShare": 0.05740507148209185,
+          "callSites": 2
+        },
+        {
+          "rank": 7,
+          "functionName": "sutherlandViscosity",
+          "source": "profile-harness.mjs",
+          "line": 1176,
+          "selfMicros": 69485,
+          "selfShare": 0.03859460858562715,
+          "callSites": 4
+        },
+        {
+          "rank": 8,
+          "functionName": "(garbage collector)",
+          "source": "(native)",
+          "selfMicros": 69124,
+          "selfShare": 0.03839409547201398,
+          "callSites": 1
+        },
+        {
+          "rank": 9,
+          "functionName": "g",
+          "source": "profile-harness.mjs",
+          "line": 6284,
+          "selfMicros": 62602,
+          "selfShare": 0.03477152891526849,
+          "callSites": 3
+        },
+        {
+          "rank": 10,
+          "functionName": "accumulate",
+          "source": "profile-harness.mjs",
+          "line": 6156,
+          "selfMicros": 62509,
+          "selfShare": 0.034719873182398615,
+          "callSites": 2
+        },
+        {
+          "rank": 11,
+          "functionName": "_parse",
+          "source": "profile-harness.mjs",
+          "line": 3717,
+          "selfMicros": 49837,
+          "selfShare": 0.02768136300038714,
+          "callSites": 5
+        },
+        {
+          "rank": 12,
+          "functionName": "g",
+          "source": "profile-harness.mjs",
+          "line": 6277,
+          "selfMicros": 38251,
+          "selfShare": 0.021246058473178734,
+          "callSites": 3
+        },
+        {
+          "rank": 13,
+          "functionName": "accept",
+          "source": "profile-harness.mjs",
+          "line": 7620,
+          "selfMicros": 29675,
+          "selfShare": 0.01648262228939319,
+          "callSites": 2
+        },
+        {
+          "rank": 14,
+          "functionName": "composeForces",
+          "source": "profile-harness.mjs",
+          "line": 6198,
+          "selfMicros": 27758,
+          "selfShare": 0.015417847666688328,
+          "callSites": 3
+        },
+        {
+          "rank": 15,
+          "functionName": "integrate",
+          "source": "profile-harness.mjs",
+          "line": 315,
+          "selfMicros": 26439,
+          "selfShare": 0.014685224960716649,
+          "callSites": 1
+        }
+      ],
+      "candidateInclusiveTime": [
+        {
+          "functionName": "integrate",
+          "inclusiveMicros": 1460451,
+          "inclusiveShare": 0.811189964790786
+        },
+        {
+          "functionName": "generateReplicate",
+          "inclusiveMicros": 189323,
+          "inclusiveShare": 0.10515718617337108
+        },
+        {
+          "functionName": "resolveModel",
+          "inclusiveMicros": 40646,
+          "inclusiveShare": 0.022576332454074997
+        },
+        {
+          "functionName": "resolveStepper",
+          "inclusiveMicros": 3886,
+          "inclusiveShare": 0.0021584320207778244
+        },
+        {
+          "functionName": "resolveSolverConfig",
+          "inclusiveMicros": 651,
+          "inclusiveShare": 0.00036159013008913116
+        }
+      ]
+    }
+  ]
+}
