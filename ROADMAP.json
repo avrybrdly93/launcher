@@ -2814,8 +2814,8 @@
       "estMinutes": 30,
       "difficulty": "M",
       "validation": "end-to-end run of golf-drive uncertainty study from UI",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed in-progress 2026-09-02 (68th run) before any code, per policy.taskSelection: nothing was 'in-progress' and nothing in 'review', so the first 'todo' by seq (248) is this task. The 67th run's changelog nominates it by name.\n\nSCOPE AS READ. The validation criterion is 'end-to-end run of golf-drive uncertainty study from UI', so the deliverable is a reachable route that runs a real UncertainScenarioSpec over the golf-drive preset and renders the four output families the title names: histogram, ensemble fan, hit probability, sensitivities. P6.20's SensitivityStudyPanel, P6.10's buildEnsembleFan, P6.11's hitProbability and P6.21/P6.22's clustering all exist and none of them is reachable from the app; this is the task that changes that.\n\nREMAINING WORK IF THIS RUN IS CUT OFF: see the CHANGELOG entry for the 68th run."
     },
     {
       "id": "P6.25",
