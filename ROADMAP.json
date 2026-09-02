@@ -2891,8 +2891,8 @@
       "estMinutes": 30,
       "difficulty": "M",
       "validation": "report artifact; top-3 hotspots named",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "CLAIMED 2026-09-02 (71st run) before any code, per policy.taskSelection. WHY THIS RATHER THAN P6.26, which is also in-progress and sorts earlier by seq: P6.26 was worked first this run and progressed as far as it can. Its own notes delegate the remaining work to P0.120 ('WHAT REMAINS ... is not harness work'), and P0.120's notes say in turn that P7.01 'is the next task by seq and should come first rather than this one guessing'. The 70th run's changelog nominates P7.01 by name. So the chain P6.26 -> P0.120 -> P7.01 terminates here, and taking P6.26 again would be taking a task whose remaining work is filed elsewhere. SCOPE: profile the two workloads the blueprint names -- an interactive solve and the MC batch -- and name the top hotspots from measurement. This task PROFILES; it does not optimize. Any speed-up belongs to P0.120, and a profiling run that quietly started changing the solver would destroy its own baseline."
     },
     {
       "id": "P7.02",
