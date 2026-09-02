@@ -9,6 +9,8 @@ import {
   histogramBarGeometry,
   initialMcPageState,
   isMcStudyRunning,
+  liveEstimateSampleSize,
+  formatLiveHitEstimate,
   MC_REPLICATE_CHOICES,
   mcPageReducer,
   mcProgressFraction,
@@ -312,5 +314,91 @@ describe("P6.24 every number carries its sample size", () => {
     // train a reader to ignore it.
     const allLanded = result({ unlandedCount: 0 });
     expect(formatHitEstimate(allLanded)).not.toContain("conditional on landing");
+  });
+});
+
+describe("P6.25 the live estimate is shown only when there is one to show", () => {
+  /** A partial with a Wilson interval of the given width, centred at 0.5. */
+  function partial(sampled: number, halfWidth: number, unlandedCount = 0) {
+    return {
+      hit: {
+        successes: Math.round(sampled / 2),
+        trials: sampled,
+        hits: Math.round(sampled / 2),
+        shots: sampled,
+        pHat: 0.5,
+        center: 0.5,
+        lower: 0.5 - halfWidth,
+        upper: 0.5 + halfWidth,
+        level: 0.95,
+      },
+      sampled: sampled + unlandedCount,
+      unlandedCount,
+    } as NonNullable<McDashboardProgress["partial"]>;
+  }
+
+  function runningWith(p?: NonNullable<McDashboardProgress["partial"]>): McPageState {
+    return {
+      status: "running",
+      progress: progress(p === undefined ? {} : { partial: p }),
+    };
+  }
+
+  it("is absent before a study starts", () => {
+    expect(formatLiveHitEstimate(initialMcPageState)).toBeUndefined();
+    expect(liveEstimateSampleSize(initialMcPageState)).toBeUndefined();
+  });
+
+  it("is absent while running but before the first partial arrives", () => {
+    expect(formatLiveHitEstimate(runningWith())).toBeUndefined();
+  });
+
+  it("is absent when a study is running but nothing has landed to score", () => {
+    // The study omits the partial entirely in that case rather than sending a
+    // zero. The UI must render nothing, not "0.00" — see the study module.
+    expect(formatLiveHitEstimate(runningWith(undefined))).toBeUndefined();
+  });
+
+  it("appears once a partial arrives, and carries its sample size", () => {
+    const state = runningWith(partial(16, 0.2));
+    expect(formatLiveHitEstimate(state)).toBeDefined();
+    expect(liveEstimateSampleSize(state)).toBe(16);
+  });
+
+  it("is absent again once the study finishes, so only one estimate is on screen", () => {
+    // At "ready" the finished result renders its own hit section. Showing the
+    // live one too would put two intervals for the same quantity side by side.
+    const ready: McPageState = {
+      status: "ready",
+      progress: progress({ partial: partial(32, 0.1) }),
+      result: result(),
+    };
+    expect(formatLiveHitEstimate(ready)).toBeUndefined();
+    expect(liveEstimateSampleSize(ready)).toBeUndefined();
+  });
+
+  it("formats through the same function the finished study uses", () => {
+    // Not a stylistic preference: two formatters for one quantity would let the
+    // number change appearance at the instant the run completes.
+    const p = partial(16, 0.2);
+    expect(formatLiveHitEstimate(runningWith(p))).toBe(formatHitEstimate(p));
+  });
+
+  it("says so when the live estimate is conditional on landing", () => {
+    const p = partial(12, 0.2, 4);
+    const text = formatLiveHitEstimate(runningWith(p))!;
+    expect(text).toContain("conditional on landing");
+    expect(text).toContain("4 replicate(s) did not land");
+  });
+
+  it("reports a narrowing interval as the sample grows", () => {
+    // The task's criterion at the layer the reader actually sees: a later,
+    // larger sample renders a visibly tighter band than an earlier one.
+    const early = formatLiveHitEstimate(runningWith(partial(16, 0.25)))!;
+    const late = formatLiveHitEstimate(runningWith(partial(256, 0.05)))!;
+    expect(early).not.toBe(late);
+    expect(liveEstimateSampleSize(runningWith(partial(256, 0.05)))).toBeGreaterThan(
+      liveEstimateSampleSize(runningWith(partial(16, 0.25)))!,
+    );
   });
 });

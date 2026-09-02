@@ -319,12 +319,58 @@ export function formatRangeEstimate(result: McDashboardResult, level = 0.95): st
   return formatMeanConfidenceInterval(ci, { digits: 2, unit: "m" });
 }
 
+/**
+ * The scored part of a study — the completed result or a P6.25 partial.
+ *
+ * Both carry the same two fields for the same reason, so both format the same
+ * way. Taking the narrower shape rather than `McDashboardResult` is what stops
+ * the live estimate and the final one from being two formatters that could
+ * disagree about how to say the same thing.
+ */
+export interface McScoredEstimate {
+  readonly hit: McDashboardResult["hit"];
+  readonly unlandedCount: number;
+}
+
 /** The hit probability with its Wilson interval and `n`, plus the conditioning. */
-export function formatHitEstimate(result: McDashboardResult): string {
+export function formatHitEstimate(result: McScoredEstimate): string {
   const base = formatHitProbability(result.hit);
   if (result.unlandedCount === 0) return base;
   // Never silently: at unlandedCount > 0 the denominator is the landed subset,
   // so the number on screen answers "given it landed" and the reader has to be
   // told which question was asked.
   return `${base} — conditional on landing; ${result.unlandedCount} replicate(s) did not land`;
+}
+
+/**
+ * The live hit-probability estimate while a study runs, or `undefined` (P6.25).
+ *
+ * `undefined` in three distinct situations, all of which mean "there is no
+ * live estimate to show" and none of which should be rendered as a number:
+ * no study is running; a study is running but has not reached its first
+ * partial; or it has, but nothing has landed yet, so the ensemble cannot be
+ * scored at all. The component renders nothing in every case rather than a
+ * placeholder interval, because a zero-width band at `p̂ = 0` is a claim, and
+ * "we have not found out yet" is not that claim.
+ *
+ * Formatted by {@link formatHitEstimate}, the same function the finished study
+ * uses, so the live number and the final one cannot drift apart in how they
+ * present themselves — only in what they are computed from.
+ */
+export function formatLiveHitEstimate(state: McPageState): string | undefined {
+  if (state.status !== "running") return undefined;
+  const partial = state.progress?.partial;
+  if (partial === undefined) return undefined;
+  return formatHitEstimate(partial);
+}
+
+/**
+ * How many replicates the live estimate is drawn from, or `undefined`.
+ *
+ * Reported beside the estimate rather than folded into it: an interval that
+ * narrows is only meaningful if a reader can see the `n` it narrowed against.
+ */
+export function liveEstimateSampleSize(state: McPageState): number | undefined {
+  if (state.status !== "running") return undefined;
+  return state.progress?.partial?.sampled;
 }

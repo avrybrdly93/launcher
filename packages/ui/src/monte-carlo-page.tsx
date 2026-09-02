@@ -26,10 +26,12 @@ import {
   clampMcReplicates,
   fanGeometry,
   formatHitEstimate,
+  formatLiveHitEstimate,
   formatRangeEstimate,
   histogramBarGeometry,
   initialMcPageState,
   isMcStudyRunning,
+  liveEstimateSampleSize,
   mcPageReducer,
   mcProgressFraction,
   MC_REPLICATE_CHOICES,
@@ -100,6 +102,8 @@ export function MonteCarloPage({
   const running = isMcStudyRunning(state);
   const result = state.result;
   const fraction = mcProgressFraction(state);
+  const liveEstimate = formatLiveHitEstimate(state);
+  const liveSampleSize = liveEstimateSampleSize(state);
 
   const histogram = useMemo(
     () => (result === undefined ? undefined : histogramBarGeometry(rangeHistogram(result))),
@@ -151,6 +155,26 @@ export function MonteCarloPage({
       <p class="monte-carlo-page__status" data-testid="mc-status">
         {summarizeMcStudy(state)}
       </p>
+
+      {/*
+        P6.25's live estimate. Rendered only while a study is running and only
+        once it has something to say: before the first partial, and while
+        nothing has landed, `formatLiveHitEstimate` returns undefined and this
+        section is absent rather than showing a placeholder interval. A
+        zero-width band at p-hat = 0 would be a claim; "not found out yet" is
+        not that claim.
+      */}
+      {liveEstimate !== undefined && (
+        <section class="monte-carlo-page__live" data-testid="mc-live-estimate">
+          <h3>Hit probability so far</h3>
+          <p class="monte-carlo-page__caption">
+            Scored on the {liveSampleSize ?? 0} replicate(s) drawn so far. The interval narrows as
+            the sample grows &mdash; it is the estimate for the sample in hand, not a preview of the
+            final answer.
+          </p>
+          <p data-testid="mc-live-hit-estimate">{liveEstimate}</p>
+        </section>
+      )}
 
       {result !== undefined && fan !== undefined && histogram !== undefined && (
         <>

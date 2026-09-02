@@ -305,3 +305,113 @@ describe("MonteCarloPage (P6.24)", () => {
     expect(deferred.aborted()).toBe(true);
   });
 });
+
+describe("MonteCarloPage live estimate (P6.25)", () => {
+  /** A progress report carrying a partial whose interval has the given half-width. */
+  function withPartial(completed: number, sampled: number, halfWidth: number): McDashboardProgress {
+    return {
+      stage: "ensemble",
+      completed,
+      total: 40,
+      partial: {
+        hit: {
+          successes: Math.round(sampled / 2),
+          trials: sampled,
+          hits: Math.round(sampled / 2),
+          shots: sampled,
+          pHat: 0.5,
+          center: 0.5,
+          lower: 0.5 - halfWidth,
+          upper: 0.5 + halfWidth,
+          level: 0.95,
+        },
+        sampled,
+        unlandedCount: 0,
+      },
+    } as McDashboardProgress;
+  }
+
+  it("shows nothing until a partial arrives", async () => {
+    const deferred = deferredStudy();
+    const root = mount(deferred.runner);
+
+    click(root, "mc-run");
+    await flush();
+    expect(query(root, "mc-live-estimate")).toBeNull();
+
+    // A count-only report is not an estimate, and must not render as one.
+    deferred.report({ stage: "ensemble", completed: 4, total: 40 });
+    await flush();
+    expect(query(root, "mc-live-estimate")).toBeNull();
+  });
+
+  it("renders the estimate once a partial arrives, with its sample size", async () => {
+    const deferred = deferredStudy();
+    const root = mount(deferred.runner);
+
+    click(root, "mc-run");
+    await flush();
+    deferred.report(withPartial(16, 16, 0.25));
+    await flush();
+
+    const section = query(root, "mc-live-estimate");
+    expect(section).not.toBeNull();
+    expect(section!.textContent).toContain("16 replicate(s) drawn so far");
+    expect(query(root, "mc-live-hit-estimate")!.textContent).not.toBe("");
+  });
+
+  it("the displayed interval narrows as later partials arrive — the criterion", async () => {
+    const deferred = deferredStudy();
+    const root = mount(deferred.runner);
+
+    click(root, "mc-run");
+    await flush();
+    deferred.report(withPartial(16, 16, 0.25));
+    await flush();
+    const early = query(root, "mc-live-hit-estimate")!.textContent;
+
+    deferred.report(withPartial(32, 256, 0.05));
+    await flush();
+    const late = query(root, "mc-live-hit-estimate")!.textContent;
+
+    // The rendered text must actually change, not merely be recomputed: this is
+    // what "CI band visibly narrows during run" means at the layer a reader
+    // sees. Both are non-empty and they differ.
+    expect(early).not.toBe("");
+    expect(late).not.toBe(early);
+    expect(query(root, "mc-live-estimate")!.textContent).toContain("256 replicate(s)");
+  });
+
+  it("disappears when the study completes, leaving one hit estimate on screen", async () => {
+    const deferred = deferredStudy();
+    const root = mount(deferred.runner);
+
+    click(root, "mc-run");
+    await flush();
+    deferred.report(withPartial(32, 32, 0.1));
+    await flush();
+    expect(query(root, "mc-live-estimate")).not.toBeNull();
+
+    deferred.resolve(RESULT);
+    await flush();
+    // Two intervals for the same quantity side by side would be a worse
+    // dashboard than one; the finished result owns the section from here.
+    expect(query(root, "mc-live-estimate")).toBeNull();
+    expect(query(root, "mc-hit")).not.toBeNull();
+  });
+
+  it("disappears on cancel, so a stale estimate is not left looking live", async () => {
+    const deferred = deferredStudy();
+    const root = mount(deferred.runner);
+
+    click(root, "mc-run");
+    await flush();
+    deferred.report(withPartial(16, 16, 0.25));
+    await flush();
+    expect(query(root, "mc-live-estimate")).not.toBeNull();
+
+    click(root, "mc-cancel");
+    await flush();
+    expect(query(root, "mc-live-estimate")).toBeNull();
+  });
+});
