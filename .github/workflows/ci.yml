@@ -44,6 +44,27 @@ jobs:
       - name: Benchmark regression check (soft warn)
         run: pnpm bench:solverkit
 
+      # P6.26. Soft warn, like the two perf checks around it: absolute
+      # throughput on a shared runner is not a signal a build should be gated
+      # on, and a perf gate that fails for a noisy neighbour trains everyone
+      # to re-run until it passes. The uploaded artifact is the deliverable
+      # the task's criterion names; the exit code is not the evidence.
+      #
+      # No --record. The write would land in the runner's workspace and be
+      # discarded (same as the drift check before P0.102 made that explicit),
+      # and the committed scripts/batch-throughput-results.json is meant to
+      # be a deliberate local act. The artifact below carries the CI numbers.
+      - name: Batch throughput benchmark (soft warn)
+        run: pnpm bench:throughput | tee batch-throughput-ci.json.log
+
+      - name: Upload batch throughput artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: batch-throughput
+          path: batch-throughput-ci.json.log
+          if-no-files-found: warn
+
       - name: Cross-engine drift check (soft warn)
         # --record here because this is the one environment with real browsers,
         # so it is the only place the recording path gets exercised at all --
