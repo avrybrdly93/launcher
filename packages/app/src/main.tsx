@@ -9,6 +9,7 @@ import { ModelRegistryRoute } from "./model-registry-route.js";
 import { StabilityExplorerRoute } from "./stability-explorer-route.js";
 import { TerrainEditorRoute } from "./terrain-editor-route.js";
 import { InverseSolverRoute } from "./inverse-solver-route.js";
+import { MonteCarloRoute } from "./monte-carlo-route.js";
 
 /**
  * Minimal hash-based routing (P3.41, extended P3.42): a handful of routes
@@ -49,6 +50,9 @@ function renderRoute(root: HTMLElement): void {
       return;
     case "#/inverse-solver":
       render(<InverseSolverRoute />, root);
+      return;
+    case "#/monte-carlo":
+      render(<MonteCarloRoute />, root);
       return;
     default:
       render(<App />, root);

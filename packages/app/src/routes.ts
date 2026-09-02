@@ -23,6 +23,7 @@ export const ROUTE_HASHES = [
   "#/density-altitude",
   "#/model-registry",
   "#/inverse-solver",
+  "#/monte-carlo",
 ] as const;
 
 /** One of {@link ROUTE_HASHES}. */
