@@ -22,6 +22,7 @@ import {
   mcDashboardStudySteps,
   runMcDashboardStudy,
   type McDashboardProgress,
+  type McDashboardStage,
 } from "./mc-dashboard-study.js";
 
 const GOLF_DRIVE = PRESET_SCENARIOS.find((s) => s.model.forceIds.includes("magnus"))!;
@@ -518,5 +519,160 @@ describe("P6.24 the generator is what makes a UI Cancel button real", () => {
       { fanReplicates: 1 },
     );
     expect(() => steps.next()).toThrow(/fanReplicates must be an integer >= 2/);
+  });
+});
+
+describe("P6.25 steps carry partial estimates, so the interval narrows during the run", () => {
+  /** Every partial a run emitted, in order. */
+  function partialsOf(
+    spec: Parameters<typeof mcDashboardStudySteps>[0],
+    options: Parameters<typeof mcDashboardStudySteps>[1] = {},
+  ) {
+    const steps = mcDashboardStudySteps(spec, options);
+    const partials: NonNullable<McDashboardProgress["partial"]>[] = [];
+    const stages: McDashboardStage[] = [];
+    for (;;) {
+      const next = steps.next();
+      if (next.done === true) return { partials, stages, result: next.value };
+      if (next.value.partial !== undefined) {
+        partials.push(next.value.partial);
+        stages.push(next.value.stage);
+      }
+    }
+  }
+
+  const SPEC = { study: study({ replicates: 32 }), target: pointTarget(180, 1e4) } as const;
+  const OPTS = { fanReplicates: 4, fanGridPoints: 16, partialEvery: 8 } as const;
+
+  it("emits one partial per cadence step, and none in between", () => {
+    const { partials } = partialsOf(SPEC, OPTS);
+    // 32 replicates every 8 -> after 8, 16, 24, 32. The last is both on the
+    // cadence and the final replicate, and must not be emitted twice.
+    expect(partials.map((p) => p.sampled)).toEqual([8, 16, 24, 32]);
+  });
+
+  it("always takes a final partial even when the cadence would not land on it", () => {
+    // 30 is not a multiple of 8, so without the end-of-stage rule the last
+    // partial a caller saw would cover 24 of 30 replicates while the result
+    // beside it covered all 30 — two different numbers, no way to tell why.
+    const { partials, result } = partialsOf(
+      { study: study({ replicates: 30 }), target: pointTarget(180, 1e4) },
+      OPTS,
+    );
+    expect(partials.at(-1)!.sampled).toBe(30);
+    expect(partials.at(-1)!.hit).toEqual(result.hit);
+  });
+
+  it("the last partial IS the final result, not a second reduction that agrees", () => {
+    // One implementation reported twice. If these ever diverge, the dashboard
+    // would show an interval that jumps at the instant the run completes.
+    const { partials, result } = partialsOf(SPEC, OPTS);
+    const last = partials.at(-1)!;
+    expect(last.sampled).toBe(32);
+    expect(last.hit).toEqual(result.hit);
+    expect(last.unlandedCount).toBe(result.unlandedCount);
+  });
+
+  it("never emits a partial on a fan step", () => {
+    // The fan re-runs replicates the ensemble already scored, so a partial
+    // there would restate the final estimate while appearing to refine it.
+    const { stages } = partialsOf(SPEC, OPTS);
+    expect(stages.every((s) => s === "ensemble")).toBe(true);
+  });
+
+  it("the interval narrows across the run — the task's validation criterion", () => {
+    // The criterion is "CI band visibly narrows during run", made mechanical:
+    // the Wilson half-width at the end is materially smaller than at the first
+    // partial. Asserted end-to-end rather than step-to-step because the
+    // partials are nested prefixes of one ensemble and therefore correlated —
+    // a later replicate that disagrees can widen the band momentarily, and a
+    // monotonic assertion would encode a belief about confidence intervals
+    // that is simply false.
+    const { partials } = partialsOf(
+      { study: study({ replicates: 64 }), target: pointTarget(180, 1e4) },
+      { fanReplicates: 4, fanGridPoints: 16, partialEvery: 8 },
+    );
+    const width = (p: (typeof partials)[number]) => p.hit.upper - p.hit.lower;
+    expect(partials.length).toBeGreaterThan(4);
+    expect(width(partials.at(-1)!)).toBeLessThan(width(partials[0]!));
+  });
+
+  it("has teeth: the first partial really is drawn from fewer replicates", () => {
+    // Guards the test above against passing on a stream that emitted the same
+    // finished estimate every time — which would also show a narrowing of zero.
+    const { partials } = partialsOf(SPEC, OPTS);
+    expect(partials[0]!.hit.shots).toBeLessThan(partials.at(-1)!.hit.shots);
+  });
+
+  it("a partial is scored on the landed prefix, exactly as the final result is", () => {
+    const { partials } = partialsOf(
+      { study: halfLandingStudy(), target: pointTarget(5000, 1e6) },
+      { fanReplicates: 4, fanGridPoints: 16, partialEvery: 4 },
+    );
+    for (const p of partials) {
+      expect(p.hit.shots + p.unlandedCount).toBe(p.sampled);
+      expect(p.hit.shots).toBeGreaterThan(0);
+    }
+  });
+
+  it("reports not knowing by absence rather than by a fabricated zero", () => {
+    // Nothing lands inside the horizon here, so there is no ensemble to score.
+    // `hitProbability` throws on that rather than reporting p̂ = 0, and the
+    // stream must not turn that into a crash — or into a zero.
+    const nothingLands = uncertainScenarioSpecSchema.parse({
+      schemaVersion: 1,
+      base: { ...DRAG_FREE, initialConditions: { ...DRAG_FREE.initialConditions, x0: 0, y0: 0 } },
+      overlays: [
+        { path: "initialConditions.vy0", distribution: { kind: "normal", mean: 600, stdDev: 1 } },
+      ],
+      replicates: 8,
+      seed: 99,
+    });
+    const steps = mcDashboardStudySteps(
+      { study: nothingLands, target: pointTarget(5000, 1e6) },
+      { fanReplicates: 4, fanGridPoints: 16, partialEvery: 1 },
+    );
+    const seen: McDashboardProgress[] = [];
+    // The study itself still fails at the end — an ensemble with nothing in it
+    // cannot be scored — but it must stream progress up to that point without
+    // inventing an estimate.
+    expect(() => {
+      for (;;) {
+        const next = steps.next();
+        if (next.done === true) return;
+        seen.push(next.value);
+      }
+    }).toThrow(RangeError);
+    expect(seen.length).toBeGreaterThan(0);
+    expect(seen.every((s) => s.partial === undefined)).toBe(true);
+  });
+
+  it("takes no partial at all when the cadence is coarser than the study", () => {
+    // partialEvery beyond N leaves only the end-of-stage rule, which is the
+    // one partial a caller is always entitled to.
+    const { partials } = partialsOf(SPEC, { ...OPTS, partialEvery: 1000 });
+    expect(partials.map((p) => p.sampled)).toEqual([32]);
+  });
+
+  it("rejects a partialEvery it cannot honour, before the first yield", () => {
+    const steps = mcDashboardStudySteps(SPEC, { ...OPTS, partialEvery: 0 });
+    expect(() => steps.next()).toThrow(/partialEvery must be an integer >= 1/);
+  });
+
+  it("does not change what the study computes", () => {
+    // A stream that altered the answer would be a bug dressed as a feature.
+    // Two cadences, same seed, identical result.
+    const a = runMcDashboardStudy(SPEC, { ...OPTS, partialEvery: 1 });
+    const b = runMcDashboardStudy(SPEC, { ...OPTS, partialEvery: 1000 });
+    expect(a.hit).toEqual(b.hit);
+    expect(Array.from(a.columns.range)).toEqual(Array.from(b.columns.range));
+  });
+
+  it("reaches the synchronous runner's onProgress too", () => {
+    // runMcDashboardStudy is the generator drained; partials must survive that
+    // path as well, or a worker entry using it would stream counts only.
+    const seen: McDashboardProgress[] = [];
+    runMcDashboardStudy(SPEC, OPTS, { onProgress: (p) => seen.push(p) });
+    expect(seen.filter((s) => s.partial !== undefined).length).toBe(4);
   });
 });

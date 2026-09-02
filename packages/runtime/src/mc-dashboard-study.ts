@@ -83,6 +83,17 @@ export const DEFAULT_FAN_REPLICATES = 32;
 /** Grid points the fan is sampled on when the caller does not say. */
 export const DEFAULT_FAN_GRID_POINTS = 64;
 
+/**
+ * Ensemble replicates between partial estimates (P6.25).
+ *
+ * A partial re-scores the landed prefix, so it costs `O(n)` at replicate `n`
+ * and taking one every replicate would make the study quadratic in its
+ * cheapest stage. 16 keeps that overhead at roughly `N/32` extra scorings
+ * across a run — a few percent — while still giving a 512-replicate study 32
+ * updates, which is more than a progress display refreshes at anyway.
+ */
+export const DEFAULT_PARTIAL_EVERY = 16;
+
 /** Thrown out of a dashboard study whose signal aborted. Carries how far it got. */
 export class McDashboardStudyCancelled extends Error {
   /** Replicates completed before the stop, across both stages. */
@@ -106,6 +117,39 @@ export class McDashboardStudyCancelled extends Error {
  */
 export type McDashboardStage = "ensemble" | "fan";
 
+/**
+ * An estimate computed from the replicates drawn *so far* (P6.25).
+ *
+ * This is the same `hitProbability` reduction the final result carries, run
+ * over a prefix of the ensemble rather than over all of it. Its purpose is
+ * that the interval can be watched narrowing while the study runs: the Wilson
+ * half-width falls roughly as `1/sqrt(n)`, so a reader sees the estimate earn
+ * its precision instead of waiting for a number to appear at the end.
+ *
+ * **It is a prefix, not a sub-sample, and the distinction matters.** Replicate
+ * `i` is a pure function of the study seed and `i` (P6.03), so the first `n`
+ * replicates are a fixed, reproducible prefix of the same ensemble the final
+ * result summarizes — the partial at `n = N` is bit-for-bit the final `hit`.
+ * It is not an independent draw, so consecutive partials are *correlated*:
+ * the interval generally narrows but is not required to do so monotonically,
+ * and a run that meets a target early can widen again as later replicates
+ * disagree. Presenting it as "the answer, converging" would be a lie about
+ * what a confidence interval is; it is the answer *for the sample so far*.
+ */
+export interface McDashboardPartial {
+  /**
+   * `P(hit)` over the landed replicates among the first {@link sampled}.
+   *
+   * Conditional on landing, exactly as the final {@link McDashboardResult.hit}
+   * is, and for the same reason — see that field.
+   */
+  readonly hit: HitProbability;
+  /** Ensemble replicates completed when this estimate was taken. */
+  readonly sampled: number;
+  /** Of those, how many had not landed and were therefore excluded. */
+  readonly unlandedCount: number;
+}
+
 /** One progress report. */
 export interface McDashboardProgress {
   readonly stage: McDashboardStage;
@@ -113,6 +157,25 @@ export interface McDashboardProgress {
   readonly completed: number;
   /** Replicates the whole study will take, known before it starts. */
   readonly total: number;
+  /**
+   * The estimate as of this step, when one was taken (P6.25).
+   *
+   * Present only on `"ensemble"` steps at the cadence
+   * {@link McDashboardOptions.partialEvery} sets, and always on the final
+   * ensemble step so the last partial a caller sees is the whole ensemble.
+   *
+   * **Absent, rather than zero-width, when nothing has landed yet.** An
+   * ensemble with no landed replicate cannot be scored — `hitProbability`
+   * throws on it rather than reporting `p̂ = 0`, because "we never found out"
+   * and "it never hits" are different claims. A study whose early replicates
+   * all run out of horizon therefore streams progress with no partial until
+   * the first one lands, which is the honest rendering of not knowing yet.
+   *
+   * Never present on `"fan"` steps: the fan re-runs replicates the ensemble
+   * stage already scored, so a partial there would repeat the final estimate
+   * while appearing to refine it.
+   */
+  readonly partial?: McDashboardPartial;
 }
 
 /** Just enough of `AbortSignal` to be cancelled, so a test need not build one. */
@@ -142,6 +205,16 @@ export interface McDashboardOptions {
   readonly fanGridPoints?: number;
   /** Fan levels, ascending in `[0, 1]`. Defaults to `buildEnsembleFan`'s own. */
   readonly fanLevels?: readonly number[];
+  /**
+   * Ensemble replicates between partial estimates (P6.25). Default
+   * {@link DEFAULT_PARTIAL_EVERY}. Must be an integer >= 1.
+   *
+   * The cadence exists because a partial is a reduction over the prefix, so
+   * taking one after every replicate makes the study `O(N^2)` in the scoring
+   * step for a refresh rate no display can use. At the default the extra work
+   * is a few percent of a run and the interval still visibly moves.
+   */
+  readonly partialEvery?: number;
 }
 
 /** Progress and cancellation, kept apart from the knobs as `runSensitivityStudy` does. */
@@ -245,9 +318,18 @@ function recordReplicate(study: UncertainScenarioSpec, index: number): Trajector
  * The synchronous {@link runMcDashboardStudy} below is this generator drained
  * in a loop, so there is one implementation and not two that can drift.
  *
- * @throws RangeError on a malformed `fanReplicates`, immediately -- before
- *   the first `yield`, so a caller cannot receive progress from a study that
- *   was never going to finish.
+ * **Steps carry partial estimates (P6.25).** Ensemble steps on the
+ * {@link McDashboardOptions.partialEvery} cadence carry a
+ * {@link McDashboardPartial} scored over the replicates drawn so far, which
+ * is what lets a caller show an interval narrowing during the run rather
+ * than a number appearing at the end. The partial on the last ensemble step
+ * covers the whole ensemble and therefore equals the returned
+ * {@link McDashboardResult.hit} — one reduction, reported twice, not two that
+ * could disagree.
+ *
+ * @throws RangeError on a malformed `fanReplicates` or `partialEvery`,
+ *   immediately -- before the first `yield`, so a caller cannot receive
+ *   progress from a study that was never going to finish.
  */
 export function* mcDashboardStudySteps(
   spec: McDashboardStudySpec,
@@ -263,15 +345,27 @@ export function* mcDashboardStudySteps(
     );
   }
   const gridPoints = options.fanGridPoints ?? DEFAULT_FAN_GRID_POINTS;
+  const partialEvery = options.partialEvery ?? DEFAULT_PARTIAL_EVERY;
+  if (!Number.isInteger(partialEvery) || partialEvery < 1) {
+    throw new RangeError(
+      `partialEvery must be an integer >= 1, got ${partialEvery}; a study cannot take a ` +
+        "partial estimate more often than once per replicate",
+    );
+  }
   const cost = mcDashboardCost(replicates, requestedFan);
 
   const layout = mcObservableLayout(study.base);
   const verticalAxis = layout.vertical;
 
   let completed = 0;
-  const step = (stage: McDashboardStage): McDashboardProgress => {
+  const step = (stage: McDashboardStage, partial?: McDashboardPartial): McDashboardProgress => {
     completed += 1;
-    return { stage, completed, total: cost.total };
+    return {
+      stage,
+      completed,
+      total: cost.total,
+      ...(partial === undefined ? {} : { partial }),
+    };
   };
 
   // --- stage 1: the ensemble ------------------------------------------- //
@@ -294,7 +388,24 @@ export function* mcDashboardStudySteps(
     columns.impactSpeed[i] = result.impactSpeed;
     columns.landed[i] = result.landed ? 1 : 0;
     if (result.landed) landedImpacts.push([...sink.observables.impactPoint]);
-    yield step("ensemble");
+
+    // A partial is taken on the cadence, and always on the last ensemble
+    // replicate so the final one a caller sees covers the whole ensemble
+    // rather than whatever prefix the cadence happened to land on.
+    const sampled = i + 1;
+    const onCadence = sampled % partialEvery === 0 || sampled === replicates;
+    // `hitProbability` throws on an empty ensemble rather than reporting a
+    // fabricated zero, so a prefix in which nothing has landed yet yields no
+    // partial at all. Not knowing is reported by absence, not by a number.
+    const partial: McDashboardPartial | undefined =
+      onCadence && landedImpacts.length > 0
+        ? {
+            hit: hitProbability(landedImpacts, target, { layout }),
+            sampled,
+            unlandedCount: sampled - landedImpacts.length,
+          }
+        : undefined;
+    yield step("ensemble", partial);
   }
 
   const stats = mcStats(columns);
