@@ -15,6 +15,14 @@ forcing a fallback to commit timestamps.
 
 ---
 
+## 2026-09-02 (68th run, addendum) — **CI 287 green at `578c0ae`, all 35 steps**
+
+- **Closes the loop on the 68th run's push.** Read from the **job** record rather than the run record, per the standing stale-status trap. 4m20s end to end, Test 2m29s.
+- **The four steps `CLAUDE.md`'s local gate cannot cover all passed** — benchmark regression, cross-engine drift, Engine API docs and SolverKit API docs — plus Build app and Bundle size budget. That is P0.110's gap, still open, and the reason a green local gate is not the same claim as a green CI.
+- **Scoped honestly**: the two typedoc steps build `engine` and `solverkit`, not `runtime`, `ui` or `app`, so they are **not** evidence that P6.24's own `{@link}` tags resolve. That is exactly the gap the 44th run's latent-`{@link}` finding lives in, and this run's three new modules all carry such tags.
+- **P0.117 did not fire.** The Firefox transport rejection that made CI 283 attempt 1 red did not recur, on a push that adds a tenth route to the very suite it was attributed to (`app-routes.e2e.test.ts`, now 48 tests). **One observation; the task is not narrowed and must not be closed by disabling or skipping the Firefox target.** Nor did P0.112's wall-clock budget or P0.118's Plotly teardown race — the same non-result as the local baseline and the local gate, and for the same reason it proves nothing about either: a race that does not fire is not a race that is gone.
+- Run 286 at `b387a9b` was superseded by this one and is not chased; **one follow-up entry, then stop** — the commit carrying this entry will itself trigger run 288, which no session should chase either.
+
 ## 2026-09-02 (68th run) — **P6.24: the Monte Carlo dashboard, and a Cancel button that had to be made real before it could ship**
 
 - **P6.24 done, taken because it is the first `todo` by `seq` (248)**, with nothing `in-progress` and nothing in `review` ahead of it — `ROADMAP.json`'s `taskSelection` applied as written, and the 67th run's entry nominates it by name. Claimed before any code. `ROADMAP.json` carries the full record, as `policy.commitRules` requires, and this entry does not restate it.
