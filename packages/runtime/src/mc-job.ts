@@ -112,8 +112,13 @@ export function createMcColumns(count: number): McColumns {
  * silent error -- `PLANAR_LAYOUT` on a spatial solve would call the `z`
  * channel a velocity -- which is why it is derived from the spec rather
  * than left as a caller-supplied option with a default.
+ *
+ * Exported (P6.24) because `mc-dashboard-study.ts` builds its own sink, to
+ * read `impactPoint` off after each replicate, and must build it with the
+ * same layout this module would have. A second copy of the ternary would
+ * agree until the day a third model kind arrives and one of them is updated.
  */
-function layoutFor(spec: ScenarioSpec): typeof PLANAR_LAYOUT {
+export function mcObservableLayout(spec: ScenarioSpec): typeof PLANAR_LAYOUT {
   return (spec.model.kind ?? "planar") === "spatial" ? SPATIAL_LAYOUT : PLANAR_LAYOUT;
 }
 
@@ -143,7 +148,7 @@ export function runMcReplicate(
     : new HermiteDenseOutputStepper(resolvedStepper);
   const cfg = resolveSolverConfig(spec);
 
-  const observableSink = sink ?? new ObservableSink(layoutFor(spec));
+  const observableSink = sink ?? new ObservableSink(mcObservableLayout(spec));
   const report = integrate(model, ctx, y0, [0, MC_T_MAX_SECONDS], cfg, stepper, [observableSink]);
   const observables = observableSink.observables;
 
@@ -186,7 +191,7 @@ export function runMcRange(
   // Built from the base spec: every replicate writes numbers into a copy of
   // that same base, so the model kind -- and therefore the layout -- is
   // fixed for the whole study and cannot vary replicate to replicate.
-  const sink = new ObservableSink(layoutFor(job.study.base));
+  const sink = new ObservableSink(mcObservableLayout(job.study.base));
 
   for (let i = startIndex; i < endIndex; i++) {
     const result = runMcReplicate(job, i, sink);
