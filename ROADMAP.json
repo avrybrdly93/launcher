@@ -2836,8 +2836,8 @@
       "estMinutes": 25,
       "difficulty": "M",
       "validation": "CI perf artifact meets §2.6 budget",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed 2026-09-02 (70th run) as the first `todo` by `seq` (250), with nothing `in-progress` and nothing in `review` ahead of it. PLAN, recorded before any code so the step-size choice cannot be made after seeing the throughput number. The budget is >=1e4 full trajectories/s on 4 workers, fixed-step RK4, observables-only (blueprint section 2.6). The observables-only batch primitive already exists -- `runMcRange` (P6.04) attaches an `ObservableSink` and retains no trajectory -- so this task is a harness and an artifact, not new physics. `sweep-job.ts` is NOT the primitive: it attaches a `TrajectoryRecorder`, which is exactly what 'observables-only' excludes. THE STEP SIZE IS THE ONE KNOB THAT DECIDES PASS/FAIL, so it is fixed by a stated accuracy rule and the whole trade-off is published rather than a single tuned constant: the artifact records, for every step on a fixed ladder, BOTH the measured relative range error against a tight adaptive reference AND the measured throughput, and the budget verdict is read at the coarsest step whose error is <= 1e-8 relative -- two orders inside section 2.6's own 1e-6 accuracy budget. A reader can see what every other step would have given. Workers are real `node:worker_threads` over an esbuild bundle, following `measure-cross-engine-drift.mjs`'s precedent for bundling repo TS into a script; `worker-pool.ts`'s browser `Worker` cannot be spawned from a CI script. Writing the committed artifact is opt-in behind `--record`, per P0.102."
     },
     {
       "id": "P6.27",
