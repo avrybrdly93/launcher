@@ -6,7 +6,7 @@
     "source": "blueprint §2.6, Batch throughput (CPU)"
   },
   "accuracyCeiling": 1e-8,
-  "measuredAt": "2026-09-02T18:59:04.622Z",
+  "measuredAt": "2026-09-03T06:50:26.873Z",
   "environment": {
     "node": "v22.22.2",
     "platform": "linux",
@@ -20,39 +20,39 @@
       "stepSize": 0.1,
       "replicates": 40000,
       "workers": 4,
-      "elapsedSeconds": 3.121728173,
-      "trajectoriesPerSecond": 12813.41544916121,
-      "relativeRangeError": 2.1865394198432732e-8
+      "elapsedSeconds": 2.332736967,
+      "trajectoriesPerSecond": 17147.239729921937,
+      "relativeRangeError": 2.1865393978867766e-8
     },
     {
       "stepSize": 0.05,
       "replicates": 40000,
       "workers": 4,
-      "elapsedSeconds": 4.778897266,
-      "trajectoriesPerSecond": 8370.131805214663,
-      "relativeRangeError": 1.3262692586953941e-9
+      "elapsedSeconds": 3.736827223,
+      "trajectoriesPerSecond": 10704.26798268912,
+      "relativeRangeError": 1.3262690391304223e-9
     },
     {
       "stepSize": 0.02,
       "replicates": 40000,
       "workers": 4,
-      "elapsedSeconds": 9.36390421,
-      "trajectoriesPerSecond": 4271.72246778035,
-      "relativeRangeError": 3.3739012283856484e-11
+      "elapsedSeconds": 7.8802583,
+      "trajectoriesPerSecond": 5075.975745617374,
+      "relativeRangeError": 3.373879271888455e-11
     },
     {
       "stepSize": 0.01,
       "replicates": 40000,
       "workers": 4,
-      "elapsedSeconds": 17.17340465,
-      "trajectoriesPerSecond": 2329.182874055204,
-      "relativeRangeError": 2.1879649454236208e-12
+      "elapsedSeconds": 14.341045153,
+      "trajectoriesPerSecond": 2789.1969917989145,
+      "relativeRangeError": 2.1877453804516772e-12
     }
   ],
   "verdict": {
     "stepSize": 0.05,
-    "trajectoriesPerSecond": 8370.131805214663,
-    "relativeRangeError": 1.3262692586953941e-9,
-    "meetsBudget": false
+    "trajectoriesPerSecond": 10704.26798268912,
+    "relativeRangeError": 1.3262690391304223e-9,
+    "meetsBudget": true
   }
 }
