@@ -333,7 +333,15 @@ export const INVERSE_EXERCISES: readonly InverseExercise[] = [
     answer: {
       quantity: "launch elevation",
       unit: "deg",
-      solution: 40.05839098344464,
+      // Re-recorded 2026-09-03 (P0.120), 40.05839098344464 -> 40.058390383890014,
+      // a move of 6.0e-7 deg. That is 2.5e5 times smaller than the 0.15 deg
+      // grading tolerance below and does not change the answer to the nearest
+      // tenth of a degree the prompt asks for. The size is what the note below
+      // already predicts: this is the location of a *maximum*, and near a
+      // quadratically flat peak an O(eps) change in the range curve moves the
+      // argmax by O(sqrt(eps)) -- so a last-bit change in the RHS shows up
+      // here around 1e-7, several decades larger than it does at any root.
+      solution: 40.058390383890014,
       tolerance: 0.15,
       toleranceNote:
         "Looser than exercises 1-2 because a maximum is intrinsically less localizable than a " +

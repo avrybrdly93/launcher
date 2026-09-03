@@ -53,7 +53,22 @@ const TIGHT_TOL = { stepper: "dopri5" as const, rtol: 1e-12, atol: 1e-14, maxSte
 const TARGET: PointTarget = { kind: "point", center: [400, 0] };
 
 /** The aim the unconstrained solve converges to, measured. Every cap below is relative to it. */
-const UNCONSTRAINED_AIM = { theta: 0.6475001843208092, speed: 95.47008082976205 } as const;
+/**
+ * The converged unconstrained aim, recorded from the solver — a stored
+ * reference of the same kind as a golden trajectory, and re-recorded on the
+ * same terms.
+ *
+ * Re-recorded 2026-09-03 (P0.120) when `vec2.norm` stopped calling
+ * `Math.hypot`: theta moved 0.6475001843208092 -> 0.6475001843115056
+ * (9.3e-12 absolute, 1.4e-11 relative) and speed 95.47008082976205 ->
+ * 95.47008082982917 (6.7e-11 absolute, 7.0e-13 relative). Both are far
+ * inside the shooting solve's own convergence tolerance, so this is the same
+ * answer to every digit the solve actually determines. The `toBeCloseTo`
+ * precisions below were **not** relaxed to absorb the move — 12 decimals
+ * still holds against the re-recorded value, which is the check that this
+ * was a re-record and not a regression.
+ */
+const UNCONSTRAINED_AIM = { theta: 0.6475001843115056, speed: 95.47008082982917 } as const;
 
 /** A rough starting aim, deliberately not the answer. */
 const START: Aim = { theta: 0.6, speed: 80 };

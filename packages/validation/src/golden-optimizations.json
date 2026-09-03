@@ -15,8 +15,8 @@
       "id": "newton-quadratic-drag-point",
       "status": "converged",
       "converged": true,
-      "solution": [0.5491262469512022, 46.251368368194655],
-      "objective": 2.8428046436212884e-14,
+      "solution": [0.5491262469611463, 46.25136836797851],
+      "objective": 8.531108501951283e-14,
       "iterations": 3,
       "evaluations": 16
     },
@@ -24,8 +24,8 @@
       "id": "newton-drag-and-headwind-point",
       "status": "converged",
       "converged": true,
-      "solution": [0.5668303415968557, 49.51044105833316],
-      "objective": 2.8443814738681776e-14,
+      "solution": [0.5668303415906449, 49.510441058431766],
+      "objective": 3.124128560016981e-15,
       "iterations": 3,
       "evaluations": 16
     },
@@ -33,28 +33,28 @@
       "id": "newton-raised-platform-unreachable",
       "status": "stalled",
       "converged": false,
-      "solution": [1.0313982570461662, 42.482001720481186],
-      "objective": 14.999999999999991,
+      "solution": [1.0313982570525626, 42.48200172068886],
+      "objective": 14.99999999999999,
       "iterations": 4,
-      "evaluations": 26
+      "evaluations": 25
     },
     {
       "id": "newton-ground-ring",
       "status": "converged",
       "converged": true,
-      "solution": [0.5797876037832338, 54.309599259092636],
-      "objective": 1.415050689956844e-7,
+      "solution": [0.5797876037808046, 54.309599259141855],
+      "objective": 1.41505381634488e-7,
       "iterations": 3,
       "evaluations": 16
     },
     {
       "id": "nelder-mead-quadratic-drag-point",
-      "status": "max-evaluations",
-      "converged": false,
-      "solution": [0.6553444592741139, 44.627235756497754],
-      "objective": 2.1632001745430784e-15,
-      "iterations": 457,
-      "evaluations": 1602
+      "status": "converged",
+      "converged": true,
+      "solution": [0.655344467113818, 44.62723568342531],
+      "objective": 5.533767888366015e-16,
+      "iterations": 253,
+      "evaluations": 568
     },
     {
       "id": "maximize-range-drag-free",
@@ -69,10 +69,10 @@
       "id": "maximize-range-quadratic-drag",
       "status": "converged",
       "converged": true,
-      "solution": [0.7238770667605248],
-      "objective": 232.61580676320042,
-      "iterations": 9,
-      "evaluations": 35
+      "solution": [0.7238770667531857],
+      "objective": 232.6158067632002,
+      "iterations": 8,
+      "evaluations": 34
     },
     {
       "id": "min-energy-drag-free-point",
