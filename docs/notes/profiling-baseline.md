@@ -70,6 +70,27 @@ Top three, as the task's criterion asks: **`stepExplicitRK` (21.5%),
 |v| for the drag force, which every RHS evaluation needs, and RK4 evaluates the
 RHS four times per step.
 
+> **Correction, 2026-09-03 (P0.120).** The paragraph above is wrong in its
+> conclusion, and it is left standing rather than edited away because the way
+> it is wrong is the most useful thing in this report.
+>
+> The call count is right: `vec2.norm` really is reached four times per step,
+> and no change to the physics removes that. What the paragraph does not ask is
+> whether `vec2.norm` was any good at its job. It was `Math.hypot`, and V8's
+> `Math.hypot` scales its arguments by a power of two so that intermediates
+> cannot overflow or underflow — protection this model's magnitudes never need,
+> at a measured **30.4x** (2e7 evaluations: 1113.6 ms against 36.6 ms for
+> `sqrt(x*x + y*y)`). Replacing it took the batch from 9176.95 to 10704.27
+> traj/s on this container and met §2.6's budget, which neither of P0.120's own
+> two candidates could have done.
+>
+> **A profile names the function, not the reason it is slow.** "This function
+> is called a lot and is intrinsic to the model" and "this function is
+> implemented badly" produce the same row in the same ranking, and the first
+> reading forecloses the second. `norm` was ranked third by self time in this
+> very report and still got written off in a sentence. Rank a hot leaf, then
+> read it before concluding it is irreducible.
+
 ## The finding that matters: P0.120's candidate (a) is worth ~3%
 
 Self time alone cannot answer P0.120's question, which is why the report also
