@@ -2858,8 +2858,8 @@
       "estMinutes": 15,
       "difficulty": "E",
       "validation": "regression green",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed before any code was written. Scope taken from blueprint §8.4, not from the one-line title: goldens store a hash AND the full recorded result, compare bit-exact on the same platform, carry a documented cross-platform tolerance, and move only via an explicit --update-goldens re-record with a changelog entry saying why. Placement decided up front: @ballista/validation, where golden-trajectories and golden-optimizations live, may import only engine/solverkit/analysis -- the MC job is in @ballista/runtime, so the MC store goes in packages/runtime/src/ beside mc-study-reproducibility.test.ts rather than amending the layering rule. P6.27's test deliberately left the pinned constant to this task."
     },
     {
       "id": "P6.29",
