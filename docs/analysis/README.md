@@ -170,11 +170,31 @@ worker finished first, and any reproducibility check that hashed the numbers
 
 The pipeline is two steps and a hash:
 
-| Symbol              | File          | Meaning                                                                       |
-| ------------------- | ------------- | ----------------------------------------------------------------------------- |
-| `assembleMcColumns` | `mc-stats.ts` | Copy each worker chunk into its global slice; reject overlaps and gaps        |
-| `mcStats`           | `mc-stats.ts` | Walk the assembled buffer index 0 → N-1, sum landed replicates per observable |
-| `hashMcStats`       | `mc-stats.ts` | 64-bit splitmix64 fold of the full stats, so equality is checkable            |
+| Symbol                 | File          | Meaning                                                                                                |
+| ---------------------- | ------------- | ------------------------------------------------------------------------------------------------------ |
+| `assembleMcColumns`    | `mc-stats.ts` | Copy each worker chunk into its global slice; reject overlaps and gaps                                 |
+| `mcStats`              | `mc-stats.ts` | Walk the assembled buffer index 0 → N-1, sum landed replicates per observable                          |
+| `hashMcStats`          | `mc-stats.ts` | 64-bit splitmix64 fold of the full stats, so equality is checkable                                     |
+| `mcStatsRelativeDrift` | `mc-stats.ts` | Worst relative difference between two `McStats`, for the cross-engine case a bitwise hash cannot serve |
+
+The hash and the drift comparator answer two different questions and must not be
+swapped for one another. **Same platform, the requirement is bit-equality** — the whole
+point of canonical-order reduction is that there is nothing to tolerate, so
+`hashMcStats` grades it exactly and a reduction-order regression cannot pass as
+rounding. **Across engines, bit-equality is unavailable by construction**, so
+`mcStatsRelativeDrift` grades against `MC_STATS_CROSS_PLATFORM_REL_TOL`, which is
+blueprint §2.6's stated budget of `1e-13` relative. That constant is a budget the
+project has committed to tolerate, not a measurement of what any engine actually does —
+the measuring is P2.45/P7.11's job. A disagreement in `count` or `landedCount` is
+reported as infinite drift rather than scaled, because those are integers: two platforms
+that ran different amounts of work, or that disagreed about whether a replicate reached
+the ground, have not drifted, they have answered differently.
+
+The end-to-end assertion that the whole chain holds — spec through `generateReplicate`,
+integration, assembly, reduction, hash — is
+`packages/runtime/src/mc-study-reproducibility.test.ts` (P6.27). It covers run-to-run,
+six pool sizes and shuffled chunk arrival; it does **not** cover main-thread against
+worker execution, because the Monte Carlo job does not run on `WorkerPool` until P0.119.
 
 Non-landing replicates (`landed === 0`) count toward `count` and `landedCount` but
 contribute to no observable sum — a truncated flight's "impact" is wherever it happened
