@@ -1,0 +1,135 @@
+{
+  "schemaVersion": 1,
+  "provenance": "Recorded via `UPDATE_GOLDENS=1 pnpm run update-goldens` (P6.28; blueprint §8.4). Any intentional numerical change requires re-running that command with a commit message explaining *why* the numbers moved -- never hand-edit this file. Same-platform comparison is bit-exact, so there are no tolerances stored here and none to widen; the 1e-13 figure in `MC_STATS_CROSS_PLATFORM_REL_TOL` is the cross-engine budget and is deliberately not used by this suite.",
+  "entries": [
+    {
+      "id": "drag-free-velocity-spread",
+      "studySchemaVersion": 1,
+      "seed": 20260904,
+      "replicates": 96,
+      "hash": "0x83eac4d9c183ef4d",
+      "stats": {
+        "count": 96,
+        "landedCount": 96,
+        "range": {
+          "sum": 8910.030771965883,
+          "sumSquares": 839094.1859665967,
+          "min": 72.87348081015853,
+          "max": 120.13515476853648,
+          "mean": 92.81282054131125,
+          "variance": 127.6747253743851
+        },
+        "apexHeight": {
+          "sum": 2197.0594458826936,
+          "sumSquares": 51858.349896443106,
+          "min": 14.502345635785712,
+          "max": 33.129011103423565,
+          "mean": 22.886035894611382,
+          "variance": 16.59335321449272
+        },
+        "timeOfFlight": {
+          "sum": 413.13924440858113,
+          "sumSquares": 1792.3017102743083,
+          "min": 3.43956706241008,
+          "max": 5.198629799636576,
+          "mean": 4.303533795922721,
+          "variance": 0.1509790477894889
+        },
+        "impactSpeed": {
+          "sum": 2905.6468603117637,
+          "sumSquares": 88254.44398783974,
+          "min": 26.802425396692264,
+          "max": 34.448584284466556,
+          "mean": 30.2671547949142,
+          "variance": 3.2503230255487647
+        }
+      }
+    },
+    {
+      "id": "magnus-drive-velocity-spread",
+      "studySchemaVersion": 1,
+      "seed": 20260905,
+      "replicates": 96,
+      "hash": "0x371263601342d429",
+      "stats": {
+        "count": 96,
+        "landedCount": 96,
+        "range": {
+          "sum": 24246.209228206397,
+          "sumSquares": 6133499.869231532,
+          "min": 223.8526235578452,
+          "max": 279.70632430572743,
+          "mean": 252.56467946048332,
+          "variance": 102.77691976601866
+        },
+        "apexHeight": {
+          "sum": 3179.9332193003843,
+          "sumSquares": 106258.39743263686,
+          "min": 25.548690661372767,
+          "max": 39.54928325040896,
+          "mean": 33.12430436771235,
+          "variance": 9.740227447702482
+        },
+        "timeOfFlight": {
+          "sum": 752.589765572706,
+          "sumSquares": 5907.803761245227,
+          "min": 7.0720299285464945,
+          "max": 8.529010254178335,
+          "mean": 7.839476724715683,
+          "variance": 0.08309274503964334
+        },
+        "impactSpeed": {
+          "sum": 2645.880865821942,
+          "sumSquares": 72934.50318305564,
+          "min": 26.77224617438021,
+          "max": 28.33333920440725,
+          "mean": 27.561259018978564,
+          "variance": 0.11258217660830591
+        }
+      }
+    },
+    {
+      "id": "raised-release-mass-lognormal",
+      "studySchemaVersion": 1,
+      "seed": 20260906,
+      "replicates": 96,
+      "hash": "0xbe2a76ea57006f17",
+      "stats": {
+        "count": 96,
+        "landedCount": 96,
+        "range": {
+          "sum": 2005.9181806870204,
+          "sumSquares": 41913.62668928305,
+          "min": 20.87169456134261,
+          "max": 20.90787176240397,
+          "mean": 20.894981048823126,
+          "variance": 0.00004545618946454764
+        },
+        "apexHeight": {
+          "sum": 525.6847442429355,
+          "sumSquares": 2878.5880545746704,
+          "min": 5.473931224300365,
+          "max": 5.476962344359286,
+          "mean": 5.475882752530576,
+          "variance": 3.190140190654222e-7
+        },
+        "timeOfFlight": {
+          "sum": 181.14710931499434,
+          "sumSquares": 341.8153677887211,
+          "min": 1.886597183125889,
+          "max": 1.8871436258068204,
+          "mean": 1.886949055364524,
+          "variance": 1.0366087663431872e-8
+        },
+        "impactSpeed": {
+          "sum": 1450.409082132486,
+          "sumSquares": 21913.404046704993,
+          "min": 15.089198179327173,
+          "max": 15.119081351451898,
+          "mean": 15.108427938880057,
+          "variance": 0.00003102535966601708
+        }
+      }
+    }
+  ]
+}
