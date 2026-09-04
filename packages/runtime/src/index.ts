@@ -29,3 +29,4 @@ export * from "./density-altitude.js";
 
 export * from "./exercise-grading.js";
 export * from "./inverse-exercises.js";
+export * from "./uncertainty-exercises.js";
