@@ -2847,8 +2847,8 @@
       "estMinutes": 20,
       "difficulty": "M",
       "validation": "SHA of stats equal same-platform; cross-platform within tolerance",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed 2026-09-04 (74th run) before any code. SCOPE, read from blueprint 8.5 rather than from the one-line title: \"same ScenarioSpec + seed => identical SHA-256 of result buffers across runs, across main-thread/worker execution, and across pool sizes (via fixed reduction order, P6.05)\". The mechanism already exists -- hashMcStats in analysis/mc-stats.ts was written for this task and names it -- so what is missing is the END-TO-END assertion: everything that exists today (mc-stats.test.ts P6.05 cases, mc-job.test.ts partitioning cases) works on synthetic columns or on one job function, and nothing runs spec -> generateReplicate -> integrate -> assembleMcColumns -> mcStats -> hashMcStats and requires the hash to hold. THE MAIN-THREAD/WORKER HALF IS NOT REACHABLE YET and is deliberately excluded: the MC job does not go through WorkerPool at all (that is P0.119, still todo), so there is no second execution path to compare against. When P0.119 lands it must extend this test rather than write its own. THE CROSS-PLATFORM HALF NEEDS A COMPARATOR THAT DOES NOT EXIST: a bitwise hash cannot be equal across engines by construction, so \"cross-platform within tolerance\" needs a relative-drift function over McStats, graded against the 2.6 determinism budget (~1e-13 relative). P6.28 (goldens for 3 studies) is the consumer of that comparator and is NOT part of this task."
     },
     {
       "id": "P6.28",
