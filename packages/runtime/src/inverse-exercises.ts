@@ -64,6 +64,7 @@ import {
   type ShootingProblem,
 } from "@ballista/analysis";
 import { createDormandPrince54Stepper, type SolverConfig } from "@ballista/solverkit";
+import { classifyMiss, gradeAgainstKey } from "./exercise-grading.js";
 
 /**
  * Tighter than an interactive session would use, for the reason
@@ -428,18 +429,6 @@ export interface ExerciseCheck {
   readonly feedback: string;
 }
 
-/**
- * Ulps of headroom {@link checkAnswer} allows past the stated tolerance, so
- * that an answer sitting exactly on the boundary is graded as meeting it.
- *
- * Four, because forming the boundary costs at most one rounding on the
- * subtraction and one on the addition that produced the submission, and two
- * more is free: the gap between this and the smallest wrong answer any
- * exercise can produce is enormous. The loosest tolerance here is 0.5 m and
- * the slack it buys is under 1.4e-14 m.
- */
-const BOUNDARY_ULPS = 4;
-
 /** Look one up by id. Throws rather than returning undefined, so a typo fails loudly. */
 export function getExercise(id: ExerciseId): InverseExercise {
   const exercise = INVERSE_EXERCISES.find((candidate) => candidate.id === id);
@@ -451,6 +440,11 @@ export function getExercise(id: ExerciseId): InverseExercise {
 
 /**
  * Grade one answer against the stored key.
+ *
+ * The comparison itself lives in `exercise-grading.ts`, shared with the
+ * uncertainty lab (P6.29); only the feedback wording is this lab's. The
+ * paragraphs below describe what {@link gradeAgainstKey} does and are kept
+ * here because this is where a reader of the inverse lab will look.
  *
  * **The comparison is absolute and inclusive at the boundary.** Absolute
  * because every tolerance here was reasoned about in the answer's own unit —
@@ -475,55 +469,31 @@ export function getExercise(id: ExerciseId): InverseExercise {
  * learner who has not answered yet.
  */
 export function checkAnswer(exercise: InverseExercise, submitted: number): ExerciseCheck {
-  const { solution, tolerance, unit } = exercise.answer;
+  const { tolerance, unit } = exercise.answer;
+  const { nonFinite, ...graded } = gradeAgainstKey(exercise.answer, submitted);
 
-  if (!Number.isFinite(submitted)) {
+  if (nonFinite) {
     return {
       id: exercise.id,
-      submitted,
-      expected: solution,
-      error: Number.NaN,
-      tolerance,
-      correct: false,
+      ...graded,
       feedback: "That is not a number — enter your answer as a decimal value.",
     };
   }
 
-  const error = Math.abs(submitted - solution);
-  const slack =
-    BOUNDARY_ULPS * Number.EPSILON * Math.max(Math.abs(submitted), Math.abs(solution), tolerance);
-  const correct = error <= tolerance + slack;
-
-  if (correct) {
-    return {
-      id: exercise.id,
-      submitted,
-      expected: solution,
-      error,
-      tolerance,
-      correct: true,
-      feedback: exercise.insight,
-    };
+  if (graded.correct) {
+    return { id: exercise.id, ...graded, feedback: exercise.insight };
   }
 
   // Direction, magnitude and a nudge — but never the number itself, or the
   // second attempt is not an attempt.
-  const direction = submitted > solution ? "high" : "low";
-  const scale =
-    error > 10 * tolerance
-      ? "well outside"
-      : error > 2 * tolerance
-        ? "outside"
-        : "just outside (a precision issue rather than a method one)";
+  const { direction, scale } = classifyMiss(exercise.answer, submitted);
+  const qualified =
+    scale === "just outside" ? `${scale} (a precision issue rather than a method one)` : scale;
   return {
     id: exercise.id,
-    submitted,
-    expected: solution,
-    error,
-    tolerance,
-    correct: false,
+    ...graded,
     feedback:
-      `Too ${direction}, and ${scale} the ${tolerance} ${unit} tolerance. ` +
+      `Too ${direction}, and ${qualified} the ${tolerance} ${unit} tolerance. ` +
       `Re-read step ${exercise.steps.length} and check the branch you solved on.`,
   };
 }

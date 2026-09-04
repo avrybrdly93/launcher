@@ -27,4 +27,5 @@ export * from "./terrain-editor.js";
 export * from "./neglected-effects.js";
 export * from "./density-altitude.js";
 
+export * from "./exercise-grading.js";
 export * from "./inverse-exercises.js";
