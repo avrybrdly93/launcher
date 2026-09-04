@@ -2869,8 +2869,8 @@
       "estMinutes": 30,
       "difficulty": "E",
       "validation": "checkers pass on reference solutions",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed before any code was written. Scope taken from the P5.28 precedent (packages/runtime/src/inverse-exercises.ts): each study carries a stored answer key AND a recompute() that derives it from the real pipeline, with the test asserting the two agree, so the key is auditable rather than merely pinned. Reference solutions come from the three studies P6.28 already pinned in golden-mc-store.ts rather than a fourth invented set -- a guided study whose checker has no pinned reference is grading itself."
     },
     {
       "id": "P6.30",
