@@ -11,7 +11,7 @@
     "build": "pnpm -r --workspace-concurrency=1 run build",
     "typecheck": "tsc -b",
     "test": "vitest run",
-    "update-goldens": "UPDATE_GOLDENS=1 vitest run packages/validation/src/golden-trajectories.test.ts packages/validation/src/golden-optimizations.test.ts && prettier --write packages/validation/src/golden-trajectories.json packages/validation/src/golden-optimizations.json",
+    "update-goldens": "UPDATE_GOLDENS=1 vitest run packages/validation/src/golden-trajectories.test.ts packages/validation/src/golden-optimizations.test.ts packages/runtime/src/golden-mc-results.test.ts && prettier --write packages/validation/src/golden-trajectories.json packages/validation/src/golden-optimizations.json packages/runtime/src/golden-mc-results.json",
     "record:inverse-perf": "RECORD_INVERSE_PERF=1 vitest run packages/validation/src/inverse-solve-perf.test.ts && prettier --write packages/validation/src/inverse-solve-perf.json",
     "bench:solverkit": "node scripts/check-benchmark-regression.mjs",
     "bench:throughput": "node scripts/measure-batch-throughput.mjs",
