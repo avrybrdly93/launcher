@@ -420,3 +420,85 @@ export function hashMcStats(stats: McStats): string {
   }
   return "0x" + h.toString(16).padStart(16, "0");
 }
+
+/**
+ * The determinism budget from blueprint §2.6, as a relative tolerance:
+ * *"documented tolerance for cross-browser drift ($\lesssim 10^{-13}$
+ * relative over a standard flight; measured, not assumed, in CI across
+ * engines)"*.
+ *
+ * This is the **cross-platform** half of P6.27's criterion and nothing else.
+ * On one platform the requirement is bit-equality, which {@link hashMcStats}
+ * already grades exactly; loosening that to a tolerance would let a real
+ * reduction-order regression pass as rounding. So a same-platform check must
+ * never reach for this constant.
+ *
+ * It is a budget, not a measurement. What a second engine actually drifts by
+ * is P2.45/P7.11's business to measure and publish; this says only what the
+ * project has committed to tolerate.
+ */
+export const MC_STATS_CROSS_PLATFORM_REL_TOL = 1e-13;
+
+/**
+ * Relative difference between two numbers, with the conventions a
+ * cross-platform comparison of Monte Carlo statistics needs.
+ *
+ * `0` for values that are genuinely the same answer, including two `NaN`s
+ * (an empty batch's mean is a well-defined non-answer, and two engines
+ * agreeing that there is no answer have not drifted) and two infinities of
+ * the same sign (`min`/`max` of a batch where nothing landed).
+ *
+ * `Infinity` where the two are not the same *kind* of answer at all -- a
+ * number against a `NaN`, opposite infinities, a finite value against an
+ * infinite one. Those are not rounding, and scaling them into a small
+ * relative number would hide the one class of disagreement that matters
+ * most.
+ *
+ * Normalised by `max(|a|, |b|)` rather than by one side, so the result does
+ * not depend on argument order; two zeros are `0` and a zero against a
+ * non-zero is `1`.
+ */
+function relativeDifference(a: number, b: number): number {
+  if (Number.isNaN(a) || Number.isNaN(b)) return Number.isNaN(a) && Number.isNaN(b) ? 0 : Infinity;
+  if (a === b) return 0;
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return Infinity;
+  const scale = Math.max(Math.abs(a), Math.abs(b));
+  // Unreachable while `a !== b`: scale is 0 only when both are ±0, and those
+  // compare equal above. Kept so the function is total by inspection.
+  return scale === 0 ? 0 : Math.abs(a - b) / scale;
+}
+
+/**
+ * The largest relative difference between any pair of corresponding fields of
+ * two {@link McStats}, for grading a cross-platform reproduction against
+ * {@link MC_STATS_CROSS_PLATFORM_REL_TOL}.
+ *
+ * **`count` and `landedCount` are required to be exactly equal, and the
+ * result is `Infinity` when they are not.** They are integers, so a
+ * disagreement in either is not floating-point drift -- it is two platforms
+ * having run different amounts of work, or having disagreed about whether a
+ * replicate reached the ground. Averaging that in with the continuous fields
+ * would let a genuinely different answer read as a small number, which is the
+ * exact failure this comparator exists to prevent.
+ *
+ * Every continuous field is covered, in the same order {@link hashMcStats}
+ * folds them, for the same reason its doc gives: a field the check ignores is
+ * a field a reproducibility check silently stops guarding.
+ */
+export function mcStatsRelativeDrift(a: McStats, b: McStats): number {
+  if (a.count !== b.count || a.landedCount !== b.landedCount) return Infinity;
+  let worst = 0;
+  const pairs: readonly (readonly [McObservableStats, McObservableStats])[] = [
+    [a.range, b.range],
+    [a.apexHeight, b.apexHeight],
+    [a.timeOfFlight, b.timeOfFlight],
+    [a.impactSpeed, b.impactSpeed],
+  ];
+  for (const [x, y] of pairs) {
+    for (const field of ["sum", "sumSquares", "min", "max", "mean", "variance"] as const) {
+      const d = relativeDifference(x[field], y[field]);
+      if (d > worst) worst = d;
+    }
+  }
+  return worst;
+}

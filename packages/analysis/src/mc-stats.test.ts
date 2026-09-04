@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  MC_STATS_CROSS_PLATFORM_REL_TOL,
   assembleMcColumns,
   hashMcStats,
   mcStats,
+  mcStatsRelativeDrift,
   type McChunk,
   type McObservableColumns,
   type McStats,
@@ -412,5 +414,91 @@ describe("hashMcStats", () => {
       range: { sum: -0, sumSquares: -0, min: -0, max: -0, mean: -0, variance: -0 },
     };
     expect(hashMcStats(withPos)).toBe(hashMcStats(withNeg));
+  });
+});
+
+/**
+ * P6.27's cross-platform half. The same-platform half is bit-equality, which
+ * `hashMcStats` already grades; this comparator exists only for the case
+ * where bit-equality is unavailable by construction, and its whole value is
+ * where it draws the line. A comparator that accepts everything would make
+ * every future golden comparison vacuous, so each case below fixes one end of
+ * the boundary rather than merely exercising the happy path.
+ */
+describe("mcStatsRelativeDrift (P6.27 cross-platform tolerance)", () => {
+  const base = mcStats(makeSourceColumns(128));
+
+  /** `stats` with one continuous field scaled by `1 + rel`. */
+  function perturbed(rel: number): McStats {
+    return {
+      ...base,
+      timeOfFlight: { ...base.timeOfFlight, sum: base.timeOfFlight.sum * (1 + rel) },
+    };
+  }
+
+  it("is exactly zero for a batch against itself", () => {
+    expect(mcStatsRelativeDrift(base, base)).toBe(0);
+  });
+
+  it("reports drift a hair under the §2.6 budget as passing, and a hair over as failing", () => {
+    // The boundary is the whole point of the constant, so it is pinned from
+    // both sides. 0.5x and 2x the budget rather than 1e-14/1e-12 so the two
+    // cases stay adjacent to the number they grade if it is ever revised.
+    const under = mcStatsRelativeDrift(base, perturbed(MC_STATS_CROSS_PLATFORM_REL_TOL * 0.5));
+    const over = mcStatsRelativeDrift(base, perturbed(MC_STATS_CROSS_PLATFORM_REL_TOL * 2));
+    expect(under).toBeLessThan(MC_STATS_CROSS_PLATFORM_REL_TOL);
+    expect(over).toBeGreaterThan(MC_STATS_CROSS_PLATFORM_REL_TOL);
+  });
+
+  it("returns Infinity when the replicate counts differ at all", () => {
+    // Not drift: two platforms ran different amounts of work. Scaling this
+    // into a small relative number is the failure the guard exists to stop.
+    expect(mcStatsRelativeDrift(base, { ...base, count: base.count + 1 })).toBe(Infinity);
+  });
+
+  it("returns Infinity when the landed counts differ, even with every continuous field identical", () => {
+    // The likelier cross-engine disagreement of the two: one engine's event
+    // localization puts a marginal replicate on the ground and the other's
+    // does not. Every sum can still match to the bit while the answer differs.
+    expect(mcStatsRelativeDrift(base, { ...base, landedCount: base.landedCount - 1 })).toBe(
+      Infinity,
+    );
+  });
+
+  it("treats two NaN means as agreement rather than as infinite drift", () => {
+    // An all-non-landing batch has a NaN mean by design. Two platforms that
+    // both report "no answer" have not drifted, and `NaN !== NaN` would say
+    // they had.
+    const empty = mcStats({
+      range: new Float64Array(4),
+      apexHeight: new Float64Array(4),
+      timeOfFlight: new Float64Array(4),
+      impactSpeed: new Float64Array(4),
+      landed: new Uint8Array(4),
+    });
+    expect(Number.isNaN(empty.range.mean)).toBe(true);
+    expect(mcStatsRelativeDrift(empty, empty)).toBe(0);
+    // ...but a NaN against a real number is not agreement.
+    const half: McStats = { ...empty, range: { ...empty.range, mean: 0 } };
+    expect(mcStatsRelativeDrift(empty, half)).toBe(Infinity);
+  });
+
+  it("covers every continuous field, so none can silently stop being guarded", () => {
+    // Mirrors hashMcStats's own "covers mean and variance" case: perturb each
+    // field of each observable in turn and require the comparator to notice.
+    const observables = ["range", "apexHeight", "timeOfFlight", "impactSpeed"] as const;
+    const fields = ["sum", "sumSquares", "min", "max", "mean", "variance"] as const;
+    for (const observable of observables) {
+      for (const field of fields) {
+        const twisted: McStats = {
+          ...base,
+          [observable]: { ...base[observable], [field]: base[observable][field] * 1.5 },
+        };
+        expect(
+          mcStatsRelativeDrift(base, twisted),
+          `${observable}.${field} is not covered by mcStatsRelativeDrift`,
+        ).toBeGreaterThan(MC_STATS_CROSS_PLATFORM_REL_TOL);
+      }
+    }
   });
 });
