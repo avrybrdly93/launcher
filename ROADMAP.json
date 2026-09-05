@@ -2902,8 +2902,8 @@
       "estMinutes": 30,
       "difficulty": "M",
       "validation": "batch RK4 produces bit-identical results to per-replicate loop",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed 2026-09-05 (78th run) before any code, per policy.commitRules. Opens Phase 7."
     },
     {
       "id": "P7.03",
