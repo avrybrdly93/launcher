@@ -57,7 +57,9 @@ describe("LazyPlotlyView", () => {
     const el = root.querySelector('[data-testid="lazy-plotly-view"]');
     expect(el).not.toBeNull();
     expect(renderLazyPlotlyPane).toHaveBeenCalledTimes(1);
-    expect(renderLazyPlotlyPane).toHaveBeenCalledWith(el, SPEC);
+    expect(renderLazyPlotlyPane).toHaveBeenCalledWith(el, SPEC, {
+      shouldMount: expect.any(Function),
+    });
   });
 
   it("disposes the previous pane and re-renders when the spec changes", async () => {
@@ -71,7 +73,9 @@ describe("LazyPlotlyView", () => {
 
     expect(disposeLazyPlotlyPane).toHaveBeenCalledTimes(1);
     expect(renderLazyPlotlyPane).toHaveBeenCalledTimes(2);
-    expect(renderLazyPlotlyPane).toHaveBeenLastCalledWith(expect.anything(), nextSpec);
+    expect(renderLazyPlotlyPane).toHaveBeenLastCalledWith(expect.anything(), nextSpec, {
+      shouldMount: expect.any(Function),
+    });
   });
 
   it("disposes on unmount", async () => {
@@ -82,5 +86,50 @@ describe("LazyPlotlyView", () => {
     await flush();
 
     expect(disposeLazyPlotlyPane).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * P0.118. The regression these guard is a route change landing while the
+   * Plotly dynamic import is still in flight: the mount then completes against
+   * a container this effect has already abandoned, and a `responsive: true`
+   * plot on a detached node keeps handlers alive with nothing left to purge
+   * them. The view cannot cancel the import, so what it owes
+   * `renderLazyPlotlyPane` is an honest answer to "are you still wanted?" at
+   * the moment the import lands -- which is `shouldMount`.
+   */
+  describe("cancellation on teardown", () => {
+    it("reports the mount as still wanted while the effect is live", async () => {
+      mount(SPEC);
+      await flush();
+
+      const shouldMount = renderLazyPlotlyPane.mock.calls.at(-1)![2].shouldMount as () => boolean;
+      expect(shouldMount()).toBe(true);
+    });
+
+    it("reports the mount as abandoned once the component unmounts", async () => {
+      const root = mount(SPEC);
+      await flush();
+      const shouldMount = renderLazyPlotlyPane.mock.calls.at(-1)![2].shouldMount as () => boolean;
+
+      render(null, root);
+      await flush();
+
+      expect(shouldMount()).toBe(false);
+    });
+
+    it("abandons only the superseded mount when the spec changes, not the new one", async () => {
+      const root = mount(SPEC);
+      await flush();
+      const first = renderLazyPlotlyPane.mock.calls.at(-1)![2].shouldMount as () => boolean;
+
+      render(<LazyPlotlyView spec={{ ...SPEC, xAxis: { title: "t" } }} />, root);
+      await flush();
+      const second = renderLazyPlotlyPane.mock.calls.at(-1)![2].shouldMount as () => boolean;
+
+      // Each effect run latches its own flag; a stale render must not be able
+      // to cancel the live one, which is what a single shared flag would do.
+      expect(first()).toBe(false);
+      expect(second()).toBe(true);
+    });
   });
 });

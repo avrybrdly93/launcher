@@ -30,8 +30,15 @@ export function LazyPlotlyView({ spec }: LazyPlotlyViewProps) {
   useLayoutEffect(() => {
     const container = containerRef.current;
     if (!container) return;
-    void renderLazyPlotlyPane(container, spec);
+    // Latched by the cleanup below and read by `renderLazyPlotlyPane` after its
+    // dynamic import resolves. A route change during that import would
+    // otherwise mount a `responsive: true` plot into a container this effect
+    // has already given up, leaving Plotly handlers alive on a detached node
+    // with no cleanup left to run (P0.118).
+    let cancelled = false;
+    void renderLazyPlotlyPane(container, spec, { shouldMount: () => !cancelled });
     return () => {
+      cancelled = true;
       void disposeLazyPlotlyPane(container);
     };
   }, [spec]);
