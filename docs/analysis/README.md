@@ -621,6 +621,38 @@ indicator observable — unbounded variation in the Hardy–Krause sense — the
 **−0.7834**: still better than plain MC, nowhere near the smooth case. The direction-number
 table covers 21 dimensions, which is far more than the QMC advantage survives.
 
+### Choosing between the four above
+
+`estimator-glossary.ts` is the when-to-use table for the five methods this package and
+`engine` between them implement (P6.30, ADR-019). It is data rather than prose in the ADR
+for one reason: a Markdown table that has stopped describing the code keeps rendering and
+nothing fails, which is the failure mode ADR-016 and ADR-017 both describe elsewhere.
+
+| Symbol                   | File                    | Meaning                                                               |
+| ------------------------ | ----------------------- | --------------------------------------------------------------------- |
+| `ESTIMATOR_GLOSSARY`     | `estimator-glossary.ts` | One row per method: what it estimates, when to reach for it, when not |
+| `estimatorGlossaryEntry` | `estimator-glossary.ts` | A row by id; an unknown id yields no row rather than a guess          |
+| `ESTIMATOR_GLOSSARY_ADR` | `estimator-glossary.ts` | Repository-relative path of ADR-019, which the dashboard links        |
+
+**Every row is checked against the repository, not against itself.**
+`estimator-glossary.test.ts` asserts that each row's module exists, that its named entry
+point is genuinely exported by it as an `export` declaration rather than mentioned in a
+comment, that the validation test it credits exists, and that every measured figure it
+quotes appears verbatim in that test. Renaming `sobolReplicates` or moving
+`control-variate.ts` therefore fails a test rather than leaving stale advice on the Monte
+Carlo dashboard, which renders these rows in its help section.
+
+**Each row states a failure mode, and that is enforced.** A row carrying only a
+recommendation is an advertisement, and three of the five methods are wrong for the
+dashboard's own hit probability — an indicator observable, so QMC gives its rate back on
+exactly the number sitting above the help panel. The table's content is the contrast
+between rows, so the suite also requires no two rows to carry identical guidance.
+
+**The figures in it are quotations with attribution, not fresh measurements.** Each is the
+value its own validation test recorded on the specific problem that test constructs. Read
+them as evidence a method does something on a problem of a stated shape, never as a factor
+to expect on yours.
+
 ### Stochastic wind: shared or per-replicate
 
 The four entries above are about how a study draws its _parameters_. A study whose base

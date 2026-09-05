@@ -52,5 +52,6 @@ export * from "./sensitivity-panel-logic.js";
 export * from "./sensitivity-panel.js";
 export * from "./sensitivity-study-panel-logic.js";
 export * from "./sensitivity-study-panel.js";
+export * from "./estimator-help-panel.js";
 export * from "./monte-carlo-page-logic.js";
 export * from "./monte-carlo-page.js";

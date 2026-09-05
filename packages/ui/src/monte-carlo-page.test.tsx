@@ -13,7 +13,7 @@
 import { render } from "preact";
 import { afterEach, describe, expect, it } from "vitest";
 
-import type { EnsembleFan } from "@ballista/analysis";
+import { ESTIMATOR_GLOSSARY_ADR, type EnsembleFan } from "@ballista/analysis";
 import type { McDashboardProgress, McDashboardResult } from "@ballista/runtime";
 
 import { MonteCarloPage, type McStudyRunner } from "./monte-carlo-page.js";
@@ -413,5 +413,31 @@ describe("MonteCarloPage live estimate (P6.25)", () => {
     click(root, "mc-cancel");
     await flush();
     expect(query(root, "mc-live-estimate")).toBeNull();
+  });
+});
+
+describe("the dashboard's estimator help (P6.30 validation: linked from dashboard help)", () => {
+  it("mounts the help panel before a study has been run, since it informs the choice to run one", () => {
+    // Asserted on the freshly mounted page rather than after a result: the
+    // question the panel answers -- which estimator does this question want --
+    // is asked before the four result sections exist.
+    const root = mount(() => new Promise<McDashboardResult>(() => {}));
+    expect(query(root, "estimator-help")).not.toBeNull();
+    expect(query(root, "mc-estimate")).toBeNull();
+  });
+
+  it("links ADR-019 from that panel", () => {
+    const root = mount(() => new Promise<McDashboardResult>(() => {}));
+    const link = query(root, "estimator-help-adr-link");
+    expect(link).not.toBeNull();
+    // The href is derived from the glossary's published path, so moving the
+    // ADR breaks this rather than leaving a dead link on the dashboard.
+    expect(link!.getAttribute("href")).toContain(ESTIMATOR_GLOSSARY_ADR);
+  });
+
+  it("keeps the help collapsed, so it does not displace the study controls", () => {
+    const root = mount(() => new Promise<McDashboardResult>(() => {}));
+    expect((query(root, "estimator-help") as HTMLDetailsElement).open).toBe(false);
+    expect(query(root, "mc-run")).not.toBeNull();
   });
 });

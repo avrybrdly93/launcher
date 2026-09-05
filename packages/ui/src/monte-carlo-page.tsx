@@ -22,6 +22,7 @@
 
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "preact/hooks";
 import type { McDashboardProgress, McDashboardResult } from "@ballista/runtime";
+import { EstimatorHelpPanel } from "./estimator-help-panel.js";
 import {
   clampMcReplicates,
   fanGeometry,
@@ -114,6 +115,14 @@ export function MonteCarloPage({
   return (
     <div class="monte-carlo-page" data-testid="monte-carlo-page">
       <h2 class="monte-carlo-page__title">Uncertainty study</h2>
+
+      {/*
+        P6.30's help (ADR-019). Placed above the controls rather than at the
+        foot of the page because the choice it informs — which estimator this
+        question wants — is made before a study is run, not after one has
+        returned four numbers. Collapsed by default, so it costs a line.
+      */}
+      <EstimatorHelpPanel />
 
       <div class="monte-carlo-page__controls">
         <label class="monte-carlo-page__replicates">
