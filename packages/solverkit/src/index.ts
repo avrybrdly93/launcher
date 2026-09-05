@@ -39,3 +39,5 @@ export * from "./dense-linear-solve.js";
 export * from "./backward-euler-stepper.js";
 export * from "./sdirk2-stepper.js";
 export * from "./stepper-derivation-docs.js";
+
+export * from "./ensemble-state.js";
