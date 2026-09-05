@@ -537,22 +537,126 @@ export function buildConditionNumberFigure(
 }
 
 /**
+ * Per-container lifecycle bookkeeping for {@link renderLazyPlotlyPane} /
+ * {@link disposeLazyPlotlyPane} (P0.118).
+ *
+ * WHY THIS EXISTS AT ALL. Both entry points are `async`, both are called
+ * from a Preact effect that cannot await them, and before P0.118 neither
+ * knew the other had run. That is a race with two losing orders, and the
+ * one the route walk hits produces `Cannot read properties of undefined
+ * (reading '_redrawFromAutoMarginCount')` — Plotly's own autoMargin redraw
+ * counter, read off a graph div that has already been torn down:
+ *
+ *  - `newPlot` resolves *after* the route changed, so Plotly attaches
+ *    listeners and schedules an autoMargin redraw against a container the
+ *    router has already detached; or
+ *  - `purge` runs *before* an in-flight `newPlot` finishes, so Plotly
+ *    re-initialises internal state on a node that has just been retired.
+ *
+ * Neither is fixable from the component, because the component's cleanup is
+ * synchronous and the work it is cleaning up is not. So the ordering is
+ * owned here instead.
+ */
+interface PaneLifecycle {
+  /**
+   * Settles when every operation queued so far against this container has
+   * finished, successfully or not. Chaining onto it is what guarantees a
+   * `purge` never overlaps a `newPlot`.
+   */
+  queue: Promise<void>;
+  /**
+   * Bumped by every render *and* every dispose. An operation whose captured
+   * token no longer matches has been superseded and must not touch the DOM
+   * — which is how a render that was queued before an unmount declines to
+   * mount anything at all, rather than mounting and being purged.
+   */
+  generation: number;
+  /** Whether a `newPlot` has actually completed against this container. */
+  plotted: boolean;
+}
+
+const paneLifecycles = new WeakMap<HTMLElement, PaneLifecycle>();
+
+function lifecycleFor(container: HTMLElement): PaneLifecycle {
+  const existing = paneLifecycles.get(container);
+  if (existing) return existing;
+  const created: PaneLifecycle = { queue: Promise.resolve(), generation: 0, plotted: false };
+  paneLifecycles.set(container, created);
+  return created;
+}
+
+/**
+ * Chains `op` after everything already queued on this container, whether or
+ * not that settled cleanly.
+ *
+ * The stored copy has its rejection swallowed deliberately. The queue is an
+ * internal chaining promise that nobody awaits, so a rejection left on it
+ * would surface as an *unhandled rejection* — the exact class of failure
+ * P0.118's second manifestation is, and it would be perverse to introduce
+ * one while fixing it. The promise handed back to the caller keeps its
+ * rejection, so `renderLazyPlotlyPane`'s own failures stay observable.
+ */
+function enqueue(state: PaneLifecycle, op: () => Promise<void>): Promise<void> {
+  const next = state.queue.then(op, op);
+  state.queue = next.then(
+    () => undefined,
+    () => undefined,
+  );
+  return next;
+}
+
+/**
  * Mounts `spec` into `container` via lazy-loaded Plotly. Safe to call again
  * on the same `container` to update in place (Plotly's `newPlot` reconciles
  * an existing plot at the same root rather than requiring a separate
- * `react` call).
+ * `react` call), and safe to call concurrently with
+ * {@link disposeLazyPlotlyPane}: the two are serialised per container.
+ *
+ * If a dispose (or a newer render) is requested before this one reaches
+ * `newPlot`, this call resolves having done nothing. That is the point —
+ * mounting into a container the caller has already given up on is what
+ * P0.118 is.
  */
 export async function renderLazyPlotlyPane(
   container: HTMLElement,
   spec: PlotlyFigureSpec,
 ): Promise<void> {
-  const plotly = await loadPlotlyModule();
-  const { data, layout } = buildPlotlyFigure(spec);
-  await plotly.newPlot(container, data, layout, { responsive: true, displaylogo: false });
+  const state = lifecycleFor(container);
+  const generation = ++state.generation;
+  return enqueue(state, async () => {
+    const plotly = await loadPlotlyModule();
+    if (state.generation !== generation) return;
+    const { data, layout } = buildPlotlyFigure(spec);
+    await plotly.newPlot(container, data, layout, { responsive: true, displaylogo: false });
+    state.plotted = true;
+  });
 }
 
-/** Tears down a pane mounted via {@link renderLazyPlotlyPane}, releasing Plotly's internal listeners/DOM. */
+/**
+ * Tears down a pane mounted via {@link renderLazyPlotlyPane}, releasing
+ * Plotly's internal listeners/DOM.
+ *
+ * Two behaviours here are deliberate and are asserted by
+ * `lazy-plotly-pane.runtime.test.ts`:
+ *
+ *  - **A container that was never rendered is a no-op**, and in particular
+ *    does *not* load Plotly. The pre-P0.118 version called
+ *    `loadPlotlyModule()` unconditionally, so unmounting a pane that had
+ *    never opened would *initiate* the ~4.8 MB dynamic import purely in
+ *    order to purge nothing — defeating the lazy boundary this module's
+ *    whole doc comment is about, and widening the race window besides.
+ *  - **The purge waits for any in-flight render**, rather than racing it.
+ */
 export async function disposeLazyPlotlyPane(container: HTMLElement): Promise<void> {
-  const plotly = await loadPlotlyModule();
-  plotly.purge(container);
+  const state = paneLifecycles.get(container);
+  if (!state) return;
+  ++state.generation;
+  return enqueue(state, async () => {
+    if (!state.plotted) return;
+    // `plotted` implies `newPlot` resolved, which implies the module is
+    // already loaded, so this await is a lookup and not an import.
+    const plotly = await loadPlotlyModule();
+    plotly.purge(container);
+    state.plotted = false;
+  });
 }

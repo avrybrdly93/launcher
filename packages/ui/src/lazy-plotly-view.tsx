@@ -24,15 +24,34 @@ export interface LazyPlotlyViewProps {
  * particular effect needs to wait for a frame anyway, since the whole point
  * is mounting Plotly as soon as the container exists.
  */
+/**
+ * Reports a pane lifecycle failure instead of letting it escape as an
+ * unhandled rejection (P0.118).
+ *
+ * `void promise` was what this component did before, and it is wrong twice
+ * over: a genuine Plotly failure vanished, and the rejection surfaced later
+ * as an unattributed unhandled rejection — which is precisely how P0.118's
+ * second manifestation reddens CI while every assertion passes. `console.error`
+ * instead, which `app-routes.e2e.test.ts` already asserts is empty, so a real
+ * failure now fails a test that names the route it happened on.
+ */
+function reportPaneFailure(stage: string, error: unknown): void {
+  console.error(`LazyPlotlyView: ${stage} failed`, error);
+}
+
 export function LazyPlotlyView({ spec }: LazyPlotlyViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useLayoutEffect(() => {
     const container = containerRef.current;
     if (!container) return;
-    void renderLazyPlotlyPane(container, spec);
+    renderLazyPlotlyPane(container, spec).catch((error: unknown) => {
+      reportPaneFailure("render", error);
+    });
     return () => {
-      void disposeLazyPlotlyPane(container);
+      disposeLazyPlotlyPane(container).catch((error: unknown) => {
+        reportPaneFailure("dispose", error);
+      });
     };
   }, [spec]);
 
