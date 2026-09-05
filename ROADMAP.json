@@ -2880,8 +2880,8 @@
       "estMinutes": 20,
       "difficulty": "E",
       "validation": "merged; linked from dashboard help",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "Claimed by the 77th run before any code, per policy.taskSelection: no in-progress and no review task exists, and P6.30 is the first todo in seq order. Remaining work: write the ADR and link it from dashboard help, which is the validation criterion."
     },
     {
       "id": "P7.01",
