@@ -537,22 +537,99 @@ export function buildConditionNumberFigure(
 }
 
 /**
+ * In-flight Plotly work per container, so operations on one pane run strictly
+ * one after another (P0.118).
+ *
+ * **Why a queue rather than two independent `async` functions.** Both entry
+ * points below `await` the dynamic import before touching Plotly, so without
+ * serialisation a mount and a teardown of the *same* container interleave: a
+ * `purge` scheduled by a route change can land in the middle of a `newPlot`
+ * that was already past its own `await`, and the `newPlot` then finishes
+ * against a graph div that has just been torn out from under it. Chaining
+ * every call for a container onto the previous one makes "no two Plotly
+ * operations overlap on one container" an invariant of this module instead of
+ * a timing accident.
+ *
+ * A `WeakMap` (not a `Map`) so a container that goes out of scope takes its
+ * chain entry with it and this never becomes a leak of its own.
+ */
+const paneOperations = new WeakMap<HTMLElement, Promise<unknown>>();
+
+/**
+ * Runs `operation` after any operation already queued for `container`.
+ *
+ * The stored handle deliberately swallows both settle paths, and that is what
+ * makes a failed operation non-fatal to the queue: a rejected render must
+ * still be followed by its teardown, or a plot that threw partway through is
+ * stranded with nobody left to purge it. Storing the raw promise instead would
+ * both stall every later operation on that container and report the rejection
+ * twice -- once to the caller, once as an unhandled rejection off the queue.
+ * The caller still receives the real, un-swallowed `next`.
+ */
+function enqueuePaneOperation<T>(container: HTMLElement, operation: () => Promise<T>): Promise<T> {
+  const previous = paneOperations.get(container) ?? Promise.resolve();
+  const next = previous.then(operation);
+  paneOperations.set(
+    container,
+    next.then(
+      () => undefined,
+      () => undefined,
+    ),
+  );
+  return next;
+}
+
+/** Caller-supplied lifecycle hooks for {@link renderLazyPlotlyPane}. */
+export interface RenderLazyPlotlyPaneOptions {
+  /**
+   * Consulted after the dynamic import resolves and immediately before
+   * `newPlot`. Return `false` to abandon the mount.
+   *
+   * This exists because the import is the slow step and the caller can be gone
+   * by the time it lands. Mounting anyway is not a harmless no-op: `newPlot`
+   * with `responsive: true` installs resize/auto-margin handlers that hold the
+   * graph div, so plotting into a container the caller has already discarded
+   * leaves a live Plotly instance attached to a detached node with nothing
+   * left to tear it down. That orphan is what later dereferences a graph
+   * object that is gone (P0.118).
+   */
+  readonly shouldMount?: () => boolean;
+}
+
+/**
  * Mounts `spec` into `container` via lazy-loaded Plotly. Safe to call again
  * on the same `container` to update in place (Plotly's `newPlot` reconciles
  * an existing plot at the same root rather than requiring a separate
  * `react` call).
+ *
+ * Serialised against {@link disposeLazyPlotlyPane} for the same container, and
+ * abandoned before mounting if `options.shouldMount` says the caller is gone.
  */
 export async function renderLazyPlotlyPane(
   container: HTMLElement,
   spec: PlotlyFigureSpec,
+  options: RenderLazyPlotlyPaneOptions = {},
 ): Promise<void> {
-  const plotly = await loadPlotlyModule();
-  const { data, layout } = buildPlotlyFigure(spec);
-  await plotly.newPlot(container, data, layout, { responsive: true, displaylogo: false });
+  return enqueuePaneOperation(container, async () => {
+    const plotly = await loadPlotlyModule();
+    if (options.shouldMount !== undefined && !options.shouldMount()) return;
+    const { data, layout } = buildPlotlyFigure(spec);
+    await plotly.newPlot(container, data, layout, { responsive: true, displaylogo: false });
+  });
 }
 
-/** Tears down a pane mounted via {@link renderLazyPlotlyPane}, releasing Plotly's internal listeners/DOM. */
+/**
+ * Tears down a pane mounted via {@link renderLazyPlotlyPane}, releasing
+ * Plotly's internal listeners/DOM.
+ *
+ * Queued behind any render still in flight for the same container, so a
+ * teardown requested mid-mount purges the finished plot rather than racing it.
+ * `purge` on a container that was never plotted is a no-op, which is what
+ * makes the unconditional call safe after an abandoned mount.
+ */
 export async function disposeLazyPlotlyPane(container: HTMLElement): Promise<void> {
-  const plotly = await loadPlotlyModule();
-  plotly.purge(container);
+  return enqueuePaneOperation(container, async () => {
+    const plotly = await loadPlotlyModule();
+    plotly.purge(container);
+  });
 }
