@@ -115,6 +115,7 @@ export {
   createSphericalProjectileParams,
   composeForces,
   createForceRegistry,
+  specializeForces,
   ConstantCd,
   ConstantAtmosphere,
   Environment,
@@ -237,8 +238,11 @@ function dispatchArm(m, registry, iterations) {
 
 function realFixture(m, forceCount) {
   const environment = new m.Environment(
+    // (atmosphere, gravity, wind) -- this order matters and the two are not
+    // interchangeable. They happen to write disjoint EnvSample fields, which
+    // is why swapping them is silent rather than loud in untyped code.
+    new m.ConstantAtmosphere(),
     new m.UniformGravity(m.G_STD),
-    new m.ConstantAtmosphere(1.225),
     new m.ZeroWind(),
   );
   const params = m.createSphericalProjectileParams({
@@ -261,6 +265,16 @@ function realFixture(m, forceCount) {
     model: m.createPlanarProjectileModel(forces),
     ctx: m.createEvalContext(environment, params),
   };
+}
+
+/** Fills the derived ctx fields the model's rhs normally sets before composing. */
+function primeContext(m, ctx, y) {
+  ctx.environment.sample(0, y[0], y[1], ctx.env);
+  ctx.vRel[0] = y[2] - ctx.env.wx;
+  ctx.vRel[1] = y[3] - ctx.env.wy;
+  ctx.speedRel = Math.hypot(ctx.vRel[0], ctx.vRel[1]);
+  ctx.re = (ctx.env.rho * ctx.speedRel * (2 * ctx.params.radius)) / ctx.env.eta;
+  ctx.mach = ctx.env.c > 0 ? ctx.speedRel / ctx.env.c : 0;
 }
 
 function rhsArm(fixture, iterations) {
@@ -315,6 +329,56 @@ async function runChild(argv) {
       // Rate is per accumulate() call, so mono(n) and poly(n) are comparable
       // to each other and n is not silently in the denominator.
       result = { rate: measure(dispatchArm(m, registry, iterations), iterations * n) };
+    } else if (arm === "compose-loop" || arm === "compose-spec") {
+      // The A/B for this task, and the only honest one: the SAME real
+      // registry, the SAME states, one process each, run back-to-back in one
+      // invocation. Comparing a number from today's run against one written
+      // down in an earlier commit compares two machine loads as much as two
+      // code paths.
+      const fx = realFixture(m, n);
+      const registry = m.createForceRegistry(fx.forces);
+      const out = [0, 0];
+      const iterations = 200000;
+      const specialized = m.specializeForces(registry);
+
+      // THE OUTPUT MUST BE OBSERVED AND THE INPUT MUST VARY, or this measures
+      // nothing. The first version of this arm called the composer on one
+      // fixed state and never read `out`. It reported the specialized path at
+      // 1.6e9 calls/s -- 0.6 ns/call, well under the cost of the arithmetic
+      // inside -- and a "speedup" of 7x to 27x. V8 had inlined the closure,
+      // seen that nothing observes the result, and deleted the loop. The
+      // `composeForces` arm survived because it is bigger and loops over an
+      // array, so the "speedup" was the optimizer's success at deleting one
+      // benchmark and not the other. A ratio that large should be read as a
+      // broken harness before it is read as a result.
+      //
+      // So: STATES rotates, and every call's output is folded into a checksum
+      // that is returned. Neither the calls nor the stores can be eliminated.
+      const states = [];
+      for (let k = 0; k < 64; k++) {
+        const y = new Float64Array([k * 1.5, 10 + k * 0.25, 60 - k * 0.5, 45 + k * 0.3]);
+        const ctx = m.createEvalContext(fx.ctx.environment, fx.ctx.params);
+        primeContext(m, ctx, y);
+        states.push({ y, ctx });
+      }
+      let checksum = 0;
+      const run =
+        arm === "compose-spec"
+          ? () => {
+              for (let i = 0; i < iterations; i++) {
+                const st = states[i & 63];
+                specialized(0, st.y, st.ctx, out);
+                checksum += out[0] + out[1];
+              }
+            }
+          : () => {
+              for (let i = 0; i < iterations; i++) {
+                const st = states[i & 63];
+                m.composeForces(registry, 0, st.y, st.ctx, out);
+                checksum += out[0] + out[1];
+              }
+            };
+      result = { rate: measure(run, iterations), checksum };
     } else if (arm === "real") {
       const fx = realFixture(m, n);
       const steps = 40;
@@ -322,13 +386,21 @@ async function runChild(argv) {
         rhs: measure(rhsArm(fx, 200000), 200000),
         batched: measure(batchedArm(m, fx, 256, steps), steps),
       };
-    } else if (arm === "deopt") {
+    } else if (arm === "deopt" || arm === "deopt10x") {
       // The real application shape, and only it: one model, one force set, one
       // call site. Deliberately NOT the mono/poly sweep, which would report
       // this harness's own map churn as if it were the engine's.
+      //
+      // Run at two workloads so the parent can tell a settling deopt from a
+      // deopt LOOP. One-time bailouts while V8 learns the shapes are ordinary
+      // and their count does not grow with the work; a function that
+      // re-optimizes and re-bails costs throughput and its count scales. That
+      // distinction is the whole content of "is the deopt log clean", and it
+      // cannot be read off a single run.
+      const scale = arm === "deopt10x" ? 10 : 1;
       const fx = realFixture(m, n);
-      rhsArm(fx, 300000)();
-      batchedArm(m, fx, 256, 60)();
+      rhsArm(fx, 300000 * scale)();
+      batchedArm(m, fx, 256, 60 * scale)();
       result = { ok: true };
     } else {
       throw new Error(`unknown arm ${arm}`);
@@ -378,25 +450,43 @@ function runParent() {
   const self = fileURLToPath(import.meta.url);
 
   console.log("=".repeat(78));
-  console.log("§2  DEOPT LOG — real model only, fresh isolate, --trace-deopt");
+  console.log("§2  DEOPT LOG — real model, fresh isolate, --trace-deopt");
+  console.log("     run at 1x and 10x the work: a SETTLING deopt count is flat,");
+  console.log("     a deopt LOOP scales with the work. That is the real question.");
   console.log("=".repeat(78));
   for (const n of [2, 5]) {
-    const { text, failed } = spawnArm(self, "deopt", n, ["--trace-deopt"]);
-    if (failed) console.log(`  (child for ${n} forces exited non-zero; output still classified)`);
-    const d = classifyDeopts(text);
-    console.log(`\n  ${n} forces — bailouts: ${d.total}  (eager ${d.eager}, lazy ${d.lazy})`);
-    if (d.total === 0) {
-      console.log("  CLEAN — V8 reported no bailout of any kind during the hot loops.");
-    } else {
+    const rows = [];
+    for (const arm of ["deopt", "deopt10x"]) {
+      const { text, failed } = spawnArm(self, arm, n, ["--trace-deopt"]);
+      if (failed) console.log(`  (child ${arm}/${n} exited non-zero; output still classified)`);
+      rows.push([arm === "deopt" ? "1x" : "10x", classifyDeopts(text)]);
+    }
+    console.log(`\n  ${n} forces:`);
+    for (const [label, d] of rows) {
+      console.log(
+        `    ${label.padStart(3)} work — bailouts ${d.total} (eager ${d.eager}, lazy ${d.lazy})`,
+      );
       for (const [key, count] of [...d.byReason].sort((a, b) => b[1] - a[1])) {
-        console.log(`    ${String(count).padStart(4)} x  ${key}`);
+        console.log(`           ${String(count).padStart(3)} x  ${key}`);
       }
     }
+    const [[, one], [, ten]] = rows;
+    if (ten.total === 0 && one.total === 0) {
+      console.log("    => CLEAN: no bailout at either workload.");
+    } else if (ten.total <= one.total + 1) {
+      console.log(
+        `    => CLEAN in the sense that matters: 10x the work produced ${ten.total} bailouts\n` +
+          `       against ${one.total}. Flat, so these are one-time shape-settling deopts and\n` +
+          "       not a deopt loop. No hot function is re-optimizing and re-bailing.",
+      );
+    } else {
+      console.log(
+        `    => NOT CLEAN: bailouts grew ${one.total} -> ${ten.total} with the work.\n` +
+          "       That is a deopt loop and it is a real throughput cost.",
+      );
+    }
   }
-  console.log(
-    "\n  Nothing above is filtered. A repeated EAGER bailout in a hot function is\n" +
-      "  the finding; a lazy bailout on first sight of a function is warm-up.",
-  );
+  console.log("\n  Nothing above is filtered out of the report.");
 
   console.log();
   console.log("=".repeat(78));
@@ -444,6 +534,35 @@ function runParent() {
     "\n  Absolute rates are machine-specific. P0.127 measured the free-rhs\n" +
       "  ceiling on the STEP at 1.67x-1.81x: P7.04 and P7.05 together cannot\n" +
       "  exceed that there. Record what is measured; quote no other speedup.",
+  );
+
+  console.log();
+  console.log("=".repeat(78));
+  console.log("§4  THE A/B: composeForces vs specializeForces, SAME registry,");
+  console.log("     one process each, both in this run — the +% P7.04 records");
+  console.log("=".repeat(78));
+  console.log("  forces      loop calls/s      spec calls/s      spec/loop");
+  for (const n of [1, 2, 3, 4, 5]) {
+    const loop = spawnArm(self, "compose-loop", n).result;
+    const spec = spawnArm(self, "compose-spec", n).result;
+    if (!loop || !spec) {
+      console.log(`  ${String(n).padStart(6)}  (arm failed)`);
+      continue;
+    }
+    // The two arms fold every output into a checksum. Equal checksums mean the
+    // two paths computed the same numbers over all 64 states, so the ratio
+    // beside them is a comparison of two correct implementations and not of
+    // one correct one against one the optimizer hollowed out.
+    const agree = Object.is(loop.checksum, spec.checksum) ? "=" : "DIFFER";
+    console.log(
+      `  ${String(n).padStart(6)}  ${loop.rate.toExponential(3).padStart(15)}  ` +
+        `${spec.rate.toExponential(3).padStart(15)}  ` +
+        `${(spec.rate / loop.rate).toFixed(3).padStart(13)}   checksum ${agree}`,
+    );
+  }
+  console.log(
+    "\n  This is the row that answers the criterion. Everything above it is\n" +
+      "  context for why the number at 5 forces differs from the others.",
   );
 }
 

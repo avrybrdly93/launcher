@@ -1,6 +1,11 @@
 import { spinParameter } from "./characteristic-scales.js";
 import type { EvalContext } from "./eval-context.js";
-import { composeForces, createForceRegistry, totalForcePower, type ForceModel } from "./forces.js";
+import {
+  createForceRegistry,
+  specializeForces,
+  totalForcePower,
+  type ForceModel,
+} from "./forces.js";
 import type { EventSpec, InvariantSpec, Model } from "./model.js";
 import { mechanicalEnergy, momentumX } from "./planar-projectile-model.js";
 import type { ChannelMeta } from "./schema.js";
@@ -121,6 +126,9 @@ export function createPlanarProjectileSpinModel(
   terrain: Terrain = new FlatTerrain(),
 ): Model {
   const registry = createForceRegistry(forces);
+  // P7.04: one call site per force instead of one shared site for all of
+  // them. Built once here, not per rhs call. See specializeForces.
+  const accumulateForces = specializeForces(registry);
 
   return {
     dim: DIM,
@@ -143,7 +151,7 @@ export function createPlanarProjectileSpinModel(
       ctx.re = (ctx.env.rho * ctx.speedRel * (2 * ctx.params.radius)) / ctx.env.eta;
       ctx.mach = ctx.env.c > 0 ? ctx.speedRel / ctx.env.c : 0;
 
-      composeForces(registry, t, y, ctx, ctx.forceAccum);
+      accumulateForces(t, y, ctx, ctx.forceAccum);
 
       out[X] = vx;
       out[Y] = vy;

@@ -1,5 +1,10 @@
 import type { EvalContext } from "./eval-context.js";
-import { composeForces, createForceRegistry, totalForcePower, type ForceModel } from "./forces.js";
+import {
+  createForceRegistry,
+  specializeForces,
+  totalForcePower,
+  type ForceModel,
+} from "./forces.js";
 import type { EventSpec, InvariantSpec, Model } from "./model.js";
 import { restitutionBounceAction, type RestitutionParams } from "./restitution.js";
 import type { ChannelMeta } from "./schema.js";
@@ -179,6 +184,9 @@ export function createPlanarProjectileModel(
   restitution?: RestitutionParams,
 ): Model {
   const registry = createForceRegistry(forces);
+  // P7.04: one call site per force instead of one shared site for all of
+  // them. Built once here, not per rhs call. See specializeForces.
+  const accumulateForces = specializeForces(registry);
   const supportsAnalyticJacobian = registry.every((f) => ANALYTIC_JACOBIAN_FORCE_IDS.has(f.id));
   const hasQuadraticDrag = registry.some((f) => f.id === "drag-quadratic");
 
@@ -202,7 +210,7 @@ export function createPlanarProjectileModel(
       ctx.re = (ctx.env.rho * ctx.speedRel * (2 * ctx.params.radius)) / ctx.env.eta;
       ctx.mach = ctx.env.c > 0 ? ctx.speedRel / ctx.env.c : 0;
 
-      composeForces(registry, t, y, ctx, ctx.forceAccum);
+      accumulateForces(t, y, ctx, ctx.forceAccum);
 
       out[X] = vx;
       out[Y] = vy;

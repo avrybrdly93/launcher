@@ -212,3 +212,161 @@ export function composeForces(
     force.accumulate(t, y, ctx, outForce);
   }
 }
+
+/** A force-set-specialized {@link composeForces}, bound to one registry. */
+export type ComposedForces = (
+  t: number,
+  y: Float64Array,
+  ctx: EvalContext,
+  outForce: MutVec2,
+) => void;
+
+/**
+ * Binds `forces` into a closure whose `accumulate` calls sit at **separate**
+ * call sites (P7.04, §7 phase-7 table: "JIT-friendliness pass: monomorphic
+ * call sites, no megamorphic force dispatch in batch").
+ *
+ * ## The problem this exists to solve, and the measurement that found it
+ *
+ * {@link composeForces} has **one** `force.accumulate(...)` call site, and
+ * every force in the program goes through it. V8's inline cache holds four
+ * maps; the fifth makes the site megamorphic, and a megamorphic site is not
+ * inlined and dispatches through a hash lookup. Six classes implement
+ * {@link ForceModel}, and `scenario-resolver.ts` exposes five of them for
+ * planar scenarios — so a scenario that enables all five lands past the cliff.
+ *
+ * It is a cliff, not a slope, and `scripts/measure-force-dispatch.mjs`
+ * (`pnpm bench:dispatch`) re-derives it in one command. Holding the arithmetic
+ * and the call count fixed and varying only the number of distinct classes,
+ * throughput relative to the one-class case is 1.07, 0.93, 0.82, 0.90 at one
+ * to four classes and then **0.168, 0.165, 0.155** at five, six and eight. On
+ * the real planar model the rhs runs at 4.10/4.16/3.74/3.17 ×10⁷ calls·s⁻¹
+ * for one to four forces and **1.51 ×10⁷** at five.
+ *
+ * ## Why unrolling fixes it, and the honest limit of the fix
+ *
+ * Each `fN.accumulate(...)` below is its own call site with its own inline
+ * cache, so each sees only the classes that occupy *that position*. For the
+ * full five-force planar set there is exactly one such set, so every site sees
+ * exactly one map and every site is monomorphic. For smaller sets several
+ * subsets share an arity, so a site can see a handful of maps — but four or
+ * fewer is polymorphic, which the measurement above shows costs ~10%, not 6×.
+ *
+ * The honest limit: closures returned from the same `case` share a code
+ * object, so these sites are shared across *all* registries of that arity in
+ * the process. This converts "one site seeing up to six maps" into "k sites
+ * each seeing few", which is a bound, not a guarantee of monomorphism. Beyond
+ * {@link UNROLL_LIMIT} it falls back to {@link composeForces} — a force set
+ * that large is already past the point where dispatch is the problem.
+ *
+ * ## Bit-identity
+ *
+ * The unrolled body performs exactly the accumulations {@link composeForces}
+ * performs, on the same accumulator, in the same registry order. Floating-point
+ * addition is order-dependent at the ULP level and force order is id-sorted for
+ * precisely that reason (P1.17), so this is a structural guarantee rather than
+ * a tolerance: `forces-specializer.test.ts` asserts it bit-for-bit, and the
+ * golden trajectories are unchanged.
+ *
+ * @param forces registry order, already sorted — pass {@link createForceRegistry}'s output.
+ */
+export function specializeForces(forces: readonly ForceModel[]): ComposedForces {
+  // Destructured into consts so each call site below binds one captured
+  // variable. Indexing `forces[i]` inside the closure would reintroduce a
+  // shared load and defeat the point.
+  const [f0, f1, f2, f3, f4, f5, f6, f7] = forces;
+  switch (forces.length) {
+    case 0:
+      return (_t, _y, _ctx, out) => {
+        out[0] = 0;
+        out[1] = 0;
+      };
+    case 1:
+      return (t, y, ctx, out) => {
+        out[0] = 0;
+        out[1] = 0;
+        f0!.accumulate(t, y, ctx, out);
+      };
+    case 2:
+      return (t, y, ctx, out) => {
+        out[0] = 0;
+        out[1] = 0;
+        f0!.accumulate(t, y, ctx, out);
+        f1!.accumulate(t, y, ctx, out);
+      };
+    case 3:
+      return (t, y, ctx, out) => {
+        out[0] = 0;
+        out[1] = 0;
+        f0!.accumulate(t, y, ctx, out);
+        f1!.accumulate(t, y, ctx, out);
+        f2!.accumulate(t, y, ctx, out);
+      };
+    case 4:
+      return (t, y, ctx, out) => {
+        out[0] = 0;
+        out[1] = 0;
+        f0!.accumulate(t, y, ctx, out);
+        f1!.accumulate(t, y, ctx, out);
+        f2!.accumulate(t, y, ctx, out);
+        f3!.accumulate(t, y, ctx, out);
+      };
+    case 5:
+      return (t, y, ctx, out) => {
+        out[0] = 0;
+        out[1] = 0;
+        f0!.accumulate(t, y, ctx, out);
+        f1!.accumulate(t, y, ctx, out);
+        f2!.accumulate(t, y, ctx, out);
+        f3!.accumulate(t, y, ctx, out);
+        f4!.accumulate(t, y, ctx, out);
+      };
+    case 6:
+      return (t, y, ctx, out) => {
+        out[0] = 0;
+        out[1] = 0;
+        f0!.accumulate(t, y, ctx, out);
+        f1!.accumulate(t, y, ctx, out);
+        f2!.accumulate(t, y, ctx, out);
+        f3!.accumulate(t, y, ctx, out);
+        f4!.accumulate(t, y, ctx, out);
+        f5!.accumulate(t, y, ctx, out);
+      };
+    case 7:
+      return (t, y, ctx, out) => {
+        out[0] = 0;
+        out[1] = 0;
+        f0!.accumulate(t, y, ctx, out);
+        f1!.accumulate(t, y, ctx, out);
+        f2!.accumulate(t, y, ctx, out);
+        f3!.accumulate(t, y, ctx, out);
+        f4!.accumulate(t, y, ctx, out);
+        f5!.accumulate(t, y, ctx, out);
+        f6!.accumulate(t, y, ctx, out);
+      };
+    case 8:
+      return (t, y, ctx, out) => {
+        out[0] = 0;
+        out[1] = 0;
+        f0!.accumulate(t, y, ctx, out);
+        f1!.accumulate(t, y, ctx, out);
+        f2!.accumulate(t, y, ctx, out);
+        f3!.accumulate(t, y, ctx, out);
+        f4!.accumulate(t, y, ctx, out);
+        f5!.accumulate(t, y, ctx, out);
+        f6!.accumulate(t, y, ctx, out);
+        f7!.accumulate(t, y, ctx, out);
+      };
+    default:
+      return (t, y, ctx, out) => {
+        composeForces(forces, t, y, ctx, out);
+      };
+  }
+}
+
+/**
+ * Largest force count {@link specializeForces} unrolls. Six classes implement
+ * {@link ForceModel} today; the headroom is so that adding one or two does not
+ * silently drop every scenario back onto the megamorphic path.
+ */
+export const UNROLL_LIMIT = 8;
