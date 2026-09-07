@@ -17,6 +17,7 @@
     "bench:throughput": "node scripts/measure-batch-throughput.mjs",
     "bench:profile": "node scripts/profile-hotspots.mjs",
     "bench:decomposition": "node scripts/measure-ensemble-step-decomposition.mjs",
+    "bench:dispatch": "node scripts/measure-force-dispatch.mjs",
     "check:cross-engine-drift": "node scripts/measure-cross-engine-drift.mjs",
     "lint": "eslint .",
     "lint:deps": "depcruise --config .dependency-cruiser.cjs packages",
