@@ -1,7 +1,9 @@
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { Browser, ConsoleMessage, Page } from "playwright";
-import { createServer, type ViteDevServer } from "vite";
+import type { Browser, ConsoleMessage, Page, WebSocket } from "playwright";
+import { build, preview, type PreviewServer } from "vite";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { BROWSER_TARGETS, tryLaunch } from "./e2e-browser.js";
 import { ROUTE_HASHES, type RouteHash } from "./routes.js";
@@ -27,68 +29,123 @@ import { ROUTE_HASHES, type RouteHash } from "./routes.js";
  * assumed: hash `#/solver-lab` renders `[data-testid="solver-lab-route"]`
  * and offers `[data-testid="solver-lab-back-link"]`.
  *
- * Server choice: this suite drives the **dev** server, on a fixed port in
- * the 3000-3010 range, where `app.e2e.test.ts` builds and previews. That
- * is deliberate and complementary -- the preview suite is about the
- * shipped bundle, this one is about the routes, and it fails in seconds
- * rather than after a full build. A route that works in one and not the
- * other is itself a finding worth having.
+ * Server choice: this suite builds and **previews**, as `app.e2e.test.ts`
+ * does. It drove the **dev** server until P0.125, and that change is a
+ * real loss paid deliberately rather than slid past, so the argument is
+ * recorded here where the next reader of this file will find it.
+ *
+ * What was given up. The dev server fails in seconds rather than after a
+ * full build (measured here: 32 s for `vite build`), and "a route that
+ * works in dev and not in preview is itself a finding worth having" --
+ * both reasons this header gave for the original choice. With this change
+ * **no browser suite drives the dev server at all**, so dev-only breakage
+ * (a transform that only runs in dev, a module the optimizer resolves
+ * differently) now has no browser coverage. That gap is filed as its own
+ * task rather than absorbed silently.
+ *
+ * What was bought, and why nothing cheaper works. P0.125: playwright-core
+ * asserts inside its Firefox transport on a `Page.webSocketOpened` event
+ * whose handshake it has no record of, which escapes as an unhandled
+ * `Error: Assertion error` that no test can catch and that reddens CI with
+ * every test passing -- seven sightings, all attributed to this file, none
+ * ever to the preview suite. No package in this repository opens a
+ * websocket; the only one on the page is vite's dev client. Four ways to
+ * keep the dev server and remove that socket were measured on chromium and
+ * **all four failed**: `server.hmr = false` (one socket per page remains),
+ * stripping `<script src="/@vite/client">` from the served HTML (no
+ * reduction at all), `prefreshEnabled: false` (none), and all three
+ * together (none) -- vite 5 injects the client import at module level, so
+ * the socket is structural to dev rather than configurable. Upgrading the
+ * driver was measured too and is not a fix: playwright-core **1.63.0**, the
+ * current release and inside this repo's existing `^1.61.1` range, carries
+ * the identical unguarded `assert(request)` / `assert(response)` pair.
+ * Preview serves built assets and opens **zero** websockets, which is why
+ * every case below asserts exactly that: it makes the driver's assert path
+ * unreachable rather than less likely, and a socket reappearing here is a
+ * regression this suite will now catch on the spot.
  */
 
 const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-
-/** First choice within the 3000-3010 band; vite walks upward if it is taken. */
-const DEV_PORT = Number(process.env.BALLISTA_E2E_PORT ?? 3002);
 
 /** `#/solver-lab` -> `solver-lab`. The suffix every route testid is built from. */
 function routeSlug(hash: RouteHash): string {
   return hash.replace(/^#\//, "");
 }
 
-let server: ViteDevServer;
+let server: PreviewServer | undefined;
 let appUrl: string;
+let outDir: string;
 
 beforeAll(async () => {
-  server = await createServer({
+  // Its own temp `outDir`, exactly as `app.e2e.test.ts` does: two suites
+  // building into the package's `dist/` in parallel would race, and neither
+  // should clobber a developer's local build either.
+  outDir = mkdtempSync(path.join(tmpdir(), "ballista-routes-e2e-"));
+  const configFile = path.join(appRoot, "vite.config.ts");
+  await build({
     root: appRoot,
-    configFile: path.join(appRoot, "vite.config.ts"),
+    configFile,
     logLevel: "warn",
-    server: { host: "127.0.0.1", port: DEV_PORT, strictPort: false },
+    build: { outDir, emptyOutDir: true },
   });
-  await server.listen();
+  server = await preview({
+    root: appRoot,
+    configFile,
+    logLevel: "warn",
+    build: { outDir },
+    preview: { host: "127.0.0.1", port: 0, strictPort: false },
+  });
   const address = server.resolvedUrls?.local[0];
-  if (!address) throw new Error("vite dev server did not report a local URL");
+  if (!address) throw new Error("vite preview server did not report a local URL");
   appUrl = address;
   // Same 180 s budget and the same reasoning as `app.e2e.test.ts`'s hook
   // (P0.106): under the full parallel suite, a hook of this class has been
-  // measured past 60 s while passing standalone minutes later. A dev server
-  // starts far faster than a build, but it shares the machine.
+  // measured past 60 s while passing standalone minutes later. This hook now
+  // builds as well, which is the cost P0.125 accepted -- 32 s standalone here,
+  // against a 180 s budget that a genuine hang still exceeds.
 }, 180_000);
 
 afterAll(async () => {
-  await server?.close();
+  const httpServer = server?.httpServer;
+  if (httpServer) {
+    await new Promise<void>((resolve, reject) =>
+      httpServer.close((err) => (err ? reject(err) : resolve())),
+    );
+  }
+  if (outDir) rmSync(outDir, { recursive: true, force: true });
 });
 
 /**
- * Opens a page that records `console.error` output and uncaught exceptions.
- * Both are assertion material, not diagnostics: a route that renders while
- * throwing in an effect looks fine to a selector-based test and is broken.
+ * Opens a page that records `console.error` output, uncaught exceptions, and
+ * every websocket the page opens. The first two are assertion material, not
+ * diagnostics: a route that renders while throwing in an effect looks fine to
+ * a selector-based test and is broken.
+ *
+ * The third is P0.125's criterion. No package in this repository opens a
+ * websocket, so on built assets the correct count is zero and any socket at
+ * all is either a new dependency doing something unexpected or this suite
+ * quietly reverting to a dev server -- and the second of those is what
+ * reddened CI on seven runs with every test passing. Asserted per page rather
+ * than once, because the sightings were spread across cases.
  */
 async function openInstrumentedPage(browser: Browser): Promise<{
   page: Page;
   consoleErrors: string[];
   pageErrors: string[];
+  webSockets: string[];
 }> {
   const page = await browser.newPage();
   const consoleErrors: string[] = [];
   const pageErrors: string[] = [];
+  const webSockets: string[] = [];
   page.on("console", (message: ConsoleMessage) => {
     if (message.type() === "error" && !isFaviconNoise(message.text())) {
       consoleErrors.push(message.text());
     }
   });
   page.on("pageerror", (error: Error) => pageErrors.push(error.message));
-  return { page, consoleErrors, pageErrors };
+  page.on("websocket", (socket: WebSocket) => webSockets.push(socket.url()));
+  return { page, consoleErrors, pageErrors, webSockets };
 }
 
 /**
@@ -144,7 +201,7 @@ for (const target of BROWSER_TARGETS) {
 
     it("serves the simulator at the bare URL, with the canvas and the control dock", async () => {
       if (!browser) return;
-      const { page, consoleErrors, pageErrors } = await openInstrumentedPage(browser);
+      const { page, consoleErrors, pageErrors, webSockets } = await openInstrumentedPage(browser);
       try {
         await page.goto(appUrl);
         await page.waitForSelector('[data-testid="world-canvas"]');
@@ -153,6 +210,7 @@ for (const target of BROWSER_TARGETS) {
         expect(points).toBeGreaterThan(0);
         expect(pageErrors).toEqual([]);
         expect(consoleErrors).toEqual([]);
+        expect(webSockets, "P0.125: the page opened a websocket").toEqual([]);
       } finally {
         await page.close();
       }
@@ -163,7 +221,7 @@ for (const target of BROWSER_TARGETS) {
 
       it(`${hash} renders ${slug} cleanly, with one h1 and a way back`, async () => {
         if (!browser) return;
-        const { page, consoleErrors, pageErrors } = await openInstrumentedPage(browser);
+        const { page, consoleErrors, pageErrors, webSockets } = await openInstrumentedPage(browser);
         try {
           await page.goto(`${appUrl}${hash}`);
           await page.waitForSelector(`[data-testid="${slug}-route"]`);
@@ -178,6 +236,7 @@ for (const target of BROWSER_TARGETS) {
 
           expect(pageErrors, `uncaught exceptions on ${hash}`).toEqual([]);
           expect(consoleErrors, `console errors on ${hash}`).toEqual([]);
+          expect(webSockets, `P0.125: ${hash} opened a websocket`).toEqual([]);
         } finally {
           await page.close();
         }
@@ -244,7 +303,7 @@ for (const target of BROWSER_TARGETS) {
 
     it("hashchange alone re-renders, with no reload, across every route in turn", async () => {
       if (!browser) return;
-      const { page, consoleErrors, pageErrors } = await openInstrumentedPage(browser);
+      const { page, consoleErrors, pageErrors, webSockets } = await openInstrumentedPage(browser);
       try {
         await page.goto(appUrl);
         await page.waitForSelector('[data-testid="world-canvas"]');
@@ -275,6 +334,7 @@ for (const target of BROWSER_TARGETS) {
         expect(survived, "the page reloaded somewhere in the walk").toBe(1);
         expect(pageErrors).toEqual([]);
         expect(consoleErrors).toEqual([]);
+        expect(webSockets, "P0.125: the route walk opened a websocket").toEqual([]);
       } finally {
         await page.close();
       }
