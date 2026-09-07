@@ -41,3 +41,4 @@ export * from "./sdirk2-stepper.js";
 export * from "./stepper-derivation-docs.js";
 
 export * from "./ensemble-state.js";
+export * from "./batched-ensemble-kernel.js";
