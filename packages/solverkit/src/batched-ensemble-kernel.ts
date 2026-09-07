@@ -14,22 +14,28 @@ import { RK4_TABLEAU, type ButcherTableau } from "./explicit-rk-kernel.js";
  *
  * ## What this delivers, and what it measurably does not
  *
- * P7.03's validation criterion is "≥3× throughput vs naive loop (measured)".
- * **This kernel does not meet it, and the criterion is not reachable by any
- * kernel of this shape.** The measurement is in P7.03's task notes and is
- * summarized here because a reader who finds this file first should not have
- * to discover it from a changelog:
+ * P7.03's criterion originally read "≥3× throughput vs naive loop (measured)".
+ * **This kernel does not reach 3×, and no kernel of this shape can.** P0.127
+ * measured the ceiling and restated the criterion as bit-identity plus a
+ * recorded throughput number; the reasoning is in P0.127's task notes and
+ * `scripts/measure-ensemble-step-decomposition.mjs` re-derives every figure
+ * below in one command. It is summarized here because a reader who finds this
+ * file first should not have to discover it from a changelog:
  *
  * - Against {@link stepEnsembleReference}, the per-replicate loop the blueprint
  *   calls the naive loop (P7.02's criterion names the same object), this kernel
- *   measures **1.07× at 64 replicates, 1.04× at 256, and 1.00× at 1024** on a
- *   planar projectile with gravity and quadratic drag.
- * - That is not a tuning failure. Decomposing the reference step on the same
- *   fixture: the four `Model.rhs` calls per replicate alone run at 8454/sec
- *   against the whole step's 5008/sec, so the rhs is roughly **59%** of the
- *   step and **1.69× is the hard ceiling** for removing *all* of the work
- *   around it. A criterion of 3× is above the ceiling, so no arrangement of
- *   these loops reaches it.
+ *   measures **1.01×–1.08×** at 64 / 256 / 1024 replicates over three runs on a
+ *   planar projectile with gravity and quadratic drag. (The 85th run reported
+ *   1.07× / 1.04× / 1.00× on the same fixture; same answer, more samples.)
+ * - That is not a tuning failure. On the same fixture the `Model.rhs` calls are
+ *   **42%–53%** of the step, so **~2.1× is the hard ceiling** for deleting
+ *   *all* of the work around them — and making the rhs itself free, with these
+ *   loops unchanged, returns only **~1.7×**. A criterion of 3× is above both.
+ *
+ *   The 85th run put the rhs share at 59% and the ceiling at 1.69×. That
+ *   number is **superseded, not contradicted**: P0.127's bound includes the
+ *   SoA gather that §3.7 forces and the reference performs anyway, which makes
+ *   it the tighter and more generous bound. Quote ~2.1×.
  *
  * The reason is structural and is fixed by a later task, not by this one:
  * {@link Model.rhs} takes a **contiguous** `Float64Array` of length `dim`
