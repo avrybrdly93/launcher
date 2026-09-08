@@ -13,6 +13,7 @@ export * from "./simulation-session.js";
 export * from "./colorblind-safety.js";
 export * from "./colormap.js";
 export * from "./batch-throughput.js";
+export * from "./memory-audit.js";
 export * from "./mc-job.js";
 export * from "./mc-dashboard-study.js";
 export * from "./sweep-job.js";
