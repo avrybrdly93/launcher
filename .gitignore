@@ -5,3 +5,11 @@ coverage/
 .vite/
 .DS_Store
 packages/*/docs/
+
+# Rust build output (P7.07). The crate's *installed* artifact,
+# packages/wasm-core/src/generated/ballista-core.wasm, IS committed on purpose --
+# CI has no Rust toolchain, so without it the equivalence test would skip and
+# P7.07's criterion would be checked nowhere. See packages/wasm-core/README.md.
+# `target/` is the intermediate build tree and is not.
+target/
+

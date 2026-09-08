@@ -1,0 +1,27 @@
+[package]
+name = "ballista-core"
+version = "0.1.0"
+edition = "2021"
+description = "Ballista numeric core: RK4 + quadratic-drag RHS, compiled to WebAssembly (P7.07)"
+license = "MIT"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+# Deliberately empty. §10.2 calls this crate "deliberately UI-free"; it is also
+# dependency-free, which is what lets the .wasm be reproduced from a stock
+# toolchain with no registry access. See ../README.md for why wasm-bindgen is
+# not here.
+[dependencies]
+
+[profile.release]
+# opt-level 3 and LTO are safe for bit-exactness: LLVM may not reassociate
+# floating-point arithmetic without fast-math, which Rust never enables. What
+# would break exactness is FMA contraction, and the wasm MVP has no FMA
+# instruction to contract into.
+opt-level = 3
+lto = true
+panic = "abort"
+codegen-units = 1
+strip = true
