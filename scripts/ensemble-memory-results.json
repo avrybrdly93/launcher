@@ -1,0 +1,134 @@
+{
+  "task": "P7.06",
+  "criterion": "peak < 300 MB; zero GC major collections mid-run",
+  "recordedAt": "2026-09-08T18:37:52.795Z",
+  "environment": {
+    "node": "v22.22.2",
+    "platform": "linux",
+    "arch": "x64",
+    "cpus": 4
+  },
+  "budgetBytes": 314572800,
+  "reading": {
+    "replicates": 100000,
+    "chunkSize": 5000,
+    "elapsedMs": 17371.268597,
+    "maxRssBytes": 97013760,
+    "peakSampledRssBytes": 96751616,
+    "peakSampledHeapUsedBytes": 22082744,
+    "majorCollections": 0,
+    "minorCollections": 2051,
+    "incrementalCollections": 0,
+    "weakCallbackCollections": 0,
+    "countingFrom": 5000,
+    "countingTo": 100000,
+    "checksum": 25218954.465320777
+  },
+  "samples": [
+    {
+      "completed": 5000,
+      "rss": 68677632,
+      "heapUsed": 8389824
+    },
+    {
+      "completed": 10000,
+      "rss": 68800512,
+      "heapUsed": 8663496
+    },
+    {
+      "completed": 15000,
+      "rss": 68833280,
+      "heapUsed": 6831088
+    },
+    {
+      "completed": 20000,
+      "rss": 77352960,
+      "heapUsed": 7854240
+    },
+    {
+      "completed": 25000,
+      "rss": 77484032,
+      "heapUsed": 12880632
+    },
+    {
+      "completed": 30000,
+      "rss": 77746176,
+      "heapUsed": 10911912
+    },
+    {
+      "completed": 35000,
+      "rss": 77877248,
+      "heapUsed": 8071952
+    },
+    {
+      "completed": 40000,
+      "rss": 78008320,
+      "heapUsed": 6757112
+    },
+    {
+      "completed": 45000,
+      "rss": 78139392,
+      "heapUsed": 13782040
+    },
+    {
+      "completed": 50000,
+      "rss": 78401536,
+      "heapUsed": 12495112
+    },
+    {
+      "completed": 55000,
+      "rss": 78532608,
+      "heapUsed": 9258216
+    },
+    {
+      "completed": 60000,
+      "rss": 78663680,
+      "heapUsed": 7525248
+    },
+    {
+      "completed": 65000,
+      "rss": 78794752,
+      "heapUsed": 14814712
+    },
+    {
+      "completed": 70000,
+      "rss": 79056896,
+      "heapUsed": 12913120
+    },
+    {
+      "completed": 75000,
+      "rss": 79187968,
+      "heapUsed": 10490360
+    },
+    {
+      "completed": 80000,
+      "rss": 79319040,
+      "heapUsed": 9058184
+    },
+    {
+      "completed": 85000,
+      "rss": 96227328,
+      "heapUsed": 7242976
+    },
+    {
+      "completed": 90000,
+      "rss": 96358400,
+      "heapUsed": 22082744
+    },
+    {
+      "completed": 95000,
+      "rss": 96620544,
+      "heapUsed": 19807208
+    },
+    {
+      "completed": 100000,
+      "rss": 96751616,
+      "heapUsed": 16181248
+    }
+  ],
+  "verdict": {
+    "peakOk": true,
+    "majorGcOk": true,
+    "pass": true
+  }
+}
