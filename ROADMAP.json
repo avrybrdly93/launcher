@@ -2935,8 +2935,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "specialized ≡ generic (hash); ≥1.5× RHS speedup",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "CLAIMED (88th run, 2026-09-08) before any code, per policy.taskSelection: nothing in-progress, nothing in review, first todo by seq (259).\n\nTERMS STATED BEFORE ANY NUMBER EXISTS, so the result cannot be back-fitted. The criterion is two independent claims and BOTH must hold: (a) specialized == generic by hash -- read as bit-identity, Object.is on raw doubles, not a tolerance, matching P7.04's standard; and (b) >=1.5x RHS speedup. Per the 87th run's handover the baseline for (b) is the POST-P7.04 specialized path, not the pre-P7.04 megamorphic loop -- measuring against the loop would re-bank P7.04's 1.4x-4.7x as this task's result, which would be a fabricated completion claim.\n\nPLAN. specializeForces (P7.04) removed megamorphic dispatch but every force is still a virtual accumulate() call. P7.05 asks for one FLAT function: the force bodies themselves fused inline, no accumulate call at any arity. Hand fusion, not new Function() codegen -- this bundle ships to a browser and a CSP that forbids eval would break the product to win a benchmark.\n\nIF (b) COMES BACK BELOW 1.5x THE TASK DOES NOT CLOSE ON (a) ALONE. P7.03 is the precedent: its kernel shipped bit-identical and its own threshold measured out of reach, and it was recorded as measured rather than rounded up. That outcome is live here -- P7.04 already made the call sites monomorphic and those accumulate bodies are small enough for V8 to inline, so the headroom fusion can still recover may be under the threshold. Whatever the number is, it goes in this field."
     },
     {
       "id": "P7.06",
