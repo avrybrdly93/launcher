@@ -1,11 +1,6 @@
 import { spinParameter } from "./characteristic-scales.js";
 import type { EvalContext } from "./eval-context.js";
-import {
-  createForceRegistry,
-  specializeForces,
-  totalForcePower,
-  type ForceModel,
-} from "./forces.js";
+import { createForceRegistry, fuseForces, totalForcePower, type ForceModel } from "./forces.js";
 import type { EventSpec, InvariantSpec, Model } from "./model.js";
 import { mechanicalEnergy, momentumX } from "./planar-projectile-model.js";
 import type { ChannelMeta } from "./schema.js";
@@ -126,9 +121,11 @@ export function createPlanarProjectileSpinModel(
   terrain: Terrain = new FlatTerrain(),
 ): Model {
   const registry = createForceRegistry(forces);
-  // P7.04: one call site per force instead of one shared site for all of
-  // them. Built once here, not per rhs call. See specializeForces.
-  const accumulateForces = specializeForces(registry);
+  // P7.05: the force bodies inlined into one flat function, with no
+  // accumulate call at any arity. Built once here, not per rhs call. Falls
+  // back to P7.04's specializeForces for any registry it cannot fuse, so this
+  // is never worse than the call-site-per-force path. See fuseForces.
+  const accumulateForces = fuseForces(registry);
 
   return {
     dim: DIM,
