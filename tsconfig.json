@@ -8,6 +8,7 @@
     { "path": "packages/viz" },
     { "path": "packages/ui" },
     { "path": "packages/app" },
-    { "path": "packages/validation" }
+    { "path": "packages/validation" },
+    { "path": "packages/wasm-core" }
   ]
 }

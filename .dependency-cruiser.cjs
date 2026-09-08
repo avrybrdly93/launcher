@@ -13,6 +13,10 @@ const ALLOWED = {
   ui: ["engine", "solverkit", "analysis", "runtime", "viz"],
   app: ["engine", "solverkit", "analysis", "runtime", "viz", "ui"],
   validation: ["engine", "solverkit", "analysis"],
+  // P7.07. The WASM backend sits beside `runtime`: it may read L0/L1 to
+  // compare against them, and nothing may depend on it yet. P7.10's
+  // heterogeneous executor is what adds it to `runtime`'s list.
+  "wasm-core": ["engine", "solverkit"],
 };
 
 const packages = Object.keys(ALLOWED);

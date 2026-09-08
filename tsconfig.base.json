@@ -25,7 +25,8 @@
       "@ballista/runtime": ["packages/runtime/src/index.ts"],
       "@ballista/viz": ["packages/viz/src/index.ts"],
       "@ballista/ui": ["packages/ui/src/index.ts"],
-      "@ballista/validation": ["packages/validation/src/index.ts"]
+      "@ballista/validation": ["packages/validation/src/index.ts"],
+      "@ballista/wasm-core": ["packages/wasm-core/src/index.ts"]
     }
   }
 }

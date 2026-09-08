@@ -5,8 +5,9 @@
 // pins itself (`packageManager: pnpm@11.9.0`) that exits 1 with
 // ERR_PNPM_RECURSIVE_RUN_NO_SCRIPT — pnpm reads the space-separated flag value as
 // consuming the next token, so `run` becomes the script name and it goes looking
-// for a "run" script in eight packages that do not have one. The `=` form
-// (`--workspace-concurrency=1`) parses correctly and builds all eight.
+// for a "run" script in the packages that do not have one. The `=` form
+// (`--workspace-concurrency=1`) parses correctly and builds them all. (There were
+// eight packages when this was written; wasm-core made nine in P7.07.)
 //
 // The fix is one character. It took the repo eleven changelog entries and three
 // duplicate task filings (P0.90, P0.93, P0.104 — filed as P1.01, renamed by
@@ -91,8 +92,8 @@ describe("root package.json scripts", () => {
 describe("workspace packages the root build recurses over", () => {
   // P0.93 filed the same symptom with a different diagnosis: that only @ballista/app
   // defined a build script, so the recursive form had nothing to run. That diagnosis
-  // was wrong — all eight define one — and this test pins it so the claim cannot be
-  // re-filed from memory a fourth time.
+  // was wrong — every one of them defines one — and this test pins it so the claim
+  // cannot be re-filed from memory a fourth time.
   it("every workspace package defines a build script", () => {
     const missing = workspacePackages()
       .filter(({ pkg }) => pkg.scripts?.build === undefined)
@@ -100,7 +101,25 @@ describe("workspace packages the root build recurses over", () => {
     expect(missing).toEqual([]);
   });
 
-  it("finds the eight packages the recursive build reports in scope", () => {
-    expect(workspacePackages()).toHaveLength(8);
+  // The count is pinned so that adding a package is a deliberate act that shows
+  // up here, rather than something that drifts in unnoticed. Went 8 → 9 in
+  // P7.07 with @ballista/wasm-core. Update the number when you add one; do not
+  // relax the assertion.
+  it("finds the nine packages the recursive build reports in scope", () => {
+    expect(
+      workspacePackages()
+        .map(({ dir }) => dir)
+        .sort(),
+    ).toEqual([
+      "analysis",
+      "app",
+      "engine",
+      "runtime",
+      "solverkit",
+      "ui",
+      "validation",
+      "viz",
+      "wasm-core",
+    ]);
   });
 });
