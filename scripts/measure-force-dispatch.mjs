@@ -116,6 +116,7 @@ export {
   composeForces,
   createForceRegistry,
   specializeForces,
+  spinParameter,
   ConstantCd,
   ConstantAtmosphere,
   Environment,
@@ -267,6 +268,176 @@ function realFixture(m, forceCount) {
   };
 }
 
+// --------------------------------------------------------------------------
+// P7.05 candidates. These live HERE, not in @ballista/engine, because they
+// were measured and NOT adopted -- §5 is the record of why. Keeping them in
+// the benchmark keeps the finding reproducible without leaving an unused
+// composer in the hot path of a physics engine.
+// --------------------------------------------------------------------------
+
+/**
+ * Candidate A, "masked": one closure for every force set, selecting each
+ * inlined body with `if (mask & BIT)`. This is the general form -- it handles
+ * all 32 subsets of the planar set from a single body. Bits ascend in
+ * id-sorted order, which is what makes the accumulation order match
+ * `composeForces` bit-for-bit.
+ */
+function makeMaskedFused(m, registry) {
+  const BIT = {
+    buoyancy: 1 << 0,
+    "drag-linear": 1 << 1,
+    "drag-quadratic": 1 << 2,
+    gravity: 1 << 3,
+    magnus: 1 << 4,
+  };
+  let mask = 0;
+  for (const f of registry) mask |= BIT[f.id];
+  return (_t, _y, ctx, o) => {
+    const p = ctx.params;
+    const e = ctx.env;
+    const v = ctx.vRel;
+    let fx = 0;
+    let fy = 0;
+    if ((mask & 1) !== 0) fy += e.rho * p.volume * e.g;
+    if ((mask & 2) !== 0) {
+      const b = 6 * Math.PI * e.eta * p.radius;
+      fx += -b * v[0];
+      fy += -b * v[1];
+    }
+    if ((mask & 4) !== 0) {
+      const cd = p.dragCoefficient.cd(ctx.re, ctx.mach);
+      const k = 0.5 * e.rho * cd * p.area * ctx.speedRel;
+      fx += -k * v[0];
+      fy += -k * v[1];
+    }
+    if ((mask & 8) !== 0) fy += -p.mass * e.g;
+    if ((mask & 16) !== 0) {
+      const omega = p.spin;
+      const lm = p.liftCoefficient;
+      if (omega && lm) {
+        const k =
+          0.5 *
+          e.rho *
+          lm.cl(m.spinParameter(omega, p.radius, ctx.speedRel)) *
+          p.area *
+          ctx.speedRel *
+          Math.sign(omega);
+        fx += -k * v[1];
+        fy += k * v[0];
+      }
+    }
+    o[0] = fx;
+    o[1] = fy;
+  };
+}
+
+/**
+ * Candidate B, "flat": the SAME arithmetic with no mask and no branches at
+ * all, hand-written per force count. This is not a shippable design -- it
+ * needs one body per subset, which is what codegen would have to emit -- and
+ * it is measured precisely because it is the CEILING. It is the fastest a
+ * fused composer could possibly be, so if it does not clear the criterion,
+ * nothing in this family does.
+ *
+ * Bodies follow realFixture's slice order after id-sorting.
+ */
+function makeFlatFused(m, n) {
+  if (n === 5) {
+    return (_t, _y, ctx, o) => {
+      const p = ctx.params,
+        e = ctx.env,
+        v = ctx.vRel;
+      let fx = 0,
+        fy = 0;
+      fy += e.rho * p.volume * e.g;
+      const b = 6 * Math.PI * e.eta * p.radius;
+      fx += -b * v[0];
+      fy += -b * v[1];
+      const cd = p.dragCoefficient.cd(ctx.re, ctx.mach);
+      const k = 0.5 * e.rho * cd * p.area * ctx.speedRel;
+      fx += -k * v[0];
+      fy += -k * v[1];
+      fy += -p.mass * e.g;
+      const omega = p.spin,
+        lm = p.liftCoefficient;
+      if (omega && lm) {
+        const k2 =
+          0.5 *
+          e.rho *
+          lm.cl(m.spinParameter(omega, p.radius, ctx.speedRel)) *
+          p.area *
+          ctx.speedRel *
+          Math.sign(omega);
+        fx += -k2 * v[1];
+        fy += k2 * v[0];
+      }
+      o[0] = fx;
+      o[1] = fy;
+    };
+  }
+  if (n === 4) {
+    // buoyancy, drag-linear, drag-quadratic, gravity
+    return (_t, _y, ctx, o) => {
+      const p = ctx.params,
+        e = ctx.env,
+        v = ctx.vRel;
+      let fx = 0,
+        fy = 0;
+      fy += e.rho * p.volume * e.g;
+      const b = 6 * Math.PI * e.eta * p.radius;
+      fx += -b * v[0];
+      fy += -b * v[1];
+      const cd = p.dragCoefficient.cd(ctx.re, ctx.mach);
+      const k = 0.5 * e.rho * cd * p.area * ctx.speedRel;
+      fx += -k * v[0];
+      fy += -k * v[1];
+      fy += -p.mass * e.g;
+      o[0] = fx;
+      o[1] = fy;
+    };
+  }
+  if (n === 3) {
+    // buoyancy, drag-quadratic, gravity
+    return (_t, _y, ctx, o) => {
+      const p = ctx.params,
+        e = ctx.env,
+        v = ctx.vRel;
+      let fx = 0,
+        fy = 0;
+      fy += e.rho * p.volume * e.g;
+      const cd = p.dragCoefficient.cd(ctx.re, ctx.mach);
+      const k = 0.5 * e.rho * cd * p.area * ctx.speedRel;
+      fx += -k * v[0];
+      fy += -k * v[1];
+      fy += -p.mass * e.g;
+      o[0] = fx;
+      o[1] = fy;
+    };
+  }
+  if (n === 2) {
+    // drag-quadratic, gravity
+    return (_t, _y, ctx, o) => {
+      const p = ctx.params,
+        e = ctx.env,
+        v = ctx.vRel;
+      let fx = 0,
+        fy = 0;
+      const cd = p.dragCoefficient.cd(ctx.re, ctx.mach);
+      const k = 0.5 * e.rho * cd * p.area * ctx.speedRel;
+      fx += -k * v[0];
+      fy += -k * v[1];
+      fy += -p.mass * e.g;
+      o[0] = fx;
+      o[1] = fy;
+    };
+  }
+  // gravity
+  return (_t, _y, ctx, o) => {
+    o[0] = 0;
+    o[1] = -ctx.params.mass * ctx.env.g;
+  };
+}
+
 /** Fills the derived ctx fields the model's rhs normally sets before composing. */
 function primeContext(m, ctx, y) {
   ctx.environment.sample(0, y[0], y[1], ctx.env);
@@ -329,7 +500,12 @@ async function runChild(argv) {
       // Rate is per accumulate() call, so mono(n) and poly(n) are comparable
       // to each other and n is not silently in the denominator.
       result = { rate: measure(dispatchArm(m, registry, iterations), iterations * n) };
-    } else if (arm === "compose-loop" || arm === "compose-spec") {
+    } else if (
+      arm === "compose-loop" ||
+      arm === "compose-spec" ||
+      arm === "compose-fused" ||
+      arm === "compose-flat"
+    ) {
       // The A/B for this task, and the only honest one: the SAME real
       // registry, the SAME states, one process each, run back-to-back in one
       // invocation. Comparing a number from today's run against one written
@@ -340,6 +516,14 @@ async function runChild(argv) {
       const out = [0, 0];
       const iterations = 200000;
       const specialized = m.specializeForces(registry);
+      // P7.05. `fuseForces` inlines the force bodies; `specializeForces` still
+      // calls them from one monomorphic site each. This is the pair P7.05's
+      // ">=1.5x RHS speedup" is judged on, and the baseline is deliberately
+      // the POST-P7.04 specialized path: measuring fused against the old
+      // megamorphic loop would re-bank P7.04's already-recorded 1.4x-4.7x as
+      // this task's result.
+      const fused = makeMaskedFused(m, registry);
+      const flat = makeFlatFused(m, n);
 
       // THE OUTPUT MUST BE OBSERVED AND THE INPUT MUST VARY, or this measures
       // nothing. The first version of this arm called the composer on one
@@ -363,21 +547,37 @@ async function runChild(argv) {
       }
       let checksum = 0;
       const run =
-        arm === "compose-spec"
+        arm === "compose-flat"
           ? () => {
               for (let i = 0; i < iterations; i++) {
                 const st = states[i & 63];
-                specialized(0, st.y, st.ctx, out);
+                flat(0, st.y, st.ctx, out);
                 checksum += out[0] + out[1];
               }
             }
-          : () => {
-              for (let i = 0; i < iterations; i++) {
-                const st = states[i & 63];
-                m.composeForces(registry, 0, st.y, st.ctx, out);
-                checksum += out[0] + out[1];
+          : arm === "compose-fused"
+            ? () => {
+                for (let i = 0; i < iterations; i++) {
+                  const st = states[i & 63];
+                  fused(0, st.y, st.ctx, out);
+                  checksum += out[0] + out[1];
+                }
               }
-            };
+            : arm === "compose-spec"
+              ? () => {
+                  for (let i = 0; i < iterations; i++) {
+                    const st = states[i & 63];
+                    specialized(0, st.y, st.ctx, out);
+                    checksum += out[0] + out[1];
+                  }
+                }
+              : () => {
+                  for (let i = 0; i < iterations; i++) {
+                    const st = states[i & 63];
+                    m.composeForces(registry, 0, st.y, st.ctx, out);
+                    checksum += out[0] + out[1];
+                  }
+                };
       result = { rate: measure(run, iterations), checksum };
     } else if (arm === "real") {
       const fx = realFixture(m, n);
@@ -561,8 +761,54 @@ function runParent() {
     );
   }
   console.log(
-    "\n  This is the row that answers the criterion. Everything above it is\n" +
-      "  context for why the number at 5 forces differs from the others.",
+    "\n  This is the row that answered P7.04's criterion. Everything above it\n" +
+      "  is context for why the number at 5 forces differs from the others.",
+  );
+
+  console.log();
+  console.log("=".repeat(78));
+  console.log("\u00a75  P7.05's CRITERION: does FUSING the force bodies beat P7.04?");
+  console.log("     spec   = specializeForces, one monomorphic call per force");
+  console.log("     masked = fused bodies, `if (mask & BIT)` per force (general)");
+  console.log("     flat   = fused bodies, NO branches (the CEILING; not shippable)");
+  console.log("     Baseline is spec, i.e. POST-P7.04. One process per arm.");
+  console.log("=".repeat(78));
+  console.log(
+    "  forces     spec calls/s   masked calls/s     flat calls/s   masked/spec   flat/spec",
+  );
+  for (const n of [1, 2, 3, 4, 5]) {
+    const spec = spawnArm(self, "compose-spec", n).result;
+    const masked = spawnArm(self, "compose-fused", n).result;
+    const flat = spawnArm(self, "compose-flat", n).result;
+    if (!spec || !masked || !flat) {
+      console.log(`  ${String(n).padStart(6)}  (arm failed)`);
+      continue;
+    }
+    // All three fold every output over all 64 states. A checksum that DIFFERS
+    // invalidates the row: it would mean the arms are not computing the same
+    // physics, and the ratio beside it would compare a correct path against a
+    // wrong one -- or against one the optimizer hollowed out.
+    const agree =
+      Object.is(spec.checksum, masked.checksum) && Object.is(spec.checksum, flat.checksum)
+        ? "="
+        : "DIFFER";
+    console.log(
+      `  ${String(n).padStart(6)}  ${spec.rate.toExponential(3).padStart(14)}  ` +
+        `${masked.rate.toExponential(3).padStart(14)}  ` +
+        `${flat.rate.toExponential(3).padStart(15)}  ` +
+        `${(masked.rate / spec.rate).toFixed(3).padStart(11)}  ` +
+        `${(flat.rate / spec.rate).toFixed(3).padStart(10)}   checksum ${agree}`,
+    );
+  }
+  console.log(
+    "\n  HOW TO READ THIS. `flat` is the ceiling: no mask, no branches, one\n" +
+      "  hand-written body per force count -- the best any codegen could emit.\n" +
+      "  If flat/spec is below P7.05's 1.5x, the criterion is unreachable by\n" +
+      "  any fused composer, not merely unmet by these two. masked/spec below\n" +
+      "  1 is why the general form was NOT adopted: the mask is a captured\n" +
+      "  variable rather than a compile-time constant, so V8 cannot fold the\n" +
+      "  branches, and P7.04's straight-line body already wins.\n\n" +
+      "  P0.129 is the decision this table feeds.",
   );
 }
 

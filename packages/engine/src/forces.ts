@@ -372,169 +372,28 @@ export function specializeForces(forces: readonly ForceModel[]): ComposedForces 
 export const UNROLL_LIMIT = 8;
 
 /**
- * Bit per fusable force class, in the id-sorted order {@link createForceRegistry}
- * produces. The values are positions in that order, not arbitrary flags: the
- * fused body below tests them low-to-high, and that is what reproduces registry
- * accumulation order — see the bit-identity note on {@link fuseForces}.
+ * P7.05 measured hand fusion of the enabled-force list into one flat function
+ * — the force bodies inlined, no `accumulate` call at any arity — and **it is
+ * deliberately not here**, because it was measured and rejected rather than
+ * skipped.
+ *
+ * Two candidate implementations were built and both are bit-identical to
+ * {@link composeForces}. Neither is faster enough to keep:
+ *
+ * - a **masked** form (`if (mask & BIT)` per force, one closure for all force
+ *   sets) runs at **0.80×** {@link specializeForces} — the mask is a captured
+ *   variable, not a compile-time constant, so V8 cannot fold the branches and
+ *   the straight-line body P7.04 already produces wins;
+ * - an **ideal branchless** form, hand-written for one fixed force set with no
+ *   mask at all — the upper bound on what any codegen could emit — runs at
+ *   **1.07×**, against a criterion asking **1.5×**.
+ *
+ * So P7.04 had already taken essentially all of the dispatch win, and what is
+ * left above it is ~7% of force composition, itself only part of the rhs.
+ * Adopting the masked form would have been a 20% regression in the hot path.
+ *
+ * Both candidates, the measurement and its reproduction live in
+ * `scripts/measure-force-dispatch.mjs` (`pnpm bench:dispatch`, §5–§8). The
+ * criterion itself is P0.129's to decide. **Do not re-introduce a fused
+ * composer here on the strength of the idea alone — re-run §5 first.**
  */
-const F_BUOYANCY = 1 << 0;
-const F_DRAG_LINEAR = 1 << 1;
-const F_DRAG_QUADRATIC = 1 << 2;
-const F_GRAVITY = 1 << 3;
-const F_MAGNUS = 1 << 4;
-
-/**
- * The closed set of force classes {@link fuseForces} can inline, keyed by
- * constructor rather than by `id`.
- *
- * **Constructor identity, deliberately, and `instanceof` would be wrong here.**
- * A subclass passes `instanceof` and may override `accumulate` with an entirely
- * different force law, which fusion would then silently ignore in favour of the
- * base body inlined below — a wrong-physics bug with no error and no failing
- * test. `id` would be worse still: it is a plain string any object can claim.
- * Exact constructor identity is the only check that makes inlining the body
- * sound. Anything unrecognised falls back, which is why an added force class is
- * a performance regression at worst and never a correctness one.
- *
- * `CoriolisForce` is deliberately absent: its 2D `accumulate` throws, so there
- * is no planar body to inline and a fused set containing it must fall back to
- * {@link specializeForces} and throw from there, exactly as today.
- *
- * Keyed as `unknown` rather than `Function` because the key is used purely as
- * an *identity token* — it is never called, and `Function` would invite exactly
- * the "any function-like value" looseness the lint rule objects to.
- */
-const FUSABLE = new Map<unknown, number>([
-  [BuoyancyForce, F_BUOYANCY],
-  [LinearDragForce, F_DRAG_LINEAR],
-  [QuadraticDragForce, F_DRAG_QUADRATIC],
-  [GravityForce, F_GRAVITY],
-  [MagnusForce, F_MAGNUS],
-]);
-
-/**
- * Classifies `forces` into a fusion mask, or returns `null` if this registry
- * cannot be fused. Exported for the test suite, which asserts the refusals
- * directly rather than inferring them from a timing difference.
- *
- * Refuses on three conditions, each of which would otherwise change results:
- *
- * - **an unrecognised class** — nothing to inline (see {@link FUSABLE});
- * - **a duplicate class** — the mask is a set and would apply a twice-registered
- *   force once, silently halving it;
- * - **an out-of-id-order registry** — the fused body accumulates in a fixed
- *   low-to-high bit order, so fusing an unsorted array would reorder the
- *   additions. Floating-point addition is not associative, so that is a
- *   bit-level difference, which is precisely what P1.17 sorts the registry to
- *   prevent.
- */
-export function fusionMask(forces: readonly ForceModel[]): number | null {
-  let mask = 0;
-  for (let i = 0; i < forces.length; i++) {
-    const force = forces[i]!;
-    const bit = FUSABLE.get(force.constructor);
-    if (bit === undefined) return null;
-    // Set-not-list: a duplicate would be applied once, not twice.
-    if ((mask & bit) !== 0) return null;
-    // Bits ascend iff ids ascend, so a mask that never decreases proves the
-    // registry is id-sorted without a second string comparison.
-    if (bit < mask) return null;
-    mask |= bit;
-  }
-  return mask;
-}
-
-/**
- * Fuses an enabled-force list into a **single flat function** with no
- * `accumulate` call at any arity (P7.05, §7 phase-7 table: "RHS specializer:
- * compile enabled-force list into single flat function (codegen or hand
- * fusion)").
- *
- * ## What this changes, and what P7.04 had already fixed
- *
- * {@link specializeForces} removed *megamorphic dispatch*: it gave each force
- * its own monomorphic call site. Every force was still a call. This removes the
- * calls themselves — the five planar force bodies are written out inline and
- * selected by a mask computed once, when the model is built. The mask is a
- * captured constant, so the branches are perfectly predicted and, once V8
- * optimises the closure, foldable.
- *
- * ## Hand fusion, not `new Function`
- *
- * The blueprint offers "codegen or hand fusion" and this takes the second.
- * String codegen would give a genuinely branch-free body, but it needs `eval`
- * or `new Function`, and this bundle ships to a browser: under a
- * Content-Security-Policy without `'unsafe-eval'` the call throws at model
- * construction and the product does not run at all. Breaking the shipped
- * application to win a benchmark is the wrong trade, and it is recorded here so
- * the option is not silently re-litigated as an oversight.
- *
- * ## Why inlining the bodies is sound
- *
- * Every class in {@link FUSABLE} is **stateless** — each declares `id` and
- * nothing else, and reads all of its inputs from `ctx`. So one instance is
- * interchangeable with another and the body can be lifted out of the class
- * without capturing anything. **A force class with per-instance fields could
- * not be fused this way**: two registries holding differently-configured
- * instances would compile to the same closure. If a stateful force is ever
- * added, it must be left out of {@link FUSABLE} rather than given a bit.
- *
- * ## Bit-identity
- *
- * The fused body performs the same arithmetic in the same order on the same
- * accumulator as the corresponding `accumulate` bodies, and the mask tests
- * ascend in the id-sorted order {@link createForceRegistry} produces, so the
- * additions land in registry order. That is a structural guarantee, not a
- * tolerance: `forces-fusion.test.ts` asserts `Object.is` on raw doubles across
- * all 32 subsets, and the golden trajectories are unchanged.
- *
- * Anything this cannot fuse falls back to {@link specializeForces}, so this is
- * strictly a refinement of P7.04 and never a regression below it.
- *
- * @param forces registry order, already sorted — pass {@link createForceRegistry}'s output.
- */
-export function fuseForces(forces: readonly ForceModel[]): ComposedForces {
-  const mask = fusionMask(forces);
-  if (mask === null) return specializeForces(forces);
-
-  return (_t, _y, ctx, out) => {
-    const params = ctx.params;
-    const env = ctx.env;
-    const vRel = ctx.vRel;
-    let fx = 0;
-    let fy = 0;
-
-    if ((mask & F_BUOYANCY) !== 0) {
-      fy += env.rho * params.volume * env.g;
-    }
-    if ((mask & F_DRAG_LINEAR) !== 0) {
-      const b = 6 * Math.PI * env.eta * params.radius;
-      fx += -b * vRel[0];
-      fy += -b * vRel[1];
-    }
-    if ((mask & F_DRAG_QUADRATIC) !== 0) {
-      const cd = params.dragCoefficient.cd(ctx.re, ctx.mach);
-      const k = 0.5 * env.rho * cd * params.area * ctx.speedRel;
-      fx += -k * vRel[0];
-      fy += -k * vRel[1];
-    }
-    if ((mask & F_GRAVITY) !== 0) {
-      fy += -params.mass * env.g;
-    }
-    if ((mask & F_MAGNUS) !== 0) {
-      const omega = params.spin;
-      const liftModel = params.liftCoefficient;
-      if (omega && liftModel) {
-        const spinRatio = spinParameter(omega, params.radius, ctx.speedRel);
-        const cl = liftModel.cl(spinRatio);
-        const k = 0.5 * env.rho * cl * params.area * ctx.speedRel * Math.sign(omega);
-        // ê_z x v_rel = (-v_rel_y, v_rel_x)
-        fx += -k * vRel[1];
-        fy += k * vRel[0];
-      }
-    }
-
-    out[0] = fx;
-    out[1] = fy;
-  };
-}
