@@ -67,7 +67,23 @@ describe("the committed .wasm artifact", () => {
       .map((e) => e.name)
       .sort();
     expect(functions).toEqual(
-      ["dim", "param_count", "params_ptr", "state_ptr", "step", "step_n"].sort(),
+      [
+        // P7.07, the single-state path.
+        "dim",
+        "param_count",
+        "params_ptr",
+        "state_ptr",
+        "step",
+        "step_n",
+        // P7.08, the batch path.
+        "batch_capacity",
+        "batch_init",
+        "batch_observables_ptr",
+        "batch_params_ptr",
+        "batch_run",
+        "batch_states_ptr",
+        "obs_count",
+      ].sort(),
     );
     expect(exported.filter((e) => e.kind === "memory").map((e) => e.name)).toEqual(["memory"]);
   });
