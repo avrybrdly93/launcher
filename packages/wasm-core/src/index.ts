@@ -1,4 +1,5 @@
 export {
+  OBS,
   PARAM,
   WASM_ARTIFACT_PATH,
   WasmRk4Kernel,
