@@ -5,13 +5,14 @@ The `ballista-core` Rust crate (blueprint §10.2) compiled to
 the TypeScript engine's results. Landed by **P7.07**.
 
 ```
-crate/                  the Rust crate: RK4 + gravity + quadratic-drag RHS
-src/wasm-rk4-backend.ts the host binding (Float64Array views over wasm memory)
-src/generated/*.wasm    the committed build output
+crate/                       the Rust crate: RK4 + gravity + quadratic-drag RHS
+src/wasm-rk4-backend.ts      the host binding (Float64Array views over wasm memory)
+src/simd-benchmark.ts        P7.09's workload, baselines and verdict rule
+src/generated/*.wasm         the two committed build outputs
 ```
 
-Build: `pnpm build:wasm`. Verify the committed artifact is current:
-`pnpm check:wasm-artifact`.
+Build: `pnpm build:wasm` (builds both). Verify the committed artifacts are
+current: `pnpm check:wasm-artifact`. Measure the SIMD speedup: `pnpm bench:simd`.
 
 ## What it is for
 
@@ -24,6 +25,61 @@ The answer is yes, exactly: the WASM kernel is **bit-identical** to
 2000-step flight compared at every step and across a spread of states and step
 sizes. The criterion asked for agreement within 1e-15; that would have been a
 weaker claim, and the section below explains why the difference matters.
+
+## There are two artifacts, and the choice is made before compilation
+
+P7.09 added an f64x2 SIMD batch path, and a module containing simd128
+instructions **fails validation** on an engine without the proposal -- at
+compile time, not at the call site. So one binary cannot serve both engines:
+
+```
+src/generated/ballista-core.wasm        no target features; runs anywhere
+src/generated/ballista-core.simd.wasm   -C target-feature=+simd128
+```
+
+`wasmSimdSupported()` validates a 43-byte module whose only body is
+`v128.const 0; drop`, and `WasmRk4Kernel.instantiateBest()` picks accordingly.
+`kernel.hasSimd` reports which artifact actually loaded -- read from the
+module's own `simd_enabled` export rather than from the detect -- because a
+feature detect never checked against its own outcome is a branch, not a detect.
+
+`batchRunSimd()` on a scalar instance throws rather than falling back silently:
+a silent fallback would show up as a 1.0x benchmark with no explanation.
+
+### The SIMD path is bit-identical to the scalar one, not close to it
+
+The lanes are **replicates, not state components**. That is the whole design.
+The RHS couples `[x, y, vx, vy]` -- `speed_rel` is `sqrt(vrel_x² + vrel_y²)`, a
+reduction _across_ those two lanes -- so an f64x2 laid over the state vector
+needs a shuffle and a horizontal add, and reassociation of exactly that kind is
+what P7.07 measured to cost 1 ULP. Across replicates there is no reduction:
+lane 0 is one trajectory, lane 1 another, they never interact, and every scalar
+operation becomes one lane-wise instruction in the same order.
+
+simd128 has no fused multiply-add and `f64x2.sqrt` is correctly rounded per
+lane, so there is nothing left for the two paths to disagree about. 0 ULP,
+asserted with `Object.is` over every slot of 1001 replicates.
+
+**This ends the moment relaxed-simd is enabled.** `f64x2.relaxed_madd` is
+permitted to fuse. Do not add `+relaxed-simd` to this crate without re-deriving
+every claim above.
+
+Not built: **f32x4**. Half the mantissa is a different answer, not a tolerance;
+it would break the 0-ULP chain back to `ClassicalRK4Stepper` and cannot meet
+P7.11's `max rel. diff < 1e-12` at all. The task title named it as a means, the
+validation line named the end.
+
+### The measured speedup, and what is honestly not explained about it
+
+2.19x against the committed scalar artifact (criterion: >=1.8x), recorded in
+`scripts/simd-speedup-results.json`. f64x2 has two lanes, so that is **above**
+the ceiling the claim commit predicted, and the excess is only partly accounted
+for: a control giving the scalar path local rather than module-level RK4
+scratch buys 1.05x, leaving 2.08x against the fairest baseline. That residual
+is not per-replicate overhead and not branch behaviour -- the ratio is stable
+across three (replicates x steps) splits and on an ensemble where the
+running-max branch never fires. It is recorded as unattributed. Do not repeat a
+cause for it that has not been measured.
 
 ## Two decisions worth knowing before changing anything here
 
