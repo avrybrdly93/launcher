@@ -1,0 +1,37 @@
+{
+  "task": "P7.09",
+  "criterion": ">=1.8x vs scalar WASM on batch benchmark",
+  "recordedAt": "2026-09-09T14:40:44.571Z",
+  "environment": {
+    "node": "v22.22.2",
+    "platform": "linux",
+    "arch": "x64",
+    "cpus": 4
+  },
+  "workload": {
+    "replicates": 2001,
+    "steps": 400,
+    "h": 0.001,
+    "warmupRounds": 10,
+    "repetitions": 15
+  },
+  "reading": {
+    "medianMs": {
+      "scalarArtifact": 75.081685,
+      "scalarInSimdBuild": 74.994761,
+      "simd": 34.245301
+    },
+    "minMs": {
+      "scalarArtifact": 74.552973,
+      "scalarInSimdBuild": 74.442649,
+      "simd": 34.101758
+    },
+    "speedupFromMins": 2.1861914860811575
+  },
+  "verdict": {
+    "speedupVsScalarArtifact": 2.1924667854430595,
+    "speedupVsScalarInSimdBuild": 2.189928510191807,
+    "criterion": 1.8,
+    "pass": true
+  }
+}

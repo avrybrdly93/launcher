@@ -291,7 +291,7 @@ describe.skipIf(!wasmSimdSupported())("the f64x2 batch path", () => {
     let peakedInsideWindow = 0;
     for (let r = 0; r < REPLICATES; r += 1) {
       const row = r * 6;
-      if (scalarRows[row + OBS.maxSampledHeight] > scalarRows[row + OBS.y]) {
+      if (scalarRows[row + OBS.maxSampledHeight]! > scalarRows[row + OBS.y]!) {
         peakedInsideWindow += 1;
       }
     }
@@ -313,7 +313,7 @@ describe.skipIf(!wasmSimdSupported())("the f64x2 batch path", () => {
     // last replicate is the scalar tail (REPLICATES is odd).
     const perturbed = Float64Array.from(simdRows);
     const last = REPLICATES * 6 - 1;
-    perturbed[last] = nextUp(perturbed[last]);
+    perturbed[last] = nextUp(perturbed[last]!);
     expect(perturbed[last]).not.toBe(simdRows[last]);
     expect(firstDifference(scalarRows, perturbed)).toBe(last);
   });
@@ -330,12 +330,12 @@ describe.skipIf(!wasmSimdSupported())("the f64x2 batch path", () => {
     for (const r of [0, 1, 2, REPLICATES - 2, REPLICATES - 1]) {
       const p = replicateParams(r, 0, 0, 0);
       const side = makeTsSide(p[0], p[2]);
-      let y = Float64Array.from(replicateState(r));
-      let maxY = y[1];
+      let y: Float64Array = Float64Array.from(replicateState(r));
+      let maxY = y[1]!;
       for (let i = 0; i < STEPS; i += 1) {
         y = side.step(i * H, y, H);
-        if (y[1] > maxY) {
-          maxY = y[1];
+        if (y[1]! > maxY) {
+          maxY = y[1]!;
         }
       }
       const row = r * 6;

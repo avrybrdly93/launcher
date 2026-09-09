@@ -120,7 +120,7 @@ describe.each(VARIANTS)("the committed $name .wasm artifact", (variant) => {
   it.skipIf(!hasCargo() || !hasWasmTarget())(
     "is byte-identical to a fresh release build of the crate",
     () => {
-      const env = { ...process.env, CARGO_TARGET_DIR: variant.targetDir };
+      const env: NodeJS.ProcessEnv = { ...process.env, CARGO_TARGET_DIR: variant.targetDir };
       if (variant.rustflags === undefined) {
         // An inherited RUSTFLAGS would change what "scalar" means, and this
         // variant is defined by carrying no target features.
