@@ -62,6 +62,16 @@ declare namespace WebAssembly {
 
   function compile(bytes: BufferSource): Promise<Module>;
 
+  /**
+   * Whether `bytes` is a module this engine can compile.
+   *
+   * Added for P7.09's simd128 feature detect. Validation is the step that
+   * rejects an unknown instruction, so validating a module that contains one is
+   * a sufficient probe for the proposal -- and it is synchronous, unlike
+   * `compile`, which matters because the detect sits on the instantiation path.
+   */
+  function validate(bytes: BufferSource): boolean;
+
   function instantiate(
     bytes: BufferSource,
     importObject?: Record<string, Record<string, unknown>>,

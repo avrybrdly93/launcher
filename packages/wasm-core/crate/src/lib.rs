@@ -462,45 +462,361 @@ pub extern "C" fn batch_run(t0: f64, h: f64, steps: usize, n: usize) -> usize {
         let obs_base = batch_observables_ptr();
 
         for r in 0..n {
-            let mut p = [0.0_f64; PARAM_COUNT];
-            for (i, slot) in p.iter_mut().enumerate() {
-                *slot = *params_base.add(r * PARAM_COUNT + i);
+            run_one_replicate(t0, h, steps, r, params_base, states_base, obs_base);
+        }
+        1
+    }
+}
+
+/// Integrates replicate `r` from the arena and writes its observables row.
+///
+/// Extracted from [`batch_run`] so P7.09's SIMD path can use it verbatim for
+/// the odd tail replicate when `n` is not a multiple of the lane count. It is a
+/// pure extraction: the same operations in the same order, so the tail row is
+/// bit-identical to the row `batch_run` would have written for it, which is
+/// what lets the SIMD equivalence test cover odd `n` without a special case.
+///
+/// # Safety
+///
+/// The three base pointers must address an arena reserved for more than `r`
+/// replicates, and `K` / `Y_STAGE` / `Y_NEXT` must not be aliased concurrently
+/// (this module is single-threaded by construction; see the module docs).
+#[inline]
+unsafe fn run_one_replicate(
+    t0: f64,
+    h: f64,
+    steps: usize,
+    r: usize,
+    params_base: *mut f64,
+    states_base: *mut f64,
+    obs_base: *mut f64,
+) {
+    let mut p = [0.0_f64; PARAM_COUNT];
+    for (i, slot) in p.iter_mut().enumerate() {
+        *slot = *params_base.add(r * PARAM_COUNT + i);
+    }
+    let mut y = [0.0_f64; DIM];
+    for (i, slot) in y.iter_mut().enumerate() {
+        *slot = *states_base.add(r * DIM + i);
+    }
+
+    // The initial state counts as a sample, so a replicate that never
+    // rises still reports its launch height rather than 0.
+    let mut max_sampled_y = y[Y];
+
+    for i in 0..steps {
+        rk4_step(
+            t0 + (i as f64) * h,
+            &y,
+            h,
+            &p,
+            &mut *(&raw mut K),
+            &mut *(&raw mut Y_STAGE),
+            &mut *(&raw mut Y_NEXT),
+        );
+        y = *(&raw const Y_NEXT);
+        if y[Y] > max_sampled_y {
+            max_sampled_y = y[Y];
+        }
+    }
+
+    let row = obs_base.add(r * OBS_COUNT);
+    *row.add(0) = y[X];
+    *row.add(1) = y[Y];
+    *row.add(2) = y[VX];
+    *row.add(3) = y[VY];
+    // Same multiply-don't-accumulate form `step_n` uses for its stage
+    // times, for the same reason: it does not drift with `steps`.
+    *row.add(4) = t0 + (steps as f64) * h;
+    *row.add(5) = max_sampled_y;
+}
+
+// ---------------------------------------------------------------------------
+// P7.09 -- f64x2 SIMD batch path
+// ---------------------------------------------------------------------------
+
+/// Whether this build has the simd128 path compiled in.
+///
+/// Exported from **both** builds so the host can assert which artifact its
+/// feature detect actually selected, rather than inferring it from the presence
+/// of an export. A feature detect that is never checked against the thing it
+/// selected is a branch, not a detect.
+#[no_mangle]
+pub extern "C" fn simd_enabled() -> usize {
+    usize::from(cfg!(target_feature = "simd128"))
+}
+
+/// Lanes the SIMD batch path processes per iteration. `f64x2` is two.
+///
+/// Exported so the host does not hard-code it and so a future `f64x4` (if
+/// wasm ever gains a 256-bit vector type) does not silently break a caller
+/// that assumed pairs.
+#[no_mangle]
+pub extern "C" fn simd_lanes() -> usize {
+    if cfg!(target_feature = "simd128") {
+        2
+    } else {
+        1
+    }
+}
+
+#[cfg(target_feature = "simd128")]
+mod simd {
+    //! The f64x2 batch kernel.
+    //!
+    //! # Why the lanes are replicates and not state components
+    //!
+    //! The obvious vectorisation of a 4-component state is to put `[x, y]` in
+    //! one vector and `[vx, vy]` in another. It does not work here, and the
+    //! reason is the RHS rather than the stepper: `speed_rel` is
+    //! `sqrt(vrel_x^2 + vrel_y^2)`, a **reduction across** those two lanes. Any
+    //! implementation of it needs a shuffle and a horizontal add, both of which
+    //! reassociate the arithmetic -- and P7.07 measured that a reassociation of
+    //! exactly this kind costs 1 ULP, which is the whole reason the equivalence
+    //! tests assert bit-identity instead of a tolerance.
+    //!
+    //! Across replicates there is no reduction at all. Lane 0 is one
+    //! trajectory, lane 1 is another, they never interact, and every scalar
+    //! operation in [`super::rk4_step`] and [`super::rhs`] maps to exactly one
+    //! lane-wise instruction applied in exactly the same order. That is the
+    //! entire argument for the bit-identity claim below, and it is why P7.08's
+    //! contiguous, row-major arena is this task's real dependency.
+    //!
+    //! # Why this is bit-identical rather than "within tolerance"
+    //!
+    //! WebAssembly's simd128 proposal has no fused-multiply-add, so `a * b + c`
+    //! rounds twice here exactly as it does in the scalar path and in
+    //! JavaScript. `f64x2.sqrt` is IEEE-754 correctly rounded per lane, the
+    //! same guarantee `f64.sqrt` and `Math.sqrt` carry. So each lane performs
+    //! the identical sequence of correctly-rounded double operations on
+    //! identical inputs, and the results are equal bit for bit -- not close.
+    //! The host-side test asserts that with `Object.is` on raw doubles.
+    //!
+    //! **This stops being true the moment relaxed-simd is enabled.**
+    //! `f64x2.relaxed_madd` is permitted to fuse, which is a licence to give a
+    //! different answer. Do not add `-C target-feature=+relaxed-simd` to this
+    //! crate's build without re-deriving every claim in this module.
+
+    use core::arch::wasm32::{
+        f64x2, f64x2_add, f64x2_div, f64x2_extract_lane, f64x2_gt, f64x2_mul, f64x2_neg,
+        f64x2_splat, f64x2_sqrt, f64x2_sub, v128, v128_bitselect,
+    };
+
+    use super::{
+        run_one_replicate, A, A_LEN, ARENA_BASE, ARENA_CAPACITY, B, C, DIM, OBS_COUNT, PARAM_COUNT,
+        STAGES, VX, VY, X, Y,
+    };
+
+    /// Two replicates' worth of the planar RHS, lane for lane with
+    /// [`super::rhs`].
+    ///
+    /// Read this side by side with the scalar version: every line is the same
+    /// expression with the same associativity. `f1` starts from a splatted
+    /// `0.0` and is *added to* rather than assigned, because the scalar path
+    /// does `f1 += -mass * g` from `0.0` and `0.0 + (-0.0)` is `+0.0` -- a
+    /// distinction that survives into the sign of a zero acceleration.
+    #[inline]
+    #[allow(clippy::too_many_arguments)]
+    fn rhs_x2(_t: f64, y: &[v128; DIM], out: &mut [v128; DIM], p: &[v128; PARAM_COUNT]) {
+        let mass = p[super::ParamSlot::Mass as usize];
+        let area = p[super::ParamSlot::Area as usize];
+        let cd = p[super::ParamSlot::Cd as usize];
+        let rho = p[super::ParamSlot::Rho as usize];
+        let g = p[super::ParamSlot::G as usize];
+        let wx = p[super::ParamSlot::Wx as usize];
+        let wy = p[super::ParamSlot::Wy as usize];
+
+        let vx = y[VX];
+        let vy = y[VY];
+
+        let vrel_x = f64x2_sub(vx, wx);
+        let vrel_y = f64x2_sub(vy, wy);
+        // sqrt(a0*a0 + a1*a1), not hypot -- see the scalar `rhs`.
+        let speed_rel = f64x2_sqrt(f64x2_add(
+            f64x2_mul(vrel_x, vrel_x),
+            f64x2_mul(vrel_y, vrel_y),
+        ));
+
+        let zero = f64x2_splat(0.0);
+        let f0 = zero;
+        let f1 = zero;
+
+        // GravityForce::accumulate -- `(-mass) * g`, added to the zeroed slot.
+        let f1 = f64x2_add(f1, f64x2_mul(f64x2_neg(mass), g));
+
+        // QuadraticDragForce::accumulate. Left-associative exactly as the
+        // scalar path writes it: `((((0.5 * rho) * cd) * area) * speed_rel)`.
+        let k = f64x2_mul(
+            f64x2_mul(f64x2_mul(f64x2_mul(f64x2_splat(0.5), rho), cd), area),
+            speed_rel,
+        );
+        let f0 = f64x2_add(f0, f64x2_mul(f64x2_neg(k), vrel_x));
+        let f1 = f64x2_add(f1, f64x2_mul(f64x2_neg(k), vrel_y));
+
+        out[X] = vx;
+        out[Y] = vy;
+        out[VX] = f64x2_div(f0, mass);
+        out[VY] = f64x2_div(f1, mass);
+    }
+
+    /// One RK4 step for two replicates, lane for lane with [`super::rk4_step`].
+    ///
+    /// The tableau constants are splatted rather than kept in registers per
+    /// lane because they are the same for both replicates; splatting a constant
+    /// cannot change a lane's arithmetic. The zero `a` entries are multiplied
+    /// and not skipped, for the same reason the scalar port gives.
+    #[inline]
+    fn rk4_step_x2(
+        t: f64,
+        y: &[v128; DIM],
+        h: f64,
+        p: &[v128; PARAM_COUNT],
+        k: &mut [[v128; DIM]; STAGES],
+        y_stage: &mut [v128; DIM],
+        y_next: &mut [v128; DIM],
+    ) {
+        let hv = f64x2_splat(h);
+        for s in 0..STAGES {
+            let a_len = A_LEN[s];
+            for i in 0..DIM {
+                let mut yi = y[i];
+                for j in 0..a_len {
+                    // `(h * a) * k`, matching the scalar left-associativity.
+                    yi = f64x2_add(
+                        yi,
+                        f64x2_mul(f64x2_mul(hv, f64x2_splat(A[s][j])), k[j][i]),
+                    );
+                }
+                y_stage[i] = yi;
             }
-            let mut y = [0.0_f64; DIM];
+            let mut ks = [f64x2_splat(0.0); DIM];
+            // Autonomous RHS: the stage time is formed and discarded, as in the
+            // scalar path, and stays scalar because it is identical in both
+            // lanes -- the two replicates share `t0` and `h`.
+            rhs_x2(t + C[s] * h, y_stage, &mut ks, p);
+            k[s] = ks;
+        }
+
+        for i in 0..DIM {
+            // Summed over stages first, multiplied by h once. See the module doc.
+            let mut increment = f64x2_splat(0.0);
+            for s in 0..STAGES {
+                increment = f64x2_add(increment, f64x2_mul(f64x2_splat(B[s]), k[s][i]));
+            }
+            y_next[i] = f64x2_add(y[i], f64x2_mul(hv, increment));
+        }
+    }
+
+    /// Integrates the first `n` replicates two at a time. Returns 1, or 0 if
+    /// `n` exceeds the reserved capacity.
+    ///
+    /// An odd `n` leaves one replicate over, and it goes through
+    /// [`run_one_replicate`] -- the scalar path's own per-replicate body, not a
+    /// one-lane copy of this one. That is deliberate: a re-implementation of
+    /// the tail is a second place for the port to drift, and the equivalence
+    /// test covers odd `n` precisely because a tail is where a lane-pairing bug
+    /// hides.
+    ///
+    /// # Safety
+    ///
+    /// Same contract as [`super::batch_run`]: the arena must be reserved and
+    /// the module is single-threaded.
+    pub unsafe fn batch_run_x2(t0: f64, h: f64, steps: usize, n: usize) -> usize {
+        if ARENA_BASE == 0 || n > ARENA_CAPACITY {
+            return 0;
+        }
+        let params_base = super::batch_params_ptr();
+        let states_base = super::batch_states_ptr();
+        let obs_base = super::batch_observables_ptr();
+
+        let pairs = n / 2;
+        for pair in 0..pairs {
+            let r0 = pair * 2;
+            let r1 = r0 + 1;
+
+            let mut p = [f64x2_splat(0.0); PARAM_COUNT];
+            for (i, slot) in p.iter_mut().enumerate() {
+                *slot = f64x2(
+                    *params_base.add(r0 * PARAM_COUNT + i),
+                    *params_base.add(r1 * PARAM_COUNT + i),
+                );
+            }
+            let mut y = [f64x2_splat(0.0); DIM];
             for (i, slot) in y.iter_mut().enumerate() {
-                *slot = *states_base.add(r * DIM + i);
+                *slot = f64x2(
+                    *states_base.add(r0 * DIM + i),
+                    *states_base.add(r1 * DIM + i),
+                );
             }
 
-            // The initial state counts as a sample, so a replicate that never
-            // rises still reports its launch height rather than 0.
+            let mut k = [[f64x2_splat(0.0); DIM]; STAGES];
+            let mut y_stage = [f64x2_splat(0.0); DIM];
+            let mut y_next = [f64x2_splat(0.0); DIM];
+
             let mut max_sampled_y = y[Y];
 
             for i in 0..steps {
-                rk4_step(
+                rk4_step_x2(
                     t0 + (i as f64) * h,
                     &y,
                     h,
                     &p,
-                    &mut *(&raw mut K),
-                    &mut *(&raw mut Y_STAGE),
-                    &mut *(&raw mut Y_NEXT),
+                    &mut k,
+                    &mut y_stage,
+                    &mut y_next,
                 );
-                y = *(&raw const Y_NEXT);
-                if y[Y] > max_sampled_y {
-                    max_sampled_y = y[Y];
-                }
+                y = y_next;
+                // `if y > max { max = y }`, lane-wise. Not `f64x2.max`, whose
+                // NaN and signed-zero behaviour differs from the scalar `>`:
+                // a NaN height would take the other operand under `f64x2.max`
+                // but leaves the running maximum untouched under `>`, which is
+                // what the scalar path does.
+                let gt = f64x2_gt(y[Y], max_sampled_y);
+                max_sampled_y = v128_bitselect(y[Y], max_sampled_y, gt);
             }
 
-            let row = obs_base.add(r * OBS_COUNT);
-            *row.add(0) = y[X];
-            *row.add(1) = y[Y];
-            *row.add(2) = y[VX];
-            *row.add(3) = y[VY];
-            // Same multiply-don't-accumulate form `step_n` uses for its stage
-            // times, for the same reason: it does not drift with `steps`.
-            *row.add(4) = t0 + (steps as f64) * h;
-            *row.add(5) = max_sampled_y;
+            let t_final = t0 + (steps as f64) * h;
+            for (lane, r) in [r0, r1].iter().copied().enumerate() {
+                let row = obs_base.add(r * OBS_COUNT);
+                *row.add(0) = extract(y[X], lane);
+                *row.add(1) = extract(y[Y], lane);
+                *row.add(2) = extract(y[VX], lane);
+                *row.add(3) = extract(y[VY], lane);
+                *row.add(4) = t_final;
+                *row.add(5) = extract(max_sampled_y, lane);
+            }
+        }
+
+        if n % 2 == 1 {
+            run_one_replicate(t0, h, steps, n - 1, params_base, states_base, obs_base);
         }
         1
     }
+
+    /// `f64x2_extract_lane` needs a const index; this is the runtime-index form.
+    #[inline]
+    fn extract(v: v128, lane: usize) -> f64 {
+        if lane == 0 {
+            f64x2_extract_lane::<0>(v)
+        } else {
+            f64x2_extract_lane::<1>(v)
+        }
+    }
+}
+
+/// Integrates the first `n` replicates using the f64x2 path, writing the same
+/// [`OBS_COUNT`]-slot rows [`batch_run`] writes. Returns 1, or 0 if `n` exceeds
+/// the reserved capacity.
+///
+/// **Bit-identical to [`batch_run`], not merely close.** See the [`simd`]
+/// module docs for why that is available rather than aspirational, and the
+/// host-side `wasm-simd.test.ts` for the assertion.
+///
+/// Exported only from the simd128 build. The scalar artifact does not carry
+/// this symbol at all, which is what makes the host's feature detect checkable:
+/// a wrong selection is a missing export, not a silently slower path.
+#[cfg(target_feature = "simd128")]
+#[no_mangle]
+pub extern "C" fn batch_run_simd(t0: f64, h: f64, steps: usize, n: usize) -> usize {
+    unsafe { simd::batch_run_x2(t0, h, steps, n) }
 }

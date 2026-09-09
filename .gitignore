@@ -13,3 +13,8 @@ packages/*/docs/
 # `target/` is the intermediate build tree and is not.
 target/
 
+
+# P7.09 builds a second artifact with -C target-feature=+simd128 into its own
+# CARGO_TARGET_DIR, because cargo keys its fingerprint on RUSTFLAGS and a shared
+# directory would make the two builds invalidate each other.
+target-simd/

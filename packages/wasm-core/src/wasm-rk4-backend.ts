@@ -98,19 +98,77 @@ interface KernelExports {
   readonly batch_states_ptr: () => number;
   readonly batch_observables_ptr: () => number;
   readonly batch_run: (t0: number, h: number, steps: number, n: number) => number;
+  readonly simd_enabled: () => number;
+  readonly simd_lanes: () => number;
+  /** Present only in the simd128 build. See {@link wasmSimdSupported}. */
+  readonly batch_run_simd?: (t0: number, h: number, steps: number, n: number) => number;
 }
 
 /** Stand-in for the batch views before the first `batchInit`. Never grows. */
 const EMPTY = new Float64Array(0);
 
-/** Path to the committed `.wasm`, which is what CI runs against (it has no Rust). */
+/** Path to the committed scalar `.wasm`, which is what CI runs against (it has no Rust). */
 export const WASM_ARTIFACT_PATH = fileURLToPath(
   new URL("./generated/ballista-core.wasm", import.meta.url),
 );
 
-/** Reads the committed artifact's bytes. */
+/**
+ * Path to the committed simd128 `.wasm` (P7.09).
+ *
+ * A separate binary rather than a runtime branch inside one: a module carrying
+ * simd128 instructions fails *validation* on an engine without the proposal, so
+ * the choice has to be made before the bytes are compiled, not inside them.
+ */
+export const WASM_SIMD_ARTIFACT_PATH = fileURLToPath(
+  new URL("./generated/ballista-core.simd.wasm", import.meta.url),
+);
+
+/**
+ * A 43-byte module whose only body is `v128.const 0; drop`.
+ *
+ * `WebAssembly.validate` returns false for it on an engine without the simd128
+ * proposal, and that is the whole feature detect. Compiling it (rather than
+ * instantiating) is enough, because validation is exactly the step that
+ * rejects an unknown instruction.
+ */
+// prettier-ignore
+const SIMD_PROBE_MODULE = Uint8Array.from([
+  0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, // magic "\0asm", version 1
+  0x01, 0x04, 0x01, 0x60, 0x00, 0x00,             // type section: one type, () -> ()
+  0x03, 0x02, 0x01, 0x00,                         // function section: one function, type 0
+  0x0a, 0x17, 0x01, 0x15, 0x00,                   // code section: one body, no locals
+  0xfd, 0x0c,                                     //   v128.const ...
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //   ... sixteen zero bytes
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+  0x1a,                                           //   drop
+  0x0b,                                           //   end
+]);
+
+/**
+ * Whether this engine supports the WebAssembly simd128 proposal (P7.09).
+ *
+ * Memoised: the answer cannot change within a process, and the probe is on the
+ * path of every {@link WasmRk4Kernel.instantiate} call.
+ */
+let simdSupport: boolean | undefined;
+export function wasmSimdSupported(): boolean {
+  const cached = simdSupport;
+  if (cached !== undefined) {
+    return cached;
+  }
+  const supported = WebAssembly.validate(SIMD_PROBE_MODULE);
+  simdSupport = supported;
+  return supported;
+}
+
+/** Reads the committed scalar artifact's bytes. */
 export async function readWasmArtifact(): Promise<Uint8Array> {
   return new Uint8Array(await readFile(WASM_ARTIFACT_PATH));
+}
+
+/** Reads the committed simd128 artifact's bytes. */
+export async function readWasmSimdArtifact(): Promise<Uint8Array> {
+  return new Uint8Array(await readFile(WASM_SIMD_ARTIFACT_PATH));
 }
 
 /**
@@ -259,6 +317,40 @@ export class WasmRk4Kernel {
     return new WasmRk4Kernel(instance.exports as unknown as KernelExports);
   }
 
+  /**
+   * Instantiates the simd128 artifact where the engine supports it and the
+   * scalar one where it does not (P7.09).
+   *
+   * The two produce **bit-identical** results -- the SIMD path's lanes are
+   * independent replicates and simd128 has no FMA, so there is no reassociation
+   * anywhere -- which is what makes selecting between them at runtime safe to
+   * do silently. If that ever stopped being true this would have to become an
+   * explicit choice by the caller instead.
+   */
+  static async instantiateBest(): Promise<WasmRk4Kernel> {
+    return WasmRk4Kernel.instantiate(
+      wasmSimdSupported() ? await readWasmSimdArtifact() : await readWasmArtifact(),
+    );
+  }
+
+  /**
+   * Whether *this instance* has the SIMD batch path.
+   *
+   * Read from the module's own `simd_enabled` export rather than from
+   * {@link wasmSimdSupported}, so it says which artifact actually got loaded
+   * rather than what the engine could have run. Those differ whenever a caller
+   * passes bytes to {@link instantiate} directly, and a feature detect that is
+   * never checked against its own outcome is a branch, not a detect.
+   */
+  get hasSimd(): boolean {
+    return this.exports.simd_enabled() === 1;
+  }
+
+  /** Replicates the SIMD batch path processes per iteration: 2 with f64x2, else 1. */
+  get simdLanes(): number {
+    return this.exports.simd_lanes();
+  }
+
   /** Writes `p` into the live parameter view. */
   setParams(p: WasmKernelParams): void {
     this.params[PARAM.mass] = p.mass;
@@ -324,6 +416,35 @@ export class WasmRk4Kernel {
   batchRun(t0: number, h: number, steps: number, n: number): void {
     if (this.exports.batch_run(t0, h, steps, n) !== 1) {
       throw new RangeError(`batchRun: n=${n} exceeds reserved capacity ${this.boundCapacity}`);
+    }
+  }
+
+  /**
+   * The f64x2 batch path (P7.09): same arguments, same observables rows, two
+   * replicates per iteration.
+   *
+   * **Bit-identical to {@link batchRun}, not merely close.** Each lane is an
+   * independent trajectory, so every scalar operation maps to one lane-wise
+   * instruction in the same order; simd128 has no FMA and its `f64x2.sqrt` is
+   * correctly rounded per lane. An odd `n` sends the last replicate through the
+   * scalar path's own per-replicate body rather than a one-lane copy of the
+   * vector one.
+   *
+   * @throws TypeError if this instance is the scalar artifact -- loudly, rather
+   * than silently falling back, because a caller reaching for this wants to
+   * know it did not get it. Use {@link hasSimd} to choose, or
+   * {@link instantiateBest} and {@link batchRun} to not have to.
+   * @throws RangeError if `n` exceeds the reserved capacity.
+   */
+  batchRunSimd(t0: number, h: number, steps: number, n: number): void {
+    const run = this.exports.batch_run_simd;
+    if (run === undefined) {
+      throw new TypeError(
+        "batchRunSimd: this instance is the scalar artifact and has no SIMD path",
+      );
+    }
+    if (run(t0, h, steps, n) !== 1) {
+      throw new RangeError(`batchRunSimd: n=${n} exceeds reserved capacity ${this.boundCapacity}`);
     }
   }
 }
