@@ -1,0 +1,57 @@
+{
+  "task": "P7.12",
+  "criterion": {
+    "speedup": 2.5,
+    "workers": 4,
+    "source": "blueprint §7 P7.12 validation column"
+  },
+  "mechanism": "message-passing workers (node:worker_threads); no SharedArrayBuffer, no wasm threads",
+  "stepSize": 0.05,
+  "replicates": 40000,
+  "measuredAt": "2026-09-12T19:20:31.221Z",
+  "environment": {
+    "node": "v22.22.2",
+    "platform": "linux",
+    "arch": "x64",
+    "cpus": 4
+  },
+  "checksum": {
+    "perWorkerCount": {
+      "1": 10085718.86165591,
+      "2": 10085718.861655924,
+      "4": 10085718.861655928
+    },
+    "relativeSpread": 1.846814465860633e-15,
+    "reassociationTolerance": 1e-13
+  },
+  "points": [
+    {
+      "workers": 1,
+      "chunks": 1,
+      "elapsedSeconds": 11.636241891,
+      "trajectoriesPerSecond": 3437.5359651931803,
+      "speedupOverOneWorker": 1,
+      "parallelEfficiency": 1
+    },
+    {
+      "workers": 2,
+      "chunks": 2,
+      "elapsedSeconds": 5.979148707,
+      "trajectoriesPerSecond": 6689.915564931608,
+      "speedupOverOneWorker": 1.9461368935977525,
+      "parallelEfficiency": 0.9730684467988763
+    },
+    {
+      "workers": 4,
+      "chunks": 4,
+      "elapsedSeconds": 3.775388451,
+      "trajectoriesPerSecond": 10594.936261301818,
+      "speedupOverOneWorker": 3.082131028905878,
+      "parallelEfficiency": 0.7705327572264695
+    }
+  ],
+  "verdict": {
+    "speedupAtFourWorkers": 3.082131028905878,
+    "meetsCriterion": true
+  }
+}

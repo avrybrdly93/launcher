@@ -21,6 +21,7 @@
     "bench:dispatch": "node scripts/measure-force-dispatch.mjs",
     "bench:memory": "node scripts/measure-ensemble-memory.mjs",
     "bench:simd": "node scripts/measure-simd-speedup.mjs",
+    "bench:worker-scaling": "node scripts/measure-worker-scaling.mjs",
     "build:wasm": "node scripts/build-wasm-core.mjs",
     "check:wasm-artifact": "node scripts/build-wasm-core.mjs --check",
     "check:cross-engine-drift": "node scripts/measure-cross-engine-drift.mjs",
