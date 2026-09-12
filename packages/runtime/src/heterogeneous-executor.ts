@@ -156,7 +156,7 @@ export function createHeterogeneousExecutor(
     if (total === 0) return { observables, assignments: [] };
 
     const assignments: EnsembleAssignment[] = [];
-    const pending: Promise<EnsembleChunk>[] = [];
+    const pending: Promise<void>[] = [];
 
     partitionReplicates(total, chunkCount).forEach((chunk, chunkIndex) => {
       if (chunk.endIndex <= chunk.startIndex) return;
@@ -174,14 +174,22 @@ export function createHeterogeneousExecutor(
         startIndex: chunk.startIndex,
         endIndex: chunk.endIndex,
       });
-      pending.push(backend.runRange(job, chunk.startIndex, chunk.endIndex));
+      pending.push(
+        backend.runRange(job, chunk.startIndex, chunk.endIndex).then((result) => {
+          // Written the moment the chunk lands, and placed by its OWN
+          // `startIndex` rather than by anything about this loop. Writing
+          // inside the `then` is what makes that tag load-bearing instead of
+          // decorative: collecting into an ordered array first and copying
+          // afterwards would make placement-by-index and placement-by-running-
+          // cursor the same operation, and a suite could not tell them apart.
+          // It was measured that way -- see `ROADMAP.json`'s P7.10 notes,
+          // substitution S3.
+          observables.set(result.rows, result.startIndex * ENSEMBLE_OBS_COUNT);
+        }),
+      );
     });
 
-    const results = await Promise.all(pending);
-    for (const result of results) {
-      // By `result.startIndex`, not by the loop index: see the module header.
-      observables.set(result.rows, result.startIndex * ENSEMBLE_OBS_COUNT);
-    }
+    await Promise.all(pending);
     return { observables, assignments };
   }
 
@@ -199,6 +207,25 @@ export function createTsEnsembleBackend(id = "ts"): EnsembleBackend {
       });
     },
   };
+}
+
+export interface WasmEnsembleBackendOptions {
+  /** Stable identifier for {@link EnsembleAssignment}. Defaults to `"wasm"`. */
+  readonly id?: string;
+  /**
+   * Whether to run chunks through the f64x2 path. Defaults to whether *this
+   * instance* has one, so a caller that used `WasmRk4Kernel.instantiateBest()`
+   * gets P7.09's speedup without asking for it.
+   *
+   * Defaulting rather than forcing is safe only because P7.09 measured the two
+   * paths bit-identical: the lanes are independent replicates, simd128 has no
+   * FMA, and `f64x2.sqrt` is correctly rounded per lane. Were that ever to
+   * stop being true, this would have to become a decision the caller makes
+   * explicitly rather than a default it inherits. Pass `false` to pin the
+   * scalar path -- which is what the equivalence suite does, so that TS-vs-
+   * scalar and TS-vs-SIMD are two measurements rather than one.
+   */
+  readonly useSimd?: boolean;
 }
 
 /**
@@ -227,11 +254,21 @@ export function createTsEnsembleBackend(id = "ts"): EnsembleBackend {
  * needs to await (a worker, a GPU queue), give it its own kernel instead of
  * adding a lock.
  */
-export function createWasmEnsembleBackend(kernel: WasmRk4Kernel, id = "wasm"): EnsembleBackend {
+export function createWasmEnsembleBackend(
+  kernel: WasmRk4Kernel,
+  options: WasmEnsembleBackendOptions = {},
+): EnsembleBackend {
   if (kernel.obsCount !== ENSEMBLE_OBS_COUNT) {
     throw new Error(
       `createWasmEnsembleBackend: kernel reports ${kernel.obsCount} observable slots, ` +
         `this package's ENSEMBLE_OBS describes ${ENSEMBLE_OBS_COUNT}`,
+    );
+  }
+  const id = options.id ?? "wasm";
+  const useSimd = options.useSimd ?? kernel.hasSimd;
+  if (useSimd && !kernel.hasSimd) {
+    throw new TypeError(
+      `createWasmEnsembleBackend(${id}): useSimd was requested but this instance is the scalar artifact`,
     );
   }
   return {
@@ -244,7 +281,8 @@ export function createWasmEnsembleBackend(kernel: WasmRk4Kernel, id = "wasm"): E
       // Re-read the views after any possible grow: a reference cached across
       // `batchInit` is detached, and writes to it go nowhere.
       lowerEnsembleRange(job, startIndex, endIndex, kernel.batchParams, kernel.batchStates);
-      kernel.batchRun(job.t0, job.h, job.steps, n);
+      if (useSimd) kernel.batchRunSimd(job.t0, job.h, job.steps, n);
+      else kernel.batchRun(job.t0, job.h, job.steps, n);
       // Copied out rather than handed back as a view: the arena is reused by
       // the next chunk, so a view would be overwritten before the caller read
       // it -- and `observables.set` on a live view would be copying from
