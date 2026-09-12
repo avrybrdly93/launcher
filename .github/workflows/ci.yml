@@ -41,6 +41,26 @@ jobs:
       - name: Test
         run: pnpm test
 
+      # P7.11. A named, hard-failing gate rather than 19 tests among 3817.
+      # `pnpm test` already runs this file; the separate step exists so that a
+      # backend divergence is legible as its own red step in the run summary
+      # instead of a line inside a 315-file report, and so the criterion has a
+      # single command a human can run.
+      #
+      # NOT a soft warn, unlike the three benchmarks below it. Those measure
+      # timings on a shared runner, where a noisy neighbour is not a defect.
+      # This one asserts bit-identity between backends and against a committed
+      # golden, which is either true or is a bug.
+      #
+      # This is also the step that covers what `wasm-artifact-freshness.test.ts`
+      # cannot here: there is no Rust toolchain on this runner, so its
+      # byte-identity checks skip, and a stale `.wasm` would otherwise be
+      # compared against goldens generated from source that no longer exists.
+      # The golden records the crate's own source hashes, so an unrebuilt crate
+      # edit fails here without a compiler.
+      - name: Backend equivalence (TS vs WASM golden)
+        run: pnpm check:backend-equivalence
+
       - name: Benchmark regression check (soft warn)
         run: pnpm bench:solverkit
 
