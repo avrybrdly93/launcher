@@ -35,3 +35,109 @@
   display: block;
   margin-top: 0.75rem;
 }
+
+/*
+ * P7.13's compute-capability panel. Lives in this stylesheet rather than a new
+ * one because `monte-carlo-route.tsx` already imports it and the panel is
+ * mounted only there; a second stylesheet for one panel would add a bundle
+ * entry to say the same thing.
+ */
+.capability-panel {
+  margin-top: 2rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--border, #d0d7de);
+  border-radius: 6px;
+  background: var(--surface-muted, #f6f8fa);
+}
+
+.capability-panel__title {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+}
+
+.capability-panel__subtitle {
+  margin: 1.25rem 0 0.5rem;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.7;
+}
+
+.capability-panel__headline {
+  margin: 0 0 0.5rem;
+  font-weight: 600;
+}
+
+.capability-panel__badge {
+  display: inline-block;
+  padding: 0.1rem 0.45rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: #fff;
+}
+
+.capability-panel__badge--gpu {
+  background: #1a7f37;
+}
+
+.capability-panel__badge--cpu {
+  background: #0969da;
+}
+
+.capability-panel__reason,
+.capability-panel__parallelism,
+.capability-panel__remedy,
+.capability-panel__fallback,
+.capability-panel__error,
+.capability-panel__pending {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.capability-panel__status {
+  margin: 0 0 0.5rem;
+  font-weight: 600;
+}
+
+.capability-panel__facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.25rem 1rem;
+  margin: 0 0 0.75rem;
+  font-size: 0.9rem;
+}
+
+.capability-panel__facts dt {
+  font-weight: 600;
+  opacity: 0.75;
+}
+
+.capability-panel__facts dd {
+  margin: 0;
+}
+
+.capability-panel__limits {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.capability-panel__limits caption {
+  text-align: left;
+  padding-bottom: 0.35rem;
+  opacity: 0.7;
+}
+
+.capability-panel__limits th,
+.capability-panel__limits td {
+  padding: 0.25rem 0.5rem;
+  border-top: 1px solid var(--border, #d0d7de);
+  text-align: left;
+}
+
+.capability-panel__limits td {
+  font-variant-numeric: tabular-nums;
+}

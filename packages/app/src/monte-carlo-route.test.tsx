@@ -13,7 +13,7 @@
  * still freeze the tab.
  */
 import { render } from "preact";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { uncertainScenarioSpecSchema } from "@ballista/engine";
 import { isHit } from "@ballista/analysis";
 import type { McDashboardProgress } from "@ballista/runtime";
@@ -61,6 +61,41 @@ describe("MonteCarloRoute (P6.24)", () => {
     // The honesty requirement this route carries: a reader should not have to
     // discover from a frozen tab that the work is not in a worker.
     expect(mount().textContent).toContain("runs on this thread");
+  });
+});
+
+describe("MonteCarloRoute reports what the ensemble will actually run on (P7.13)", () => {
+  it("mounts the capability panel, and it resolves to the CPU path in this container", async () => {
+    // jsdom has no `navigator.gpu`, so this is the criterion -- "unsupported
+    // browsers get graceful CPU path" -- measured on an unsupported browser
+    // rather than simulated with a fake one.
+    const root = mount();
+    const panel = () => root.querySelector('[data-testid="capability-panel"]');
+    expect(panel()).not.toBeNull();
+
+    // The probe is async; before it resolves the panel says so rather than
+    // rendering blank.
+    expect(root.querySelector('[data-testid="capability-pending"]')).not.toBeNull();
+
+    await vi.waitFor(() => {
+      expect(root.querySelector('[data-testid="capability-webgpu-unsupported"]')).not.toBeNull();
+    });
+
+    const headline = root.querySelector('[data-testid="capability-headline"]')?.textContent ?? "";
+    expect(headline).toContain("TypeScript reference stepper");
+  });
+
+  it("tells the user what runs instead, rather than only that WebGPU is absent", async () => {
+    // The un-graceful outcome is a panel that reports an absence and stops.
+    // This asserts the sentence that names the replacement actually reaches
+    // the DOM on the route, not just in the panel's own unit test.
+    const root = mount();
+    await vi.waitFor(() => {
+      expect(root.querySelector('[data-testid="capability-fallback"]')).not.toBeNull();
+    });
+    const fallback = root.querySelector('[data-testid="capability-fallback"]')?.textContent ?? "";
+    expect(fallback).toContain("simulation is unaffected");
+    expect(fallback).toContain("TypeScript reference stepper");
   });
 });
 

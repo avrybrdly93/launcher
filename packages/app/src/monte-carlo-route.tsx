@@ -20,15 +20,17 @@
  * bar, real.
  */
 
-import { useCallback, useMemo } from "preact/hooks";
+import { useCallback, useEffect, useMemo, useState } from "preact/hooks";
 import {
   DEFAULT_FAN_REPLICATES,
+  detectComputeCapability,
   mcDashboardStudySteps,
+  type ComputeCapabilityReport,
   type McDashboardResult,
 } from "@ballista/runtime";
 import { uncertainScenarioSpecSchema, type UncertainScenarioSpec } from "@ballista/engine";
 import type { Target } from "@ballista/analysis";
-import { MonteCarloPage, type McStudyRunner } from "@ballista/ui";
+import { MonteCarloPage, WebGpuCapabilityPanel, type McStudyRunner } from "@ballista/ui";
 import { PRESET_SCENARIO_OPTIONS } from "./preset-scenario-options.js";
 import "./solver-lab-route.css";
 
@@ -160,7 +162,32 @@ export async function runGolfDriveStudy(options: {
   }
 }
 
+/**
+ * P7.13's capability report, mounted here because this is the route whose work
+ * is an ensemble -- the thing Phase 7's GPU path is being built to accelerate.
+ *
+ * Probed once on mount and held in state. The probe is async and cannot throw
+ * (`probeWebGpu`'s contract), so there is no error branch to render: the report
+ * *is* the answer, on a machine with no GPU as much as on one with.
+ */
+function useComputeCapability(): ComputeCapabilityReport | null {
+  const [report, setReport] = useState<ComputeCapabilityReport | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    void detectComputeCapability().then((result) => {
+      if (live) setReport(result);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  return report;
+}
+
 export function MonteCarloRoute() {
+  const capability = useComputeCapability();
   const runStudy = useCallback<McStudyRunner>(
     ({ replicates, signal, onProgress }) =>
       runGolfDriveStudy({
@@ -193,6 +220,7 @@ export function MonteCarloRoute() {
         to a worker, with estimates that tighten live, is P6.25.
       </p>
       <MonteCarloPage runStudy={runStudy} targetLabel={label} initialReplicates={256} />
+      <WebGpuCapabilityPanel report={capability} />
     </div>
   );
 }
