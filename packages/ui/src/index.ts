@@ -55,3 +55,5 @@ export * from "./sensitivity-study-panel.js";
 export * from "./estimator-help-panel.js";
 export * from "./monte-carlo-page-logic.js";
 export * from "./monte-carlo-page.js";
+export * from "./webgpu-capability-panel-logic.js";
+export * from "./webgpu-capability-panel.js";
