@@ -3023,8 +3023,8 @@
       "estMinutes": 20,
       "difficulty": "E",
       "validation": "unsupported browsers get graceful CPU path",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "CLAIMED before any code exists, and these are the terms, stated first so they can fail. (1) The criterion -- 'unsupported browsers get graceful CPU path' -- is a statement about the ABSENCE of WebGPU, so it is testable on this container, which has no `navigator.gpu`: the whole point is that the no-GPU path is the one that must be exercised, and it is the default here rather than the hard case. (2) Detection will be a pure function over an INJECTED GPU-like object, not a read of a global, so all four failure modes are reachable in Node: no `navigator.gpu`; `requestAdapter` resolving null (the spec's documented 'no adapter' answer, e.g. a blocklisted driver); `requestAdapter` throwing; and an adapter whose `requestDevice` rejects. (3) EVERY one of those four must yield a report, never a rejection -- a capability probe that throws is itself the ungraceful path the criterion forbids, and that is the property the tests assert. (4) The report will name the backend that WILL run, not merely say 'unsupported'. A fallback story is only explicit if it says what happens instead, and this repo already has the thing that happens instead: the P7.10 heterogeneous executor's CPU backends. (5) NO WGSL, NO KERNEL, NO DEVICE WORK -- that is P7.14 onward. This task ends at detection plus the report and its UI. Falsifiable: if the probe can be made to throw, or a report cannot name a concrete CPU fallback, term 3 or 4 has failed and the task is not done."
     },
     {
       "id": "P7.14",
