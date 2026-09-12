@@ -13,6 +13,7 @@
     "@ballista/engine": "workspace:*",
     "@ballista/solverkit": "workspace:*",
     "@ballista/analysis": "workspace:*",
+    "@ballista/wasm-core": "workspace:*",
     "nanostores": "^0.11.3"
   },
   "devDependencies": {

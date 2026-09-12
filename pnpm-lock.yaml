@@ -137,6 +137,9 @@ importers:
       '@ballista/solverkit':
         specifier: workspace:*
         version: link:../solverkit
+      '@ballista/wasm-core':
+        specifier: workspace:*
+        version: link:../wasm-core
       nanostores:
         specifier: ^0.11.3
         version: 0.11.4

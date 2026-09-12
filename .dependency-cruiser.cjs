@@ -8,14 +8,23 @@ const ALLOWED = {
   engine: [],
   solverkit: ["engine"],
   analysis: ["engine", "solverkit"],
-  runtime: ["engine", "solverkit", "analysis"],
+  runtime: ["engine", "solverkit", "analysis", "wasm-core"],
   viz: ["engine", "solverkit", "analysis", "runtime"],
   ui: ["engine", "solverkit", "analysis", "runtime", "viz"],
   app: ["engine", "solverkit", "analysis", "runtime", "viz", "ui"],
   validation: ["engine", "solverkit", "analysis"],
   // P7.07. The WASM backend sits beside `runtime`: it may read L0/L1 to
-  // compare against them, and nothing may depend on it yet. P7.10's
-  // heterogeneous executor is what adds it to `runtime`'s list.
+  // compare against them. P7.10 added it to `runtime`'s list above, which is
+  // what that task was for -- `heterogeneous-executor.ts` schedules ensemble
+  // chunks onto a WASM backend built over a `WasmRk4Kernel`.
+  //
+  // That edge is TYPE-ONLY in the package's index-reachable code, and the
+  // distinction is load-bearing rather than pedantic: `wasm-rk4-backend.ts`
+  // imports `node:fs/promises` to read the committed artifact off disk, so a
+  // value import would put a Node builtin into every browser bundle that
+  // touches `@ballista/runtime`. `tsPreCompilationDeps` below sees type
+  // imports too, which is why the entry is needed at all. Runtime's *tests*
+  // do import the kernel for real, which is where the equivalence is measured.
   "wasm-core": ["engine", "solverkit"],
 };
 
