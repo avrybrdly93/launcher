@@ -271,6 +271,24 @@ export interface WgslRk4Request {
   readonly kernelSource?: string;
   /** Must match the source's `@workgroup_size`. Defaults to {@link WGSL_WORKGROUP_SIZE}. */
   readonly workgroupSize?: number;
+  /**
+   * Floats the kernel writes back per trajectory. Defaults to
+   * {@link WGSL_STATE_DIM}, which is what P7.14's kernel writes.
+   *
+   * P7.16's observables kernel declares the *same four bindings with the same
+   * types* -- two read-only storage buffers, one read-write storage buffer, one
+   * uniform -- and differs only in how much it writes to binding 2. That is the
+   * whole reason this is a number here rather than a second copy of the buffer
+   * plumbing: the dispatch, the bind group, the copy and the readback are
+   * identical, and duplicating them to change one multiplier would give the two
+   * kernels two host paths to drift apart.
+   *
+   * It sizes the output buffer, the readback buffer and the copy. Getting it
+   * wrong under-allocates rather than failing: too small and the kernel's
+   * writes past the end are discarded by WebGPU's bounds checking, yielding
+   * zeros the caller reads as data.
+   */
+  readonly outputDim?: number;
 }
 
 /**
@@ -304,14 +322,19 @@ export async function runWgslRk4(
   const packedParams = packPlanarParams(params);
   const packedInitial = packInitialStates(initialStates);
   const packedConfig = packConfig(h, steps, count);
-  const stateBytes = count * WGSL_STATE_DIM * 4;
+  const outputDim = request.outputDim ?? WGSL_STATE_DIM;
+  if (!Number.isInteger(outputDim) || outputDim <= 0) {
+    throw new RangeError(`outputDim must be a positive integer, got ${outputDim}`);
+  }
+  const stateBytes = count * outputDim * 4;
+  const inputBytes = count * WGSL_STATE_DIM * 4;
 
   const paramsBuffer = device.createBuffer({
     size: Math.max(count * WGSL_PARAMS_STRIDE_BYTES, 4),
     usage: GPU_BUFFER_USAGE.STORAGE | GPU_BUFFER_USAGE.COPY_DST,
   });
   const initialBuffer = device.createBuffer({
-    size: Math.max(stateBytes, 4),
+    size: Math.max(inputBytes, 4),
     usage: GPU_BUFFER_USAGE.STORAGE | GPU_BUFFER_USAGE.COPY_DST,
   });
   const finalBuffer = device.createBuffer({

@@ -33,7 +33,7 @@
  * evidence about correctness rather than about copying:
  *
  * 1. At `round = identity` the helpers below reproduce
- *    {@link hermiteValue} and {@link hermiteStationaryPoint} from
+ *    `hermiteValue` and `hermiteStationaryPoint` from
  *    `@ballista/analysis` **exactly**, so this is one algorithm with a
  *    precision knob and not a second implementation free to drift. That is the
  *    same argument `observables.ts` makes for sharing those two functions with
@@ -96,7 +96,6 @@
  * the same output on the cases tested.
  */
 
-import { hermiteStationaryPoint, hermiteValue } from "@ballista/analysis";
 import {
   DIM,
   VX,
@@ -149,7 +148,8 @@ export interface PlanarObservables {
  * Cubic Hermite value at `theta`, with every operation taken at `round`'s
  * precision.
  *
- * Operation-for-operation from {@link hermiteValue}; at `round = identity` the
+ * Operation-for-operation from `@ballista/analysis`'s `hermiteValue`; at
+ * `round = identity` the
  * two are asserted bit-identical, which is what licenses calling this "the same
  * function at another precision" rather than a second implementation.
  */
@@ -185,7 +185,7 @@ export function hermiteValueAt(
  *
  * Both roots are computed even when the first is already in range, for the same
  * reason. The sign-stable form `q = -(b + sign(b)*sqrt(disc))/2` is
- * {@link hermiteStationaryPoint}'s, kept because the near-degenerate case it
+ * `hermiteStationaryPoint`'s, kept because the near-degenerate case it
  * protects (`|a| << |b|`, a nearly-linear derivative) is exactly what a small
  * step produces -- and f32 has far fewer digits to lose to the cancellation the
  * textbook formula suffers there.

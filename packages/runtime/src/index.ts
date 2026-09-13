@@ -22,6 +22,8 @@ export * from "./heterogeneous-executor.js";
 export * from "./webgpu-capability.js";
 export * from "./wgsl-rk4-kernel.js";
 export * from "./wgsl-rk4-dispatch.js";
+export * from "./wgsl-planar-physics.js";
+export * from "./wgsl-observables-kernel.js";
 export * from "./planar-observables-reduction.js";
 export * from "./wgsl-workgroup-sweep.js";
 export * from "./sensitivity-study.js";

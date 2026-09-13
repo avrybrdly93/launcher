@@ -109,6 +109,8 @@
  * is uniform within every workgroup except the last.
  */
 
+import { WGSL_PLANAR_STEP_FNS, WGSL_PLANAR_STRUCTS } from "./wgsl-planar-physics.js";
+
 /** State dimension `[x, y, vx, vy]`, matching `PLANAR_CHANNELS`. */
 export const WGSL_STATE_DIM = 4;
 
@@ -218,79 +220,14 @@ export function buildWgslRk4KernelSource(workgroupSize: number): string {
     throw new RangeError(`workgroup size must be a positive integer, got ${workgroupSize}`);
   }
   return /* wgsl */ `
-struct Params {
-  mass: f32,
-  area: f32,
-  cd: f32,
-  rho: f32,
-  g: f32,
-  windX: f32,
-  windY: f32,
-}
-
-struct Config {
-  h: f32,
-  steps: u32,
-  count: u32,
-  _pad: u32,
-}
+${WGSL_PLANAR_STRUCTS}
 
 @group(0) @binding(0) var<storage, read> params: array<Params>;
 @group(0) @binding(1) var<storage, read> initialStates: array<f32>;
 @group(0) @binding(2) var<storage, read_write> finalStates: array<f32>;
 @group(0) @binding(3) var<uniform> config: Config;
 
-// The planar rhs, operation-for-operation from wasm-core's rhs and the CPU
-// f32 reference. speedRel uses sqrt(a*a + b*b) and NOT length(), which is
-// permitted a different error bound.
-fn rhs(y: vec4<f32>, p: Params) -> vec4<f32> {
-  let vx = y.z;
-  let vy = y.w;
-
-  let vRelX = vx - p.windX;
-  let vRelY = vy - p.windY;
-  let speedRel = sqrt((vRelX * vRelX) + (vRelY * vRelY));
-
-  // GravityForce: unary minus binds tighter than *, so this is (-mass) * g.
-  var f0 = 0.0;
-  var f1 = (-p.mass) * p.g;
-
-  // QuadraticDragForce, left-associated verbatim.
-  let k = (((0.5 * p.rho) * p.cd) * p.area) * speedRel;
-  f0 = f0 + ((-k) * vRelX);
-  f1 = f1 + ((-k) * vRelY);
-
-  return vec4<f32>(vx, vy, f0 / p.mass, f1 / p.mass);
-}
-
-// One classical RK4 step. The zero 'a' entries are multiplied rather than
-// skipped, and the combine sums over stages before the single multiply by h.
-fn rk4Step(y: vec4<f32>, h: f32, p: Params) -> vec4<f32> {
-  let a10 = 0.5;
-  let a20 = 0.0;
-  let a21 = 0.5;
-  let a30 = 0.0;
-  let a31 = 0.0;
-  let a32 = 1.0;
-  let b0 = 1.0 / 6.0;
-  let b1 = 1.0 / 3.0;
-  let b2 = 1.0 / 3.0;
-  let b3 = 1.0 / 6.0;
-
-  let k0 = rhs(y, p);
-
-  let s1 = y + ((h * a10) * k0);
-  let k1 = rhs(s1, p);
-
-  let s2 = (y + ((h * a20) * k0)) + ((h * a21) * k1);
-  let k2 = rhs(s2, p);
-
-  let s3 = ((y + ((h * a30) * k0)) + ((h * a31) * k1)) + ((h * a32) * k2);
-  let k3 = rhs(s3, p);
-
-  let weighted = (((vec4<f32>(0.0) + (b0 * k0)) + (b1 * k1)) + (b2 * k2)) + (b3 * k3);
-  return y + (h * weighted);
-}
+${WGSL_PLANAR_STEP_FNS}
 
 @compute @workgroup_size(${workgroupSize})
 fn ${WGSL_ENTRY_POINT}(@builtin(global_invocation_id) gid: vec3<u32>) {
