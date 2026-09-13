@@ -103,10 +103,13 @@ export const identity: RoundFn = (x) => x;
 /** The f32 {@link RoundFn}. See the note on double rounding above. */
 export const toF32: RoundFn = Math.fround;
 
-/** State channel indices for the planar model, `[x, y, vx, vy]`. */
+/** Index of the horizontal position channel in the planar state `[x, y, vx, vy]`. */
 export const X = 0;
+/** Index of the vertical position channel in the planar state `[x, y, vx, vy]`. */
 export const Y = 1;
+/** Index of the horizontal velocity channel in the planar state `[x, y, vx, vy]`. */
 export const VX = 2;
+/** Index of the vertical velocity channel in the planar state `[x, y, vx, vy]`. */
 export const VY = 3;
 
 /** State dimension, matching `PLANAR_CHANNELS` and the WASM kernel's `DIM`. */
