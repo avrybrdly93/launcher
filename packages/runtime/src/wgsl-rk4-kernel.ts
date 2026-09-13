@@ -157,15 +157,67 @@ export const WGSL_ENTRY_POINT = "main";
 export const WGSL_PARAMS_STRIDE_BYTES = WGSL_PARAM_COUNT * 4;
 
 /**
- * The compute shader.
+ * Largest workgroup size any conformant WebGPU implementation is required to
+ * accept, and therefore the largest a sweep may try without first reading the
+ * device's own limits.
+ *
+ * The WebGPU specification's default `maxComputeWorkgroupSizeX` and
+ * `maxComputeInvocationsPerWorkgroup` are both 256. A device may report more,
+ * and P7.15's sweep reads the reported values rather than this constant --
+ * `planWorkgroupSweep` takes the limits as arguments for exactly that reason.
+ * This constant is the *portable* ceiling, used where no device is in hand: a
+ * source built above it is not wrong, it is merely not guaranteed to compile
+ * anywhere.
+ */
+export const WGSL_MAX_PORTABLE_WORKGROUP_SIZE = 256;
+
+/**
+ * Builds the compute shader with a chosen `@workgroup_size` literal.
+ *
+ * ## Why a builder rather than a string replace at the call site
+ *
+ * P7.15 sweeps the workgroup size, and the obvious way to do that is
+ * `WGSL_RK4_KERNEL_SOURCE.replace("@workgroup_size(64)", ...)` -- which the
+ * dispatch tests do today, in one place, deliberately. As the *product* code's
+ * mechanism it is a bad one: the literal `64` appears in the pattern, so the
+ * replace silently becomes a no-op the day {@link WGSL_WORKGROUP_SIZE}
+ * changes, and a no-op here does not fail. It produces a source whose declared
+ * size still says 64, which {@link runWgslRk4}'s guard then rejects with a
+ * message about the caller's argument -- so the failure surfaces one layer away
+ * from its cause.
+ *
+ * Interpolating the literal once, here, removes that whole class. There is one
+ * spelling of the shader and the size is a parameter of it.
+ *
+ * ## Only the literal varies
+ *
+ * The returned source differs from {@link WGSL_RK4_KERNEL_SOURCE} in exactly
+ * the `@workgroup_size(N)` literal and in nothing else -- not the arithmetic,
+ * not the operation order, not the bindings. That matters because a workgroup
+ * sweep compares timings across sources, and a source that also differed in its
+ * arithmetic would make the comparison measure two things. It is asserted
+ * rather than intended: `wgsl-rk4-kernel.test.ts` rebuilds the default size and
+ * checks the result is character-identical, and checks that substituting the
+ * literal back into any swept source recovers the default exactly.
+ *
+ * ## Transcription
  *
  * Transcribed from `planar-rk4-precision-reference.ts`. The stages are written
  * out longhand rather than looped over a tableau array: WGSL has no dynamic
  * indexing of a `const` array without a uniformity analysis the loop would not
  * satisfy, and unrolling makes the operation order visible at the point a
  * reader checks it against the CPU reference.
+ *
+ * @param workgroupSize positive integer. Not bounded above here: the ceiling is
+ *   a property of the device, and {@link WGSL_MAX_PORTABLE_WORKGROUP_SIZE} is
+ *   the portable one for callers with no device in hand.
+ * @throws RangeError if `workgroupSize` is not a positive integer.
  */
-export const WGSL_RK4_KERNEL_SOURCE = /* wgsl */ `
+export function buildWgslRk4KernelSource(workgroupSize: number): string {
+  if (!Number.isInteger(workgroupSize) || workgroupSize <= 0) {
+    throw new RangeError(`workgroup size must be a positive integer, got ${workgroupSize}`);
+  }
+  return /* wgsl */ `
 struct Params {
   mass: f32,
   area: f32,
@@ -240,7 +292,7 @@ fn rk4Step(y: vec4<f32>, h: f32, p: Params) -> vec4<f32> {
   return y + (h * weighted);
 }
 
-@compute @workgroup_size(${WGSL_WORKGROUP_SIZE})
+@compute @workgroup_size(${workgroupSize})
 fn ${WGSL_ENTRY_POINT}(@builtin(global_invocation_id) gid: vec3<u32>) {
   let index = gid.x;
   if (index >= config.count) {
@@ -271,3 +323,13 @@ fn ${WGSL_ENTRY_POINT}(@builtin(global_invocation_id) gid: vec3<u32>) {
   finalStates[base + 3u] = y.w;
 }
 `;
+}
+
+/**
+ * The compute shader at the default {@link WGSL_WORKGROUP_SIZE}.
+ *
+ * Derived from {@link buildWgslRk4KernelSource} rather than written out a
+ * second time, so the default and every swept source are the same text by
+ * construction and not by inspection.
+ */
+export const WGSL_RK4_KERNEL_SOURCE = buildWgslRk4KernelSource(WGSL_WORKGROUP_SIZE);

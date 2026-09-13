@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   WGSL_BINDINGS,
+  WGSL_MAX_PORTABLE_WORKGROUP_SIZE,
+  buildWgslRk4KernelSource,
   WGSL_ENTRY_POINT,
   WGSL_PARAMS_STRIDE_BYTES,
   WGSL_PARAM_COUNT,
@@ -201,5 +203,59 @@ describe("the kernel is single precision throughout", () => {
     expect(types).toHaveLength(WGSL_PARAM_COUNT);
     expect(types.every((t) => t === "f32")).toBe(true);
     expect(CODE).toContain("h: f32,");
+  });
+});
+
+/**
+ * P7.15's source builder.
+ *
+ * The sweep varies one literal and compares timings across the results, so the
+ * property that has to hold is that **nothing else varies**. If a swept source
+ * differed anywhere but the `@workgroup_size` literal, the sweep would be
+ * comparing two things and attributing the difference to one of them.
+ *
+ * These assert that as a textual identity rather than by inspection, which is
+ * the only way to keep it true as the shader changes.
+ */
+describe("buildWgslRk4KernelSource", () => {
+  it("reproduces the exported default character for character", () => {
+    // The default constant is *derived* from the builder, so this looks
+    // circular. It is not: it is the check that nothing later reintroduces a
+    // second hand-written copy of the shader, which is exactly what this
+    // refactor removed.
+    expect(buildWgslRk4KernelSource(WGSL_WORKGROUP_SIZE)).toBe(WGSL_RK4_KERNEL_SOURCE);
+  });
+
+  it("differs from the default in the workgroup literal and nowhere else", () => {
+    for (const size of [1, 32, 64, 128, 256]) {
+      const swept = buildWgslRk4KernelSource(size);
+      const restored = swept.replace(
+        `@workgroup_size(${size})`,
+        `@workgroup_size(${WGSL_WORKGROUP_SIZE})`,
+      );
+      expect(restored).toBe(WGSL_RK4_KERNEL_SOURCE);
+    }
+  });
+
+  it("declares the size it was asked for", () => {
+    for (const size of [1, 7, 64, 256, 1024]) {
+      expect(buildWgslRk4KernelSource(size)).toContain(`@compute @workgroup_size(${size})`);
+    }
+  });
+
+  it("rejects a size that is not a positive integer", () => {
+    for (const bad of [0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(() => buildWgslRk4KernelSource(bad)).toThrow(RangeError);
+    }
+  });
+
+  it("does not cap the size at the portable ceiling, because the ceiling is the device's", () => {
+    // A source above the guaranteed limit is not wrong, only not guaranteed to
+    // compile everywhere -- `planWorkgroupSweep` is what reads a real device's
+    // limits. Capping here would make the builder silently disagree with a
+    // device that reports more, which is the failure this comment exists to
+    // stop someone "fixing" into place.
+    const beyond = WGSL_MAX_PORTABLE_WORKGROUP_SIZE * 2;
+    expect(buildWgslRk4KernelSource(beyond)).toContain(`@workgroup_size(${beyond})`);
   });
 });
