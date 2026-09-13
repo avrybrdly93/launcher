@@ -26,6 +26,7 @@
     "check:wasm-artifact": "node scripts/build-wasm-core.mjs --check",
     "check:cross-engine-drift": "node scripts/measure-cross-engine-drift.mjs",
     "check:gpu-rk4-agreement": "node scripts/measure-gpu-rk4-agreement.mjs",
+    "bench:gpu-workgroup": "node scripts/measure-gpu-workgroup-sweep.mjs",
     "check:backend-equivalence": "vitest run packages/runtime/src/backend-equivalence.test.ts",
     "lint": "eslint .",
     "lint:deps": "depcruise --config .dependency-cruiser.cjs packages",
