@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-09-13",
+  "task": "P7.14",
+  "trajectories": 10000,
+  "seed": "0x7a14c0de",
+  "h": 0.001,
+  "steps": 2000,
+  "ulpBudget": 64,
+  "provenance": "Measured by `node scripts/measure-gpu-rk4-agreement.mjs --record`. The WGSL kernel ran on the adapter recorded below inside Playwright-driven Chromium, served over http://127.0.0.1 because WebGPU is secure-context only; the reference is `integratePlanarRk4` with `round: toF32` (true f32, every intermediate rounded) under Node. THE ADAPTER IS SOFTWARE (SwiftShader), so these are correctness numbers and not performance numbers -- no timing, throughput or workgroup-size figure is measured here or may be inferred from this file. The gate is ULP distance in binary32; the relative figure is recorded as documentation only, because P0.134 establishes that a fixed relative bound on this model is decided by where a trajectory's last step falls relative to apex rather than by the kernel's accuracy.",
+  "adapter": {
+    "vendor": "google",
+    "architecture": "swiftshader",
+    "device": "",
+    "description": "",
+    "isFallbackAdapter": null
+  },
+  "chromiumVersion": "141.0.7390.37",
+  "chromiumFlags": [
+    "--enable-unsafe-webgpu",
+    "--use-webgpu-adapter=swiftshader",
+    "--enable-features=Vulkan"
+  ],
+  "deviceErrors": [],
+  "agreement": {
+    "perChannel": [
+      {
+        "channel": "x",
+        "maxAbs": 0,
+        "maxUlp": 0,
+        "maxRelative": 0,
+        "worstAbsAt": null,
+        "worstUlpAt": null,
+        "worstRelativeAt": null
+      },
+      {
+        "channel": "y",
+        "maxAbs": 0,
+        "maxUlp": 0,
+        "maxRelative": 0,
+        "worstAbsAt": null,
+        "worstUlpAt": null,
+        "worstRelativeAt": null
+      },
+      {
+        "channel": "vx",
+        "maxAbs": 0,
+        "maxUlp": 0,
+        "maxRelative": 0,
+        "worstAbsAt": null,
+        "worstUlpAt": null,
+        "worstRelativeAt": null
+      },
+      {
+        "channel": "vy",
+        "maxAbs": 0,
+        "maxUlp": 0,
+        "maxRelative": 0,
+        "worstAbsAt": null,
+        "worstUlpAt": null,
+        "worstRelativeAt": null
+      }
+    ],
+    "identicalTrajectories": 10000,
+    "identicalValues": 40000,
+    "totalValues": 40000,
+    "maxUlpAnyChannel": 0,
+    "maxRelativeAnyChannel": 0
+  }
+}
