@@ -22,6 +22,7 @@ export * from "./heterogeneous-executor.js";
 export * from "./webgpu-capability.js";
 export * from "./wgsl-rk4-kernel.js";
 export * from "./wgsl-rk4-dispatch.js";
+export * from "./wgsl-workgroup-sweep.js";
 export * from "./sensitivity-study.js";
 export * from "./optimize-job.js";
 export * from "./worker-pool.js";
