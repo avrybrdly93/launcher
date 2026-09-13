@@ -97,6 +97,43 @@ jobs:
         # (P0.102), which is what a local pre-push gate run should do.
         run: pnpm check:cross-engine-drift --record
 
+      # P7.15. A real gate, and the evidence that it is one was gathered before
+      # this step was added -- which is the 98th run's lesson applied rather
+      # than restated, since that run's CI went red from adding a step that had
+      # not been run where it would run.
+      #
+      # `.github/workflows/gpu-adapter-probe.yml` (dispatch-only) ran the script
+      # on an ubuntu-latest runner on 2026-09-13, run 34778378056. It probed two
+      # legs, expecting the bare launch to find nothing because Playwright
+      # resolves `chromium_headless_shell` and the headless shell does not ship
+      # the GPU process WebGPU needs.
+      #
+      # **That expectation was wrong.** The bare `pnpm check:gpu-rk4-agreement`
+      # -- exactly this invocation -- obtained a SwiftShader adapter (vendor
+      # google, architecture swiftshader, Chromium 149.0.7827.55) and reported
+      # 10000/10000 trajectories bit-identical, 0 ULP. The explicit
+      # full-Chromium leg agreed. Step cost was ~7 s, of which ~6 s is the f32
+      # CPU reference under Node and ~1 s is the browser.
+      #
+      # HARD, not a soft warn, for the reason the backend-equivalence step
+      # above gives: this asserts numerical agreement against a budget, which
+      # is either true or is a bug, unlike the three timing benchmarks whose
+      # numbers move with a noisy neighbour. It degrades correctly if a future
+      # runner image drops the adapter -- the script warns and exits 0 rather
+      # than reporting an all-clear it did not measure (P0.102).
+      #
+      # NOT `--record`: the write would land in the runner's workspace and be
+      # discarded, and refreshing the committed results file is meant to be a
+      # deliberate local act. Same position as the throughput step.
+      #
+      # The P7.15 workgroup sweep (`pnpm bench:gpu-workgroup`) is deliberately
+      # NOT here. It is a timing benchmark, and a workgroup ranking measured on
+      # a shared runner's software adapter would be noise wearing a result's
+      # name -- its own measurement in this container could not separate its
+      # top two sizes on a quiet machine.
+      - name: GPU/CPU kernel agreement (WGSL RK4)
+        run: pnpm check:gpu-rk4-agreement
+
       - name: Engine API docs
         run: pnpm --filter @ballista/engine run docs
 
