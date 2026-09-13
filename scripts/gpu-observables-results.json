@@ -1,0 +1,73 @@
+{
+  "task": "P7.16",
+  "criterion": "matches CPU observables within f32 tolerance",
+  "criterionReading": "Reading (iii), settled in the 101st run's claim commit: the device reduction against an f32 CPU reduction of the same algorithm over the same f32 fixed-step trajectory. The weaker check against @ballista/analysis's f64 observables lives in planar-observables-reduction.test.ts and is what keeps this from comparing a transcription to its own twin.",
+  "provenance": "Correctness only. The adapter is recorded below; where it is software, these numbers say what a conformant implementation computes and say NOTHING about throughput or about the bandwidth saving the on-device reduction exists for. That is P7.20.",
+  "measuredAt": "2026-09-13T22:41:59.827Z",
+  "trajectories": 10000,
+  "seed": "0x7a14c0de",
+  "h": 0.001,
+  "steps": 12000,
+  "ulpBudget": 256,
+  "ulpBudgetBasis": "Two-sided, and NOT derived from this run's result (which was exact). Above: P7.14 gates the integration at 64 for FMA-contraction latitude, and the reduction adds a few dozen operations on top of it, so 4x that. Below: control C2, which replaces the 60-iteration impact bisection with theta=0.5, measures 1987 ULP on range -- so the budget must sit under that or it would permit deleting the feature under test. An earlier draft of this script used 4096, which C2 passes; the control is what caught it.",
+  "adapterInfo": {
+    "vendor": "google",
+    "architecture": "swiftshader",
+    "device": "",
+    "description": "",
+    "isFallbackAdapter": null
+  },
+  "chromiumVersion": "141.0.7390.37",
+  "flagSet": "swiftshader",
+  "deviceErrors": [],
+  "impactedOnCpu": 10000,
+  "impactedMismatches": 0,
+  "identicalTrajectories": 10000,
+  "perObservable": [
+    {
+      "observable": "apexHeight",
+      "maxAbs": 0,
+      "maxUlp": 0,
+      "maxRelative": 0,
+      "identicalValues": 10000,
+      "worstUlpAt": null,
+      "worstRelativeAt": null
+    },
+    {
+      "observable": "apexT",
+      "maxAbs": 0,
+      "maxUlp": 0,
+      "maxRelative": 0,
+      "identicalValues": 10000,
+      "worstUlpAt": null,
+      "worstRelativeAt": null
+    },
+    {
+      "observable": "range",
+      "maxAbs": 0,
+      "maxUlp": 0,
+      "maxRelative": 0,
+      "identicalValues": 10000,
+      "worstUlpAt": null,
+      "worstRelativeAt": null
+    },
+    {
+      "observable": "impactT",
+      "maxAbs": 0,
+      "maxUlp": 0,
+      "maxRelative": 0,
+      "identicalValues": 10000,
+      "worstUlpAt": null,
+      "worstRelativeAt": null
+    },
+    {
+      "observable": "impacted",
+      "maxAbs": 0,
+      "maxUlp": 0,
+      "maxRelative": 0,
+      "identicalValues": 10000,
+      "worstUlpAt": null,
+      "worstRelativeAt": null
+    }
+  ]
+}

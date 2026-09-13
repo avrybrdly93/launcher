@@ -96,16 +96,28 @@
  * the same output on the cases tested.
  */
 
-import {
-  DIM,
-  VX,
-  VY,
-  X,
-  Y,
-  integratePlanarRk4,
-  type PlanarDragParams,
-  type RoundFn,
-} from "@ballista/solverkit";
+import type { RoundFn } from "@ballista/solverkit";
+
+/**
+ * Planar channel indices and state dimension, spelled locally rather than
+ * imported.
+ *
+ * Not duplication for its own sake: this module is imported by
+ * `scripts/gpu-observables-fixture.mjs` **directly out of `dist/`**, under Node,
+ * and a runtime `import ... from "@ballista/solverkit"` survives compilation as
+ * a bare specifier that Node resolves to the workspace package, whose `main` is
+ * a `.ts` file it cannot load. Every fixture in `scripts/` is subject to the
+ * same rule, which is why they all import deep `dist/` paths and why
+ * `wgsl-rk4-dispatch.ts` gets away with `import type`.
+ *
+ * `planar-observables-reduction.test.ts` asserts these equal solverkit's, so the
+ * copy cannot drift silently.
+ */
+const DIM = 4;
+const X = 0;
+const Y = 1;
+const VX = 2;
+const VY = 3;
 
 /**
  * Halvings used to invert the vertical Hermite for the ground crossing.
@@ -384,47 +396,4 @@ export class PlanarObservableReducer {
       this.bestT = t;
     }
   }
-}
-
-/** Options for {@link reducePlanarObservables}. */
-export interface PlanarObservablesOptions {
-  /** Initial state `[x, y, vx, vy]`. */
-  readonly y0: ArrayLike<number>;
-  /** Fixed step size. */
-  readonly h: number;
-  /** Number of steps to take. */
-  readonly steps: number;
-  /** Model parameters. */
-  readonly params: PlanarDragParams;
-  /** Working precision: `toF32` for the shader comparison, `identity` for f64. */
-  readonly round: RoundFn;
-  /** Start time; defaults to 0. */
-  readonly t0?: number;
-}
-
-/**
- * Integrates one flight with {@link integratePlanarRk4} and reduces it.
- *
- * Driven through that function's `onStep` hook rather than re-implementing the
- * march, so the trajectory this reduces is by construction the same one P7.14
- * compared against the device -- the reduction is the only new thing in the
- * comparison.
- */
-export function reducePlanarObservables(options: PlanarObservablesOptions): PlanarObservables {
-  const { round } = options;
-  const t0 = round(options.t0 ?? 0);
-  const y0 = new Float64Array(DIM);
-  for (let i = 0; i < DIM; i++) y0[i] = round(options.y0[i]!);
-
-  const reducer = new PlanarObservableReducer(y0, t0, round);
-  integratePlanarRk4({
-    y0,
-    h: options.h,
-    steps: options.steps,
-    params: options.params,
-    round,
-    t0,
-    onStep: (_step, t, y) => reducer.step(t, y),
-  });
-  return reducer.finish();
 }

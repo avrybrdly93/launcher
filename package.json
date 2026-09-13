@@ -33,7 +33,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "verify": "pnpm typecheck && pnpm lint && pnpm lint:deps && pnpm test",
-    "prepare": "husky"
+    "prepare": "husky",
+    "check:gpu-observables": "node scripts/measure-gpu-observables.mjs"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^8.15.0",

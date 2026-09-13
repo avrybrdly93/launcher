@@ -25,6 +25,7 @@ export * from "./wgsl-rk4-dispatch.js";
 export * from "./wgsl-planar-physics.js";
 export * from "./wgsl-observables-kernel.js";
 export * from "./planar-observables-reduction.js";
+export * from "./planar-observables-flight.js";
 export * from "./wgsl-workgroup-sweep.js";
 export * from "./sensitivity-study.js";
 export * from "./optimize-job.js";

@@ -7,14 +7,24 @@ import {
   range as analysisRange,
   PLANAR_LAYOUT,
 } from "@ballista/analysis";
-import { identity, toF32, type PlanarDragParams, type Trajectory } from "@ballista/solverkit";
+import {
+  DIM,
+  identity,
+  toF32,
+  VX,
+  VY,
+  X,
+  Y,
+  type PlanarDragParams,
+  type Trajectory,
+} from "@ballista/solverkit";
 
 import {
   hermiteStationaryThetaAt,
   hermiteValueAt,
   PlanarObservableReducer,
-  reducePlanarObservables,
 } from "./planar-observables-reduction.js";
+import { reducePlanarObservables } from "./planar-observables-flight.js";
 
 /**
  * Drag-free parameters. `cd = 0` kills the drag term exactly -- the factor
@@ -87,6 +97,21 @@ function reduceRows(rows: readonly (readonly number[])[], times: Float64Array) {
   for (let row = 1; row < rows.length; row++) reducer.step(times[row]!, rows[row]!);
   return reducer.finish();
 }
+
+describe("the locally spelled channel layout has not drifted from solverkit's", () => {
+  // The reduction spells these locally so that `dist/` stays loadable under
+  // plain Node for the GPU fixture. That is a real constraint and it buys a real
+  // hazard: two spellings of the same layout. A disagreement here would not
+  // throw anywhere -- it would read v_x where it meant v_y and report a
+  // confidently wrong apex.
+  it("agrees with @ballista/solverkit on every index and on the dimension", () => {
+    expect(PLANAR_LAYOUT.position).toEqual([X, Y]);
+    expect(PLANAR_LAYOUT.velocity).toEqual([VX, VY]);
+    expect(PLANAR_LAYOUT.vertical).toBe(1);
+    expect(DIM).toBe(4);
+    expect([X, Y, VX, VY]).toEqual([0, 1, 2, 3]);
+  });
+});
 
 describe("the rounded helpers are the analysis helpers at another precision", () => {
   // Fixed brackets chosen to include the shapes the sign-stable quadratic form

@@ -134,6 +134,26 @@ jobs:
       - name: GPU/CPU kernel agreement (WGSL RK4)
         run: pnpm check:gpu-rk4-agreement
 
+      # P7.16, and a hard gate for exactly the reason the step above is one:
+      # it asserts numerical agreement against a budget, which is either true
+      # or is a bug. It shares that step's degradation behaviour too -- no
+      # adapter means a warning and exit 0, never an all-clear derived from
+      # nothing measured (P0.102).
+      #
+      # Added on the strength of the run above rather than on a fresh probe.
+      # That is a weaker warrant than P7.15 had and it is stated rather than
+      # glossed: the two scripts launch the same Chromium the same way, with
+      # the same flag sets and the same secure-context server, and differ only
+      # in which shader they dispatch and how many steps they march. What is
+      # genuinely untested on a runner is the cost. The CPU reduction under
+      # Node took 43 s locally for 10000 trajectories at 12000 steps -- six
+      # times the RK4 step's ~7 s, because it marches six times as far -- so
+      # this step is expected to be the slowest in the job by some margin. If
+      # that proves intolerable on a runner the fix is to cut the ensemble for
+      # CI and keep the 1e4 run local, NOT to drop the gate.
+      - name: GPU/CPU observables agreement (WGSL reduction)
+        run: pnpm check:gpu-observables
+
       - name: Engine API docs
         run: pnpm --filter @ballista/engine run docs
 
