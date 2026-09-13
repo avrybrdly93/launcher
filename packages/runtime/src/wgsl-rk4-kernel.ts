@@ -1,26 +1,33 @@
 /**
  * The WGSL fixed-step RK4 compute kernel: one thread = one trajectory (P7.14).
  *
- * ## What ships here, and what deliberately does not
+ * ## What ships here, and where the rest of it lives
  *
- * This module is the **shader source and its binding layout, as data**. It does
- * not create a device, a pipeline, a buffer or a bind group, and it dispatches
- * nothing.
+ * This module is the **shader source and its binding layout, as data**. It
+ * creates no device, pipeline, buffer or bind group and dispatches nothing; that
+ * is `wgsl-rk4-dispatch.ts`, which arrived in the 99th run.
  *
- * That is a seam, not an omission. P7.13 established that this container has no
- * `navigator.gpu` and no adapter -- its probe returns `no-navigator-gpu` here as
- * the *default* path rather than the hard case -- so a dispatch layer written
- * now could not be executed, and hand-typing `GPUBuffer`, `GPUBindGroup` and
- * `GPUComputePipeline` structural types to drive a device that does not exist
- * would be untestable scaffolding. P7.15 ("GPU parameter upload: storage buffers
- * for param/IC arrays; workgroup sizing sweep") is exactly that task, and it is
- * the one that can measure a workgroup sweep. P7.13's probe destroys the device
- * it creates, deliberately, so P7.15 requests its own.
+ * **The paragraph that used to stand here said nothing in this module had been
+ * executed on a GPU, and that is no longer true.** It has: 10000 trajectories on
+ * a real WebGPU device, **bit-identical** to the f32 CPU reference on every
+ * channel -- 0 ULP, 40000 of 40000 values. `scripts/gpu-rk4-agreement-results.json`
+ * records the measurement and the adapter.
  *
- * **Nothing in this module has been executed on a GPU.** No agreement figure,
- * trajectory count or speedup is claimed anywhere in it. What is claimed is
- * structural, and every structural claim is asserted in
- * `wgsl-rk4-kernel.test.ts`.
+ * The reasoning that justified the seam was half right and is worth keeping
+ * straight, because it was wrong in an instructive way. P7.13 established that
+ * *Node* has no `navigator.gpu`, which is true. What did not follow is that this
+ * environment has no GPU at all: WebGPU is exposed only in a **secure context**,
+ * so a page on `about:blank` reports no `navigator.gpu` while the same browser
+ * served over `http://127.0.0.1` reports one, and Chromium ships SwiftShader's
+ * Vulkan ICD inside its own build, so a **software** adapter is available with the
+ * right flags.
+ *
+ * **Software is the word that bounds what the measurement proves.** It settles
+ * correctness, which is what P7.14's criterion asks about. It settles nothing
+ * about throughput, and no timing or speedup figure appears in this module or in
+ * the measurement script. P7.15 keeps the workgroup sweep and P7.20 the
+ * throughput target; both need real hardware. P7.13's probe destroys the device it
+ * creates, deliberately, so the dispatch layer requests its own.
  *
  * ## The specification is executable, and it lives in solverkit
  *
@@ -51,7 +58,12 @@
  * 2. **`sqrt(a*a + b*b)`, never a `length()` builtin.** `length` is permitted a
  *    different error bound and a correctly-rounded implementation would disagree
  *    with both the CPU reference and the WASM kernel, which for the same reason
- *    avoid `Math.hypot`.
+ *    avoid `Math.hypot`. **The 99th run substituted `length()` as a control and
+ *    the result was bit-identical**, so the GPU/CPU comparison is blind to this
+ *    substitution on SwiftShader and the source-level check in this module's test
+ *    file is the only thing protecting the property where it would matter. That
+ *    makes the correspondence test load bearing rather than belt-and-braces; do
+ *    not delete it on the grounds that a numerical comparison now exists.
  *
  * 3. **FMA contraction is the one hazard this module cannot close, and it is
  *    stated rather than hidden.** WGSL does not forbid an implementation from
@@ -64,6 +76,13 @@
  *    wrong (see the note on the relative gate below). The expressions below are
  *    written with explicit parenthesisation to give a contracting compiler as
  *    little latitude as possible, but that is mitigation, not a guarantee.
+ *
+ *    **Measured, and the distinction survives the measurement:** SwiftShader
+ *    contracts none of them -- the 99th run's 1e4-trajectory comparison is exact.
+ *    That is evidence about one implementation and not about the hazard, which is
+ *    a licence in the specification rather than a behaviour of a compiler, so the
+ *    gate keeps a small non-zero ULP budget instead of being tightened to the
+ *    exactness that happens to hold here.
  *
  * ## The criterion's metric is wrong, and P7.15+ should not adopt it as written
  *

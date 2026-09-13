@@ -13,18 +13,22 @@ import {
  * **These are correspondence checks, not numerical validation, and the
  * distinction is the honest part of this file.**
  *
- * Nothing here has run on a GPU. There is no `navigator.gpu` in this container
- * and no adapter in this image, so the kernel's *numbers* are unverified and no
- * test below pretends otherwise -- P7.14 stays `in-progress` for exactly that
- * reason. What these tests can do is catch the defects that are visible in the
- * source: a wrong binding index, a `length()` builtin slipping in where the
- * error bound would differ, a `break` that would make the kernel divergent, a
- * drag factor that lost its parenthesisation, a workgroup size the shader text
- * and the exported constant disagree about.
+ * Nothing *in this file* runs on a GPU. What these tests catch is what is visible
+ * in the source: a wrong binding index, a `length()` builtin slipping in where the
+ * error bound would differ, a `break` that would make the kernel divergent, a drag
+ * factor that lost its parenthesisation, a workgroup size the shader text and the
+ * exported constant disagree about.
  *
- * That is worth having. Every one of those would otherwise be found by a human
- * reading a shader on a machine with a GPU, weeks later, with the discrepancy
- * charged to precision rather than to a typo.
+ * **The kernel's numbers are no longer unverified, and that makes this file more
+ * important rather than less.** The 99th run ran it on a real (software) device
+ * over 1e4 trajectories and got a bit-identical match against the f32 CPU
+ * reference -- see `scripts/measure-gpu-rk4-agreement.mjs`. In the course of that
+ * it substituted `length()` for the manual `sqrt` as a negative control and the
+ * result was **still bit-identical**, so the numerical comparison is blind to
+ * precisely the substitution the kernel's own documentation warns about. The
+ * source-level check below is the only thing protecting that property on the
+ * implementations where `length()`'s looser error bound would show. Do not delete
+ * these as superseded by the measurement; the measurement cannot see what they see.
  */
 
 /** The source with `//` comments stripped, so a check cannot pass on a comment. */
