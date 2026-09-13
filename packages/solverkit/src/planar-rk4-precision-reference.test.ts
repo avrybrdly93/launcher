@@ -15,6 +15,8 @@ import { ClassicalRK4Stepper } from "./classical-rk4-stepper.js";
 import { createStepResult } from "./types.js";
 import {
   DIM,
+  createPlanarRk4Scratch,
+  stepPlanarRk4,
   VX,
   VY,
   X,
@@ -285,6 +287,89 @@ describe("every rhs intermediate is rounded, checked against an independent eval
   });
 });
 
+describe("every STEP intermediate is rounded too, tableau coefficients included", () => {
+  /**
+   * The rhs check above does not cover the stepper, and a second defect lived
+   * in exactly that gap: `b = [1/6, 1/3, 1/3, 1/6]` has two entries that are
+   * **not representable in binary32**, so `f64(1/6) * f32(k)` rounded once is
+   * not `f32(1/6) * f32(k)`. Over 200000 sampled `k`, the two forms disagree on
+   * **33.5%** of products. A WGSL kernel computes the second; the reference
+   * originally computed the first.
+   *
+   * This block is the rhs check extended to a whole step, with the tableau
+   * written out longhand in the independent evaluator so a coefficient that
+   * fails to round has nowhere to hide.
+   */
+  const slot = new Float32Array(1);
+  const r = (x: number): number => {
+    slot[0] = x;
+    return slot[0]!;
+  };
+
+  const B32 = [r(1 / 6), r(1 / 3), r(1 / 3), r(1 / 6)];
+  const A32 = [r(0.5), r(0.5), r(1)];
+
+  function independentF32Step(y: Float64Array, h: number, p: PlanarDragParams): Float64Array {
+    const rhs = (yy: Float64Array): Float64Array => {
+      const out = new Float64Array(DIM);
+      planarDragRhs(0, yy, out, p, toF32);
+      return out;
+    };
+    const hh = r(h);
+
+    const k1 = rhs(y);
+    const s2 = new Float64Array(DIM);
+    for (let i = 0; i < DIM; i++) s2[i] = r(y[i]! + r(r(hh * A32[0]!) * k1[i]!));
+    const k2 = rhs(s2);
+    const s3 = new Float64Array(DIM);
+    for (let i = 0; i < DIM; i++) {
+      // The zero `a` entry is multiplied, not skipped, exactly as the module does.
+      const withZero = r(y[i]! + r(r(hh * r(0)) * k1[i]!));
+      s3[i] = r(withZero + r(r(hh * A32[1]!) * k2[i]!));
+    }
+    const k3 = rhs(s3);
+    const s4 = new Float64Array(DIM);
+    for (let i = 0; i < DIM; i++) {
+      let acc = r(y[i]! + r(r(hh * r(0)) * k1[i]!));
+      acc = r(acc + r(r(hh * r(0)) * k2[i]!));
+      s4[i] = r(acc + r(r(hh * A32[2]!) * k3[i]!));
+    }
+    const k4 = rhs(s4);
+
+    const out = new Float64Array(DIM);
+    const ks = [k1, k2, k3, k4];
+    for (let i = 0; i < DIM; i++) {
+      let weighted = 0;
+      for (let s = 0; s < 4; s++) weighted = r(weighted + r(B32[s]! * ks[s]![i]!));
+      out[i] = r(y[i]! + r(hh * weighted));
+    }
+    return out;
+  }
+
+  it("agrees bit-for-bit with an independent longhand f32 step", () => {
+    const params = roundParams(referenceParams(), toF32);
+    const scratch = createPlanarRk4Scratch();
+    const out = new Float64Array(DIM);
+
+    for (const h of [0.01, 0.001, 0.1]) {
+      for (const s of [
+        [0, 0, 42.4264, 42.4264],
+        [0, 120, 30, -5],
+        [0, 10, WIND_X, WIND_Y],
+        [0, 0, 0, 0],
+        [0, 80, -60, 0.25],
+      ]) {
+        const y = initPlanarStateF32(s);
+        stepPlanarRk4(0, y, Math.fround(h), params, toF32, scratch, out);
+        const expected = independentF32Step(y, h, params);
+        for (let i = 0; i < DIM; i++) {
+          expect(Object.is(out[i]!, expected[i]!)).toBe(true);
+        }
+      }
+    }
+  });
+});
+
 describe("true f32 and storage-rounded f32 are different objects", () => {
   /**
    * Storage-rounded f32, as `integrate.ts` implements
@@ -419,13 +504,13 @@ describe("P7.14's 1e-4 RELATIVE gate is not a property of the kernel", () => {
    * against f64 -- which is the comparison P7.14's criterion actually performs:
    *
    * ```
-   *   t=2.050s  vy= 1.538e+0   abs(vy)=3.462e-6   rel(vy)=2.251e-6
-   *   t=2.150s  vy= 5.093e-1   abs(vy)=3.121e-6   rel(vy)=6.127e-6
-   *   t=2.200s  vy= 4.342e-3   abs(vy)=3.047e-6   rel(vy)=7.017e-4
+   *   t=2.050s  vy= 1.538e+0   abs(vy)=3.343e-6   rel(vy)=2.173e-6
+   *   t=2.150s  vy= 5.093e-1   abs(vy)=3.002e-6   rel(vy)=5.893e-6
+   *   t=2.200s  vy= 4.342e-3   abs(vy)=2.927e-6   rel(vy)=6.743e-4
    * ```
    *
-   * **The absolute error is flat -- it moves by 13% across the whole sweep --
-   * while the relative error moves by a factor of 312 and crosses the gate.**
+   * **The absolute error is flat -- it moves by 12% across the whole sweep --
+   * while the relative error moves by a factor of 310 and crosses the gate.**
    * Nothing about the kernel's accuracy changed between t=2.150s and t=2.200s.
    * What changed is that the denominator passed through zero.
    *
