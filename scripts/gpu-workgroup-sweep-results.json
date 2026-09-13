@@ -1,0 +1,99 @@
+{
+  "schemaVersion": 1,
+  "task": "P7.15",
+  "criterion": "best workgroup size recorded per adapter class",
+  "criterionReading": "Per adapter class ACTUALLY MEASURED, software included, each row labelled with the class it was measured on. Settled in ROADMAP.json under P7.15 before any measurement, in a commit containing no code. A row for a class nobody has measured is never written: `--record` replaces only the class of the adapter in front of it and leaves every other row untouched.",
+  "provenance": "Written by `node scripts/measure-gpu-workgroup-sweep.mjs --record`. Each row's `evidence` field states whether that row is evidence about hardware. Rows are keyed by `adapterClass`, derived by `classifyAdapter` from the adapter's own info rather than typed by hand; that function errs towards `software`, because calling a software adapter `hardware` is the one misclassification that puts a CPU emulation's occupancy curve into the record as evidence about a GPU.",
+  "rows": [
+    {
+      "adapterClass": "software",
+      "bestWorkgroupSize": null,
+      "fastestWorkgroupSize": 16,
+      "runnerUpWorkgroupSize": 32,
+      "separationMs": 0.10000000055879354,
+      "separated": false,
+      "evidence": "This row was measured on a SOFTWARE adapter. It is a CPU emulation of a GPU's occupancy and is NOT evidence about any hardware adapter class. No throughput, trajectories/second or speedup figure is measured here or may be inferred from it -- those are P7.20 and P7.22 and they need hardware.",
+      "recordedAt": "2026-09-13",
+      "adapter": {
+        "vendor": "google",
+        "architecture": "swiftshader",
+        "device": "",
+        "description": "",
+        "isFallbackAdapter": null
+      },
+      "deviceLimits": {
+        "maxComputeWorkgroupSizeX": 256,
+        "maxComputeInvocationsPerWorkgroup": 256
+      },
+      "chromiumVersion": "141.0.7390.37",
+      "chromiumFlags": [
+        "--enable-unsafe-webgpu",
+        "--use-webgpu-adapter=swiftshader",
+        "--enable-features=Vulkan"
+      ],
+      "measurement": {
+        "trajectories": 10000,
+        "seed": "0x7a14c0de",
+        "h": 0.001,
+        "steps": 2000,
+        "warmupsPerSize": 3,
+        "repeatsPerSize": 9,
+        "timedQuantity": "Wall-clock milliseconds around runWgslRk4: the whole round trip -- buffer creation, upload, dispatch, readback, teardown. timestamp-query is an optional feature and is unavailable on this adapter, so there is no in-queue timing to read.",
+        "statistic": "Median of the timed repeats. A size is called best only when every one of its timings beat every one of the runner-up's, which is why bestWorkgroupSize can be null while fastestWorkgroupSize is not.",
+        "control": "Workgroup size 1 is swept deliberately and must rank last. It uses one lane per workgroup, so a harness that does not rank it slowest is not measuring occupancy, and the script exits non-zero rather than reporting a ranking.",
+        "correctness": "Every size's output is compared against the smallest size's before it is timed, value by value with Object.is. A dispatch geometry that under-dispatches is fast and wrong, so a sweep that only timed would reward it."
+      },
+      "rankings": [
+        {
+          "workgroupSize": 16,
+          "medianMs": 146.8999999994412,
+          "minMs": 145.70000000018626,
+          "maxMs": 153.09999999962747,
+          "repeats": 9
+        },
+        {
+          "workgroupSize": 32,
+          "medianMs": 147,
+          "minMs": 144.80000000074506,
+          "maxMs": 149.5,
+          "repeats": 9
+        },
+        {
+          "workgroupSize": 8,
+          "medianMs": 147.09999999962747,
+          "minMs": 146.40000000037253,
+          "maxMs": 157.70000000018626,
+          "repeats": 9
+        },
+        {
+          "workgroupSize": 64,
+          "medianMs": 150,
+          "minMs": 145,
+          "maxMs": 156.5,
+          "repeats": 9
+        },
+        {
+          "workgroupSize": 256,
+          "medianMs": 151.6000000005588,
+          "minMs": 148.3999999994412,
+          "maxMs": 159.09999999962747,
+          "repeats": 9
+        },
+        {
+          "workgroupSize": 128,
+          "medianMs": 158.70000000018626,
+          "minMs": 144.59999999962747,
+          "maxMs": 180.3999999994412,
+          "repeats": 9
+        },
+        {
+          "workgroupSize": 1,
+          "medianMs": 529.7999999998137,
+          "minMs": 519.2999999998137,
+          "maxMs": 552.8999999994412,
+          "repeats": 9
+        }
+      ]
+    }
+  ]
+}
