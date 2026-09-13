@@ -1,0 +1,90 @@
+# Does a GitHub runner yield a WebGPU adapter? (P7.15's inherited question.)
+#
+# ## Why this workflow exists and why it is dispatch-only
+#
+# P7.14 left an open decision: whether `pnpm check:gpu-rk4-agreement` should
+# join `ci.yml`. It degrades correctly already — with no device it warns and
+# exits 0, and it refuses to `--record` a run that measured nothing — so adding
+# it is safe in the narrow sense. What was unverified is whether a GitHub runner
+# yields an adapter at all, and therefore whether the step would be a real gate
+# or a permanent no-op wearing a gate's name.
+#
+# The 98th run's CI went red from exactly this shape of mistake: a step added to
+# the gate that had not been run where it would run. So the answer is measured
+# here first, on the runner, before anything is added to `ci.yml`.
+#
+# `workflow_dispatch` only. It is never triggered by a push or a pull request,
+# so it cannot turn the gate red no matter what it finds, and it costs nothing
+# until somebody asks for it.
+#
+# ## What it is looking for, specifically
+#
+# Two things, because they fail differently and only one of them is about the
+# runner:
+#
+#   1. **The bare launch.** `chromium.launch()` resolves Playwright's
+#      `chromium_headless_shell` build. `measure-gpu-rk4-agreement.mjs`'s header
+#      records that the headless shell does not ship the GPU process WebGPU
+#      needs — so this leg is expected to find no adapter, and if it does find
+#      one, that expectation is wrong and worth knowing.
+#   2. **The full Chromium.** `playwright install chromium` also lays down a
+#      complete `chrome-linux/chrome`; `BALLISTA_CHROMIUM_PATH` points the
+#      script at it. This is the leg that decides the question: if a
+#      SwiftShader adapter appears here, a CI step is a real gate and the only
+#      remaining question is its cost.
+#
+# Both legs run the script, which exits 0 either way, so this workflow is green
+# whatever it finds. **Read its log, not its status.**
+
+name: GPU adapter probe (manual)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # chromium only. Firefox has no WebGPU here and the other CI steps that
+      # need it are not run by this workflow.
+      - name: Install Playwright Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Show what Playwright actually installed
+        run: |
+          echo "--- ms-playwright cache ---"
+          ls -la ~/.cache/ms-playwright/ || true
+          echo "--- full chromium binaries found ---"
+          find ~/.cache/ms-playwright -maxdepth 3 -name chrome -type f || true
+          echo "--- headless shell binaries found ---"
+          find ~/.cache/ms-playwright -maxdepth 3 -name chrome-headless-shell -type f || true
+
+      - name: Build
+        run: pnpm build
+
+      # Leg 1: whatever `chromium.launch()` resolves on its own. Expected to
+      # find no adapter, because that is the headless shell.
+      - name: Probe with Playwright's default Chromium
+        run: pnpm check:gpu-rk4-agreement
+
+      # Leg 2: the full Chromium. This is the leg the decision rests on.
+      - name: Probe with the full Chromium build
+        run: |
+          BIN="$(find ~/.cache/ms-playwright -maxdepth 3 -name chrome -type f | head -n 1)"
+          if [ -z "$BIN" ]; then
+            echo "::warning::No full Chromium binary found; leg 2 could not run. That is itself the answer for this runner image."
+            exit 0
+          fi
+          echo "Using $BIN"
+          BALLISTA_CHROMIUM_PATH="$BIN" pnpm check:gpu-rk4-agreement
