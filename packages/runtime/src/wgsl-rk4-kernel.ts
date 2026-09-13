@@ -331,5 +331,17 @@ fn ${WGSL_ENTRY_POINT}(@builtin(global_invocation_id) gid: vec3<u32>) {
  * Derived from {@link buildWgslRk4KernelSource} rather than written out a
  * second time, so the default and every swept source are the same text by
  * construction and not by inspection.
+ *
+ * ## The `@__PURE__` annotation is load-bearing, and was added after a measured
+ * ## bundle regression
+ *
+ * This used to be a top-level template literal, which a bundler can see is
+ * inert and drop when nothing imports it — and nothing in the app does, since
+ * no route dispatches the kernel. Deriving it from a call turned it into a
+ * module-scope function call, which the bundler must assume may have side
+ * effects and therefore must keep, together with the builder and the whole
+ * shader text. **Measured: the app bundle went from 93.8 kB gzipped to 95.0 kB
+ * on that change alone**, which is where the annotation came from. It is not
+ * decoration and removing it silently re-adds the 1.2 kB.
  */
-export const WGSL_RK4_KERNEL_SOURCE = buildWgslRk4KernelSource(WGSL_WORKGROUP_SIZE);
+export const WGSL_RK4_KERNEL_SOURCE = /* @__PURE__ */ buildWgslRk4KernelSource(WGSL_WORKGROUP_SIZE);
