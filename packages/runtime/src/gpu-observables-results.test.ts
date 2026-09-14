@@ -126,3 +126,83 @@ describe("the provenance cannot be edited to overclaim", () => {
     expect(results.deviceErrors).toEqual([]);
   });
 });
+
+/**
+ * P7.19's criterion, evaluated against this same recorded run.
+ *
+ * The task's title names a feature -- an in-kernel, fixed-iteration,
+ * branch-uniform bisection for the ground crossing -- that P7.16 already
+ * delivered as part of this reduction. What P7.19 adds is its criterion, and
+ * the criterion is not satisfied by assumption: it is satisfied by the numbers
+ * in this file, which is why it is asserted here rather than in a second
+ * results artefact nobody would re-run.
+ *
+ * The recorded file predates the `p719` block that
+ * `scripts/measure-gpu-observables.mjs` now writes, so nothing below reads that
+ * block. Everything is derived from `perObservable`, which the run did record.
+ */
+describe("P7.19: the impact abscissa agrees with the CPU within 1e-3 m", () => {
+  /** P7.19's budget. Mirrors `IMPACT_X_ABS_BUDGET_M` in the fixture. */
+  const IMPACT_X_ABS_BUDGET_M = 1e-3;
+
+  /**
+   * One ULP of a binary32 value, spelled locally.
+   *
+   * Not imported from `planar-precision-study.ts`: that module is P7.17's study
+   * harness and this file is a guard over a recorded artefact, so importing it
+   * would tie a results guard to a study's API for three lines of arithmetic.
+   * `planar-precision-study.test.ts` is where the function itself is tested.
+   */
+  function ulp32(x: number): number {
+    const magnitude = Math.abs(x);
+    if (magnitude === 0) return 2 ** -149;
+    return 2 ** (Math.floor(Math.log2(magnitude)) - 23);
+  }
+
+  const rangeStat = results.perObservable.find((s) => s.observable === "range");
+
+  it("read the criterion on `range`, which is the impact abscissa only because x0 = 0", () => {
+    // Neither the kernel nor the CPU reducer emits an absolute impact abscissa;
+    // both emit `range = |impactX - x0|`. The equivalence is a property of this
+    // ensemble, so the guard asserts the statistic exists rather than silently
+    // reading whichever channel happens to be present.
+    expect(rangeStat).toBeDefined();
+  });
+
+  it("meets the 1e-3 m bar on a batch of 1e4", () => {
+    expect(results.trajectories).toBe(10_000);
+    expect(rangeStat!.maxAbs).toBeLessThanOrEqual(IMPACT_X_ABS_BUDGET_M);
+  });
+
+  it("exercised the bisection rather than comparing two unlanded flights", () => {
+    // Every flight that never crosses y = 0 reports range 0 on both sides, so a
+    // run in which nothing landed would meet the bar above while measuring
+    // nothing at all about the feature P7.19 names.
+    expect(results.impactedOnCpu).toBe(results.trajectories);
+    expect(results.impactedMismatches).toBe(0);
+  });
+
+  /**
+   * The finding that makes the second gate necessary, asserted as arithmetic so
+   * it cannot be argued away.
+   *
+   * The instinct is that the 256-ULP gate subsumes a millimetre bar. It does
+   * not, and where it stops doing so is exact: 256 ULP is at most 1e-3 m only
+   * while the value is below 64 m. This ensemble's ranges are O(100) m.
+   */
+  it("is NOT implied by the ULP budget at the ranges this ensemble produces", () => {
+    // Just inside, on the binade below the crossover.
+    expect(results.ulpBudget * ulp32(63.9)).toBeLessThanOrEqual(IMPACT_X_ABS_BUDGET_M);
+    // Just outside, on the binade above it -- and by nearly a factor of two.
+    expect(results.ulpBudget * ulp32(64)).toBeGreaterThan(IMPACT_X_ABS_BUDGET_M);
+    expect(results.ulpBudget * ulp32(100)).toBeCloseTo(1.953e-3, 6);
+  });
+
+  it("has teeth: the C2 control that deletes the bisection violates it fifteen times over", () => {
+    // C2 replaces the 60-iteration bisection with theta = 0.5 and measures 1987
+    // ULP on range. A gate that permitted deleting the feature it gates would
+    // be a decoration -- the same test `ulpBudget`'s own derivation had to pass.
+    const c2AbsAtHundredMetres = 1987 * ulp32(100);
+    expect(c2AbsAtHundredMetres).toBeGreaterThan(15 * IMPACT_X_ABS_BUDGET_M);
+  });
+});

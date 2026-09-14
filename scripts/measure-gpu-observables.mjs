@@ -358,6 +358,49 @@ for (const stat of comparison.perObservable) {
   );
 }
 
+/**
+ * P7.19's budget: an ABSOLUTE bound in metres on the impact abscissa.
+ *
+ * ## Why this exists alongside `ULP_BUDGET` rather than inside it
+ *
+ * P7.19's criterion is "impact x within 1e-3 m of CPU on 1e4 batch". Neither
+ * side emits an absolute abscissa -- both emit `range = |impactX - x0|` -- and
+ * every scenario in this ensemble launches from `x0 = 0`, so the two coincide
+ * numerically and the criterion is read on `range`. That coincidence is a
+ * property of THIS ENSEMBLE and not of the code; a scenario with a non-zero
+ * launch abscissa would break it and the reading would have to be revisited.
+ * The 104th run's claim commit settles this in `ROADMAP.json`.
+ *
+ * ## The ULP budget does not imply this one, which is the whole reason for the
+ * second gate
+ *
+ * It is tempting to assume the tighter-sounding 256-ULP gate subsumes a
+ * millimetre bar. It does not, and the arithmetic is exact rather than
+ * approximate. 256 ULP of a binary32 value is at most 1e-3 m only while the
+ * value is below **64 m**: on [32, 64) one ULP is 2^-18 = 3.815e-6 and 256 of
+ * them are 9.77e-4 m, just inside; on [64, 128) one ULP doubles to 7.629e-6 and
+ * 256 of them are **1.953e-3 m**, nearly twice this bar; above 128 m it doubles
+ * again.
+ *
+ * The ranges this ensemble produces are O(100) m -- squarely in the regime
+ * where `ULP_BUDGET` is the WEAKER of the two gates. So a future change could
+ * pass `check:gpu-observables` on its ULP gate and violate P7.19, and before
+ * this constant nothing in the repository would have noticed.
+ *
+ * The converse is also false in the other direction: this gate says nothing
+ * about `apexHeight`, `apexT` or `impactT`, which `ULP_BUDGET` does cover.
+ * Neither gate subsumes the other and both are enforced.
+ *
+ * ## Teeth
+ *
+ * Control C2 -- replacing the 60-iteration impact bisection with `theta = 0.5`,
+ * i.e. deleting the feature P7.19 names -- measures 1987 ULP on range, which at
+ * an O(100) m range is **1.5e-2 m**, fifteen times this bar. So this gate
+ * rejects the deletion of the thing it is gating, which is the property
+ * `ULP_BUDGET`'s own derivation demanded of itself.
+ */
+const IMPACT_X_ABS_BUDGET_M = 1e-3;
+
 const numeric = comparison.perObservable.filter((s) => s.observable !== "impacted");
 const worstUlp = Math.max(...numeric.map((s) => s.maxUlp));
 const failures = [];
@@ -367,8 +410,21 @@ if (comparison.impactedMismatches > 0) {
 if (worstUlp > ULP_BUDGET) {
   failures.push(`worst numeric ULP ${worstUlp} exceeds the budget of ${ULP_BUDGET}`);
 }
+// P7.19: the absolute metre bound on the impact abscissa. Read on `range`
+// because `x0 = 0` throughout this ensemble; see IMPACT_X_ABS_BUDGET_M.
+const rangeStat = comparison.perObservable.find((s) => s.observable === "range");
+if (rangeStat === undefined) {
+  failures.push("no `range` statistic was produced, so P7.19 could not be evaluated");
+} else if (!(rangeStat.maxAbs <= IMPACT_X_ABS_BUDGET_M)) {
+  failures.push(
+    `P7.19: worst |gpu - cpu| on range is ${rangeStat.maxAbs.toExponential(3)} m, ` +
+      `above the budget of ${IMPACT_X_ABS_BUDGET_M} m`,
+  );
+}
 // A run in which nothing landed would pass every numeric gate while testing
-// nothing about range, which is half of what this task added.
+// nothing about range, which is half of what this task added -- and it would
+// make the P7.19 gate above vacuous as well, since an unlanded flight reports
+// range 0 on both sides.
 if (comparison.impactedOnCpu === 0) {
   failures.push("no trajectory in the ensemble landed, so range was never exercised");
 }
@@ -378,7 +434,10 @@ if (failures.length > 0) {
   for (const failure of failures) console.error(`FAIL: ${failure}`);
   process.exit(1);
 }
-console.log(`PASS: worst numeric ULP ${worstUlp} <= ${ULP_BUDGET}, impacted flag exact.`);
+console.log(
+  `PASS: worst numeric ULP ${worstUlp} <= ${ULP_BUDGET}, impacted flag exact, ` +
+    `P7.19 range |gpu - cpu| ${rangeStat.maxAbs.toExponential(3)} m <= ${IMPACT_X_ABS_BUDGET_M} m.`,
+);
 
 if (shouldRecord) {
   const record = {
@@ -399,6 +458,22 @@ if (shouldRecord) {
     seed: `0x${SEED.toString(16)}`,
     h: FIXTURE_H,
     steps: FIXTURE_STEPS,
+    p719: {
+      criterion: "impact x within 1e-3 m of CPU on 1e4 batch",
+      criterionReading:
+        "Read on `range`, because neither side emits an absolute impact abscissa and every " +
+        "scenario here launches from x0 = 0 so the two coincide numerically. The bar is " +
+        "ABSOLUTE metres on |gpu - cpu|, not ULP and not relative. Settled in the 104th " +
+        "run's claim commit before anything was measured.",
+      impactXAbsBudgetM: IMPACT_X_ABS_BUDGET_M,
+      impactXAbsBudgetBasis:
+        "NOT implied by ulpBudget, which is why it is a separate gate: 256 ULP is under " +
+        "1e-3 m only below a range of 64 m, and is 1.953e-3 m on [64, 128) where this " +
+        "ensemble's ranges lie. Teeth: control C2 (theta=0.5 instead of the 60-iteration " +
+        "bisection) measures 1987 ULP on range, which at O(100) m is 1.5e-2 m -- fifteen " +
+        "times this bar -- so the gate rejects deleting the feature it gates.",
+      measuredImpactXAbsM: rangeStat.maxAbs,
+    },
     ulpBudget: ULP_BUDGET,
     ulpBudgetBasis:
       "Two-sided, and NOT derived from this run's result (which was exact). Above: P7.14 " +
