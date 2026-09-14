@@ -12,6 +12,11 @@ answers questions of the form _what aim produces this outcome_.
 **If you are choosing between solvers, start at [method selection](./method-selection.md).**
 That page is the decision table. This page is the index.
 
+**If you are choosing between the f32 GPU path and the f64 CPU one, start at
+[the f32 precision budget](./f32-precision-budget.md)** (P7.17). That page measures the
+error per scenario class and says which scenarios must stay on the CPU — and the answer is
+not the one the word "stiff" suggests.
+
 The package has one entry point:
 
 ```ts

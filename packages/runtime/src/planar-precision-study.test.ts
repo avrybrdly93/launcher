@@ -44,7 +44,14 @@ describe("the classifiers the table's classes are built on", () => {
           volume: (4 / 3) * Math.PI * (scenario.params.area / Math.PI) ** 1.5,
           dragCoefficient: new ConstantCd(scenario.params.cd),
         },
-        { rho: scenario.params.rho, g: scenario.params.g },
+        {
+          rho: scenario.params.rho,
+          g: scenario.params.g,
+          // eta feeds the Reynolds number, which a ConstantCd ignores. Given a
+          // real value rather than 0 so the comparison cannot accidentally turn
+          // on a division by zero somewhere downstream: sea-level air.
+          eta: 1.81e-5,
+        },
         v0,
       );
       expect(planarPi(scenario.params, v0)).toBeCloseTo(engine, 12);

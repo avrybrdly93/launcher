@@ -30,7 +30,7 @@ const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "
 const DOCS_DIR = join(REPO_ROOT, "docs", "analysis");
 const ANALYSIS_SRC = join(REPO_ROOT, "packages", "analysis", "src");
 
-const PAGES = ["README.md", "method-selection.md"] as const;
+const PAGES = ["README.md", "f32-precision-budget.md", "method-selection.md"] as const;
 
 function pageText(name: string): string {
   return readFileSync(join(DOCS_DIR, name), "utf8");

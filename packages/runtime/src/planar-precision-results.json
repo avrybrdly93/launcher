@@ -1,0 +1,234 @@
+{
+  "task": "P7.17",
+  "relativeBudget": 0.00001,
+  "stiffnessRatioThreshold": 50,
+  "notes": [
+    "Both arms are the same reduction over the same fixed-step march at two RoundFns, so a difference is attributable to arithmetic width alone.",
+    "The f32 arm stands in for the GPU on P7.16's measured 0-ULP agreement over 50000 values. Rows with withinP716Family false extend that licence past the ensemble it was measured on, and say so rather than inheriting it silently.",
+    "No timing, throughput or bandwidth figure appears here. P7.17 is about error; cost is P7.20's question and needs hardware."
+  ],
+  "rows": [
+    {
+      "id": "vacuum-45deg",
+      "scenarioClass": "low-pi",
+      "description": "Drag-free 45-degree launch at 30 m/s. Pi is exactly 0. Present for the closed-form check on the f64 arm, not for a budget: with no drag the Hermite refinement is exact to roundoff, so this row says whether the reference is right rather than how far f32 is from it.",
+      "launchSpeed": 30,
+      "pi": 0,
+      "stiffnessRatio": 0,
+      "h": 0.001,
+      "steps": 6000,
+      "clockResolutionPerStep": 0.000476837158203125,
+      "impactedAgrees": true,
+      "worstChannel": "range",
+      "worstRelative": 0.00006275735164741951,
+      "channels": {
+        "apexHeight": {
+          "reference": 22.943614792002034,
+          "measured": 22.94269561767578,
+          "relative": 0.00004006231514020518
+        },
+        "apexT": {
+          "reference": 2.1631447472476575,
+          "measured": 2.163104772567749,
+          "relative": 0.000018479891352311968
+        },
+        "range": {
+          "reference": 91.77445916800235,
+          "measured": 91.7686996459961,
+          "relative": 0.00006275735164741951
+        },
+        "impactT": {
+          "reference": 4.326289494495237,
+          "measured": 4.326193809509277,
+          "relative": 0.000022117101983400537
+        }
+      },
+      "withinP716Family": true,
+      "verdict": "cpu-only",
+      "reason": "Worst relative error 6.28e-5 on range exceeds the 1e-5 budget."
+    },
+    {
+      "id": "shot-put",
+      "scenarioClass": "low-pi",
+      "description": "7.26 kg shot at 14 m/s, 41 degrees. Drag is a small correction to a parabola.",
+      "launchSpeed": 14,
+      "pi": 0.009725515569179168,
+      "stiffnessRatio": 0.019451031138358336,
+      "h": 0.001,
+      "steps": 4000,
+      "clockResolutionPerStep": 0.000476837158203125,
+      "impactedAgrees": true,
+      "worstChannel": "apexT",
+      "worstRelative": 0.0000033637919709544238,
+      "channels": {
+        "apexHeight": {
+          "reference": 4.2847014060010915,
+          "measured": 4.284701347351074,
+          "relative": 1.3688239092945021e-8
+        },
+        "apexT": {
+          "reference": 0.9339674288921316,
+          "measured": 0.93397057056427,
+          "relative": 0.0000033637919709544238
+        },
+        "range": {
+          "reference": 19.648777906032052,
+          "measured": 19.648801803588867,
+          "relative": 0.0000012162362936507927
+        },
+        "impactT": {
+          "reference": 1.8695817215558732,
+          "measured": 1.8695812225341797,
+          "relative": 2.669162239710588e-7
+        }
+      },
+      "withinP716Family": true,
+      "verdict": "f32-ok",
+      "reason": "Worst relative error 3.36e-6 on apexT, within the 1e-5 budget."
+    },
+    {
+      "id": "table-tennis",
+      "scenarioClass": "high-pi",
+      "description": "2.7 g ball at 25 m/s, 35 degrees. Drag dominates: the arc is visibly asymmetric.",
+      "launchSpeed": 24.999999999999996,
+      "pi": 8.539046776385879,
+      "stiffnessRatio": 17.078093552771758,
+      "h": 0.001,
+      "steps": 6000,
+      "clockResolutionPerStep": 0.000476837158203125,
+      "impactedAgrees": true,
+      "worstChannel": "apexT",
+      "worstRelative": 0.0000024229344869221704,
+      "channels": {
+        "apexHeight": {
+          "reference": 3.552867350208791,
+          "measured": 3.552868604660034,
+          "relative": 3.530813620871184e-7
+        },
+        "apexT": {
+          "reference": 0.6990903269105179,
+          "measured": 0.6990886330604553,
+          "relative": 0.0000024229344869221704
+        },
+        "range": {
+          "reference": 11.950334904396257,
+          "measured": 11.950347900390625,
+          "relative": 0.0000010875004317234243
+        },
+        "impactT": {
+          "reference": 1.662027583012324,
+          "measured": 1.6620278358459473,
+          "relative": 1.521236024932106e-7
+        }
+      },
+      "withinP716Family": true,
+      "verdict": "f32-ok",
+      "reason": "Worst relative error 2.42e-6 on apexT, within the 1e-5 budget."
+    },
+    {
+      "id": "table-tennis-cannon",
+      "scenarioClass": "stiff",
+      "description": "The same 2.7 g ball at 140 m/s, 35 degrees. Identical projectile; only the launch speed changes, and Pi scales as v0^2, which carries it past recommendSolver's stiffness threshold. The regime change is therefore isolated from every other property.",
+      "launchSpeed": 140,
+      "pi": 267.78450690746126,
+      "stiffnessRatio": 535.5690138149225,
+      "h": 0.001,
+      "steps": 6000,
+      "clockResolutionPerStep": 0.000476837158203125,
+      "impactedAgrees": true,
+      "worstChannel": "apexT",
+      "worstRelative": 0.00002836194234373848,
+      "channels": {
+        "apexHeight": {
+          "reference": 10.325300487366668,
+          "measured": 10.325302124023438,
+          "relative": 1.585093597250895e-7
+        },
+        "apexT": {
+          "reference": 0.9051503957346216,
+          "measured": 0.9051247239112854,
+          "relative": 0.00002836194234373848
+        },
+        "range": {
+          "reference": 24.366524458073684,
+          "measured": 24.366540908813477,
+          "relative": 6.751369002552352e-7
+        },
+        "impactT": {
+          "reference": 2.773712517961025,
+          "measured": 2.7737131118774414,
+          "relative": 2.1412327796970705e-7
+        }
+      },
+      "withinP716Family": false,
+      "verdict": "cpu-only",
+      "reason": "Worst relative error 2.84e-5 on apexT exceeds the 1e-5 budget."
+    }
+  ],
+  "stiffnessSweep": [
+    {
+      "v0": 25,
+      "stiffnessRatio": 17.078093552771765,
+      "tau": 0.14927254758076158,
+      "h": 0.41497768227451715,
+      "steps": 256,
+      "worstRelative": 1.3499468178432176e-7,
+      "f32Impacted": true
+    },
+    {
+      "v0": 100,
+      "stiffnessRatio": 273.24949684434824,
+      "tau": 0.037318136895190396,
+      "h": 0.10374442056862929,
+      "steps": 256,
+      "worstRelative": 2.8530379863147376e-7,
+      "f32Impacted": true
+    },
+    {
+      "v0": 400,
+      "stiffnessRatio": 4371.991949509572,
+      "tau": 0.009329534223797599,
+      "h": 0.02593610514215732,
+      "steps": 256,
+      "worstRelative": 6.116124018491205e-7,
+      "f32Impacted": true
+    },
+    {
+      "v0": 1600,
+      "stiffnessRatio": 69951.87119215315,
+      "tau": 0.0023323835559493997,
+      "h": 0.00648402628553933,
+      "steps": 1024,
+      "worstRelative": 0.000012422145456168553,
+      "f32Impacted": true
+    },
+    {
+      "v0": 6400,
+      "stiffnessRatio": 1119229.9390744504,
+      "tau": 0.0005830958889873499,
+      "h": 0.0016210065713848326,
+      "steps": 4096,
+      "worstRelative": 0.00003214355529510496,
+      "f32Impacted": true
+    },
+    {
+      "v0": 25600,
+      "stiffnessRatio": 17907679.025191206,
+      "tau": 0.00014577397224683748,
+      "h": 0.00040525164284620815,
+      "steps": 16384,
+      "worstRelative": 0.0002745570397347949,
+      "f32Impacted": true
+    }
+  ],
+  "modelCoverageGaps": [
+    {
+      "regimeTag": "magnus",
+      "reason": "PlanarDragParams carries mass, area, cd, rho, g, windX, windY and no spin channel, so a Magnus force cannot be wired at all. Outside the kernel's model, not outside f32's reach."
+    },
+    {
+      "regimeTag": "stiff/stokes",
+      "reason": "The library's canonical stiff preset (dust-grain) uses linear Stokes drag, which PlanarDragParams also cannot express -- its drag term is quadratic with a constant Cd. The stiff row below is therefore a quadratic-drag scenario placed past recommendSolver's own threshold, not the library preset."
+    }
+  ]
+}
