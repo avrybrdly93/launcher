@@ -94,6 +94,12 @@
  * and would put allocation in its hot path.
  */
 
+// Value import; `compensated-summation.ts` imports `RoundFn` back from here
+// type-only, so the cycle is erased at compile time and there is none at
+// runtime. `RoundFn` stays declared here because it is this module's vocabulary
+// and every other user reaches it through this module.
+import { roundedKahanAdd } from "./compensated-summation.js";
+
 /** Rounds a freshly computed f64 result to the working precision. */
 export type RoundFn = (x: number) => number;
 
@@ -265,6 +271,7 @@ export function stepPlanarRk4(
   round: RoundFn,
   scratch: PlanarRk4Scratch,
   out: Float64Array,
+  compensation?: Float64Array,
 ): void {
   const { k, stage } = scratch;
 
@@ -292,7 +299,18 @@ export function stepPlanarRk4(
     for (let s = 0; s < STAGES; s++) {
       weighted = round(weighted + round(round(B[s]!) * k[s]![i]!));
     }
-    out[i] = round(y[i]! + round(h * weighted));
+    const increment = round(h * weighted);
+    // The one addition the compensation can act on, and the only place it can:
+    // `y + increment` is where the increment's low bits fall off the end of the
+    // accumulator, and once `out[i]` has been written they are gone. A caller
+    // differencing `out[i] - y[i]` afterwards recovers the *rounded* increment,
+    // not the exact one, so compensation applied from outside the stepper
+    // corrects nothing -- measured, and the reason this parameter exists rather
+    // than a wrapper around the stepper.
+    out[i] =
+      compensation === undefined
+        ? round(y[i]! + increment)
+        : roundedKahanAdd(y[i]!, increment, compensation, i, round);
   }
 }
 
@@ -310,6 +328,28 @@ export interface PlanarRk4Options {
   readonly round: RoundFn;
   /** Start time; defaults to 0. */
   readonly t0?: number;
+  /**
+   * Accumulate the state update with a two-float (compensated) accumulator
+   * rather than a plain add (P7.18). Defaults to `false`, so every existing
+   * caller and every recorded fixture is unaffected.
+   *
+   * Worth turning on when the march is long and the working precision is
+   * narrow, which is the same condition: the plain accumulator's rounding error
+   * grows with the *number of steps*, so the scenario that needs this is not the
+   * hardest one but the longest one. P7.17 measured exactly that -- the
+   * drag-free row, which has the simplest dynamics available and the longest
+   * flight, was the worst row in the study.
+   *
+   * **It is not a no-op under {@link identity}, and that is why the default is
+   * off rather than a matter of taste.** The routine reduces to the existing
+   * `kahanAdd` there, but `kahanAdd` is not a plain add, so the f64 march moves
+   * too -- on the drag-free study row, `range` shifts by ~1.2e-13 relative.
+   * Measured against that scenario's closed form, the shift is an improvement:
+   * the compensated f64 arm is ~400x closer to `v0^2 sin(2θ)/g`. Turning this
+   * on by default would nonetheless move every recorded f64 reference in the
+   * repository, including the ones P7.16 and P7.17 measured against.
+   */
+  readonly compensated?: boolean;
   /**
    * Called after every accepted step with the step index (1-based), the time,
    * and the state. The array is reused between calls -- copy it to retain it.
@@ -339,6 +379,12 @@ export function integratePlanarRk4(options: PlanarRk4Options): Float64Array {
   let next = new Float64Array(DIM);
   for (let i = 0; i < DIM; i++) current[i] = round(options.y0[i]!);
 
+  // One array for the whole march, zero-initialized: the residual is per
+  // channel and must persist across steps, which is the entire mechanism. It
+  // survives the current/next swap below because it is indexed by channel, not
+  // by buffer. Allocated once per solve rather than per step (ADR-004).
+  const compensation = options.compensated === true ? new Float64Array(DIM) : undefined;
+
   for (let n = 0; n < steps; n++) {
     // `t0 + n * h`, matching how `runTsEnsembleRange` drives
     // `ClassicalRK4Stepper`, rather than a running `t += h`. The two round
@@ -347,7 +393,7 @@ export function integratePlanarRk4(options: PlanarRk4Options): Float64Array {
     // existing driver means the f64 path can be asserted bit-identical to it
     // without a caveat, and a future non-autonomous model inherits the right
     // convention rather than a second one.
-    stepPlanarRk4(round(t0 + round(n * h)), current, h, p, round, scratch, next);
+    stepPlanarRk4(round(t0 + round(n * h)), current, h, p, round, scratch, next, compensation);
     const swap = current;
     current = next;
     next = swap;

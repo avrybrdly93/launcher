@@ -36,6 +36,16 @@ export interface PlanarObservablesOptions {
   readonly round: RoundFn;
   /** Start time; defaults to 0. */
   readonly t0?: number;
+  /**
+   * Accumulate the state update with a two-float accumulator (P7.18). Defaults
+   * to `false`. See {@link PlanarRk4Options.compensated}.
+   *
+   * Passed straight through rather than reimplemented here: the compensation
+   * has to act on the addition *inside* the stepper, where the increment still
+   * holds its low-order bits. Once the stepper has returned, `out - y` recovers
+   * only the rounded increment, so there is nothing left out here to correct.
+   */
+  readonly compensated?: boolean;
 }
 
 /**
@@ -60,6 +70,7 @@ export function reducePlanarObservables(options: PlanarObservablesOptions): Plan
     params: options.params,
     round,
     t0,
+    compensated: options.compensated ?? false,
     onStep: (_step, t, y) => reducer.step(t, y),
   });
   return reducer.finish();
