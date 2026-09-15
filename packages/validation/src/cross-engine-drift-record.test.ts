@@ -41,6 +41,40 @@ const RESULTS = join(REPO_ROOT, "scripts", "cross-engine-drift-results.json");
 const NO_BROWSERS = join(REPO_ROOT, "node_modules", ".p0102-no-such-browsers");
 
 /**
+ * P0.137. The script under test spawns `scripts/cross-engine-drift-fixture.mjs`,
+ * which imports built `packages/<name>/dist` entry points by design. (Spelled
+ * that way rather than with a glob: a star-slash inside a block comment ends
+ * it, and doing so here cost this run a collection failure.) On a fresh
+ * clone there is no `dist`, so the spawn dies in ESM resolution and every
+ * assertion below fails on a `toContain` against a Node resolver stack —
+ * naming neither the missing build nor the fixture that needed it. Three
+ * sessions' worth of baselines have been misread as regressions because of it.
+ *
+ * This recognises that one failure and rethrows it as what it is. It is
+ * deliberately narrow: it matches only `ERR_MODULE_NOT_FOUND` for a specifier
+ * under `packages/…/dist/`, so a genuine failure of the script — the thing
+ * these tests exist to catch — still surfaces as itself and is never
+ * reinterpreted as a missing build.
+ */
+function assertBuiltWorkspace(output: string): void {
+  if (!output.includes("ERR_MODULE_NOT_FOUND")) return;
+  const missing = /Cannot find module '([^']*[/\\]packages[/\\][^']*[/\\]dist[/\\][^']*)'/.exec(
+    output,
+  );
+  if (missing === null) return;
+  throw new Error(
+    `The workspace is not built, so this test cannot run.\n` +
+      `  missing: ${missing[1]}\n` +
+      `  fix:     pnpm build\n` +
+      `\n` +
+      `${SCRIPT} spawns a scripts/ fixture that imports built dist/ entry points ` +
+      `by design, so \`pnpm test\` needs \`pnpm build\` to have run at least once ` +
+      `on a fresh clone. This is P0.137; before it, the same condition reported ` +
+      `as three unrelated-looking assertion failures against a Node resolver stack.`,
+  );
+}
+
+/**
  * Combined stdout+stderr. The `::warning::` annotations this script uses for
  * every "could not measure" signal go to stderr via console.warn, so a
  * stdout-only capture silently sees none of them.
@@ -53,7 +87,9 @@ function runScript(args: string[], env: Record<string, string> = {}): string {
     timeout: 120_000,
   });
   if (result.error) throw result.error;
-  return `${result.stdout ?? ""}${result.stderr ?? ""}`;
+  const output = `${result.stdout ?? ""}${result.stderr ?? ""}`;
+  assertBuiltWorkspace(output);
+  return output;
 }
 
 /** Exact bytes, so a reordered-but-equivalent rewrite still counts as a modification. */
