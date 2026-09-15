@@ -72,6 +72,11 @@ import { createServer } from "node:http";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import * as esbuild from "esbuild";
+import {
+  chromiumChoiceLine,
+  chromiumHintLines,
+  resolveChromiumExecutable,
+} from "./resolve-chromium.mjs";
 
 import {
   buildEnsemble,
@@ -270,8 +275,10 @@ const FLAG_SETS = [
 
 const { chromium } = await import("playwright");
 
-/** See `measure-gpu-rk4-agreement.mjs`: the headless shell has no GPU process. */
-const executablePath = process.env.BALLISTA_CHROMIUM_PATH ?? undefined;
+/** See `resolve-chromium.mjs` (P0.138) for how the binary is chosen. */
+const chromiumChoice = resolveChromiumExecutable();
+const executablePath = chromiumChoice.executablePath;
+console.log(chromiumChoiceLine(chromiumChoice));
 
 async function measureWith(flagSet) {
   let browser;
@@ -316,6 +323,9 @@ if (run.status !== "measured") {
     `::warning::No WebGPU device could be obtained (${run.reason ?? run.error}), so the ` +
       `observables reduction was NOT checked. This is not a pass.`,
   );
+  for (const line of chromiumHintLines(chromiumChoice)) {
+    console.warn(`  ${line}`);
+  }
   if (shouldRecord) {
     console.warn(
       `::warning::--record was passed but nothing was measured; leaving ${resultsPath} unmodified.`,

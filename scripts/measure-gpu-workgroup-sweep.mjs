@@ -64,6 +64,11 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import * as esbuild from "esbuild";
 import {
+  chromiumChoiceLine,
+  chromiumHintLines,
+  resolveChromiumExecutable,
+} from "./resolve-chromium.mjs";
+import {
   classifyAdapter,
   summariseWorkgroupSweep,
 } from "../packages/runtime/dist/wgsl-workgroup-sweep.js";
@@ -127,7 +132,11 @@ const FLAG_SETS = [
 ];
 
 const { chromium } = await import("playwright");
-const executablePath = process.env.BALLISTA_CHROMIUM_PATH ?? undefined;
+
+/** See `resolve-chromium.mjs` (P0.138) for how the binary is chosen. */
+const chromiumChoice = resolveChromiumExecutable();
+const executablePath = chromiumChoice.executablePath;
+console.log(chromiumChoiceLine(chromiumChoice));
 
 async function measureWith(flagSet) {
   let browser;
@@ -177,6 +186,9 @@ if (run.status !== "measured") {
   console.warn(
     `::warning::No WebGPU device could be obtained (${run.reason ?? run.error}), so no workgroup sweep was run. This is not a result.`,
   );
+  for (const line of chromiumHintLines(chromiumChoice)) {
+    console.warn(`  ${line}`);
+  }
   if (shouldRecord) {
     console.warn(
       `::warning::--record was passed but nothing was measured; leaving ${resultsPath} unmodified rather than downgrading it.`,
