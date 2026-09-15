@@ -17,6 +17,11 @@ That page is the decision table. This page is the index.
 error per scenario class and says which scenarios must stay on the CPU — and the answer is
 not the one the word "stiff" suggests.
 
+**If what you need from that path is an impact point, read
+[the GPU impact agreement](./gpu-impact-agreement.md) too** (P7.19). It puts an absolute
+millimetre bar on the impact abscissa over a 10 000-member batch, and the default
+accumulator misses it by 15× — on the drag-free family, not the stiff one.
+
 The package has one entry point:
 
 ```ts

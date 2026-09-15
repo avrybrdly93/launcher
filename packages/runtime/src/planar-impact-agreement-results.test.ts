@@ -15,7 +15,6 @@ import {
   measureImpactMember,
   runImpactAgreementBatch,
   summariseImpactAgreement,
-  type ImpactBatchSummary,
 } from "./planar-impact-agreement-study.js";
 
 /**
