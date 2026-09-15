@@ -1,0 +1,33 @@
+{
+  "task": "P0.136",
+  "familyId": "vacuum-45deg",
+  "gridSide": 50,
+  "count": 2500,
+  "h": 0.001,
+  "steps": 7200,
+  "absoluteBudgetMetres": 0.001,
+  "ulpBudget": 256,
+  "adapter": {
+    "vendor": "google",
+    "architecture": "swiftshader",
+    "device": "",
+    "description": "",
+    "isFallbackAdapter": null
+  },
+  "adapterClass": "software",
+  "chromiumVersion": "141.0.7390.37",
+  "flagSet": "swiftshader",
+  "impactedOnReference": 2500,
+  "impactedMismatches": 0,
+  "identicalRanges": 2500,
+  "worstUlpVsCpuCompensated": 0,
+  "worstDeviceErrorMetres": 0.000031685965836913965,
+  "worstCpuCompensatedErrorMetres": 0.000031685965836913965,
+  "worstCpuPlainErrorMetres": 0.015539228329345178,
+  "notes": [
+    "Clause 1 compares the device's compensated march against the CPU f32 compensated arm; clause 2 compares the device against the f64 reference on an absolute metre bar. Either can pass while the other fails, so both are reported.",
+    "The CPU plain arm is carried for context only. The number that makes P0.136's case is the ratio between the arms, and a single figure cannot show one.",
+    "Measured on a SOFTWARE adapter. Unlike P7.20's throughput target, this criterion is about arithmetic rather than speed: the same WGSL with the same f32 semantics runs on either, so the agreement is evidence about the shader. classifyAdapter's software/hardware labelling is untouched.",
+    "The default (uncompensated) kernel text is byte-identical to the pre-P0.136 build, so P7.16's and P7.17's recorded measurements are not stale and were not re-recorded."
+  ]
+}
