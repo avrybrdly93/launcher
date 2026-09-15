@@ -1,0 +1,123 @@
+{
+  "task": "P7.19",
+  "absoluteBudgetMetres": 0.001,
+  "gridSide": 50,
+  "speedSpan": {
+    "lo": 0.8,
+    "hi": 1.2
+  },
+  "degreeSpan": {
+    "lo": 25,
+    "hi": 65
+  },
+  "count": 10000,
+  "impactedCount": 10000,
+  "worstPlainError": 0.015539228329345178,
+  "worstPlainFamily": "vacuum-45deg",
+  "worstCompensatedError": 0.000031685965836913965,
+  "worstCompensatedFamily": "vacuum-45deg",
+  "plainMeetsBudget": false,
+  "compensatedMeetsBudget": true,
+  "notes": [
+    "P7.19's criterion is 'impact x within 1e-3 m of CPU on 1e4 batch'. 'CPU' is read as the f64 arm, not the f32 one: no WebGPU adapter runs here, so the CPU f32 reduction stands in for the device on P7.16's measured 0-ULP agreement, and comparing that stand-in against itself would return exactly 0.0 on every row -- a criterion satisfied by construction.",
+    "The mechanism P7.19's title asks for already existed before this task was started: the fixed-count, branch-uniform in-kernel bisection landed inside P7.16. What was missing was this measurement.",
+    "Errors are maximum absolute metres across the batch, never a mean. Per-family maxima are carried so one class cannot hide inside the batch.",
+    "The device arm was NOT run. These are CPU f32 numbers standing in for it under the withinP716Family licence, which table-tennis-cannon is explicitly outside.",
+    "The plain-accumulator arm MISSES the budget, and it misses it only on the drag-free family -- the one with no drag, no stiffness and the longest flight, hence the most steps to accumulate rounding over. That is P7.17's finding reproduced over a distribution rather than a single flight.",
+    "The compensated arm (P7.18, default off) meets the budget on every family. The bisection itself accumulates nothing -- mid = 0.5*(lo+hi) is a contraction -- but the march that produces its bracket does, and that is what decides this criterion."
+  ],
+  "families": [
+    {
+      "familyId": "vacuum-45deg",
+      "scenarioClass": "low-pi",
+      "withinP716Family": true,
+      "h": 0.001,
+      "steps": 7200,
+      "count": 2500,
+      "impactedCount": 2500,
+      "worstPlain": {
+        "index": 2494,
+        "speed": 36,
+        "degrees": 60.91836734693877,
+        "error": 0.015539228329345178
+      },
+      "worstCompensated": {
+        "index": 2377,
+        "speed": 35.51020408163265,
+        "degrees": 47.04081632653062,
+        "error": 0.000031685965836913965
+      },
+      "plainMeetsBudget": false,
+      "compensatedMeetsBudget": true
+    },
+    {
+      "familyId": "shot-put",
+      "scenarioClass": "low-pi",
+      "withinP716Family": true,
+      "h": 0.001,
+      "steps": 3350,
+      "count": 2500,
+      "impactedCount": 2500,
+      "worstPlain": {
+        "index": 2242,
+        "speed": 16.228571428571428,
+        "degrees": 59.285714285714285,
+        "error": 0.000116553700571842
+      },
+      "worstCompensated": {
+        "index": 1127,
+        "speed": 13.714285714285714,
+        "degrees": 47.04081632653062,
+        "error": 0.000004113394755478339
+      },
+      "plainMeetsBudget": true,
+      "compensatedMeetsBudget": true
+    },
+    {
+      "familyId": "table-tennis",
+      "scenarioClass": "high-pi",
+      "withinP716Family": true,
+      "h": 0.001,
+      "steps": 2820,
+      "count": 2500,
+      "impactedCount": 2500,
+      "worstPlain": {
+        "index": 2034,
+        "speed": 28.163265306122444,
+        "degrees": 52.755102040816325,
+        "error": 0.00003565666732185946
+      },
+      "worstCompensated": {
+        "index": 959,
+        "speed": 23.87755102040816,
+        "degrees": 32.3469387755102,
+        "error": 0.0000023041839263271413
+      },
+      "plainMeetsBudget": true,
+      "compensatedMeetsBudget": true
+    },
+    {
+      "familyId": "table-tennis-cannon",
+      "scenarioClass": "stiff",
+      "withinP716Family": false,
+      "h": 0.001,
+      "steps": 4480,
+      "count": 2500,
+      "impactedCount": 2500,
+      "worstPlain": {
+        "index": 1414,
+        "speed": 144,
+        "degrees": 36.42857142857143,
+        "error": 0.00010063437268925668
+      },
+      "worstCompensated": {
+        "index": 2470,
+        "speed": 168,
+        "degrees": 41.326530612244895,
+        "error": 0.000005455402213527805
+      },
+      "plainMeetsBudget": true,
+      "compensatedMeetsBudget": true
+    }
+  ]
+}

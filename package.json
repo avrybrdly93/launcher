@@ -35,7 +35,8 @@
     "verify": "pnpm typecheck && pnpm lint && pnpm lint:deps && pnpm test",
     "prepare": "husky",
     "check:gpu-observables": "node scripts/measure-gpu-observables.mjs",
-    "update:precision-study": "UPDATE_GOLDENS=1 vitest run packages/runtime/src/planar-precision-results.test.ts && prettier --write packages/runtime/src/planar-precision-results.json"
+    "update:precision-study": "UPDATE_GOLDENS=1 vitest run packages/runtime/src/planar-precision-results.test.ts && prettier --write packages/runtime/src/planar-precision-results.json",
+    "update:impact-agreement": "UPDATE_GOLDENS=1 vitest run packages/runtime/src/planar-impact-agreement-results.test.ts && prettier --write packages/runtime/src/planar-impact-agreement-results.json"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^8.15.0",
