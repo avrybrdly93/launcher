@@ -229,3 +229,87 @@ describe("buildWgslObservablesKernelSource", () => {
     expect(ENTRY).toContain("return;");
   });
 });
+
+/**
+ * P0.136's builder half.
+ *
+ * The digest below was computed from the source as it stood in the commit
+ * *before* the `compensated` option existed, and the three sizes were compared
+ * string-for-string against that build rather than eyeballed. That is what
+ * turns "the default is unchanged" from a claim into a check -- and it is the
+ * claim the whole design rests on, since P7.16's 0-ULP agreement and P7.17's
+ * budgets were measured against this exact text.
+ *
+ * **If this digest fails, those recorded measurements no longer describe the
+ * shader that ships.** Re-measure with `pnpm check:gpu-observables`; do not
+ * update the digest.
+ */
+const PRE_P0136_OBSERVABLES_SHA256 =
+  "b2fe7f3eb256aaa50ef06057fddcbe95286185cb4ef9d716ecb5aa913f277e1b";
+
+describe("the compensated option leaves the default build byte-identical", () => {
+  it("still produces the text the recorded device measurements were taken on", async () => {
+    const { createHash } = await import("node:crypto");
+    const digest = createHash("sha256").update(buildWgslObservablesKernelSource(64)).digest("hex");
+    expect(digest).toBe(PRE_P0136_OBSERVABLES_SHA256);
+  });
+
+  it("treats an omitted option, an empty object and an explicit false as the same build", () => {
+    // Three spellings of "default" that could plausibly diverge if the option
+    // were ever read with `||` instead of `??`.
+    const base = buildWgslObservablesKernelSource(64);
+    expect(buildWgslObservablesKernelSource(64, {})).toBe(base);
+    expect(buildWgslObservablesKernelSource(64, { compensated: false })).toBe(base);
+  });
+
+  it("keeps the default free of every compensated fragment", () => {
+    const base = buildWgslObservablesKernelSource(64);
+    expect(base).not.toContain("rk4StepCompensated");
+    expect(base).not.toContain("CompensatedState");
+    expect(base).not.toContain("var comp =");
+  });
+});
+
+describe("the compensated build marches on the two-float accumulator", () => {
+  const comp = buildWgslObservablesKernelSource(64, { compensated: true });
+
+  it("declares the residual once, zero-initialised, per thread", () => {
+    // Inside the entry point, after the early-return guard, so a thread that
+    // returns never touches it.
+    expect(comp).toContain("var comp = vec4<f32>(0.0);");
+    expect(comp.match(/var comp = /g)).toHaveLength(1);
+  });
+
+  it("steps through rk4StepCompensated rather than rk4Step", () => {
+    expect(comp).toContain("let stepped = rk4StepCompensated(y, comp, h, p);");
+    expect(comp).toContain("let next = stepped.y;");
+    // The plain step function is still *declared* -- the shared fragment is
+    // interpolated whole -- but the march must not call it.
+    expect(comp).not.toContain("let next = rk4Step(y, h, p);");
+  });
+
+  it("carries the residual across steps instead of discarding it", () => {
+    // Without this line the accumulator resets every step and the mode is
+    // compensated in name only, which no numeric comparison would flag as an
+    // error -- it would simply look like a disappointing improvement.
+    expect(comp).toContain("comp = stepped.c;");
+  });
+
+  it("declares rhs exactly once, and rk4Step exactly once, despite two step functions", () => {
+    expect(comp.match(/fn rhs\(/g)).toHaveLength(1);
+    expect(comp.match(/fn rk4Step\(/g)).toHaveLength(1);
+    expect(comp.match(/fn rk4StepCompensated\(/g)).toHaveLength(1);
+  });
+
+  it("leaves the reduction, the bisection and the bindings untouched", () => {
+    // Only the march changes. Everything downstream of it reads `y` and knows
+    // nothing about how it was accumulated.
+    const base = buildWgslObservablesKernelSource(64);
+    const tail = (s: string): string => s.slice(s.indexOf("  // One bisection, after the loop"));
+    expect(tail(comp)).toBe(tail(base));
+  });
+
+  it("still rejects a bad workgroup size in compensated mode", () => {
+    expect(() => buildWgslObservablesKernelSource(0, { compensated: true })).toThrow(RangeError);
+  });
+});

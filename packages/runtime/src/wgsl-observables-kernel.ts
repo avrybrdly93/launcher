@@ -82,8 +82,26 @@
  * case rather than left holding whatever the unrefined bracket produced.
  */
 
-import { WGSL_PLANAR_STEP_FNS, WGSL_PLANAR_STRUCTS } from "./wgsl-planar-physics.js";
+import {
+  WGSL_PLANAR_COMPENSATED_STEP_FNS,
+  WGSL_PLANAR_STEP_FNS,
+  WGSL_PLANAR_STRUCTS,
+} from "./wgsl-planar-physics.js";
 import { WGSL_STATE_DIM, WGSL_WORKGROUP_SIZE } from "./wgsl-rk4-kernel.js";
+
+/** Options for {@link buildWgslObservablesKernelSource}. */
+export interface WgslObservablesKernelOptions {
+  /**
+   * Use the two-float (compensated) accumulator for the state march (P0.136).
+   *
+   * Defaults to `false`, matching the CPU arm's own default and, more
+   * importantly, keeping the generated text identical to the one P7.16 measured
+   * 0-ULP against. Turning it on is a numerical change, not a tuning knob: it
+   * is what lets a long flight meet P7.19's 1e-3 m absolute impact bar, which
+   * the plain accumulator misses by 15.5x on the drag-free family.
+   */
+  readonly compensated?: boolean;
+}
 
 /**
  * Floats written back per trajectory:
@@ -135,12 +153,38 @@ export const WGSL_OBSERVABLE_ENTRY_POINT = "main";
  * ensemble holding its initial state.
  *
  * @param workgroupSize positive integer.
+ * @param options `compensated` selects the two-float accumulator (P0.136);
+ *   it defaults to `false`, and when it is `false` the returned text is
+ *   byte-identical to what this builder produced before that option existed.
  * @throws RangeError if `workgroupSize` is not a positive integer.
  */
-export function buildWgslObservablesKernelSource(workgroupSize: number): string {
+export function buildWgslObservablesKernelSource(
+  workgroupSize: number,
+  options: WgslObservablesKernelOptions = {},
+): string {
   if (!Number.isInteger(workgroupSize) || workgroupSize <= 0) {
     throw new RangeError(`workgroup size must be a positive integer, got ${workgroupSize}`);
   }
+  const compensated = options.compensated ?? false;
+
+  // Every one of these is the empty string in the default mode, which is what
+  // keeps that text byte-identical to the pre-P0.136 build. They are separate
+  // fragments rather than one branch over two whole sources for the reason the
+  // shared-physics docstring gives: two spellings of the march would agree on
+  // the day they were written and diverge silently afterwards.
+  const compensatedFns = compensated ? `\n\n${WGSL_PLANAR_COMPENSATED_STEP_FNS}` : "";
+  const compensationDecl = compensated
+    ? `\n  // The residual half of the two-float accumulator, zero-initialised before
+  // the first step and carried across every one of them. Per thread, because
+  // each trajectory has its own running sum.
+  var comp = vec4<f32>(0.0);`
+    : "";
+  const stepStatement = compensated
+    ? `let stepped = rk4StepCompensated(y, comp, h, p);
+    let next = stepped.y;`
+    : `let next = rk4Step(y, h, p);`;
+  const carryStatement = compensated ? `\n    comp = stepped.c;` : "";
+
   return /* wgsl */ `
 ${WGSL_PLANAR_STRUCTS}
 
@@ -149,7 +193,7 @@ ${WGSL_PLANAR_STRUCTS}
 @group(0) @binding(2) var<storage, read_write> observables: array<f32>;
 @group(0) @binding(3) var<uniform> config: Config;
 
-${WGSL_PLANAR_STEP_FNS}
+${WGSL_PLANAR_STEP_FNS}${compensatedFns}
 
 // Cubic Hermite value on one channel, operation-for-operation from
 // @ballista/analysis's hermiteValue and from hermiteValueAt in the CPU
@@ -231,7 +275,7 @@ fn ${WGSL_OBSERVABLE_ENTRY_POINT}(@builtin(global_invocation_id) gid: vec3<u32>)
     initialStates[base + 3u],
   );
   let p = params[index];
-  let h = config.h;
+  let h = config.h;${compensationDecl}
 
   let x0 = y.x;
   // The launch point is always an apex candidate: it is the answer for a
@@ -258,7 +302,7 @@ fn ${WGSL_OBSERVABLE_ENTRY_POINT}(@builtin(global_invocation_id) gid: vec3<u32>)
   // section 4.10 picks fixed-step RK4 for, preserved through the reduction.
   for (var n: u32 = 0u; n < config.steps; n = n + 1u) {
     let prev = y;
-    let next = rk4Step(y, h, p);
+    ${stepStatement}
 
     // Times reconstructed from n, matching integratePlanarRk4's
     // round(t0 + round(n*h)) rather than an accumulated t += h, and the step
@@ -296,7 +340,7 @@ fn ${WGSL_OBSERVABLE_ENTRY_POINT}(@builtin(global_invocation_id) gid: vec3<u32>)
     impVx1 = select(impVx1, next.z, crossing);
     impacted = select(impacted, 1.0, crossing);
 
-    y = next;
+    y = next;${carryStatement}
   }
 
   // The final row is a candidate too: the answer for an arc cut off while
