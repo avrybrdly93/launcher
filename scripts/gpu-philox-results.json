@@ -1,0 +1,27 @@
+{
+  "task": "P7.21",
+  "criterion": "Philox streams pass statistical tests; replicate determinism by counter",
+  "criterionReading": "This script answers NEITHER clause on its own terms -- both live in packages/engine/src/philox.test.ts, which is what the criterion is met by. It answers what the word 'in-kernel' puts in the criterion's title and those tests cannot reach: whether the generator the shader computes is the generator they measured.",
+  "provenance": "Correctness only. The adapter is recorded below; where it is software, these numbers say what a conformant implementation computes and say NOTHING about throughput. That is P7.20, which remains hardware-gated.",
+  "gate": "Exact equality, not a ULP budget. The generator is integer arithmetic, exactly specified modulo 2^32, so a conformant implementation has no latitude and one differing bit is one bug. The uniform conversion is exact by construction too: f32(word >> 8u) fits in 24 bits and 2^-24 is a power of two.",
+  "measuredAt": "2026-09-16T06:30:01.996Z",
+  "replicates": 65536,
+  "key": ["0x1234abcd", "0x5678ef01"],
+  "workgroupSize": 64,
+  "kernelLength": 3609,
+  "adapterInfo": {
+    "vendor": "google",
+    "architecture": "swiftshader",
+    "device": "",
+    "description": "",
+    "isFallbackAdapter": null
+  },
+  "chromiumVersion": "141.0.7390.37",
+  "flagSet": "swiftshader",
+  "deviceErrors": [],
+  "wordMismatches": 0,
+  "uniformMismatches": 0,
+  "worstUniformUlp": 0,
+  "largestUniform": 0.9999995231628418,
+  "f32VsF64ConversionGap": 5.9371814131736755e-8
+}
