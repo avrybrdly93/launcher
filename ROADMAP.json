@@ -3111,8 +3111,8 @@
       "estMinutes": 30,
       "difficulty": "H",
       "validation": "Philox streams pass statistical tests; replicate determinism by counter",
-      "status": "todo",
-      "notes": ""
+      "status": "in-progress",
+      "notes": "CLAIMED by the 108th run, after P7.20 was passed over for the fourth consecutive run on the same settled ground recorded in its own notes: it needs hardware, and a rate measured on this container's software adapter would be the exact thing scripts/measure-gpu-workgroup-sweep.mjs's header was written to prevent. Nothing this run does changes that.\n\nPLAN, recorded before any code, so that a run which gets cut off can tell what was intended from what landed. (1) A CPU reference Philox4x32-10, written from the algorithm's specification -- the two multipliers 0xD2511F53/0xCD9E8D57, the two Weyl bumps 0x9E3779B9/0xBB67AE85, the round's (hi1^c1^k0, lo1, hi0^c3^k1, lo0) permutation, and the key bumped before every round after the first. (2) The same function as WGSL text, as a SEPARATE opt-in constant, following the shape P0.136 established and for the same reason: a kernel that does not ask for an RNG must interpolate exactly the characters it interpolated before, so no recorded device measurement moves. (3) Tests for the two clauses of the criterion, which are different claims and are reported separately.\n\nSCOPE LIMIT, stated in advance so it is not mistaken for an omission: this task is the RNG, not the distribution mapping. Uniforms in [0,1) are in scope because they are what the statistical clause is measured on; normal jitter belongs to whoever wires the MC pipeline itself."
     },
     {
       "id": "P7.22",
