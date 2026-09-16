@@ -169,6 +169,30 @@ export function u32ToUnitFloat(word: number): number {
 }
 
 /**
+ * The same mapping for an arm that must produce an `f32`, which is a different
+ * computation and not a rounded version of the one above.
+ *
+ * `f32` carries 24 mantissa bits, so converting a full 32-bit word to it
+ * **rounds**, and `0xFFFFFFFF` rounds *up* to 4294967296 exactly. Dividing that
+ * by 2^32 gives exactly 1.0 — so the obvious `f32(word) / 2^32` closes the
+ * range, and a caller computing `log(1 - u)` gets `-Infinity` for one word in
+ * 2^32. That is rare enough to pass every test anyone writes and still be
+ * wrong.
+ *
+ * Taking the top 24 bits and dividing by 2^24 instead is exact for every input,
+ * peaks at `(2^24 - 1) / 2^24 < 1`, and discards no precision an `f32` could
+ * have carried. `Math.fround` is a no-op on the result and is written anyway,
+ * because the point of this function is that its output is an `f32` value.
+ *
+ * This is the CPU spelling of `philoxUnitFloat` in `WGSL_PHILOX_FNS`. The two
+ * exist as a pair so a GPU/CPU agreement check can compare them directly rather
+ * than granting one of them a tolerance to cover the other's rounding.
+ */
+export function u32ToUnitFloatF32(word: number): number {
+  return Math.fround((word >>> 8) / 16777216);
+}
+
+/**
  * Four uniforms in [0, 1) from one Philox4x32-10 evaluation.
  *
  * Four rather than one because the generator produces four words per call and
