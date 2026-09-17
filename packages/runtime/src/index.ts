@@ -20,6 +20,7 @@ export * from "./sweep-job.js";
 export * from "./ensemble-job.js";
 export * from "./heterogeneous-executor.js";
 export * from "./webgpu-capability.js";
+export * from "./scheduler-policy.js";
 export * from "./wgsl-rk4-kernel.js";
 export * from "./wgsl-rk4-dispatch.js";
 export * from "./wgsl-planar-physics.js";
