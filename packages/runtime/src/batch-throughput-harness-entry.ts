@@ -22,4 +22,11 @@ export {
   throughputFrom,
   verdictRung,
 } from "./batch-throughput.js";
-export { runMcReplicate } from "./mc-job.js";
+// `createMcColumns` and `runMcRange` are P7.28's addition, for
+// `measure-dispatch-crossover.mjs`'s main-thread arm. That arm must run the
+// benchmark ensemble *in this process* -- the whole point of the measurement is
+// what a job costs with no worker involved -- so it needs the same range entry
+// point `batch-throughput-worker-entry.ts` calls inside a worker. Re-exported
+// here rather than reached for directly, for this file's stated reason: the
+// script's import list stays a list of names.
+export { createMcColumns, runMcRange, runMcReplicate } from "./mc-job.js";

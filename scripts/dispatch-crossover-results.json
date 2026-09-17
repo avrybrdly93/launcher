@@ -1,0 +1,131 @@
+{
+  "task": "P7.28",
+  "measures": "the replicate count at which dispatching an ensemble to workers becomes faster than running it on the main thread",
+  "doesNotMeasure": "any GPU rate. The GPU arm of P7.28's policy routes by job size, not by a measured throughput; P7.20 owns that number and this container has only a software adapter.",
+  "mechanism": "message-passing workers (node:worker_threads); spawn cost inside the timed region",
+  "workers": 4,
+  "stepSize": 0.05,
+  "repeatsPerArm": 5,
+  "statistic": "minimum of the repeats, per arm",
+  "measuredAt": "2026-09-17T06:23:04.079Z",
+  "environment": {
+    "node": "v22.22.2",
+    "platform": "linux",
+    "arch": "x64",
+    "cpus": 4
+  },
+  "checksumReassociationTolerance": 1e-13,
+  "points": [
+    {
+      "replicates": 1,
+      "chunks": 1,
+      "mainThreadSeconds": 0.001657892,
+      "workerSeconds": 0.078813095,
+      "workerSpeedup": 0.0210357428546614,
+      "checksumRelativeSpread": 0
+    },
+    {
+      "replicates": 2,
+      "chunks": 2,
+      "mainThreadSeconds": 0.001063584,
+      "workerSeconds": 0.088342483,
+      "workerSpeedup": 0.012039326537833446,
+      "checksumRelativeSpread": 0
+    },
+    {
+      "replicates": 4,
+      "chunks": 4,
+      "mainThreadSeconds": 0.00223123,
+      "workerSeconds": 0.093300471,
+      "workerSpeedup": 0.02391445590880243,
+      "checksumRelativeSpread": 0
+    },
+    {
+      "replicates": 8,
+      "chunks": 4,
+      "mainThreadSeconds": 0.002845406,
+      "workerSeconds": 0.106080838,
+      "workerSpeedup": 0.026822997005359252,
+      "checksumRelativeSpread": 0
+    },
+    {
+      "replicates": 16,
+      "chunks": 4,
+      "mainThreadSeconds": 0.005445117,
+      "workerSeconds": 0.127595539,
+      "workerSpeedup": 0.04267482266758558,
+      "checksumRelativeSpread": 1.1310670794580497e-16
+    },
+    {
+      "replicates": 32,
+      "chunks": 4,
+      "mainThreadSeconds": 0.010287261,
+      "workerSeconds": 0.140583439,
+      "workerSpeedup": 0.0731754826398862,
+      "checksumRelativeSpread": 2.2517922315386943e-16
+    },
+    {
+      "replicates": 64,
+      "chunks": 4,
+      "mainThreadSeconds": 0.019383735,
+      "workerSeconds": 0.159089418,
+      "workerSpeedup": 0.12184176197061704,
+      "checksumRelativeSpread": 1.1251020916960302e-16
+    },
+    {
+      "replicates": 128,
+      "chunks": 4,
+      "mainThreadSeconds": 0.038070443,
+      "workerSeconds": 0.187381967,
+      "workerSpeedup": 0.20317026024174462,
+      "checksumRelativeSpread": 0
+    },
+    {
+      "replicates": 256,
+      "chunks": 4,
+      "mainThreadSeconds": 0.073910433,
+      "workerSeconds": 0.222887381,
+      "workerSpeedup": 0.33160438544522175,
+      "checksumRelativeSpread": 2.250799605574965e-16
+    },
+    {
+      "replicates": 512,
+      "chunks": 4,
+      "mainThreadSeconds": 0.141821513,
+      "workerSeconds": 0.275427882,
+      "workerSpeedup": 0.5149134211473914,
+      "checksumRelativeSpread": 3.3796194119759737e-16
+    },
+    {
+      "replicates": 1024,
+      "chunks": 4,
+      "mainThreadSeconds": 0.27565116,
+      "workerSeconds": 0.374037511,
+      "workerSpeedup": 0.7369612723147438,
+      "checksumRelativeSpread": 0
+    },
+    {
+      "replicates": 2048,
+      "chunks": 4,
+      "mainThreadSeconds": 0.538219229,
+      "workerSeconds": 0.483024097,
+      "workerSpeedup": 1.1142699346529703,
+      "checksumRelativeSpread": 7.889765046929145e-16
+    },
+    {
+      "replicates": 4096,
+      "chunks": 4,
+      "mainThreadSeconds": 1.086726012,
+      "workerSeconds": 0.67306015,
+      "workerSpeedup": 1.6146045966322624,
+      "checksumRelativeSpread": 5.631627843644994e-16
+    }
+  ],
+  "verdict": {
+    "crossoverReplicates": 2048,
+    "sweptRange": {
+      "lowest": 1,
+      "highest": 4096
+    }
+  }
+}
