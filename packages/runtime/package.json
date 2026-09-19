@@ -17,7 +17,9 @@
     "nanostores": "^0.11.3"
   },
   "devDependencies": {
+    "rollup": "^4.62.2",
     "typescript": "^5.6.3",
+    "vite": "^5.4.21",
     "vitest": "^2.1.4"
   }
 }
