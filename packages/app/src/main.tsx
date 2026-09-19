@@ -10,6 +10,7 @@ import { StabilityExplorerRoute } from "./stability-explorer-route.js";
 import { TerrainEditorRoute } from "./terrain-editor-route.js";
 import { InverseSolverRoute } from "./inverse-solver-route.js";
 import { MonteCarloRoute } from "./monte-carlo-route.js";
+import { BenchmarkRoute } from "./benchmark-route.js";
 
 /**
  * Minimal hash-based routing (P3.41, extended P3.42): a handful of routes
@@ -53,6 +54,9 @@ function renderRoute(root: HTMLElement): void {
       return;
     case "#/monte-carlo":
       render(<MonteCarloRoute />, root);
+      return;
+    case "#/benchmark":
+      render(<BenchmarkRoute />, root);
       return;
     default:
       render(<App />, root);

@@ -24,6 +24,7 @@ export const ROUTE_HASHES = [
   "#/model-registry",
   "#/inverse-solver",
   "#/monte-carlo",
+  "#/benchmark",
 ] as const;
 
 /** One of {@link ROUTE_HASHES}. */
