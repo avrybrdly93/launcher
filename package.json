@@ -39,7 +39,8 @@
     "update:precision-study": "UPDATE_GOLDENS=1 vitest run packages/runtime/src/planar-precision-results.test.ts && prettier --write packages/runtime/src/planar-precision-results.json",
     "update:impact-agreement": "UPDATE_GOLDENS=1 vitest run packages/runtime/src/planar-impact-agreement-results.test.ts && prettier --write packages/runtime/src/planar-impact-agreement-results.json",
     "check:gpu-compensated-impact": "node scripts/measure-gpu-compensated-impact.mjs",
-    "check:gpu-philox": "node scripts/measure-gpu-philox.mjs"
+    "check:gpu-philox": "node scripts/measure-gpu-philox.mjs",
+    "bench:trend": "node scripts/plot-benchmark-trend.mjs"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^8.15.0",

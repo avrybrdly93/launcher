@@ -64,6 +64,31 @@ jobs:
       - name: Benchmark regression check (soft warn)
         run: pnpm bench:solverkit
 
+      # P7.31. The trend half of the same signal, and deliberately a second
+      # step rather than a replacement: `bench:solverkit` MEASURES this run,
+      # this one reads the committed series and grades the newest sample
+      # against the median of the ones before it on the same machine.
+      #
+      # No --record, for the reason the throughput and drift steps give: the
+      # write lands in the runner's workspace and is discarded, so growing
+      # scripts/benchmark-history.json stays a deliberate local act. What CI
+      # contributes is the rendered chart, uploaded below.
+      #
+      # Soft warn, like the perf checks around it. Note that the alert cannot
+      # fire at all until the history holds `minSamples` samples from the
+      # runner's own machine, and the script says so in words rather than
+      # printing the same all-clear it would print with a full series.
+      - name: Benchmark trend dashboard (soft warn)
+        run: pnpm bench:trend
+
+      - name: Upload benchmark trend chart
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-trend
+          path: scripts/benchmark-trend.svg
+          if-no-files-found: warn
+
       # P6.26. Soft warn, like the two perf checks around it: absolute
       # throughput on a shared runner is not a signal a build should be gated
       # on, and a perf gate that fails for a noisy neighbour trains everyone
