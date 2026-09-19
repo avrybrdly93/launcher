@@ -1,0 +1,126 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="460" viewBox="0 0 900 460" font-family="system-ui, sans-serif" font-size="11">
+<rect width="900" height="460" fill="#ffffff"/>
+<text x="64" y="22" font-size="14" font-weight="600">SolverKit stepper throughput relative to explicit-euler (relativeToEuler)</text>
+<line x1="64" y1="404.0" x2="710" y2="404.0" stroke="#e6e6e6"/>
+<text x="56" y="408.0" text-anchor="end" fill="#555">0.0</text>
+<line x1="64" y1="331.2" x2="710" y2="331.2" stroke="#e6e6e6"/>
+<text x="56" y="335.2" text-anchor="end" fill="#555">0.2</text>
+<line x1="64" y1="258.4" x2="710" y2="258.4" stroke="#e6e6e6"/>
+<text x="56" y="262.4" text-anchor="end" fill="#555">0.4</text>
+<line x1="64" y1="185.6" x2="710" y2="185.6" stroke="#e6e6e6"/>
+<text x="56" y="189.6" text-anchor="end" fill="#555">0.6</text>
+<line x1="64" y1="112.8" x2="710" y2="112.8" stroke="#e6e6e6"/>
+<text x="56" y="116.8" text-anchor="end" fill="#555">0.8</text>
+<line x1="64" y1="40.0" x2="710" y2="40.0" stroke="#e6e6e6"/>
+<text x="56" y="44.0" text-anchor="end" fill="#555">1.0</text>
+<text x="64.0" y="422" text-anchor="middle" fill="#555">2026-07-21</text>
+<text x="156.3" y="422" text-anchor="middle" fill="#555">2026-09-19</text>
+<text x="248.6" y="422" text-anchor="middle" fill="#555">2026-09-19</text>
+<text x="340.9" y="422" text-anchor="middle" fill="#555">2026-09-19</text>
+<text x="433.1" y="422" text-anchor="middle" fill="#555">2026-09-19</text>
+<text x="525.4" y="422" text-anchor="middle" fill="#555">2026-09-19</text>
+<text x="617.7" y="422" text-anchor="middle" fill="#555">2026-09-19</text>
+<text x="710.0" y="422" text-anchor="middle" fill="#555">2026-09-19</text>
+<line x1="110.1" y1="40" x2="110.1" y2="404" stroke="#999" stroke-dasharray="4 3"/>
+<text x="110.1" y="34" text-anchor="middle" fill="#777">machine change</text>
+<circle cx="64.0" cy="311.3" r="2.6" fill="#1f77b4"/>
+<polyline fill="none" stroke="#1f77b4" stroke-width="1.8" points="156.3,244.3 248.6,284.1 340.9,271.0 433.1,251.7 525.4,267.8 617.7,282.3 710.0,278.9"/>
+<circle cx="156.3" cy="244.3" r="2.6" fill="#1f77b4"/>
+<circle cx="248.6" cy="284.1" r="2.6" fill="#1f77b4"/>
+<circle cx="340.9" cy="271.0" r="2.6" fill="#1f77b4"/>
+<circle cx="433.1" cy="251.7" r="2.6" fill="#1f77b4"/>
+<circle cx="525.4" cy="267.8" r="2.6" fill="#1f77b4"/>
+<circle cx="617.7" cy="282.3" r="2.6" fill="#1f77b4"/>
+<circle cx="710.0" cy="278.9" r="2.6" fill="#1f77b4"/>
+<line x1="726" y1="46" x2="750" y2="46" stroke="#1f77b4" stroke-width="1.8"/>
+<text x="756" y="50" fill="#333">bogacki-shampine-32</text>
+<circle cx="64.0" cy="313.6" r="2.6" fill="#d62728"/>
+<polyline fill="none" stroke="#d62728" stroke-width="1.8" points="156.3,230.3 248.6,240.0 340.9,226.4 433.1,224.8 525.4,241.8 617.7,241.9 710.0,243.2"/>
+<circle cx="156.3" cy="230.3" r="2.6" fill="#d62728"/>
+<circle cx="248.6" cy="240.0" r="2.6" fill="#d62728"/>
+<circle cx="340.9" cy="226.4" r="2.6" fill="#d62728"/>
+<circle cx="433.1" cy="224.8" r="2.6" fill="#d62728"/>
+<circle cx="525.4" cy="241.8" r="2.6" fill="#d62728"/>
+<circle cx="617.7" cy="241.9" r="2.6" fill="#d62728"/>
+<circle cx="710.0" cy="243.2" r="2.6" fill="#d62728"/>
+<line x1="726" y1="62" x2="750" y2="62" stroke="#d62728" stroke-width="1.8"/>
+<text x="756" y="66" fill="#333">classical-rk4</text>
+<circle cx="64.0" cy="354.4" r="2.6" fill="#2ca02c"/>
+<polyline fill="none" stroke="#2ca02c" stroke-width="1.8" points="156.3,313.5 248.6,336.8 340.9,330.8 433.1,311.7 525.4,323.6 617.7,336.4 710.0,337.1"/>
+<circle cx="156.3" cy="313.5" r="2.6" fill="#2ca02c"/>
+<circle cx="248.6" cy="336.8" r="2.6" fill="#2ca02c"/>
+<circle cx="340.9" cy="330.8" r="2.6" fill="#2ca02c"/>
+<circle cx="433.1" cy="311.7" r="2.6" fill="#2ca02c"/>
+<circle cx="525.4" cy="323.6" r="2.6" fill="#2ca02c"/>
+<circle cx="617.7" cy="336.4" r="2.6" fill="#2ca02c"/>
+<circle cx="710.0" cy="337.1" r="2.6" fill="#2ca02c"/>
+<line x1="726" y1="78" x2="750" y2="78" stroke="#2ca02c" stroke-width="1.8"/>
+<text x="756" y="82" fill="#333">dopri5</text>
+<circle cx="64.0" cy="40.0" r="2.6" fill="#9467bd"/>
+<polyline fill="none" stroke="#9467bd" stroke-width="1.8" points="156.3,40.0 248.6,40.0 340.9,40.0 433.1,40.0 525.4,40.0 617.7,40.0 710.0,40.0"/>
+<circle cx="156.3" cy="40.0" r="2.6" fill="#9467bd"/>
+<circle cx="248.6" cy="40.0" r="2.6" fill="#9467bd"/>
+<circle cx="340.9" cy="40.0" r="2.6" fill="#9467bd"/>
+<circle cx="433.1" cy="40.0" r="2.6" fill="#9467bd"/>
+<circle cx="525.4" cy="40.0" r="2.6" fill="#9467bd"/>
+<circle cx="617.7" cy="40.0" r="2.6" fill="#9467bd"/>
+<circle cx="710.0" cy="40.0" r="2.6" fill="#9467bd"/>
+<line x1="726" y1="94" x2="750" y2="94" stroke="#9467bd" stroke-width="1.8"/>
+<text x="756" y="98" fill="#333">explicit-euler</text>
+<circle cx="64.0" cy="166.5" r="2.6" fill="#ff7f0e"/>
+<polyline fill="none" stroke="#ff7f0e" stroke-width="1.8" points="156.3,107.2 248.6,129.3 340.9,100.9 433.1,100.8 525.4,128.7 617.7,139.1 710.0,132.5"/>
+<circle cx="156.3" cy="107.2" r="2.6" fill="#ff7f0e"/>
+<circle cx="248.6" cy="129.3" r="2.6" fill="#ff7f0e"/>
+<circle cx="340.9" cy="100.9" r="2.6" fill="#ff7f0e"/>
+<circle cx="433.1" cy="100.8" r="2.6" fill="#ff7f0e"/>
+<circle cx="525.4" cy="128.7" r="2.6" fill="#ff7f0e"/>
+<circle cx="617.7" cy="139.1" r="2.6" fill="#ff7f0e"/>
+<circle cx="710.0" cy="132.5" r="2.6" fill="#ff7f0e"/>
+<line x1="726" y1="110" x2="750" y2="110" stroke="#ff7f0e" stroke-width="1.8"/>
+<text x="756" y="114" fill="#333">heun-rk2</text>
+<circle cx="64.0" cy="163.7" r="2.6" fill="#8c564b"/>
+<polyline fill="none" stroke="#8c564b" stroke-width="1.8" points="156.3,93.4 248.6,113.5 340.9,107.9 433.1,99.7 525.4,117.5 617.7,115.9 710.0,117.1"/>
+<circle cx="156.3" cy="93.4" r="2.6" fill="#8c564b"/>
+<circle cx="248.6" cy="113.5" r="2.6" fill="#8c564b"/>
+<circle cx="340.9" cy="107.9" r="2.6" fill="#8c564b"/>
+<circle cx="433.1" cy="99.7" r="2.6" fill="#8c564b"/>
+<circle cx="525.4" cy="117.5" r="2.6" fill="#8c564b"/>
+<circle cx="617.7" cy="115.9" r="2.6" fill="#8c564b"/>
+<circle cx="710.0" cy="117.1" r="2.6" fill="#8c564b"/>
+<line x1="726" y1="126" x2="750" y2="126" stroke="#8c564b" stroke-width="1.8"/>
+<text x="756" y="130" fill="#333">midpoint-rk2</text>
+<circle cx="64.0" cy="112.5" r="2.6" fill="#17becf"/>
+<polyline fill="none" stroke="#17becf" stroke-width="1.8" points="156.3,79.6 248.6,108.0 340.9,90.1 433.1,71.7 525.4,112.4 617.7,129.8 710.0,101.4"/>
+<circle cx="156.3" cy="79.6" r="2.6" fill="#17becf"/>
+<circle cx="248.6" cy="108.0" r="2.6" fill="#17becf"/>
+<circle cx="340.9" cy="90.1" r="2.6" fill="#17becf"/>
+<circle cx="433.1" cy="71.7" r="2.6" fill="#17becf"/>
+<circle cx="525.4" cy="112.4" r="2.6" fill="#17becf"/>
+<circle cx="617.7" cy="129.8" r="2.6" fill="#17becf"/>
+<circle cx="710.0" cy="101.4" r="2.6" fill="#17becf"/>
+<line x1="726" y1="142" x2="750" y2="142" stroke="#17becf" stroke-width="1.8"/>
+<text x="756" y="146" fill="#333">position-verlet</text>
+<circle cx="64.0" cy="60.2" r="2.6" fill="#e377c2"/>
+<polyline fill="none" stroke="#e377c2" stroke-width="1.8" points="156.3,52.6 248.6,81.8 340.9,50.9 433.1,44.2 525.4,84.5 617.7,76.3 710.0,78.2"/>
+<circle cx="156.3" cy="52.6" r="2.6" fill="#e377c2"/>
+<circle cx="248.6" cy="81.8" r="2.6" fill="#e377c2"/>
+<circle cx="340.9" cy="50.9" r="2.6" fill="#e377c2"/>
+<circle cx="433.1" cy="44.2" r="2.6" fill="#e377c2"/>
+<circle cx="525.4" cy="84.5" r="2.6" fill="#e377c2"/>
+<circle cx="617.7" cy="76.3" r="2.6" fill="#e377c2"/>
+<circle cx="710.0" cy="78.2" r="2.6" fill="#e377c2"/>
+<line x1="726" y1="158" x2="750" y2="158" stroke="#e377c2" stroke-width="1.8"/>
+<text x="756" y="162" fill="#333">semi-implicit-euler</text>
+<circle cx="64.0" cy="215.0" r="2.6" fill="#7f7f7f"/>
+<polyline fill="none" stroke="#7f7f7f" stroke-width="1.8" points="156.3,114.4 248.6,138.7 340.9,113.0 433.1,107.5 525.4,144.1 617.7,145.7 710.0,143.0"/>
+<circle cx="156.3" cy="114.4" r="2.6" fill="#7f7f7f"/>
+<circle cx="248.6" cy="138.7" r="2.6" fill="#7f7f7f"/>
+<circle cx="340.9" cy="113.0" r="2.6" fill="#7f7f7f"/>
+<circle cx="433.1" cy="107.5" r="2.6" fill="#7f7f7f"/>
+<circle cx="525.4" cy="144.1" r="2.6" fill="#7f7f7f"/>
+<circle cx="617.7" cy="145.7" r="2.6" fill="#7f7f7f"/>
+<circle cx="710.0" cy="143.0" r="2.6" fill="#7f7f7f"/>
+<line x1="726" y1="174" x2="750" y2="174" stroke="#7f7f7f" stroke-width="1.8"/>
+<text x="756" y="178" fill="#333">velocity-verlet</text>
+<text x="64" y="446" fill="#777">alert: &gt; 30% below the median of the preceding same-machine samples, minimum 5</text>
+</svg>

@@ -1,0 +1,150 @@
+{
+  "schemaVersion": 1,
+  "metric": "SolverKit stepper throughput relative to explicit-euler (relativeToEuler)",
+  "provenance": "P7.31. Appended by `node scripts/plot-benchmark-trend.mjs --record`, which is a DELIBERATE LOCAL ACT: CI runs this script without --record, because a write in the runner's workspace is discarded (P0.102, and the same note on bench:throughput in ci.yml). CI's deliverable is the uploaded chart, not a grown history. Only `ratios` is charted and alerted on. `stepsPerSec` is carried for context where it was recorded and is never compared: it is a property of the machine. `machineId` is what makes two points comparable. It is NOT decoration -- measured 2026-09-19, classical-rk4 reads 0.44-0.49 on this container against the 0.2484 recorded in July, and dopri5 0.18-0.25 against 0.1364, so benchmark-baseline.json's claim that the ratio is 'largely hardware-invariant' does not survive contact with a second machine. Every ratio is compressed toward 1 here, which is what happens when per-step overhead rather than rhs evaluation is the larger share of a step. The alert thresholds are set from a measured table rather than declared: over these seven same-machine runs, taking every subset of a given size as the reference median and every remaining point as the latest, the worst downward excursion ON NOISE ALONE is -26.8% at two reference samples, -26.0% at three, -21.7% at four, -16.8% at five and -12.9% at six. regressionPct=30 clears the worst of those, not merely the one matching minSamples=5, because the large-reference rows are estimated from very few subsets.",
+  "alert": {
+    "regressionPct": 30,
+    "minSamples": 5
+  },
+  "samples": [
+    {
+      "recordedAt": "2026-07-21",
+      "machineId": "unknown-2026-07-sandbox",
+      "ratios": {
+        "explicit-euler": 1,
+        "midpoint-rk2": 0.6602,
+        "heun-rk2": 0.6526,
+        "classical-rk4": 0.2484,
+        "semi-implicit-euler": 0.9444,
+        "velocity-verlet": 0.5193,
+        "position-verlet": 0.8009,
+        "bogacki-shampine-32": 0.2548,
+        "dopri5": 0.1364
+      },
+      "stepsPerSec": {
+        "explicit-euler": 8865760,
+        "midpoint-rk2": 5852789,
+        "heun-rk2": 5785855,
+        "classical-rk4": 2202097,
+        "semi-implicit-euler": 8372429,
+        "velocity-verlet": 4604115,
+        "position-verlet": 7100336,
+        "bogacki-shampine-32": 2259423,
+        "dopri5": 1209077
+      },
+      "note": "Carried over from scripts/benchmark-baseline.json, which is the only recorded run predating this file. The machine it was taken on is not recorded anywhere, so its machineId says so rather than guessing -- which is why it forms a segment of its own and never acts as a reference for a later point."
+    },
+    {
+      "recordedAt": "2026-09-19",
+      "machineId": "linux-x64-4cpu-intel-xeon-2.10ghz-node22",
+      "ratios": {
+        "explicit-euler": 1.0,
+        "midpoint-rk2": 0.8534,
+        "heun-rk2": 0.8155,
+        "classical-rk4": 0.4772,
+        "semi-implicit-euler": 0.9653,
+        "velocity-verlet": 0.7956,
+        "position-verlet": 0.8911,
+        "bogacki-shampine-32": 0.4388,
+        "dopri5": 0.2485
+      },
+      "note": "Repeat 1 of 7 of `node scripts/check-benchmark-regression.mjs` on one commit (702f309), minutes apart, no code change between them. These seven points measure the METRIC'S NOISE rather than change over time, and they are in the history deliberately: the alert thresholds in this file are set against their spread, and a threshold set without a noise measurement is what P0.131 is filed about."
+    },
+    {
+      "recordedAt": "2026-09-19",
+      "machineId": "linux-x64-4cpu-intel-xeon-2.10ghz-node22",
+      "ratios": {
+        "explicit-euler": 1.0,
+        "midpoint-rk2": 0.7982,
+        "heun-rk2": 0.7548,
+        "classical-rk4": 0.4505,
+        "semi-implicit-euler": 0.8851,
+        "velocity-verlet": 0.7289,
+        "position-verlet": 0.8131,
+        "bogacki-shampine-32": 0.3294,
+        "dopri5": 0.1846
+      },
+      "note": "Repeat 2 of 7 of `node scripts/check-benchmark-regression.mjs` on one commit (702f309), minutes apart, no code change between them. These seven points measure the METRIC'S NOISE rather than change over time, and they are in the history deliberately: the alert thresholds in this file are set against their spread, and a threshold set without a noise measurement is what P0.131 is filed about."
+    },
+    {
+      "recordedAt": "2026-09-19",
+      "machineId": "linux-x64-4cpu-intel-xeon-2.10ghz-node22",
+      "ratios": {
+        "explicit-euler": 1.0,
+        "midpoint-rk2": 0.8135,
+        "heun-rk2": 0.8328,
+        "classical-rk4": 0.4878,
+        "semi-implicit-euler": 0.97,
+        "velocity-verlet": 0.7995,
+        "position-verlet": 0.8623,
+        "bogacki-shampine-32": 0.3653,
+        "dopri5": 0.201
+      },
+      "note": "Repeat 3 of 7 of `node scripts/check-benchmark-regression.mjs` on one commit (702f309), minutes apart, no code change between them. These seven points measure the METRIC'S NOISE rather than change over time, and they are in the history deliberately: the alert thresholds in this file are set against their spread, and a threshold set without a noise measurement is what P0.131 is filed about."
+    },
+    {
+      "recordedAt": "2026-09-19",
+      "machineId": "linux-x64-4cpu-intel-xeon-2.10ghz-node22",
+      "ratios": {
+        "explicit-euler": 1.0,
+        "midpoint-rk2": 0.836,
+        "heun-rk2": 0.8329,
+        "classical-rk4": 0.4924,
+        "semi-implicit-euler": 0.9884,
+        "velocity-verlet": 0.8145,
+        "position-verlet": 0.913,
+        "bogacki-shampine-32": 0.4183,
+        "dopri5": 0.2537
+      },
+      "note": "Repeat 4 of 7 of `node scripts/check-benchmark-regression.mjs` on one commit (702f309), minutes apart, no code change between them. These seven points measure the METRIC'S NOISE rather than change over time, and they are in the history deliberately: the alert thresholds in this file are set against their spread, and a threshold set without a noise measurement is what P0.131 is filed about."
+    },
+    {
+      "recordedAt": "2026-09-19",
+      "machineId": "linux-x64-4cpu-intel-xeon-2.10ghz-node22",
+      "ratios": {
+        "explicit-euler": 1.0,
+        "midpoint-rk2": 0.7872,
+        "heun-rk2": 0.7564,
+        "classical-rk4": 0.4455,
+        "semi-implicit-euler": 0.8777,
+        "velocity-verlet": 0.7139,
+        "position-verlet": 0.8011,
+        "bogacki-shampine-32": 0.3743,
+        "dopri5": 0.221
+      },
+      "note": "Repeat 5 of 7 of `node scripts/check-benchmark-regression.mjs` on one commit (702f309), minutes apart, no code change between them. These seven points measure the METRIC'S NOISE rather than change over time, and they are in the history deliberately: the alert thresholds in this file are set against their spread, and a threshold set without a noise measurement is what P0.131 is filed about."
+    },
+    {
+      "recordedAt": "2026-09-19",
+      "machineId": "linux-x64-4cpu-intel-xeon-2.10ghz-node22",
+      "ratios": {
+        "explicit-euler": 1.0,
+        "midpoint-rk2": 0.7916,
+        "heun-rk2": 0.7277,
+        "classical-rk4": 0.4454,
+        "semi-implicit-euler": 0.9004,
+        "velocity-verlet": 0.7096,
+        "position-verlet": 0.7532,
+        "bogacki-shampine-32": 0.3344,
+        "dopri5": 0.1857
+      },
+      "note": "Repeat 6 of 7 of `node scripts/check-benchmark-regression.mjs` on one commit (702f309), minutes apart, no code change between them. These seven points measure the METRIC'S NOISE rather than change over time, and they are in the history deliberately: the alert thresholds in this file are set against their spread, and a threshold set without a noise measurement is what P0.131 is filed about."
+    },
+    {
+      "recordedAt": "2026-09-19",
+      "machineId": "linux-x64-4cpu-intel-xeon-2.10ghz-node22",
+      "ratios": {
+        "explicit-euler": 1.0,
+        "midpoint-rk2": 0.7882,
+        "heun-rk2": 0.7458,
+        "classical-rk4": 0.4418,
+        "semi-implicit-euler": 0.895,
+        "velocity-verlet": 0.7169,
+        "position-verlet": 0.8313,
+        "bogacki-shampine-32": 0.3437,
+        "dopri5": 0.1838
+      },
+      "note": "Repeat 7 of 7 of `node scripts/check-benchmark-regression.mjs` on one commit (702f309), minutes apart, no code change between them. These seven points measure the METRIC'S NOISE rather than change over time, and they are in the history deliberately: the alert thresholds in this file are set against their spread, and a threshold set without a noise measurement is what P0.131 is filed about."
+    }
+  ]
+}

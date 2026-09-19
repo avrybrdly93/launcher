@@ -43,3 +43,4 @@ export * from "./stepper-derivation-docs.js";
 export * from "./ensemble-state.js";
 export * from "./batched-ensemble-kernel.js";
 export * from "./planar-rk4-precision-reference.js";
+export * from "./benchmark-trend.js";
