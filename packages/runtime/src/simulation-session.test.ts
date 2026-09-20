@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import { PRESET_SCENARIOS, type ScenarioSpec } from "@ballista/engine";
-import type { EventRoot } from "@ballista/solverkit";
+import {
+  bestOfMs,
+  isIdleEnoughForWallClock,
+  measureCalibrationMs,
+  type EventRoot,
+} from "@ballista/solverkit";
 import {
   createSimulationSession,
   DEFAULT_SCENARIO,
@@ -8,6 +13,34 @@ import {
   type FrameScheduler,
   type ReducedMotionQuery,
 } from "./simulation-session.js";
+
+/** Untimed runs first, so JIT compile and inline-cache effects stay out of the number. */
+const COMMIT_WARMUPS = 5;
+
+/** Timed runs to take the minimum over; the minimum is the least-preempted sample. */
+const COMMIT_TRIALS = 9;
+
+/**
+ * MEASURED, NOT GUESSED, and the first guess was wrong by a factor of eight.
+ * Three runs on the development container gave ratios of 0.188, 0.190 and
+ * 0.201 -- a default-scenario commit costs ~0.13 ms against a calibration of
+ * ~0.62-0.68 ms. The limit of 1 is therefore ~5x the worst observation.
+ *
+ * The first draft of this constant was 8, reasoned from an assumption that a
+ * commit costs a bit more than one calibration. It costs a fifth of one, so 8
+ * would have been ~40x the real figure: an assertion that cannot fail is not
+ * a weaker check than a flaky one, it is no check at all. The number is in
+ * the file because it was printed, not because it was plausible.
+ *
+ * WHAT IT CATCHES AND WHAT IT DOES NOT. At 5x headroom this fires on a gross
+ * per-commit regression and not on a modest one; the raw 16 ms check below --
+ * which has ~120x headroom at the current cost -- is looser still in absolute
+ * terms, so on an idle machine the ratio is the tighter of the two. Neither
+ * detects a 20% regression. That is the trade P0.96 makes knowingly: the
+ * assertion this replaces could not detect one either, because it was a
+ * single wall-clock sample and its failures were scheduler noise.
+ */
+const MAX_COMMIT_COST_IN_CALIBRATIONS = 1;
 
 /** `planarProjectileModel`'s `[x, y, vx, vy]` state layout (see planar-projectile-model.ts). */
 const VY_CHANNEL = 3;
@@ -85,18 +118,60 @@ describe("SimulationSession", () => {
     expect(outcome.y[1]).toBe(underflowSpec.initialConditions.y0);
   });
 
-  it("slider -> result round trip completes in under 16 ms for the default scenario (perf, P3.03 validation criterion)", () => {
+  it("slider -> result round trip stays inside the 16 ms frame budget in units of the machine's own speed (perf, P3.03 validation criterion)", () => {
     const session = createSimulationSession();
 
-    // one warm-up run so JIT/inline-cache effects don't inflate the measured sample
-    session.commitScenario(DEFAULT_SCENARIO);
+    // WHY THIS IS NOT ONE `performance.now()` PAIR ANY MORE (P0.96). It was:
+    // one warm-up, then a single timed `commitScenario` asserted against a
+    // raw 16 ms. A single sample is the most load-sensitive form there is --
+    // one descheduled timeslice inside a vitest pool running 346 files fails
+    // it with nothing having regressed, and the failure then attaches itself
+    // to whatever landed alongside it. That is the same defect P0.123 fixed
+    // one package over, and the fix is the same: express the budget as a
+    // ratio against a calibration taken in this process moments earlier.
+    // Contention stretches both halves and leaves the ratio alone; a slower
+    // solve stretches only the numerator.
+    let outcome: ReturnType<typeof session.commitScenario> | null = null;
+    const bestMs = bestOfMs(
+      () => {
+        outcome = session.commitScenario(DEFAULT_SCENARIO);
+      },
+      COMMIT_TRIALS,
+      COMMIT_WARMUPS,
+    );
 
-    const start = performance.now();
-    const outcome = session.commitScenario(DEFAULT_SCENARIO);
-    const elapsedMs = performance.now() - start;
+    // A timing run that did not solve anything would be a fast lie.
+    expect(outcome).not.toBeNull();
+    expect(outcome!.status).toBe("ok");
 
-    expect(outcome.status).toBe("ok");
-    expect(elapsedMs).toBeLessThan(16);
+    const calibrationMs = measureCalibrationMs();
+
+    // THE LOAD-INVARIANT ASSERTION, and the one that carries the criterion on
+    // every machine. See MAX_COMMIT_COST_IN_CALIBRATIONS for where the limit
+    // comes from.
+    const commitCostInCalibrations = bestMs / calibrationMs;
+    expect(commitCostInCalibrations).toBeLessThan(MAX_COMMIT_COST_IN_CALIBRATIONS);
+
+    // THE BLUEPRINT FIGURE, KEPT AT 16 ms AND CHECKED WHERE IT MEANS
+    // SOMETHING. 16 ms is P3.03's own literal validation criterion, so it is
+    // neither raised nor deleted -- it is a statement about one animation
+    // frame on a machine actually free to run.
+    //
+    // The gate keys on the CALIBRATION, never on the measurement it guards,
+    // so code that got slower cannot cause its own check to be skipped.
+    if (isIdleEnoughForWallClock(calibrationMs)) {
+      expect(bestMs).toBeLessThan(16);
+    } else {
+      // Say so rather than passing silently: a skipped check that leaves no
+      // trace is indistinguishable from one that never existed.
+      console.log(
+        `[P0.96] raw 16 ms round-trip check skipped: calibration ${calibrationMs.toFixed(3)} ms ` +
+          `exceeds the idle ceiling, so this machine is too busy or too slow for the frame ` +
+          `budget to measure the code. The load-invariant ratio assertion ran and passed at ` +
+          `${commitCostInCalibrations.toFixed(3)} (limit ${MAX_COMMIT_COST_IN_CALIBRATIONS}); ` +
+          `best of ${COMMIT_TRIALS} was ${bestMs.toFixed(3)} ms.`,
+      );
+    }
   });
 
   it("coalesces 100 rapid updateDraft calls within a frame into a single commit/solve (P3.04 validation criterion)", () => {
