@@ -47,7 +47,11 @@ export function measureWorkPrecision(
       ctx,
       y0,
       tspan,
-      { stepper: stepper.info.id, h, maxSteps: Number.MAX_SAFE_INTEGER },
+      // events: "off" (P0.99) -- same reason as convergence-harness: the
+      // work-precision curve is error at tspan[1] versus rhs count over a
+      // fixed span, so a terminal event would truncate the very span being
+      // measured.
+      { stepper: stepper.info.id, h, maxSteps: Number.MAX_SAFE_INTEGER, events: "off" },
       stepper,
     );
     return {

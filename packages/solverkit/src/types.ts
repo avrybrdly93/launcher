@@ -172,7 +172,40 @@ export interface SolverConfig {
    * See {@link SolverPrecision} for the rounding model and rationale.
    */
   readonly precision?: SolverPrecision;
+  /**
+   * Whether *this* solve wants the events its model declares (P0.99,
+   * ADR-016). There is deliberately **no default**, because there is no safe
+   * one: arming events by default truncates the fixed-step convergence,
+   * energy-drift and golden-trajectory studies this repository's pedagogy is
+   * built on, and disarming them by default is the silent-wrong-answer bug
+   * this field exists to kill.
+   *
+   * It is consulted only when the model declares at least one event. When it
+   * declares none, every value behaves identically and the field is inert.
+   *
+   * - `"off"` -- integrate the bare ODE; declared events are not armed. The
+   *   explicit opt-out for a study that means to integrate a fixed span
+   *   *through* the ground rather than stopping at it.
+   * - `"require"` -- arm the events. A stepper with no interpolant of its own
+   *   is wrapped in {@link HermiteDenseOutputStepper} so the roots can be
+   *   localized, at that wrapper's documented cost (~1 extra `model.rhs` call
+   *   per step in steady state) and its 3rd-order dense accuracy.
+   * - unset -- the two cases above are indistinguishable from the signature,
+   *   so `integrate` refuses to guess: if the model declares events and the
+   *   stepper cannot localize them, it throws at init rather than silently
+   *   dropping them. When the stepper *does* carry an interpolant there is
+   *   nothing to guess and events are armed, as they always have been.
+   */
+  readonly events?: SolverEventMode;
 }
+
+/**
+ * Caller intent for a model's declared events (§4.9, P0.99, ADR-016). See
+ * {@link SolverConfig.events} -- the omitted third state ("unset") is not a
+ * member here, because "I have not said" is expressed by the optional
+ * property being absent and must stay distinguishable from both of these.
+ */
+export type SolverEventMode = "off" | "require";
 
 /** Typed failure taxonomy (§5.1): every way a solve can fail to reach t_f, not a generic Error. */
 export type SolveFailureReason =

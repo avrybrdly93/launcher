@@ -106,7 +106,8 @@ describe("BogackiShampine32Stepper (P2.25)", () => {
       ctx,
       y0,
       [0, h * nSteps],
-      { stepper: stepper.info.id, h, maxSteps: nSteps + 1 },
+      // events: "off" (P0.99): an nRHS accounting check over a fixed step count.
+      { stepper: stepper.info.id, h, maxSteps: nSteps + 1, events: "off" },
       stepper,
     );
 

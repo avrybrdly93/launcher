@@ -14,7 +14,10 @@ function rk4FinalState(
     ctx,
     y0,
     tspan,
-    { stepper: "classical-rk4", h, maxSteps: Number.MAX_SAFE_INTEGER },
+    // events: "off" (P0.99) -- a reference solution is a fixed-step RK4 solve
+    // to tspan[1] used as the truth value for scenarios with no closed form.
+    // It must reach tspan[1] to be comparable with the solve under test.
+    { stepper: "classical-rk4", h, maxSteps: Number.MAX_SAFE_INTEGER, events: "off" },
     new ClassicalRK4Stepper(),
   );
   if (report.status !== "ok") {

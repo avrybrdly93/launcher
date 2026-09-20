@@ -14,7 +14,9 @@ function globalErrorAt(h: number): number {
     ref.ctx,
     ref.y0,
     tspan,
-    { stepper: "explicit-euler", h, maxSteps: Number.MAX_SAFE_INTEGER },
+    // events: "off" (P0.99): global error at t_f versus the drag-free parabola,
+    // which requires reaching t_f rather than stopping at the ground.
+    { stepper: "explicit-euler", h, maxSteps: Number.MAX_SAFE_INTEGER, events: "off" },
     new ExplicitEulerStepper(),
   );
   const exact = ref.state(tspan[1]);

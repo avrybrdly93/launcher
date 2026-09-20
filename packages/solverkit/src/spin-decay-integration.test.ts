@@ -42,7 +42,9 @@ describe("planarProjectileSpinModel: omega(t) = omega0*exp(-t/tau) (P4.07, eq. i
       ctx,
       y0,
       [0, tFinal],
-      { stepper: stepper.info.id, h: 1e-3, maxSteps: 20_000 },
+      // events: "off" (P0.99): compares omega(t) against its closed-form decay
+      // over the full flight, which must not be truncated at ground impact.
+      { stepper: stepper.info.id, h: 1e-3, maxSteps: 20_000, events: "off" },
       stepper,
     );
 
@@ -73,7 +75,9 @@ describe("planarProjectileSpinModel: omega(t) = omega0*exp(-t/tau) (P4.07, eq. i
       ctx,
       y0,
       [0, tHalf],
-      { stepper: stepper.info.id, h: 1e-3, maxSteps: 20_000 },
+      // events: "off" (P0.99): compares omega(t) against its closed-form decay
+      // over the full flight, which must not be truncated at ground impact.
+      { stepper: stepper.info.id, h: 1e-3, maxSteps: 20_000, events: "off" },
       stepper,
     );
 

@@ -62,7 +62,13 @@ export function measureConvergence(
       ctx,
       y0,
       tspan,
-      { stepper: stepper.info.id, h, maxSteps: Number.MAX_SAFE_INTEGER },
+      // events: "off" (P0.99) -- a convergence-order study MUST hold h fixed
+      // and compare yFinal against yExact at tspan[1], so it integrates the
+      // whole span on purpose. Every standard projectile model attaches a
+      // ground-impact event; arming it here would truncate the solve at impact
+      // and measure the order of a different problem. Before P0.99 this was
+      // decided invisibly by the stepper having no interpolant.
+      { stepper: stepper.info.id, h, maxSteps: Number.MAX_SAFE_INTEGER, events: "off" },
       stepper,
       [],
     );

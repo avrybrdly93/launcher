@@ -157,7 +157,9 @@ describe("implicit-vs-explicit cost exhibit on the dust-grain stiff scenario (P4
         ctx,
         y0,
         tspan,
-        { stepper: stepper.info.id, h: 0.0018, maxSteps: Number.MAX_SAFE_INTEGER },
+        // events: "off" (P0.99): a stability exhibit needs the whole span --
+        // the blow-up it demonstrates is the point, not a failure to stop.
+        { stepper: stepper.info.id, h: 0.0018, maxSteps: Number.MAX_SAFE_INTEGER, events: "off" },
         stepper,
       );
       expect(report.status).toBe("ok");
@@ -176,7 +178,8 @@ describe("implicit-vs-explicit cost exhibit on the dust-grain stiff scenario (P4
           ctx,
           y0,
           tspan,
-          { stepper: stepper.info.id, h, maxSteps: Number.MAX_SAFE_INTEGER },
+          // events: "off" (P0.99): same exhibit, swept over h.
+          { stepper: stepper.info.id, h, maxSteps: Number.MAX_SAFE_INTEGER, events: "off" },
           stepper,
         );
         expect(report.status).toBe("ok");

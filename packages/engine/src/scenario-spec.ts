@@ -185,6 +185,17 @@ export const solverConfigSpecSchema = z.object({
   controller: z.enum(["I", "PI"]).optional(),
   maxSteps: z.number().int().positive(),
   hMin: z.number().positive().optional(),
+  /**
+   * Whether this scenario treats its model's declared events as live
+   * (P0.99, ADR-016). Optional, and deliberately without a default: the
+   * intent belongs to the scenario -- "is the ground a boundary for this
+   * run?" -- rather than to each of the seven runtime call sites that
+   * resolve one. Omitted on every scenario whose stepper carries its own
+   * interpolant, where events have always been armed and nothing is
+   * ambiguous; `"off"` on a deliberately fixed-step exhibit that means to
+   * integrate the whole span.
+   */
+  events: z.enum(["off", "require"]).optional(),
 });
 /** Parsed type of {@link solverConfigSpecSchema}. */
 export type SolverConfigSpec = z.infer<typeof solverConfigSpecSchema>;

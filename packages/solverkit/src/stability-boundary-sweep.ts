@@ -29,7 +29,11 @@ export function isStepperStable(
   channelIndex: number,
   reference = 0,
 ): boolean {
-  const cfg = { stepper: stepper.info.id, h, maxSteps: nSteps + 1 };
+  // events: "off" (P0.99) -- this sweep asks whether the numerical solution
+  // stays bounded over a fixed number of steps; stopping early at a declared
+  // event would answer a different question, and an unbounded (diverging)
+  // trajectory is exactly the case where a ground crossing is meaningless.
+  const cfg = { stepper: stepper.info.id, h, maxSteps: nSteps + 1, events: "off" as const };
   const report = integrate(model, ctx, y0, [0, h * nSteps], cfg, stepper);
   if (report.status !== "ok") return false;
 

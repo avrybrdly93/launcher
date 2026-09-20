@@ -108,6 +108,14 @@ const FIXED_RK4_SOLVER = {
   stepper: "classical-rk4",
   h: 0.005,
   maxSteps: 200000,
+  // events: "off" (P0.99) -- the only library scenario not on the adaptive
+  // REFERENCE_SOLVER, and the one whose exhibit needs the whole span: an
+  // energy-drift trace truncated at ground impact stops showing the drift it
+  // exists to show. Classical RK4 has no interpolant, so before P0.99 this
+  // ran without events silently; it now says so. The other twelve scenarios
+  // run on rk45, which carries its own interpolant and has always had the
+  // ground-impact event armed -- they need no annotation and get none.
+  events: "off",
 } as const;
 
 /**

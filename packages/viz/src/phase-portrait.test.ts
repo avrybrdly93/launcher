@@ -47,7 +47,8 @@ const NO_CONTEXT = {} as EvalContext;
 function solvePendulum(stepper: Stepper, h: number, tEnd: number): Trajectory {
   const model = createPendulumModel(PENDULUM_L, PENDULUM_G);
   const recorder = new TrajectoryRecorder();
-  const cfg: SolverConfig = { stepper: stepper.info.id, h, maxSteps: 10_000_000 };
+  // events: "off" (P0.99): a phase portrait traces the whole orbit.
+  const cfg: SolverConfig = { stepper: stepper.info.id, h, maxSteps: 10_000_000, events: "off" };
   integrate(model, NO_CONTEXT, new Float64Array([0.5, 0]), [0, tEnd], cfg, stepper, [recorder]);
   return recorder.trajectory;
 }
@@ -78,7 +79,8 @@ describe("phasePortraitSeries: axes are recorder channels, selected via model.pa
       ctx,
       y0,
       [0, 1],
-      { stepper: stepper.info.id, h: 0.01, maxSteps: 100_000 },
+      // events: "off" (P0.99): the (y, v_y) pair is read off the recorded span.
+      { stepper: stepper.info.id, h: 0.01, maxSteps: 100_000, events: "off" },
       stepper,
       [recorder],
     );

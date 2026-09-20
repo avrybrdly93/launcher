@@ -151,7 +151,16 @@ export function runEnergyDriftStudy(scenario: ScenarioSpec = DEFAULT_SCENARIO): 
         ctx,
         y0,
         [0, tFinal],
-        { stepper: id, h, maxSteps: Number.MAX_SAFE_INTEGER },
+        // events: "off" (P0.99). An energy-drift trace must run the whole
+        // [0, tFinal] window at a fixed h on an equal-rhs budget; truncating it
+        // at the ground-impact event would cut each method's trace at a
+        // different step index and destroy the comparison §4.8 is making.
+        // NOTE the asymmetry this makes visible, filed as P0.142: the
+        // *reference* solve above is adaptive, so it runs on DOPRI5, which HAS
+        // an interpolant and therefore has always had the ground-impact event
+        // armed -- tFinal is the impact time. Only the fixed-step traces ran
+        // without events, and before P0.99 nothing said so.
+        { stepper: id, h, maxSteps: Number.MAX_SAFE_INTEGER, events: "off" },
         stepper,
         [recorder],
       );

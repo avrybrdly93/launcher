@@ -122,7 +122,22 @@ function buildStepperAndConfig(
   if (kind === "classical-rk4") {
     return {
       stepper: new ClassicalRK4Stepper(),
-      cfg: { stepper: "classical-rk4", h: RK4_STEP_SIZE[presetId], maxSteps: 200_000 },
+      // events: "off" (P0.99) preserves the recorded goldens bit-for-bit:
+      // ClassicalRK4 has no interpolant, so these trajectories have always
+      // integrated the full GOLDEN_T_FINAL span straight through the declared
+      // ground-impact event. The dopri5 branch below HAS an interpolant and so
+      // has always stopped AT the impact -- the same preset recorded under two
+      // steppers disagrees about whether the ground is a boundary, decided
+      // only by which stepper the golden happens to use. That asymmetry is
+      // real, pre-dates this change, and is filed as P0.142; changing it here
+      // would rewrite the golden set, which CLAUDE.md and blueprint §8.4 put
+      // behind a deliberate, separately-argued change.
+      cfg: {
+        stepper: "classical-rk4",
+        h: RK4_STEP_SIZE[presetId],
+        maxSteps: 200_000,
+        events: "off",
+      },
     };
   }
   return {
@@ -309,6 +324,13 @@ function solverConfigFromSpec(spec: ScenarioSpec): SolverConfig {
     }),
     ...(s.controller !== undefined && { controller: s.controller }),
     ...(s.hMin !== undefined && { hMin: s.hMin }),
+    // Mirrors resolveSolverConfig's P0.99 passthrough. Without it the one v2
+    // entry recorded with its library solver (fixed-step RK4) would lose the
+    // `events: "off"` its library spec now states, and integrate would refuse
+    // to guess -- correctly, since that is exactly the ambiguity P0.99 is
+    // about. The recorded numbers are unchanged: "off" is what that entry has
+    // always done, silently.
+    ...(s.events !== undefined && { events: s.events }),
   };
 }
 

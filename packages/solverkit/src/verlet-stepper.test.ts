@@ -318,7 +318,8 @@ describe("VerletStepper (P2.16)", () => {
         ctx,
         y0,
         tspan,
-        { stepper: refStepper.info.id, h: 1e-5, maxSteps: Number.MAX_SAFE_INTEGER },
+        // events: "off" (P0.99): a tight-RK4 reference for a slope measurement.
+        { stepper: refStepper.info.id, h: 1e-5, maxSteps: Number.MAX_SAFE_INTEGER, events: "off" },
         refStepper,
         [],
       );

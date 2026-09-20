@@ -126,7 +126,8 @@ describe("C⁰-vs-C¹ Cd(Re) convergence degradation (P4.34, §3.3)", () => {
       ctx,
       y0,
       TSPAN,
-      { stepper: stepper.info.id, h, maxSteps: Number.MAX_SAFE_INTEGER },
+      // events: "off" (P0.99): an observed-order measurement over a fixed span.
+      { stepper: stepper.info.id, h, maxSteps: Number.MAX_SAFE_INTEGER, events: "off" },
       stepper,
       [],
     ).yFinal;

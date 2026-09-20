@@ -2,6 +2,7 @@ import type { EvalContext, Model } from "@ballista/engine";
 import type { CancellationToken } from "./cancellation-token.js";
 import { scanStepForEvents } from "./event-detection.js";
 import { localizeEventRoot } from "./event-root-localization.js";
+import { HermiteDenseOutputStepper } from "./hermite-dense-output.js";
 import { attemptAdaptiveStep } from "./i-controller.js";
 import { attemptAdaptivePIStep, INITIAL_PI_ERROR } from "./pi-controller.js";
 import {
@@ -253,6 +254,8 @@ function* runIntegrationSteps(
   y0: Float64Array,
   tspan: readonly [number, number],
   cfg: SolverConfig,
+  // Reassigned when cfg.events === "require" replaces a stepper that has no
+  // interpolant with a Hermite-wrapped one, before init(); see P0.99.
   stepper: Stepper,
   sinks: readonly Sink[],
   token?: CancellationToken,
@@ -270,6 +273,55 @@ function* runIntegrationSteps(
   const rtol = cfg.rtol ?? 0;
   const atol = cfg.atol ?? DEFAULT_ATOL;
 
+  // Event handling (§4.9, P2.32-P2.34) needs dense output: scanStepForEvents
+  // samples g inside the step and localizeEventRoot brackets the sign change
+  // on the interpolant, so a stepper without one cannot locate an event.
+  //
+  // P0.99 / ADR-016. This used to be one expression ending in
+  // `&& stepper.interpolant !== undefined`, which meant a model that DECLARED
+  // events, integrated with a stepper that has none, silently integrated as
+  // though it had declared none: no warning, no failure, `status: "ok"`.
+  // Measured at h = 0.12 on a drag-free planar model with a terminal ground
+  // impact, y0 = [0, 5, 3, 0]: DOPRI5 stopped at t = 1.009810 with y = 1.0e-15
+  // while ClassicalRK4 ran the full span and ended 701 m BELOW the ground,
+  // still reporting "ok".
+  //
+  // The fix is not a wider guard, because the guard was never the problem --
+  // the SIGNATURE was. Two callers with the same model and the same fixed-step
+  // stepper can want opposite things, and nothing in the old signature could
+  // tell them apart: a convergence-order or energy-drift study MUST hold h
+  // fixed and every standard projectile model attaches a ground-impact event,
+  // so "event-bearing model + fixed-step stepper" is this repository's normal
+  // case rather than a caller error. That is why ADR-016 rejected both
+  // throwing unconditionally (88 tests across 31 files, all legitimate) and
+  // auto-wrapping unconditionally (same studies keep running but truncate at
+  // impact, silently changing every rate and golden trajectory pinned against
+  // them). `cfg.events` supplies the missing intent, and has no default
+  // because neither answer is safe to assume.
+  const declaredEvents = model.events;
+  const modelDeclaresEvents = declaredEvents !== undefined && declaredEvents.length > 0;
+  const eventsWanted = modelDeclaresEvents && cfg.events !== "off";
+
+  if (eventsWanted && stepper.interpolant === undefined) {
+    if (cfg.events === "require") {
+      // Opt-in only. ADR-016's objection to auto-wrapping was that it changes
+      // measurements the caller never asked to change; it does not apply when
+      // the caller asked in so many words.
+      stepper = new HermiteDenseOutputStepper(stepper);
+    } else {
+      throw new Error(
+        `integrate: model declares ${declaredEvents!.length} event(s) but stepper ` +
+          `"${stepper.info.id}" has no interpolant, so they cannot be localized. ` +
+          `Set cfg.events to "require" to localize them via cubic Hermite dense ` +
+          `output (~1 extra model.rhs call/step, 3rd-order dense accuracy), or to ` +
+          `"off" to integrate the bare ODE and pass through them deliberately -- ` +
+          `which is what a fixed-step convergence or energy-drift study wants. ` +
+          `Choosing a stepper with its own interpolant (DOPRI5) also works. ` +
+          `This used to pick "off" for you without saying so; see ADR-016.`,
+      );
+    }
+  }
+
   stepper.init(model, ctx);
 
   const current = Float64Array.from(y0);
@@ -280,29 +332,11 @@ function* runIntegrationSteps(
 
   const usePIController = cfg.controller === "PI";
 
-  // Event handling (§4.9, P2.32-P2.34) needs dense output: scanStepForEvents
-  // samples g inside the step and localizeEventRoot brackets the sign change
-  // on the interpolant, so a stepper without one cannot locate an event.
-  //
-  // KNOWN TRAP (P0.99, open; ADR-016 has the measurements). The third
-  // conjunct means a model that DECLARES events, integrated with a stepper
-  // that has no interpolant, silently integrates as though it declared none:
-  // no warning, no failure, `status: "ok"`. Measured at h = 0.12 on a
-  // drag-free planar model with a terminal ground impact, y0 = [0, 5, 3, 0]:
-  // DOPRI5 stops at t = 1.009810 with y = 1.0e-15, while ClassicalRK4 runs
-  // the full span and ends 701 m BELOW the ground still reporting "ok".
-  //
-  // Do NOT "fix" this by throwing when the interpolant is missing, and do not
-  // auto-wrap in HermiteDenseOutputStepper. Both were tried and measured on
-  // the 27th run and both are wrong -- ADR-016 records why, and what the fix
-  // actually has to distinguish. The short version: integrating an
-  // event-bearing model with a fixed-step method is a legitimate and load
-  // bearing pattern here (convergence order studies, energy-drift studies,
-  // golden trajectories all need a fixed step, and every standard projectile
-  // model attaches a ground-impact event), so the silence is the defect, not
-  // the opt-out.
-  const events = model.events;
-  const hasEvents = events !== undefined && events.length > 0 && stepper.interpolant !== undefined;
+  // The event block below is reached only once the intent above is resolved:
+  // `hasEvents` can no longer be false because the stepper happened to lack an
+  // interpolant, only because the caller said "off" or the model declares none.
+  const events = declaredEvents;
+  const hasEvents = eventsWanted && stepper.interpolant !== undefined;
   const eventScratch = hasEvents ? new Float64Array(model.dim) : undefined;
   // Wrapped (rather than passed as `stepper.interpolant` directly) so a
   // class-based Stepper's `interpolant` method keeps its `this` binding once

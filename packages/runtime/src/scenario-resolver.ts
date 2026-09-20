@@ -182,5 +182,6 @@ export function resolveSolverConfig(spec: ScenarioSpec): SolverConfig {
     }),
     ...(s.controller !== undefined && { controller: s.controller }),
     ...(s.hMin !== undefined && { hMin: s.hMin }),
+    ...(s.events !== undefined && { events: s.events }),
   };
 }

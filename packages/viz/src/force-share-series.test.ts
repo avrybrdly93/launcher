@@ -27,7 +27,8 @@ const DUST_GRAIN = PRESET_SCENARIOS.find((s) => s.model.forceIds.includes("drag-
 /** Solves `preset` over [0, tEnd] and returns the recorded trajectory alongside the live model/forces the shares must agree with. */
 function solve(preset: (typeof PRESET_SCENARIOS)[number], tEnd = 2, h = 0.01) {
   const { model, ctx, y0, forces } = resolveModel(preset);
-  const cfg: SolverConfig = { stepper: "classical-rk4", h, maxSteps: 100_000 };
+  // events: "off" (P0.99): a force-share series needs the whole recorded span.
+  const cfg: SolverConfig = { stepper: "classical-rk4", h, maxSteps: 100_000, events: "off" };
   const recorder = new TrajectoryRecorder();
   integrate(model, ctx, y0, [0, tEnd], cfg, new ClassicalRK4Stepper(), [recorder]);
   return { model, ctx, forces, trajectory: recorder.trajectory as Trajectory };
@@ -42,7 +43,8 @@ function solve(preset: (typeof PRESET_SCENARIOS)[number], tEnd = 2, h = 0.01) {
  */
 function solveStiff(preset: (typeof PRESET_SCENARIOS)[number], tEnd = 2, h = 0.01) {
   const { model, ctx, y0, forces } = resolveModel(preset);
-  const cfg: SolverConfig = { stepper: "backward-euler", h, maxSteps: 100_000 };
+  // events: "off" (P0.99): same, on the implicit stepper.
+  const cfg: SolverConfig = { stepper: "backward-euler", h, maxSteps: 100_000, events: "off" };
   const recorder = new TrajectoryRecorder();
   const stepper: Stepper = new BackwardEulerStepper();
   integrate(model, ctx, y0, [0, tEnd], cfg, stepper, [recorder]);

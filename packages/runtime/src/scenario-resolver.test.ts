@@ -31,7 +31,9 @@ describe("resolveForce / resolveModel", () => {
       ctx,
       y0,
       [0, 0.1],
-      { stepper: "classical-rk4", h: 0.01, maxSteps: 1000 },
+      // events: "off" (P0.99): compares against the analytic parabola over a
+      // fixed span, so the ground must not truncate it.
+      { stepper: "classical-rk4", h: 0.01, maxSteps: 1000, events: "off" },
       new ClassicalRK4Stepper(),
       [recorder],
     );

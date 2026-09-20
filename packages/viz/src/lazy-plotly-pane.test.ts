@@ -33,7 +33,8 @@ const SHOT_PUT = PRESET_SCENARIOS.find((s) => s.projectile.id === "shot-put")!;
 function solveShotPut() {
   const { model, ctx, y0 } = resolveModel(SHOT_PUT);
   const stepper: Stepper = new ClassicalRK4Stepper();
-  const cfg: SolverConfig = { stepper: "classical-rk4", h: 0.01, maxSteps: 100_000 };
+  // events: "off" (P0.99): a fixture trajectory for a rendering test.
+  const cfg: SolverConfig = { stepper: "classical-rk4", h: 0.01, maxSteps: 100_000, events: "off" };
   const trajectoryRecorder = new TrajectoryRecorder();
   integrate(model, ctx, y0, [0, 2], cfg, stepper, [trajectoryRecorder]);
   return trajectoryRecorder.trajectory;

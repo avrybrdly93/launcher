@@ -90,7 +90,9 @@ describe("translation invariance: shift x0 => shifted trajectory (P2.50)", () =>
               ctx,
               y0State,
               [0, 20],
-              { stepper: "classical-rk4", h: 0.01, maxSteps: 100000 },
+              // events: "off" (P0.99): the invariant compares two whole
+              // trajectories step for step, so both must run the same span.
+              { stepper: "classical-rk4", h: 0.01, maxSteps: 100000, events: "off" },
               new ClassicalRK4Stepper(),
               [recorder],
             );
