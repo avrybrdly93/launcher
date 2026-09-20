@@ -80,13 +80,42 @@ decision at the call site, where the person who knows the ball, the surface
 and the question is. This follows ADR-016's accepted shape for the same
 reason: _having no default is what makes the rule narrow._
 
-**Not a ban on Zeno.** `vRest: 0` stays legal and means "no rest condition".
-It is the one configuration in which the accumulation survives and the ball
-can still end up below the ground — and it is now reachable only by typing
-it, which is the difference between a caller who has said out loud that this
-model bounces forever and one who never knew the question was being asked on
-their behalf. A Zeno exhibit is a legitimate thing for a teaching platform to
-want; a Zeno exhibit nobody asked for is the bug.
+**Not a ban on Zeno.** `vRest: 0` stays legal and is the one configuration in
+which the accumulation is not cut short by a threshold the caller chose — and
+it is reachable only by typing it, which is the difference between a caller
+who has said out loud that this model bounces forever and one who never knew
+the question was being asked on their behalf. A Zeno exhibit is a legitimate
+thing for a teaching platform to want; a Zeno exhibit nobody asked for is the
+bug.
+
+> **Correction, 117th run (P0.101).** This section originally read that
+> `vRest: 0` "means no rest condition", that the accumulation survives, and
+> that the ball can still end up below the ground. **All three are true of
+> the reals and false of float64, and the last one is no longer true at all.**
+>
+> The rebound speed decays geometrically, so $e^n v_0$ eventually falls below
+> the smallest denormal and $v_y$ underflows to **exactly** zero. The test
+> `e·|v_y| <= vRest` is then `0 <= 0`, which is **true**, and the rest
+> condition fires. So `vRest: 0` is not the absence of a rest condition — it
+> is a rest condition at the underflow floor, and the sequence is finite
+> there.
+>
+> Measured after P0.101's surface snap landed, drag-free ball from $h_0 = 5$
+> at $e = 0.2$: the solve ends at rest with `status: "ok"` after **465**
+> impacts, $t_f = 1.5147085$ against $t_\infty = 1.5147150$ — a truncation of
+> $6.46\times10^{-6}$ s — with $y$ and $v_y$ both exactly zero. Identical for
+> every stepper and step size tried.
+>
+> Only **8** of those 465 advance time. Once the remaining flight is shorter
+> than the finest `DEPARTURE_THETAS` rung, the scan sees the ball leave and
+> return inside the first sub-interval, the event fires at the step start, and
+> the sequence grinds down to the underflow floor at one fixed $t$. That tail
+> is an artefact of finite precision rather than physics and is filed as
+> **P0.144**; it costs 457 event records and does not change the final state.
+>
+> The decision this ADR records is unchanged. What changed is that the escape
+> hatch is narrower than it was described: there is no way to ask this model
+> for an infinite bounce sequence, because arithmetic ends it first.
 
 **Not a height or a duration cutoff.** A rebound apex $v^2/2g$ or a remaining
 tail $2v/(g(1-e))$ would read more physically, and for the drag-free case all
@@ -130,14 +159,25 @@ does not have and this ADR does not invent — filed as its own task
 (P0.143) rather than improvised here.
 
 **One tunnelling configuration survives this ADR and is a different bug.**
-Under the adaptive driver a drag-free bouncing ball resolves exactly *one*
-impact and then free-falls, whatever `vRest` says, because the impact is
-never detected: the localized root leaves $y = -2.2\times10^{-16}$, so
-`scanStepForEvents`' `g0 === 0` test is false, the `DEPARTURE_THETAS` ladder
-is not armed, and the whole 0.4 s rebound falls inside the first quarter of a
-10.99 s step. That is P0.101's mechanism, measured here on the adaptive path
+Under the adaptive driver a drag-free bouncing ball resolved exactly *one*
+impact and then free-fell, whatever `vRest` said, because the impact was
+never detected: the localized root left $y = -2.2\times10^{-16}$, so
+`scanStepForEvents`' `g0 === 0` test was false, the `DEPARTURE_THETAS` ladder
+was not armed, and the whole 0.4 s rebound fell inside the first quarter of a
+10.99 s step. That was P0.101's mechanism, measured here on the adaptive path
 rather than the fixed one its own notes used. A rest threshold cannot help an
 impact that was never seen.
+
+> **Resolved, 117th run.** P0.101 landed: `withSurfaceSnap` writes the terrain
+> height back after the bounce, so `g0 === 0` holds exactly and the ladder
+> arms. The sweep above went from **2 of 24 resting** to **24 of 24**, each at
+> the impact count this ADR's own model predicts,
+> $\lceil \log(v_{\text{rest}}/v_0)/\log e \rceil$ — identically for both
+> steppers at all four step sizes, so the count no longer depends on the
+> discretisation at all. The adaptive case above now resolves the 3 impacts
+> the model predicts and ends on the ground. **This ADR's threshold is what
+> decides when the bouncing stops; before P0.101 it was usually the detection
+> floor that decided, and the threshold never got a say.**
 
 ## Alternatives rejected
 

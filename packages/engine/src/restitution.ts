@@ -25,14 +25,19 @@ export interface RestitutionParams {
    * contact: `v_y` is zeroed, `muF` is still applied to `v_x`, and the solve
    * ends at the ground with `status: "ok"`.
    *
-   * Must be finite and non-negative. **Zero is legal and means "no rest
-   * condition"**: the Zeno accumulation survives, the impact sequence runs
-   * out of resolvable bounces, and the projectile passes through the ground
-   * and free-falls for the rest of the span (P0.103's original measurement:
-   * 7 impacts, then `yFinal[1] = -539.08` with `status: "ok"`). That is a
-   * legitimate thing to want from a teaching platform and an illegitimate
-   * thing to get by accident, which is the whole reason this field is
-   * required rather than defaulted.
+   * Must be finite and non-negative. **Zero is legal**, and is how a caller
+   * asks for no threshold of their own — a legitimate thing to want from a
+   * teaching platform and an illegitimate thing to get by accident, which is
+   * the whole reason this field is required rather than defaulted.
+   *
+   * **`0` is not, however, the absence of a rest condition** (P0.101, and a
+   * correction to ADR-021's original wording). The rebound speed decays
+   * geometrically, so `v_y` eventually underflows to exactly `0` and
+   * `e*|v_y| <= 0` is then true: the rest condition fires at the underflow
+   * floor and the sequence is finite there. Measured for a drag-free ball
+   * from `h0 = 5` at `e = 0.2`: 465 impacts, then rest on the ground with
+   * `status: "ok"` at `t = 1.5147085` against `t_inf = 1.5147150`. Only 8 of
+   * those advance time; the tail is P0.144.
    */
   readonly vRest: number;
 }
