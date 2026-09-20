@@ -100,7 +100,7 @@ export class HermiteDenseOutputStepper implements Stepper {
   }
 
   /** @inheritDoc */
-  step(t: number, y: Float64Array, h: number, out: StepResult): void {
+  step(t: number, y: Float64Array, h: number, out: StepResult, compensation?: Float64Array): void {
     const model = this.model;
     const ctx = this.ctx;
     if (!model || !ctx || !this.y0 || !this.f0 || !this.y1 || !this.f1) {
@@ -115,7 +115,13 @@ export class HermiteDenseOutputStepper implements Stepper {
     }
     this.y0.set(y);
 
-    this.inner.step(t, y, h, out);
+    // `compensation` is forwarded rather than dropped (P0.99): P0.99 made this
+    // wrapper reachable without the caller constructing it (cfg.events ===
+    // "require"), and a wrapper that silently discarded the driver's Kahan
+    // buffer would trade one silent-wrong-answer path for another. Only
+    // ExplicitEulerStepper reads it today; every other stepper ignores the
+    // parameter, so forwarding is a no-op for them.
+    this.inner.step(t, y, h, out, compensation);
     if (!reuse) out.nRHS += 1;
 
     model.rhs(t + h, out.yNext, this.f1, ctx);
