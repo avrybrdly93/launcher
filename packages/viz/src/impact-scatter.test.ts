@@ -343,7 +343,14 @@ describe("buildImpactScatter (P6.09: the spatial model's ground-plane impacts)",
 // hosted runners outran the decimation budget, so that failure mode cannot
 // reach this one, while a real algorithmic regression (losing the O(n) single
 // pass, or emitting one marker per point) still fails it loudly.
+import { bestOfMs, isIdleEnoughForWallClock, measureCalibrationMs } from "@ballista/solverkit";
 const SCATTER_FRAME_BUDGET_MS = 16;
+/**
+ * MEASURED over three runs on the development container: 0.881, 0.809, 0.805
+ * (best-of-15 at ~0.54 ms against a ~0.61-0.69 ms calibration). The limit of 3
+ * is ~3.4x the worst observation.
+ */
+const MAX_SCATTER_COST_IN_CALIBRATIONS = 3;
 
 describe(`performance (P6.09 validation: 1e4 impact points inside a ${SCATTER_FRAME_BUDGET_MS} ms frame)`, () => {
   const n = 10_000;
@@ -361,19 +368,18 @@ describe(`performance (P6.09 validation: 1e4 impact points inside a ${SCATTER_FR
   }
 
   it(`downsamples ${n} points in well under the frame budget`, () => {
-    for (let warmup = 0; warmup < 20; warmup++) {
-      buildImpactScatter(xs, ys, CAMERA, VIEWPORT);
-    }
+    const best = bestOfMs(() => buildImpactScatter(xs, ys, CAMERA, VIEWPORT), 15, 20);
+    const calibrationMs = measureCalibrationMs();
+    const costInCalibrations = best / calibrationMs;
 
-    let best = Infinity;
-    for (let trial = 0; trial < 15; trial++) {
-      const start = performance.now();
-      buildImpactScatter(xs, ys, CAMERA, VIEWPORT);
-      const elapsed = performance.now() - start;
-      if (elapsed < best) best = elapsed;
+    // Load-invariant (P0.96): the best-of-15 minimum survives transient
+    // preemption but not sustained contention, so the budget is expressed
+    // against a same-process calibration and the raw frame figure is checked
+    // only where it can mean something.
+    expect(costInCalibrations).toBeLessThan(MAX_SCATTER_COST_IN_CALIBRATIONS);
+    if (isIdleEnoughForWallClock(calibrationMs)) {
+      expect(best).toBeLessThan(SCATTER_FRAME_BUDGET_MS);
     }
-
-    expect(best).toBeLessThan(SCATTER_FRAME_BUDGET_MS);
   });
 
   it(`bounds the marker count by the viewport rather than by the ensemble`, () => {

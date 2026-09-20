@@ -10,6 +10,24 @@ import { buildDecimatedTrajectoryPath } from "./trajectory-decimation.js";
 import { drawAxesLayer, type AxesLayerCanvas } from "./axes-layer.js";
 import type { PathBuilder } from "./trajectory-layer.js";
 import { IDENTITY_CAMERA, type Camera2DState, type Viewport } from "./camera2d.js";
+import { bestOfMs, isIdleEnoughForWallClock, measureCalibrationMs } from "@ballista/solverkit";
+
+/** A cached-layer re-render must stay well inside one animation frame. */
+const CACHED_RENDER_BUDGET_MS = 4;
+/**
+ * MEASURED at ~0.0005 across three runs: a cache HIT does essentially nothing,
+ * costing ~0.0003 ms against a ~0.65 ms calibration. The limit of 0.05 is 100x
+ * that, which sounds absurdly loose and is not: the failure this guards
+ * against is the cache missing and actually re-running `drawStaticLayers`,
+ * which costs the same order as a real render -- a ratio near 1, twenty times
+ * over the limit. Anything between 0.0005 and 0.05 is not a state this code
+ * has.
+ *
+ * The deterministic assertions on `drawCalls` and `redrawCount` are the real
+ * check here and they are unchanged; this ratio is a backstop, and it is
+ * written down as one rather than dressed up as a performance budget.
+ */
+const MAX_CACHED_RENDER_COST_IN_CALIBRATIONS = 0.05;
 
 class RecordingPath implements PathBuilder {
   points: Array<[number, number]> = [];
@@ -224,23 +242,22 @@ describe("performance (P3.11 validation: steady-state frame cost < 4 ms)", () =>
     // Warmup, then best-of-N steady-state frames -- same key every time
     // (playback advancing the marker, not the camera), so none of these
     // should touch `drawStaticLayers` at all.
-    for (let warmup = 0; warmup < 20; warmup++) {
-      cache.render(viewport.width, viewport.height, key, drawStaticLayers);
-    }
-
-    let best = Infinity;
-    const trials = 15;
-    for (let trial = 0; trial < trials; trial++) {
-      const start = performance.now();
-      cache.render(viewport.width, viewport.height, key, drawStaticLayers);
-      const elapsed = performance.now() - start;
-      if (elapsed < best) best = elapsed;
-    }
+    const best = bestOfMs(
+      () => cache.render(viewport.width, viewport.height, key, drawStaticLayers),
+      15,
+      20,
+    );
+    const calibrationMs = measureCalibrationMs();
+    const costInCalibrations = best / calibrationMs;
 
     // The redraw never re-fires once the key stops changing -- that's what
     // keeps the steady-state cost independent of trajectory size.
     expect(drawCalls).toBe(1);
     expect(cache.redrawCount).toBe(1);
-    expect(best).toBeLessThan(4);
+    // Load-invariant (P0.96); see impact-scatter.test.ts for the rationale.
+    expect(costInCalibrations).toBeLessThan(MAX_CACHED_RENDER_COST_IN_CALIBRATIONS);
+    if (isIdleEnoughForWallClock(calibrationMs)) {
+      expect(best).toBeLessThan(CACHED_RENDER_BUDGET_MS);
+    }
   });
 });

@@ -30,6 +30,7 @@ import { PLANAR_LAYOUT, SPATIAL_LAYOUT, type TrajectoryLayout } from "./observab
 import { dragFreeRange } from "./range-root.js";
 import { type Aim, type ShootingProblem, createShootingResidual } from "./shooting-residual.js";
 import type { PointTarget } from "./targets.js";
+import { isIdleEnoughForWallClock, measureCalibrationMs } from "@ballista/solverkit";
 
 /**
  * P5.08's validation criterion is "both arcs found for reachable targets;
@@ -604,6 +605,18 @@ describe("P5.08 validation: both arcs over every library target", () => {
 describe("P5.21 validation: drag→solution latency", () => {
   const SPEED = 60;
   const BUDGET_MS = 200;
+  /**
+   * MEASURED over three runs on the development container: 43.685, 41.444,
+   * 45.150 (median solve ~27-30 ms against a ~0.62-0.67 ms calibration). The
+   * limit of 90 is ~2x the worst observation.
+   *
+   * The ratio is large because the thing measured is large: fifteen full
+   * adaptive drag solves, not one render. That is not a problem for the
+   * method -- the ratio is dimensionless and contention cancels out of it at
+   * any scale -- but it does mean this number must be re-derived, not
+   * transplanted, if the solver's cost model changes.
+   */
+  const MAX_ARC_SOLVE_COST_IN_CALIBRATIONS = 90;
 
   /** A planar shot with quadratic drag and a crosswind — the app's default shape. */
   function dragProblem(downrange: number): ShootingProblem {
@@ -651,17 +664,29 @@ describe("P5.21 validation: drag→solution latency", () => {
     }
 
     const sorted = [...times].sort((a, b) => a - b);
-    const median = sorted[Math.floor(sorted.length / 2)]!;
+    const medianMs = sorted[Math.floor(sorted.length / 2)]!;
     const slowest = sorted.at(-1)!;
+    const calibrationMs = measureCalibrationMs();
+    const costInCalibrations = medianMs / calibrationMs;
 
     // Measured on the development container at the time of writing: median
     // ~19 ms, slowest ~51 ms over these fifteen drops — an order of magnitude
     // of headroom on the criterion. The assertion is the criterion, not that
     // number, so a slower machine still passes while a regression that ate the
     // headroom would not.
-    expect(median).toBeLessThan(BUDGET_MS);
+    // Load-invariant (P0.96): a median over fifteen distinct problems is
+    // robust to a single descheduled solve but not to sustained contention,
+    // so the criterion is carried by a ratio against a same-process
+    // calibration and the raw 200 ms figure is checked only where it means
+    // something.
+    expect(costInCalibrations).toBeLessThan(MAX_ARC_SOLVE_COST_IN_CALIBRATIONS);
+    if (isIdleEnoughForWallClock(calibrationMs)) {
+      expect(medianMs).toBeLessThan(BUDGET_MS);
+    }
 
     // The backstop: ten budgets. Loose on purpose — see this block's note.
-    expect(slowest).toBeLessThan(10 * BUDGET_MS);
+    if (isIdleEnoughForWallClock(calibrationMs)) {
+      expect(slowest).toBeLessThan(10 * BUDGET_MS);
+    }
   });
 });

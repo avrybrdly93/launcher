@@ -186,7 +186,16 @@ describe("buildDecimatedTrajectoryPath", () => {
 // GitHub Actions hosted-runner behavior after this change could not be
 // directly reproduced here; only local/sandbox measurements and the CI logs
 // cited above were used to pick the new threshold.
+import { bestOfMs, isIdleEnoughForWallClock, measureCalibrationMs } from "@ballista/solverkit";
 const DECIMATION_PERF_BUDGET_MS = 5;
+/**
+ * MEASURED over three runs on the development container: 1.446, 0.924, 1.157
+ * (best-of-15 at ~0.65-0.87 ms against a ~0.60-0.71 ms calibration). The limit
+ * of 4 is ~2.8x the worst observation. This one's spread is the widest of the
+ * four converted sites -- 0.92 to 1.45 across three idle runs -- which is why
+ * its headroom is wider than impact-scatter's despite a similar absolute cost.
+ */
+const MAX_DECIMATION_COST_IN_CALIBRATIONS = 4;
 
 describe("performance (P3.10 validation: 50k-pt stiff run draws fast; recalibrated CI budget)", () => {
   it(`decimates and traces a 50,000-point stiff-shaped trajectory in under ${DECIMATION_PERF_BUDGET_MS} ms`, () => {
@@ -213,19 +222,18 @@ describe("performance (P3.10 validation: 50k-pt stiff run draws fast; recalibrat
     // Best-of-N after ample warmup, to measure the JIT-steady-state cost
     // (what actually matters for a render loop invoking this every zoom
     // change) rather than one-off interpreter/compile overhead.
-    for (let warmup = 0; warmup < 20; warmup++) {
-      buildDecimatedTrajectoryPath(new RecordingPath(), camera, viewport, worldXs, worldYs);
-    }
+    const best = bestOfMs(
+      () => buildDecimatedTrajectoryPath(new RecordingPath(), camera, viewport, worldXs, worldYs),
+      15,
+      20,
+    );
+    const calibrationMs = measureCalibrationMs();
+    const costInCalibrations = best / calibrationMs;
 
-    let best = Infinity;
-    for (let trial = 0; trial < 15; trial++) {
-      const path = new RecordingPath();
-      const start = performance.now();
-      buildDecimatedTrajectoryPath(path, camera, viewport, worldXs, worldYs);
-      const elapsed = performance.now() - start;
-      if (elapsed < best) best = elapsed;
+    // Load-invariant (P0.96); see impact-scatter.test.ts for the rationale.
+    expect(costInCalibrations).toBeLessThan(MAX_DECIMATION_COST_IN_CALIBRATIONS);
+    if (isIdleEnoughForWallClock(calibrationMs)) {
+      expect(best).toBeLessThan(DECIMATION_PERF_BUDGET_MS);
     }
-
-    expect(best).toBeLessThan(DECIMATION_PERF_BUDGET_MS);
   });
 });
