@@ -90,3 +90,52 @@ export function restitutionBounceAction(
     return "continue";
   };
 }
+
+/**
+ * Wraps a bounce `action` so the post-impact position sits exactly on the
+ * surface, returning the wrapped action's own outcome unchanged (P0.101).
+ *
+ * **Why this exists.** `scanStepForEvents` decides an event is active at a
+ * step's start with `g0 === 0` exactly, and that test is what arms the
+ * `DEPARTURE_THETAS` ladder that brackets a short return flight. But the
+ * state a restitution bounce resumes from is Brent's localized root, whose
+ * `g_gnd` is zero only to within the root find's own error -- measured at up
+ * to ~1e-15 m and of *either sign*. `restitutionBounceAction` passes the
+ * position through, so a negative residual makes the next step start
+ * nominally below the terrain: the ladder is not armed, the scan falls back
+ * to the interior samples alone, and a flight shorter than a quarter step
+ * ends before the first of them. No sign change, no impact, and the
+ * projectile then free-falls through the ground with `status: "ok"`.
+ *
+ * **The snap is exact rather than a tolerance**, which is the point. The
+ * impact is *on* the surface by the event's own definition `g = y − h(x)`,
+ * so writing `h(x)` back removes the root find's error instead of
+ * accommodating it, and restores the invariant `event-detection.ts` already
+ * assumes. `xIndex` is untouched by the bounce action -- it copies the whole
+ * state and overwrites only the two velocity channels -- so `surfaceHeight`
+ * is evaluated at the same abscissa the event itself used.
+ *
+ * This lives in the engine, and takes `surfaceHeight` rather than reaching
+ * for it, because `restitutionBounceAction` has only channel indices and no
+ * terrain: that is exactly why ADR-021 could not do this in the action. It
+ * is a separate exported wrapper rather than an extra parameter so a caller
+ * with no terrain is unaffected and so it can be tested on its own.
+ *
+ * Measured: with the snap in place a drag-free bouncing ball rests at the
+ * impact number the *model* predicts -- `ceil(log(vRest/v0)/log(e))` -- for
+ * every stepper and step size tried, instead of wherever the detection floor
+ * happened to fall. Without it, 22 of 24 swept configurations lost an impact
+ * before the rest threshold could fire.
+ */
+export function withSurfaceSnap(
+  action: (t: number, y: Float64Array, out: Float64Array) => EventActionOutcome,
+  xIndex: number,
+  yIndex: number,
+  surfaceHeight: (x: number) => number,
+): (t: number, y: Float64Array, out: Float64Array) => EventActionOutcome {
+  return (t: number, y: Float64Array, out: Float64Array): EventActionOutcome => {
+    const outcome = action(t, y, out);
+    out[yIndex] = surfaceHeight(out[xIndex]!);
+    return outcome;
+  };
+}

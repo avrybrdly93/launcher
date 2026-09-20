@@ -63,6 +63,32 @@ import { integrate } from "./integrate.js";
  * Nothing here was broken when written; every assertion passed first time. It
  * is a pin, not a bug report.
  */
+/**
+ * Where a drag-free bounce sequence stops advancing in time (P0.101).
+ *
+ * Since the surface snap landed, a `vRest: 0` sequence has **two regimes**
+ * and an assertion that does not distinguish them is asserting the wrong
+ * thing about one of them:
+ *
+ *   * impacts 0..7 are genuinely *resolved*: each has its own time, matching
+ *     the closed form to under 1e-15 relative.
+ *   * from impact 8 the remaining flight is shorter than the finest rung of
+ *     the `DEPARTURE_THETAS` ladder, so the scan sees the ball leave and
+ *     return inside the first sub-interval and the event fires at the step
+ *     start. Time stops advancing, `y` is pinned to exactly 0 by the snap,
+ *     and `v_y` grinds down by a factor `e` per impact -- alternating sign,
+ *     because each record is the pre-action state -- until it underflows to
+ *     0 and the rest condition `e*|v_y| <= 0` ends the solve.
+ *
+ * The saturated tail is an artefact of finite precision, not physics, and it
+ * is filed as P0.144. It is pinned here rather than ignored, because the
+ * thing that must never come back is the *old* behaviour, where the sequence
+ * simply stopped being detected and the ball fell through the ground.
+ */
+const RESOLVED_IMPACTS = 8;
+/** Total records including the saturated tail, down to the denormal floor. */
+const TOTAL_IMPACTS = 465;
+
 describe("integrate: drag-free bouncing ball against the closed form (P0.98 groundwork)", () => {
   // Chosen so that the *default* step is in play (h = tspan/100 = 0.12, the
   // DEFAULT_STEP_COUNT path P0.97's mechanism note is written against) and so
@@ -127,11 +153,15 @@ describe("integrate: drag-free bouncing ball against the closed form (P0.98 grou
     expect(exactFlightBefore(impacts.length - 1)).toBeLessThan(H_NOMINAL / 8);
   });
 
-  it("impact times match the closed form for a drag-free bouncing ball", () => {
+  it("impact times match the closed form for every resolved impact", () => {
     const { report, impacts } = bounce();
     expect(report.status).toBe("ok");
 
-    for (let n = 0; n < impacts.length; n++) {
+    // Asserted, not derived from the data: if saturation crept earlier the
+    // loop below would silently check fewer impacts and still pass.
+    expect(new Set(impacts.map((r) => r.t)).size).toBe(RESOLVED_IMPACTS);
+
+    for (let n = 0; n < RESOLVED_IMPACTS; n++) {
       const exact = exactImpactTime(n);
       // Drag-free motion under constant gravity is a quadratic, which DOPRI5
       // integrates exactly, so the only error here is the root find's. Loose
@@ -140,24 +170,50 @@ describe("integrate: drag-free bouncing ball against the closed form (P0.98 grou
       // early) could not survive it.
       expect(Math.abs(impacts[n]!.t - exact)).toBeLessThan(1e-12 * exact);
     }
-  });
 
-  it("every impact lands on the ground and the sequence advances monotonically", () => {
-    const { impacts } = bounce();
-    for (let n = 0; n < impacts.length; n++) {
-      expect(Math.abs(impacts[n]!.y[1]!)).toBeLessThan(1e-9);
-      if (n > 0) expect(impacts[n]!.t).toBeGreaterThan(impacts[n - 1]!.t);
+    // The tail is at one time exactly, and that time is the last resolved
+    // impact's -- equality rather than a tolerance, because a drifting tail
+    // would mean the events are advancing time again and the split above is
+    // no longer the right description.
+    for (let n = RESOLVED_IMPACTS; n < impacts.length; n++) {
+      expect(impacts[n]!.t).toBe(impacts[RESOLVED_IMPACTS - 1]!.t);
     }
   });
 
-  it("pins the resolved impact count for this configuration", () => {
+  it("every impact lands on the ground, and time advances until it saturates", () => {
     const { impacts } = bounce();
-    // Physically infinite (Zeno); 7 is what this step resolves before the
-    // remaining flights fall under the event scan's floor. Pinned rather than
-    // bounded so that a change in either direction is visible: resolving fewer
-    // is a regression in the short-flight path, resolving more means the floor
+    for (let n = 0; n < impacts.length; n++) {
+      expect(Math.abs(impacts[n]!.y[1]!)).toBeLessThan(1e-9);
+    }
+    // Strictly increasing through the resolved regime...
+    for (let n = 1; n < RESOLVED_IMPACTS; n++) {
+      expect(impacts[n]!.t).toBeGreaterThan(impacts[n - 1]!.t);
+    }
+    // ...and exactly constant after it. Stated as equality on purpose: the
+    // weaker `>=` over the whole sequence would also pass on a run that never
+    // saturated, and that is the distinction this test exists to make.
+    for (let n = RESOLVED_IMPACTS; n < impacts.length; n++) {
+      expect(impacts[n]!.t).toBe(impacts[n - 1]!.t);
+    }
+  });
+
+  it("pins the resolved impact count, and the ball ends at rest on the ground", () => {
+    const { report, impacts } = bounce();
+    // Physically infinite (Zeno). This pin read 7 until P0.101's surface snap
+    // landed; it is 8 resolved times now, and the extra one is the impact the
+    // localized root's ~1e-15 residual used to cost. Pinned rather than
+    // bounded so a change in either direction is visible: resolving fewer is a
+    // regression in the short-flight path, resolving more means the floor
     // moved and the note in `scanStepForEvents` needs rereading.
-    expect(impacts.length).toBe(7);
+    expect(new Set(impacts.map((r) => r.t)).size).toBe(RESOLVED_IMPACTS);
+    expect(impacts.length).toBe(TOTAL_IMPACTS);
+
+    // The point of the whole exercise: the solve ends ON the ground rather
+    // than 539 m below it, which is where this configuration finished before
+    // the snap. Exact zeros, not tolerances -- the snap writes the terrain
+    // height and the rest condition writes the velocity.
+    expect(report.yFinal[1]).toBe(0);
+    expect(report.yFinal[3]).toBe(0);
   });
 
   it("the resolved impacts stop short of the Zeno accumulation point", () => {
@@ -268,7 +324,12 @@ describe("integrate: fixed-step restitution bounces shorter than a quarter step 
 
     it("impact times match the closed form, including the short flights", () => {
       const impacts = bounceFixedStep(h);
-      for (let n = 0; n < impacts.length; n++) {
+      // Since the snap, the fixed-step answer is the SAME answer the adaptive
+      // driver gives, at both step sizes: 8 resolved times and 465 records.
+      // The impact count no longer depends on `h` or on the stepper, which is
+      // what it should never have depended on.
+      expect(new Set(impacts.map((r) => r.t)).size).toBe(RESOLVED_IMPACTS);
+      for (let n = 0; n < RESOLVED_IMPACTS; n++) {
         const exact = exactImpactTime(n);
         // Tight enough that a bracket resolved back to t0 -- the P0.97 failure,
         // which lands a whole flight early -- could not survive it.
@@ -276,11 +337,16 @@ describe("integrate: fixed-step restitution bounces shorter than a quarter step 
       }
     });
 
-    it("every impact lands on the ground and the sequence advances monotonically", () => {
+    it("every impact lands on the ground, and time advances until it saturates", () => {
       const impacts = bounceFixedStep(h);
       for (let n = 0; n < impacts.length; n++) {
         expect(Math.abs(impacts[n]!.y[1]!)).toBeLessThan(1e-9);
-        if (n > 0) expect(impacts[n]!.t).toBeGreaterThan(impacts[n - 1]!.t);
+      }
+      for (let n = 1; n < RESOLVED_IMPACTS; n++) {
+        expect(impacts[n]!.t).toBeGreaterThan(impacts[n - 1]!.t);
+      }
+      for (let n = RESOLVED_IMPACTS; n < impacts.length; n++) {
+        expect(impacts[n]!.t).toBe(impacts[n - 1]!.t);
       }
     });
   });

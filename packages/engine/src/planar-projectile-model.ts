@@ -6,7 +6,7 @@ import {
   type ForceModel,
 } from "./forces.js";
 import type { EventSpec, InvariantSpec, Model } from "./model.js";
-import { restitutionBounceAction, type RestitutionParams } from "./restitution.js";
+import { restitutionBounceAction, withSurfaceSnap, type RestitutionParams } from "./restitution.js";
 import type { ChannelMeta } from "./schema.js";
 import { FlatTerrain, type Terrain } from "./terrain.js";
 import { norm } from "./vec2.js";
@@ -159,7 +159,18 @@ function createGroundImpactEvent(terrain: Terrain, restitution?: RestitutionPara
     g: (_t: number, y: Float64Array) => y[Y]! - terrain.height(y[X]!),
     direction: "falling",
     terminal: true,
-    ...(restitution ? { action: restitutionBounceAction(VX, VY, restitution) } : {}),
+    ...(restitution
+      ? {
+          // P0.101: the snap is what makes the NEXT step see g0 === 0
+          // exactly and arm the departure ladder. Without it the
+          // localized root's ~1e-15 residual silently costs an impact
+          // and the projectile falls through the ground. See
+          // withSurfaceSnap.
+          action: withSurfaceSnap(restitutionBounceAction(VX, VY, restitution), X, Y, (x: number) =>
+            terrain.height(x),
+          ),
+        }
+      : {}),
   };
 }
 

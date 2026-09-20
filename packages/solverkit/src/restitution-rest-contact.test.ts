@@ -96,19 +96,35 @@ const STEPPERS = [
 ] as const;
 
 describe("restitution: the Zeno tail ends in a resting contact (P0.103, ADR-021)", () => {
-  it("the defect, kept as a measurement: vRest = 0 still free-falls through the ground", () => {
+  it("vRest = 0 is a rest condition at the UNDERFLOW floor, not the absence of one", () => {
     const { report, impacts } = run(0.2, 0, createDormandPrince54Stepper(), { h: 0.12 });
 
-    // The 26th run's filing, reproduced on this tree, and deliberately pinned
-    // rather than deleted: it is the only thing proving the passing cases
-    // below are the rest condition working rather than the configuration
-    // having become harmless on its own.
+    // This case pinned the defect until P0.101's surface snap landed: 7
+    // impacts, then `status: "ok"` with yFinal[1] = -539.08, the ball 539 m
+    // under the ground. It is kept, rewritten to what the same configuration
+    // does now, because it is the only case in this file exercising the
+    // sequence with no threshold to stop it.
+    //
+    // ADR-021 said vRest = 0 "means no rest condition" and that the Zeno
+    // accumulation therefore survives. That is true of the reals and false of
+    // float64, which is the correction this test carries: the rebound speed
+    // decays geometrically, e^465 * v0 falls below the smallest denormal, v_y
+    // underflows to exactly 0, and `e*|v_y| <= vRest` is then `0 <= 0`. The
+    // sequence is finite at the underflow floor and the ball ends at rest.
     expect(report.status).toBe("ok");
-    expect(impacts).toHaveLength(7);
-    expect(impacts.at(-1)!.t).toBeCloseTo(1.514683, 6);
-    expect(tInf(0.2)).toBeCloseTo(1.514715, 6);
-    expect(report.tFinal).toBe(12);
-    expect(report.yFinal[1]).toBeLessThan(-500);
+    expect(impacts).toHaveLength(465);
+    // Only 8 of those advance time; the rest fire at the step start once the
+    // flight is shorter than the finest DEPARTURE_THETAS rung (P0.144).
+    expect(new Set(impacts.map((r) => r.t)).size).toBe(8);
+
+    // It stops just short of the accumulation point, which is the honest
+    // statement of what was truncated: 6.46e-6 s of a 1.51 s sequence.
+    expect(report.tFinal).toBeLessThan(tInf(0.2));
+    expect(tInf(0.2) - report.tFinal).toBeCloseTo(6.4628e-6, 9);
+
+    // On the ground with no normal velocity left. Exact, not a tolerance.
+    expect(report.yFinal[1]).toBe(0);
+    expect(report.yFinal[3]).toBe(0);
   });
 
   it("with a rest threshold above the detection floor, every configuration ends at rest on the ground", () => {
@@ -211,65 +227,84 @@ describe("restitution: the Zeno tail ends in a resting contact (P0.103, ADR-021)
   });
 });
 
-describe("restitution: the detection floor is what limits the rest condition (P0.101)", () => {
+describe("restitution: the detection floor is GONE, which is what closed P0.101", () => {
   /**
-   * **This block is the honest half of P0.103 and it is why the task is not
-   * closed.** A rest threshold can only end a sequence that is still being
-   * resolved when it gets there. Below about `vRest = 0.05` it usually is
-   * not: the impacts stop being *detected* first, and from that point the
-   * ball free-falls exactly as it did before the threshold existed.
+   * **This block was the honest half of P0.103 and is now the proof its fix
+   * works.** A rest threshold can only end a sequence that is still being
+   * *resolved* when it gets there, and before P0.101 landed it usually was
+   * not: at `vRest = 1e-3`, 22 of these 24 configurations lost an impact
+   * first and free-fell exactly as they had before the threshold existed.
    *
-   * The mechanism is P0.101's, measured: `restitutionBounceAction` passes the
-   * localized root's position through, and that position is zero only to
+   * The mechanism was P0.101's, measured: `restitutionBounceAction` passed
+   * the localized root's position through, and that position is zero only to
    * within the root find's own error -- up to ~1e-15 m, of either sign. When
-   * it lands negative the next step starts nominally below the terrain,
-   * `scanStepForEvents`' `g0 === 0` test is false, the `DEPARTURE_THETAS`
-   * ladder is not armed, and a flight shorter than a quarter step ends before
-   * the first interior sample. No sign change, no impact, no rest.
+   * it landed negative the next step started nominally below the terrain,
+   * `scanStepForEvents`' `g0 === 0` test was false, the `DEPARTURE_THETAS`
+   * ladder was not armed, and a flight shorter than a quarter step ended
+   * before the first interior sample. No sign change, no impact, no rest.
+   *
+   * `withSurfaceSnap` writes `terrain.height(x)` back after the bounce, so
+   * `g0 === 0` holds exactly and the ladder arms. All 24 now rest.
    */
-  it("at vRest = 1e-3 only 2 of 24 configurations reach the rest contact", () => {
+  it("at vRest = 1e-3 all 24 configurations rest, at the impact the model predicts", () => {
     let rested = 0;
     let tunnelled = 0;
 
-    for (const [, make] of STEPPERS) {
+    for (const [name, make] of STEPPERS) {
       for (const h of [0.05, 0.12, 0.2, 0.4]) {
         for (const e of [0.2, 0.5, 0.8]) {
           const { report, impacts } = run(e, 1e-3, make(), { h });
+          const where = `${name} h=${h} e=${e}`;
           const atRest = report.yFinal[3] === 0 && Math.abs(report.yFinal[1]!) < 1e-9;
           if (atRest) {
             rested++;
-            expect(impacts).toHaveLength(restsAt(e, 1e-3));
+            // The count comes from the MODEL -- ceil(log(vRest/v0)/log(e)),
+            // 6, 14 and 42 for e = 0.2, 0.5, 0.8 -- and is now hit identically
+            // by both steppers at all four step sizes. Before the snap these
+            // counts were whatever the detection floor allowed: 4, 8, 25, 3,
+            // 17, 2, ... varying with `h` and with the stepper, which is the
+            // thing an impact count must never depend on.
+            expect(impacts, where).toHaveLength(restsAt(e, 1e-3));
           } else {
             tunnelled++;
-            // Every non-resting configuration failed the same way: it lost an
-            // impact BEFORE the threshold would have fired. None of them
-            // reached the threshold and declined to rest, which is what makes
-            // this P0.101's floor rather than a defect in the rest condition.
-            expect(impacts.length).toBeLessThan(restsAt(e, 1e-3));
-            expect(report.tFinal).toBe(T_SPAN[1]);
           }
         }
       }
     }
 
-    // A forcing function, deliberately: landing P0.101 should raise `rested`
-    // and this assertion should then fail. When it does, that is the fix
-    // working -- re-measure and update the numbers, do not relax the check.
-    expect({ rested, tunnelled }).toEqual({ rested: 2, tunnelled: 22 });
+    // This read {rested: 2, tunnelled: 22} when it was written, as a
+    // deliberate forcing function against P0.101. P0.101 landed, it failed,
+    // and it is RE-MEASURED here rather than relaxed -- the assertion is
+    // still an exact pair, not a bound.
+    expect({ rested, tunnelled }).toEqual({ rested: 24, tunnelled: 0 });
   });
 
-  it("the adaptive driver loses the SECOND impact, whatever vRest says", () => {
-    // Traced: the bounce at t = 1.009810 localizes to y = -2.220e-16, and the
-    // controller's next proposed step is ~11 s because a drag-free parabola
-    // has no local error to control -- so the whole 0.4 s rebound falls inside
-    // the first quarter of one step and is never bracketed. A rest threshold
-    // cannot help an impact that was never seen.
+  it("the adaptive driver keeps the second impact now, and rests where the model says", () => {
+    // The worst case in the file, and the one that proves the snap addresses
+    // the CAUSE. Traced before the fix: the first bounce localized to
+    // y = -2.220e-16, `g0 === 0` was false by that much, the ladder stayed
+    // unarmed, and the controller's next proposed step was ~11 s because a
+    // drag-free parabola has no local error to control -- so the whole 0.4 s
+    // rebound sat inside the first quarter of ONE step and was never
+    // bracketed. One impact resolved, then free-fall to yFinal[1] = -570.48
+    // with `status: "ok"`.
+    //
+    // Nothing about the controller changed. The step is still ~11 s; the
+    // difference is that the step now starts exactly on the surface, so the
+    // departure ladder arms and brackets the rebound inside it.
     const { report, impacts } = run(0.2, 0.2, createDormandPrince54Stepper(), { rtol: 1e-8 });
 
-    expect(impacts).toHaveLength(1);
-    expect(impacts[0]!.y[1]).toBeCloseTo(0, 12);
-    expect(impacts[0]!.y[1]).toBeLessThan(0);
     expect(report.status).toBe("ok");
-    expect(report.yFinal[1]).toBeLessThan(-500);
+    // restsAt(0.2, 0.2) = 3: the model's count, not the solver's.
+    expect(impacts).toHaveLength(restsAt(0.2, 0.2));
+    // The first impact still localizes a hair below the surface -- the root
+    // find's error is unchanged and is not what was fixed. What changed is
+    // that the residual no longer costs an impact.
+    expect(impacts[0]!.y[1]).toBeLessThan(0);
+    expect(impacts[0]!.y[1]).toBeCloseTo(0, 12);
+    // On the ground, at rest, before the accumulation point.
+    expect(report.yFinal[1]).toBe(0);
+    expect(report.yFinal[3]).toBe(0);
+    expect(report.tFinal).toBeLessThan(tInf(0.2));
   });
 });
