@@ -11,6 +11,12 @@ import {
   type EvalContext,
   type Model,
 } from "@ballista/engine";
+import { median } from "./benchmark-trend.js";
+import {
+  IDLE_CALIBRATION_CEILING_MS,
+  isIdleEnoughForWallClock,
+  measureCalibrationMs,
+} from "./load-calibration.js";
 import { createCancellationSource, type CancellationToken } from "./cancellation-token.js";
 import { beginIntegration, integrate } from "./integrate.js";
 import type { Sink, SolveReport, SolverConfig, Stepper } from "./types.js";
@@ -18,45 +24,19 @@ import type { Sink, SolveReport, SolverConfig, Stepper } from "./types.js";
 const DECAY_CHANNELS: readonly ChannelMeta[] = [{ name: "y", unit: "1" }];
 
 /**
- * A fixed synthetic floating-point workload used to calibrate how fast this
- * machine, in this process, at this moment, executes a tight numeric loop.
+ * The per-slice budget below is asserted against a same-process calibration
+ * rather than as raw wall-clock: under the full parallel suite the old
+ * `maxSliceMs < 10` form fired on roughly one run in five with the code
+ * beneath it unchanged, and the same bytes both passed and failed on
+ * consecutive CI attempts at one commit (P0.123). Dividing a measured slice
+ * cost by a reference measured moments earlier in the same process cancels
+ * the machine out.
  *
- * Why it exists (P0.123). The per-slice budget further down used to be
- * asserted as raw wall-clock, which measures the runner and not the
- * integrator: under the full parallel suite it fired on roughly one run in
- * five while the code beneath it had not changed by a line, and the same
- * bytes both passed and failed on consecutive CI attempts at one commit.
- * Dividing a measured slice cost by a reference measured moments earlier in
- * the same process cancels the machine out. A busy scheduler stretches both
- * halves, so the ratio holds; a genuinely slower integrator stretches only
- * the numerator, so the ratio rises and the assertion still fails.
- *
- * It deliberately does NOT touch the stepper, the model, or anything else
- * under test. If it did, a regression in the integrator would inflate the
- * reference alongside the measurement and the ratio would stay flat -- the
- * assertion would then measure nothing at all, which is a worse failure than
- * the flake it replaces.
- *
- * The accumulator is returned so the caller can consume it; a loop whose
- * result is discarded is a loop an optimiser is entitled to delete.
+ * The mechanism lived here, file-local, until P0.96 -- whose criterion is
+ * about the WHOLE correctness suite, not this one file -- moved it to
+ * `load-calibration.ts` so runtime, viz and analysis can import it too. The
+ * numbers below are unchanged; only their home moved.
  */
-function calibrationWorkload(iterations: number): number {
-  let acc = 0;
-  for (let i = 0; i < iterations; i++) {
-    acc += Math.sqrt(i + 1) / (i + 2);
-  }
-  return acc;
-}
-
-/**
- * Sized so one calibration run costs the same order as one measured slice
- * (~0.6 ms against ~0.55 ms on the machine these numbers were taken on), which
- * keeps the ratio below near 1 and easy to read.
- */
-const CALIBRATION_ITERATIONS = 200_000;
-
-/** Repeats to take the minimum over; see the calibration block for why min. */
-const CALIBRATION_REPEATS = 5;
 
 /**
  * Across seven clean runs on a 4-core sandbox -- idle and under the full
@@ -74,27 +54,6 @@ const CALIBRATION_REPEATS = 5;
  * 20 clean runs anyway.
  */
 const MAX_SLICE_COST_IN_CALIBRATIONS = 2;
-
-/**
- * Above this calibration cost the machine is too busy -- or simply too slow --
- * for a raw 10 ms wall-clock figure to say anything about the code, so the
- * blueprint check below is skipped and only the ratio is enforced. ~5x the
- * idle calibration observed here (0.59-0.62 ms), so a genuinely idle but
- * slower machine still gets held to the figure.
- */
-const IDLE_CALIBRATION_CEILING_MS = 3;
-
-function elapsedMs(fn: () => void): number {
-  const before = performance.now();
-  fn();
-  return performance.now() - before;
-}
-
-function median(values: readonly number[]): number {
-  const sorted = [...values].sort((a, b) => a - b);
-  const mid = sorted.length >> 1;
-  return sorted.length % 2 === 1 ? sorted[mid]! : (sorted[mid - 1]! + sorted[mid]!) / 2;
-}
 
 /** ydot = -y, dim 1: cheap enough to run 1e6 fixed steps in a test. */
 function createDecayModel(): Model {
@@ -372,16 +331,8 @@ describe("chunked cooperative integration (P2.40)", () => {
     // this machine can currently do. Under sustained load every repeat is
     // stretched, so the minimum is stretched too -- which is precisely the
     // behaviour that makes the ratio below load-invariant.
-    calibrationWorkload(CALIBRATION_ITERATIONS);
-    let calibrationMs = Infinity;
-    let calibrationAcc = 0;
-    for (let r = 0; r < CALIBRATION_REPEATS; r++) {
-      const ms = elapsedMs(() => {
-        calibrationAcc += calibrationWorkload(CALIBRATION_ITERATIONS);
-      });
-      if (ms < calibrationMs) calibrationMs = ms;
-    }
-    expect(Number.isFinite(calibrationAcc)).toBe(true);
+    const calibrationMs = measureCalibrationMs();
+    expect(Number.isFinite(calibrationMs)).toBe(true);
 
     const sliceMs: number[] = [];
     let totalStepsRun = 0;
@@ -448,7 +399,7 @@ describe("chunked cooperative integration (P2.40)", () => {
     // code that got slower does not move the calibration, so the raw check
     // still runs and still fails. Only a machine that is demonstrably too
     // busy -- or too slow -- for the figure to be meaningful skips it.
-    const machineCanBeHeldToRawBudget = calibrationMs <= IDLE_CALIBRATION_CEILING_MS;
+    const machineCanBeHeldToRawBudget = isIdleEnoughForWallClock(calibrationMs);
     if (machineCanBeHeldToRawBudget) {
       expect(medianSliceMs).toBeLessThan(10);
     } else {
