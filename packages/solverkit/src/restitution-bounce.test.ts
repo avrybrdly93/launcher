@@ -24,9 +24,13 @@ describe("integrate: restitution bounce event action (P4.11, §4.9 'reflect')", 
       dragCoefficient: new ConstantCd(0),
     });
     const ctx = createEvalContext(env, params);
+    // e = 1 is perfectly elastic, so the rebound speed never decays and no
+    // rest threshold could fire whatever it was set to; vRest: 0 says that
+    // in the one place a reader would look for it (ADR-021).
     const model = createPlanarProjectileModel([new GravityForce()], undefined, {
       e: 1,
       muF: 1,
+      vRest: 0,
     });
 
     const y0 = new Float64Array([0, 5, 3, 0]);
@@ -82,6 +86,7 @@ describe("integrate: restitution bounce event action (P4.11, §4.9 'reflect')", 
     const model = createPlanarProjectileModel([new GravityForce()], undefined, {
       e: 1,
       muF: 1,
+      vRest: 0,
     });
 
     const y0 = new Float64Array([0, 5, 3, 0]);
@@ -114,9 +119,12 @@ describe("integrate: restitution bounce event action (P4.11, §4.9 'reflect')", 
       dragCoefficient: new ConstantCd(0),
     });
     const ctx = createEvalContext(env, params);
+    // vRest: 0 -- this case counts bounces and compares their energies, so a
+    // rest condition would end the sequence it is measuring (ADR-021).
     const model = createPlanarProjectileModel([new GravityForce()], undefined, {
       e: 0.8,
       muF: 1,
+      vRest: 0,
     });
 
     const y0 = new Float64Array([0, 5, 0, 0]);

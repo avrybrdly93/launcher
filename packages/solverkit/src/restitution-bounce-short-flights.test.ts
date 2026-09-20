@@ -83,7 +83,13 @@ describe("integrate: drag-free bouncing ball against the closed form (P0.98 grou
       dragCoefficient: new ConstantCd(0),
     });
     const ctx = createEvalContext(env, params);
-    const model = createPlanarProjectileModel([new GravityForce()], undefined, { e: E, muF: 1 });
+    // vRest: 0 -- the subject here is the bounce SEQUENCE, so a rest
+    // condition would truncate the very thing being counted (ADR-021).
+    const model = createPlanarProjectileModel([new GravityForce()], undefined, {
+      e: E,
+      muF: 1,
+      vRest: 0,
+    });
     const stepper = createDormandPrince54Stepper();
     const collector = new EventCollector();
     const report = integrate(
@@ -215,7 +221,12 @@ describe("integrate: fixed-step restitution bounces shorter than a quarter step 
       dragCoefficient: new ConstantCd(0),
     });
     const ctx = createEvalContext(env, params);
-    const model = createPlanarProjectileModel([new GravityForce()], undefined, { e: E, muF: 1 });
+    // vRest: 0, for the reason given at the first call site above.
+    const model = createPlanarProjectileModel([new GravityForce()], undefined, {
+      e: E,
+      muF: 1,
+      vRest: 0,
+    });
     const stepper = new HermiteDenseOutputStepper(new ClassicalRK4Stepper());
     const collector = new EventCollector();
     integrate(

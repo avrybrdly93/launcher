@@ -174,9 +174,12 @@ describe("P6.04 ObservableSink on the arcs that grade the scan itself", () => {
     // e = 0.8 keeps several bounces inside the horizon, each with a smaller
     // apex than the last -- so the *first* arc holds the maximum and a scan
     // that also accepted upward crossings would find a spurious lower one.
+    // vRest: 0 -- the comment above depends on several bounces being inside
+    // the horizon, which is exactly what a rest condition would cut short.
     const model = createPlanarProjectileModel([new GravityForce()], new FlatTerrain(), {
       e: 0.8,
       muF: 1,
+      vRest: 0,
     });
     const ctx = createEvalContext(env, params);
     const stepper = createDormandPrince54Stepper();
