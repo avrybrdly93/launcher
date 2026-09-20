@@ -19,9 +19,34 @@ export interface EventSpec {
    * integrating from there. The event is re-armed for free -- nothing
    * distinguishes the post-action state from any other, so the same
    * per-step scan picks this event up again on a later crossing.
+   *
+   * The return value decides whether this particular firing continues or
+   * ends the solve ({@link EventActionOutcome}, ADR-021). Returning nothing
+   * means `"continue"`, which is what every action did before the outcome
+   * existed, so an action written against the older signature keeps its
+   * behaviour exactly.
    */
-  action?(t: number, y: Float64Array, out: Float64Array): void;
+  action?(t: number, y: Float64Array, out: Float64Array): EventActionOutcome | void;
 }
+
+/**
+ * What the driver does with the state an {@link EventSpec.action} just wrote
+ * (ADR-021).
+ *
+ * - `"continue"` (also what returning nothing means) -- reflect and keep
+ *   integrating, the P4.11 bounce behaviour.
+ * - `"stop"` -- reflect and end the solve here, `status: "ok"`, `tFinal` at
+ *   the localized crossing and `yFinal` the post-action state.
+ *
+ * `"stop"` exists because "this impact ends the flight" was inexpressible:
+ * a terminal event either had an action and always continued, or had none
+ * and always stopped without transforming the state. A restitution sequence
+ * needs both -- it bounces until the rebound is too small to be a bounce,
+ * and that last impact is a resting contact, which is a *stop with a
+ * transform*. See ADR-021 for why that condition belongs to the model and
+ * not to the driver.
+ */
+export type EventActionOutcome = "continue" | "stop";
 
 /** A conserved or monotone quantity of the model, used as a runtime correctness check (§3.8). */
 export interface InvariantSpec {

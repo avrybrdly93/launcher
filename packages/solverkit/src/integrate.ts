@@ -109,7 +109,12 @@ function roundToFloat32(y: Float64Array): void {
  * dispatches the root to `sinks` via `Sink.event` and then `Sink.accept`, and
  * continues integrating from the post-action state -- the event is re-armed
  * for free, since the next step's scan is identical regardless of how the
- * previous one ended. Absent an `action`, the root is dispatched via
+ * previous one ended. An action that returns `"stop"` (ADR-021) takes the
+ * same path up to and including both sink dispatches and then ends the solve
+ * with `status: "ok"`, so `yFinal` is the *post*-action state -- that is how a
+ * restitution sequence's final resting contact is expressed, and it is the one
+ * outcome neither "reflect" nor "stop" alone could say. Absent an `action`,
+ * the root is dispatched via
  * `Sink.accept` only and the solve ends there with `status: "ok"` (a
  * terminal event is a normal, successful stopping condition, not a failure).
  * A model with no declared events, or a stepper
@@ -552,12 +557,34 @@ function* runIntegrationSteps(
         // -- the event is re-armed automatically since the next iteration's
         // scan is identical regardless of how the previous one ended.
         if (root.event.action !== undefined) {
-          root.event.action(root.t, root.y, out.yNext);
+          const outcome = root.event.action(root.t, root.y, out.yNext);
           current.set(out.yNext);
           if (float32Mode) roundToFloat32(current);
           t = root.t;
           for (const sink of sinks) sink.event?.(root);
           for (const sink of sinks) sink.accept?.(t, current, out);
+
+          // ADR-021: an action may end the solve at its own firing rather
+          // than reflect into another flight -- a restitution sequence's
+          // last impact is a resting contact, which is a stop *with* a
+          // state transform and had no way to be expressed before. The
+          // report below is the same one the plain terminal path returns;
+          // what differs is that `current` holds the post-action state, so
+          // `yFinal` is the ball at rest on the ground rather than the
+          // instant before the impulse.
+          if (outcome === "stop") {
+            const report: SolveReport = {
+              status: "ok",
+              tFinal: t,
+              yFinal: current,
+              nSteps,
+              nRHS,
+              nRejected,
+            };
+            for (const sink of sinks) sink.finish?.(report);
+            return report;
+          }
+
           yield;
           continue;
         }
