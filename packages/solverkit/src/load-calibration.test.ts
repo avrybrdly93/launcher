@@ -6,7 +6,10 @@ import {
   elapsedMs,
   IDLE_CALIBRATION_CEILING_MS,
   isIdleEnoughForWallClock,
+  LOAD_TRACKING_CALIBRATION_ITERATIONS,
   measureCalibrationMs,
+  MIN_LOAD_TRACKING_CALIBRATION_MS,
+  pairedCost,
 } from "./load-calibration.js";
 
 /**
@@ -182,5 +185,105 @@ describe("isIdleEnoughForWallClock (P0.96)", () => {
   it("honours an explicit ceiling over the default", () => {
     expect(isIdleEnoughForWallClock(5, 10)).toBe(true);
     expect(isIdleEnoughForWallClock(5, 1)).toBe(false);
+  });
+});
+
+/**
+ * P0.147. These assert the ARITHMETIC of the pairing against scripted series,
+ * never a wall-clock threshold -- same rule as the rest of this file. The
+ * measured evidence that a sub-timeslice calibration cannot track load lives in
+ * {@link LOAD_TRACKING_CALIBRATION_ITERATIONS}'s doc table and in the ROADMAP
+ * notes; it is not re-measured here, because re-measuring it would be exactly
+ * the load-sensitive assertion this module exists to avoid.
+ */
+describe("pairedCost (P0.147)", () => {
+  it("divides the median sample by the median calibration, not by the minimum", () => {
+    // Minimum calibration is 1; median is 4. A min-based pairing would report
+    // 20, which is the defect P0.147 was filed for.
+    const cost = pairedCost([10, 20, 30], [1, 4, 7]);
+
+    expect(cost.medianMs).toBe(20);
+    expect(cost.calibrationMs).toBe(4);
+    expect(cost.costInCalibrations).toBe(5);
+  });
+
+  it("is unchanged when load stretches both series by the same factor", () => {
+    // This is the whole claim: contention that multiplies both sides cancels.
+    const samples = [10, 20, 30, 40, 50];
+    const calibrations = [2, 3, 4, 5, 6];
+    const idle = pairedCost(samples, calibrations);
+    const loaded = pairedCost(
+      samples.map((s) => s * 2.4),
+      calibrations.map((c) => c * 2.4),
+    );
+
+    expect(loaded.costInCalibrations).toBeCloseTo(idle.costInCalibrations, 12);
+  });
+
+  it("still rises when the samples get slower and the calibration does not", () => {
+    // The regression this assertion has to keep catching: slower code does not
+    // move an arithmetic workload, so the ratio must move.
+    const calibrations = [4, 4, 4];
+    const before = pairedCost([10, 20, 30], calibrations);
+    const after = pairedCost([20, 40, 60], calibrations);
+
+    expect(after.costInCalibrations).toBe(2 * before.costInCalibrations);
+  });
+
+  it("is robust to a single preempted sample on either side", () => {
+    // A median tolerates one outlier per side; a mean would not.
+    const clean = pairedCost([10, 10, 10, 10, 10], [4, 4, 4, 4, 4]);
+    const spiked = pairedCost([10, 10, 10, 10, 900], [4, 4, 4, 4, 400]);
+
+    expect(spiked.costInCalibrations).toBe(clean.costInCalibrations);
+  });
+
+  it("reports it could not track load when the calibration is below the floor", () => {
+    const tooShort = pairedCost([10, 20, 30], [0.6, 0.65, 0.7]);
+
+    expect(tooShort.tracksLoad).toBe(false);
+    // The ratio is still computed -- the caller decides what to do with it --
+    // but the flag says it means nothing.
+    expect(tooShort.costInCalibrations).toBeCloseTo(20 / 0.65, 12);
+  });
+
+  it("tracks load exactly at the floor, and not just above it", () => {
+    expect(pairedCost([10], [MIN_LOAD_TRACKING_CALIBRATION_MS]).tracksLoad).toBe(true);
+    expect(pairedCost([10], [MIN_LOAD_TRACKING_CALIBRATION_MS - 1e-9]).tracksLoad).toBe(false);
+  });
+
+  it("honours a caller-supplied floor", () => {
+    expect(pairedCost([10], [5], 4).tracksLoad).toBe(true);
+    expect(pairedCost([10], [5], 6).tracksLoad).toBe(false);
+  });
+
+  it("gates on the calibration alone, never on the measurement it guards", () => {
+    // The rule this module's header states for isIdleEnoughForWallClock, and
+    // the reason this flag cannot hide a regression. Below-floor calibrations
+    // must report false however fast OR slow the samples are, so a hundredfold
+    // slower measurement can neither opt itself out of the gate nor buy its
+    // way past it.
+    const belowFloor = [0.5, 0.5, 0.5];
+    const aboveFloor = [4, 4, 4];
+
+    expect(pairedCost([10, 20, 30], belowFloor).tracksLoad).toBe(false);
+    expect(pairedCost([1000, 2000, 3000], belowFloor).tracksLoad).toBe(false);
+    expect(pairedCost([10, 20, 30], aboveFloor).tracksLoad).toBe(true);
+    expect(pairedCost([1000, 2000, 3000], aboveFloor).tracksLoad).toBe(true);
+  });
+
+  it("refuses series that did not span the same window", () => {
+    // Unequal lengths mean the calibrations were not interleaved with the
+    // samples, which is the property the invariance rests on.
+    expect(() => pairedCost([1, 2, 3], [1, 2])).toThrow(RangeError);
+    expect(() => pairedCost([], [])).toThrow(RangeError);
+  });
+
+  it("sizes the load-tracking workload well clear of the floor it must pass", () => {
+    // A structural check, not a timing one: the larger workload exists so that
+    // tracksLoad can be true, so it must be much bigger than the size measured
+    // NOT to track load.
+    expect(LOAD_TRACKING_CALIBRATION_ITERATIONS).toBeGreaterThan(10 * CALIBRATION_ITERATIONS);
+    expect(MIN_LOAD_TRACKING_CALIBRATION_MS).toBeGreaterThan(0);
   });
 });
