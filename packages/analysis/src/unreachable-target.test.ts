@@ -18,9 +18,14 @@ import {
 import { createDormandPrince54Stepper } from "@ballista/solverkit";
 import { describe, expect, it } from "vitest";
 import { constrainedShooting, withBoundsPenalty } from "./constraints.js";
+import { levenbergMarquardt } from "./levenberg-marquardt.js";
 import { newtonShooting } from "./newton-shooting.js";
 import { PLANAR_LAYOUT } from "./observables.js";
-import { type ShootingProblem, createShootingResidual } from "./shooting-residual.js";
+import {
+  type ResidualFunction,
+  type ShootingProblem,
+  createShootingResidual,
+} from "./shooting-residual.js";
 import type { Target } from "./targets.js";
 
 /**
@@ -306,5 +311,91 @@ describe("constrainedShooting reports the cause under either strategy", () => {
     );
     expect(result.activeSet.activeCount).toBe(0);
     expect(result.status).toBe("unconstrained-failure");
+  });
+});
+
+/**
+ * P0.146, half two: `levenbergMarquardt` declared its own `stalled` whose doc
+ * hedged in the same words `newtonShooting`'s used to — "part of the residual
+ * *may* be structurally irreducible" — and never read the proof that says
+ * which part, and why.
+ */
+describe("levenbergMarquardt on a provably unreachable target", () => {
+  const solve = () =>
+    levenbergMarquardt(createShootingResidual(problem(RAISED_PLATFORM)), {
+      theta: 0.9,
+      speed: 60,
+    });
+
+  it("reports the cause as a status rather than as a stall", () => {
+    const result = solve();
+    expect(result.status).toBe("target-unreachable");
+    expect(result.converged).toBe(false);
+  });
+
+  it("renames the outcome without changing it", () => {
+    // Every figure here was measured before the relabel existed, with the
+    // status reading "stalled". Asserting them is what pins that the LABEL
+    // moved and the ANSWER did not — a short-circuit at the start would have
+    // returned the caller's initial guess (0.9, 60) instead.
+    const result = solve();
+    expect(result.iterations).toBe(2);
+    expect(result.evaluations).toBe(20);
+    expect(result.aim.theta).toBeCloseTo(1.2245603198624027, 12);
+    expect(result.aim.speed).toBeCloseTo(51.7094760722548, 10);
+    expect(result.merit).toBeCloseTo(15, 10);
+  });
+
+  it("keeps the underlying stall diagnosis in the failure text", () => {
+    const failure = solve().failure ?? "";
+    expect(failure).toContain("ground-impact");
+    expect(failure).toContain('stopped with "stalled"');
+    // The damped-step number the original diagnosis carried is still there,
+    // now as detail under a cause rather than as the whole answer.
+    expect(failure).toContain("damped step norm");
+  });
+
+  it("reports the irreducible miss in the vertical component alone", () => {
+    const result = solve();
+    expect(result.residual.residual?.[0]).toBeCloseTo(0, 6);
+    expect(result.residual.residual?.[1]).toBeCloseTo(-15, 10);
+  });
+});
+
+describe("levenbergMarquardt does not relabel outcomes the proof does not explain", () => {
+  it("leaves a converging ground solve alone", () => {
+    const result = levenbergMarquardt(
+      createShootingResidual(problem({ kind: "point", center: [150, 0] })),
+      { theta: 0.6, speed: 55 },
+    );
+    expect(result.status).toBe("converged");
+    expect(result.converged).toBe(true);
+  });
+
+  it("still converges when the offset is smaller than the residual tolerance", () => {
+    const residual = createShootingResidual(problem({ kind: "point", center: [150, 1e-9] }));
+    expect(residual.unreachableTarget?.offset).toBe(1e-9);
+
+    const result = levenbergMarquardt(residual, { theta: 0.6, speed: 55 });
+    expect(result.status).toBe("converged");
+    expect(result.merit).toBeLessThanOrEqual(1e-6);
+  });
+
+  it("leaves an unprovable non-convergence reading whatever it actually was", () => {
+    // The same raised platform over sloped terrain, where the detector
+    // declines because the samples cannot speak for the points between them.
+    // The geometry is no more reachable than the flat case — but nothing has
+    // been *proved*, and the relabel is driven by the proof rather than by the
+    // shape of the failure. This is the case the `stalled` hedge still
+    // describes, and it is why that wording was kept rather than deleted.
+    const residual: ResidualFunction = createShootingResidual(
+      problem(RAISED_PLATFORM, new FunctionTerrain((x: number) => 0.1 * x)),
+    );
+    expect(residual.unreachableTarget).toBeUndefined();
+
+    const result = levenbergMarquardt(residual, { theta: 0.9, speed: 60 });
+    expect(result.converged).toBe(false);
+    expect(result.status).not.toBe("target-unreachable");
+    expect(result.failure).not.toContain('ground-impact" terminal event surface');
   });
 });

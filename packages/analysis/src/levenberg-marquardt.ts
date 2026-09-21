@@ -85,8 +85,26 @@ export type LevenbergMarquardtStatus =
    * while `‖F‖` was still above tolerance. As in {@link newtonShooting}, this is
    * the *expected* terminal state when part of `F` is structurally irreducible —
    * read {@link LevenbergMarquardtResult.residual} before calling it a failure.
+   *
+   * **When the residual carries a proof of *why* part of `F` is irreducible,
+   * this is no longer the status you get** — it becomes
+   * {@link "target-unreachable"} (P0.146). The hedge above is what is left when
+   * nothing could be proved.
    */
   | "stalled"
+  /**
+   * The residual carried a {@link ResidualFunction.unreachableTarget} proof and
+   * the iteration ended without converging, so the cause is known rather than
+   * guessed at (P0.146).
+   *
+   * **This renames a non-convergent outcome; it never creates one.** The
+   * original status is preserved in {@link LevenbergMarquardtResult.failure},
+   * and the iteration runs to its own conclusion first, exactly as
+   * {@link newtonShooting} does and for the same reason: the proof supplies the
+   * cause, the iteration supplies the closest approach and the irreducible
+   * miss. Returning early would replace both with the caller's initial guess.
+   */
+  | "target-unreachable"
   /**
    * Damping was raised {@link LevenbergMarquardtOptions.maxDampingIncreases}
    * times in one iteration without producing a step that reduced the merit.
@@ -318,21 +336,42 @@ export function levenbergMarquardt(
   // into a direction the problem stopped supporting.
   const diag: [number, number] = [0, 0];
 
-  const finish = (
-    status: LevenbergMarquardtStatus,
-    failure?: string,
-  ): LevenbergMarquardtResult => ({
-    converged: status === "converged",
-    status,
-    aim,
-    residual: current,
-    merit,
-    iterations: history.length,
-    evaluations,
-    lambda,
-    history,
-    ...(failure === undefined ? {} : { failure }),
-  });
+  // The unreachability proof, when `createShootingResidual` could establish one
+  // (P0.105). It renames a non-convergent outcome; it never changes one.
+  const unreachable = residual.unreachableTarget;
+
+  const finish = (status: LevenbergMarquardtStatus, failure?: string): LevenbergMarquardtResult => {
+    // Mirrors `newtonShooting`'s relabel deliberately, down to which two
+    // statuses are exempt (P0.146). "converged" is never relabelled: a target
+    // whose offset is inside `residualTolerance` is a hit by this solver's own
+    // definition. "evaluation-failed" is not either — it reports that the aim
+    // produced no trajectory at all, which is a different and more immediate
+    // problem than where the target sits. Everything else the proof does
+    // explain, including "damping-exhausted" and "max-iterations": a run that
+    // cannot converge because the target is off the terminal surface will
+    // exhaust whatever budget it is given, and which budget ran out first is
+    // not the cause.
+    const relabel =
+      unreachable !== undefined && status !== "converged" && status !== "evaluation-failed";
+    const reported: LevenbergMarquardtStatus = relabel ? "target-unreachable" : status;
+    const reportedFailure =
+      relabel && unreachable !== undefined
+        ? `${unreachable.reason}. The iteration stopped with "${status}"` +
+          `${failure === undefined ? "" : `: ${failure}`}`
+        : failure;
+    return {
+      converged: reported === "converged",
+      status: reported,
+      aim,
+      residual: current,
+      merit,
+      iterations: history.length,
+      evaluations,
+      lambda,
+      history,
+      ...(reportedFailure === undefined ? {} : { failure: reportedFailure }),
+    };
+  };
 
   if (!current.ok) {
     return finish(
