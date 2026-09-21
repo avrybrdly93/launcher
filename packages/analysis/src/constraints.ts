@@ -383,6 +383,21 @@ export function boundsPenaltyRows(
  * residual, there is nothing to append to, and a penalty on an aim whose
  * trajectory does not exist would be inventing a finite merit for a point that
  * has none.
+ *
+ * **{@link ResidualFunction.unreachableTarget} is carried across the wrap
+ * (P0.146).** `ResidualFunction` is a call signature with an optional property,
+ * so a bare arrow function satisfies the type while silently dropping the
+ * proof — which it did, and the visible symptom was that the same target
+ * reported `target-unreachable` under the projection strategy and `stalled`
+ * under the penalty one, on a question that has nothing to do with strategy.
+ *
+ * Carrying it is sound rather than merely convenient. The proof says the miss
+ * cannot be reduced below the target's offset from the terminal event surface;
+ * the penalty rows are non-negative and *appended*, so the physical components
+ * are untouched and `‖F‖` can only grow. **A penalty cannot make an unreachable
+ * target reachable**, so a proof that held for the wrapped residual holds for
+ * the wrapper. The property is attached only when one is present, because
+ * absent means "not proven" and never "reachable".
  */
 export function withBoundsPenalty(
   residual: ResidualFunction,
@@ -390,7 +405,7 @@ export function withBoundsPenalty(
   options: BoundsPenaltyOptions = {},
 ): ResidualFunction {
   validateAimBounds(bounds);
-  return (aim: Aim): ShootingResidual => {
+  const penalized = (aim: Aim): ShootingResidual => {
     const evaluation = residual(aim);
     if (!evaluation.ok || evaluation.residual === null) return evaluation;
     return {
@@ -398,6 +413,11 @@ export function withBoundsPenalty(
       residual: [...evaluation.residual, ...boundsPenaltyRows(aim, bounds, options)],
     };
   };
+  const { unreachableTarget } = residual;
+  if (unreachableTarget === undefined) return penalized;
+  // Same idiom as `createShootingResidual`, deliberately, rather than a second
+  // way of attaching the same property.
+  return Object.assign(penalized, { unreachableTarget });
 }
 
 /** Which enforcement strategy {@link constrainedShooting} should use. */

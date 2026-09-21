@@ -17,6 +17,7 @@ import {
 } from "@ballista/engine";
 import { createDormandPrince54Stepper } from "@ballista/solverkit";
 import { describe, expect, it } from "vitest";
+import { constrainedShooting, withBoundsPenalty } from "./constraints.js";
 import { newtonShooting } from "./newton-shooting.js";
 import { PLANAR_LAYOUT } from "./observables.js";
 import { type ShootingProblem, createShootingResidual } from "./shooting-residual.js";
@@ -207,5 +208,103 @@ describe("newtonShooting does not relabel outcomes the proof does not explain", 
     const result = newtonShooting(residual, { theta: 0.6, speed: 55 });
     expect(result.status).toBe("converged");
     expect(result.merit).toBeLessThanOrEqual(1e-6);
+  });
+});
+
+/**
+ * P0.146, half one: `ResidualFunction` is a call signature with an optional
+ * property, so a wrapper that returns a bare arrow satisfies the type while
+ * silently dropping the proof.
+ *
+ * **Every test here wraps, and that is the point.** The defect is invisible to
+ * any test that builds a residual directly and asks whether the property is
+ * there — it was, on the residual the old tests built — so asserting the
+ * property *survives a wrap* is the only assertion that would have caught it.
+ */
+describe("the unreachability proof survives withBoundsPenalty", () => {
+  const CAP = { speedMax: 70 } as const;
+
+  it("is carried onto the wrapper, field for field", () => {
+    const residual = createShootingResidual(problem(RAISED_PLATFORM));
+    const wrapped = withBoundsPenalty(residual, CAP);
+
+    expect(wrapped.unreachableTarget).toBeDefined();
+    expect(wrapped.unreachableTarget).toEqual(residual.unreachableTarget);
+    expect(wrapped.unreachableTarget?.offset).toBe(15);
+    expect(wrapped.unreachableTarget?.event).toBe("ground-impact");
+  });
+
+  it("stays absent when the wrapped residual has none, because absent means unproven", () => {
+    const residual = createShootingResidual(problem({ kind: "point", center: [150, 0] }));
+    expect(residual.unreachableTarget).toBeUndefined();
+    expect(withBoundsPenalty(residual, CAP).unreachableTarget).toBeUndefined();
+  });
+
+  it("still appends the four penalty rows, so carrying the proof costs the wrap nothing", () => {
+    const residual = createShootingResidual(problem(RAISED_PLATFORM));
+    const wrapped = withBoundsPenalty(residual, CAP);
+    const aim = { theta: 0.9, speed: 60 };
+
+    const bare = residual(aim).residual;
+    const penalized = wrapped(aim).residual;
+    expect(bare).not.toBeNull();
+    expect(penalized).toHaveLength(bare!.length + 4);
+    // Under the cap, so every hinge is inactive and the appended rows are zero.
+    expect(penalized!.slice(bare!.length)).toEqual([0, 0, 0, 0]);
+  });
+});
+
+/**
+ * P0.146, half one's visible symptom: the same problem and the same target
+ * answered differently depending on a strategy flag that has nothing to do
+ * with reachability.
+ */
+describe("constrainedShooting reports the cause under either strategy", () => {
+  const CAP = { speedMax: 70 } as const;
+  const START = { theta: 0.9, speed: 60 } as const;
+
+  it.each(["projection", "penalty"] as const)(
+    "reports target-unreachable under the %s strategy",
+    (strategy) => {
+      const result = constrainedShooting(
+        createShootingResidual(problem(RAISED_PLATFORM)),
+        START,
+        CAP,
+        { strategy },
+      );
+      expect(result.newton.status).toBe("target-unreachable");
+      expect(result.newton.failure).toContain("ground-impact");
+    },
+  );
+
+  it("still reports the same physical miss under both strategies", () => {
+    // The relabel is a rename, so the number it renames must not move. Quoted
+    // to 10 places rather than approximately, because the two strategies reach
+    // the same irreducible 15 m by different routes and a change in either
+    // would be a real regression.
+    for (const strategy of ["projection", "penalty"] as const) {
+      const result = constrainedShooting(
+        createShootingResidual(problem(RAISED_PLATFORM)),
+        START,
+        CAP,
+        { strategy },
+      );
+      expect(result.miss).toBeCloseTo(14.99999999999999, 10);
+    }
+  });
+
+  it("leaves the constrained status alone: an unreachable target is not a bound problem", () => {
+    // Deliberately asserted rather than left implicit. The best aim sits at
+    // ~42.5 m/s against a 70 m/s cap, so no bound is active, and
+    // "unconstrained-failure" is the correct constrained reading — the box is
+    // not what is stopping this solve. P0.146 must not widen that mapping.
+    const result = constrainedShooting(
+      createShootingResidual(problem(RAISED_PLATFORM)),
+      START,
+      CAP,
+      { strategy: "penalty" },
+    );
+    expect(result.activeSet.activeCount).toBe(0);
+    expect(result.status).toBe("unconstrained-failure");
   });
 });
