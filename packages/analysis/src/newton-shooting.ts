@@ -58,12 +58,33 @@ export type NewtonShootingStatus =
    * while `‖F‖` was still above tolerance — the iteration has stopped moving.
    *
    * On a rank-deficient problem this is the *expected* terminal state whenever
-   * part of `F` lies outside the range of `J`: a ground-impact solve against a
-   * target 12 m above the ground can null the downrange miss and can do nothing
-   * at all about the vertical one. Read {@link NewtonShootingResult.residual}
-   * before treating it as a failure.
+   * part of `F` lies outside the range of `J`. Read
+   * {@link NewtonShootingResult.residual} before treating it as a failure.
+   *
+   * **The commonest instance of that — a target off the terminal event surface
+   * — now reports as {@link "target-unreachable"} instead** (P0.105), so a
+   * `stalled` result no longer silently includes the one case that was known
+   * in advance to be hopeless.
    */
   | "stalled"
+  /**
+   * The target provably cannot be hit through this problem's terminal event,
+   * so no aim would have converged and none was tried (P0.105).
+   *
+   * The distinction from {@link "stalled"} is what the status exists for.
+   * `stalled` describes the *line search*: the iteration stopped moving, and
+   * a reader has to work out whether that is a hard problem, a bad initial
+   * guess, or an impossible one. This says the third outright, before
+   * spending the iterations — a platform target 15 m up against a model whose
+   * terminal event is ground impact has its vertical miss pinned at −15 for
+   * every aim, because the impact point is *on* the ground surface by
+   * construction.
+   *
+   * Reported only when `createShootingResidual` could *prove* it; see
+   * `UnreachableTarget`. A target it cannot rule out still reaches the
+   * iteration and can still come back `stalled`.
+   */
+  | "target-unreachable"
   /** Backtracking ran out of halvings without meeting the Armijo condition. */
   | "line-search-failed"
   /** A residual or Jacobian evaluation failed (an aim outside the reachable set). */
@@ -489,17 +510,48 @@ export function newtonShooting(
   let current = evaluate(aim);
   let merit = residualNorm(current);
 
-  const finish = (status: NewtonShootingStatus, failure?: string): NewtonShootingResult => ({
-    converged: status === "converged",
-    status,
-    aim,
-    residual: current,
-    merit,
-    iterations: history.length,
-    evaluations,
-    history,
-    ...(failure === undefined ? {} : { failure }),
-  });
+  // The unreachability proof, when `createShootingResidual` could establish
+  // one (P0.105). It renames a non-convergent outcome; it never changes one.
+  const unreachable = residual.unreachableTarget;
+
+  const finish = (status: NewtonShootingStatus, failure?: string): NewtonShootingResult => {
+    // **The iteration is allowed to run to its own conclusion first, and the
+    // status is relabelled at the end rather than short-circuited at the
+    // start.** Returning "target-unreachable" before iterating would be
+    // cheaper and strictly less useful: the run that stalls has, by then,
+    // nulled every residual component it *can* null, so `aim` is the closest
+    // approach and `merit` is the irreducible miss. On the P0.105 case that
+    // is the difference between reporting "unreachable, best approach
+    // (1.031 rad, 42.48 m/s), still 15 m short vertically" and reporting
+    // "unreachable" against whatever the caller's initial guess happened to
+    // be. The proof supplies the reason; the iteration supplies the numbers.
+    //
+    // "converged" is never relabelled, which matters when the offset is
+    // smaller than `residualTolerance`: such a target is a hit by this
+    // solver's own definition and calling it unreachable would be wrong.
+    // "evaluation-failed" is not relabelled either — it reports that the aim
+    // produced no impact at all, which is a different and more immediate
+    // problem than where the target sits.
+    const relabel =
+      unreachable !== undefined && status !== "converged" && status !== "evaluation-failed";
+    const reported: NewtonShootingStatus = relabel ? "target-unreachable" : status;
+    const reportedFailure =
+      relabel && unreachable !== undefined
+        ? `${unreachable.reason}. The iteration stopped with "${status}"` +
+          `${failure === undefined ? "" : `: ${failure}`}`
+        : failure;
+    return {
+      converged: reported === "converged",
+      status: reported,
+      aim,
+      residual: current,
+      merit,
+      iterations: history.length,
+      evaluations,
+      history,
+      ...(reportedFailure === undefined ? {} : { failure: reportedFailure }),
+    };
+  };
 
   if (!current.ok) {
     return finish(

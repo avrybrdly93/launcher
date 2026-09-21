@@ -1,0 +1,211 @@
+import {
+  ConstantAtmosphere,
+  ConstantCd,
+  Environment,
+  FunctionTerrain,
+  G_STD,
+  GravityForce,
+  type Model,
+  QuadraticDragForce,
+  UniformGravity,
+  ZeroWind,
+  createEvalContext,
+  createPlanarProjectileModel,
+  createSphericalProjectileParams,
+  type EvalContext,
+  type Terrain,
+} from "@ballista/engine";
+import { createDormandPrince54Stepper } from "@ballista/solverkit";
+import { describe, expect, it } from "vitest";
+import { newtonShooting } from "./newton-shooting.js";
+import { PLANAR_LAYOUT } from "./observables.js";
+import { type ShootingProblem, createShootingResidual } from "./shooting-residual.js";
+import type { Target } from "./targets.js";
+
+/**
+ * P0.105: a target off the terminal event surface can never be hit, and the
+ * solver now says which rather than stalling.
+ *
+ * **What these tests are for is the *decline* direction as much as the
+ * verdict.** The detector's correctness argument is that it can prove
+ * unreachability and can never conclude reachability, so the cases below that
+ * assert `undefined` are load-bearing: a false "unreachable" would turn a
+ * solvable problem into a reported failure, which is strictly worse than the
+ * stall this task was filed about.
+ */
+
+const ctx: EvalContext = createEvalContext(
+  new Environment(new ConstantAtmosphere(), new UniformGravity(G_STD, false), new ZeroWind()),
+  createSphericalProjectileParams({
+    mass: 1,
+    radius: 0.05,
+    dragCoefficient: new ConstantCd(0.47),
+  }),
+);
+
+/** `golden-optimization-store.ts`'s configuration, so the numbers are comparable. */
+function problem(target: Target, terrain?: Terrain): ShootingProblem {
+  return {
+    model: createPlanarProjectileModel([new GravityForce(), new QuadraticDragForce()], terrain),
+    ctx,
+    target,
+    config: { stepper: "dopri5", rtol: 1e-12, atol: 1e-14, maxSteps: 200_000 },
+    stepper: createDormandPrince54Stepper(),
+    tspan: [0, 60],
+    layout: PLANAR_LAYOUT,
+  };
+}
+
+/** The golden store's `newton-raised-platform-unreachable` geometry, exactly. */
+const RAISED_PLATFORM: Target = {
+  kind: "platform",
+  center: [120, 15],
+  halfExtents: [2],
+  tolerance: 1e-3,
+};
+
+describe("the unreachability proof", () => {
+  it("names the terminal event and the offset for a platform above flat ground", () => {
+    const residual = createShootingResidual(problem(RAISED_PLATFORM));
+    const proof = residual.unreachableTarget;
+
+    expect(proof).toBeDefined();
+    expect(proof?.event).toBe("ground-impact");
+    // Exact, not approximate: g_gnd = y - h(x) is 15 - 0 on flat terrain, and
+    // the samples are required to agree bit-for-bit before a verdict is given.
+    expect(proof?.offset).toBe(15);
+    expect(proof?.reason).toContain("ground-impact");
+  });
+
+  it("is absent for a target on the ground, which is the reachable case", () => {
+    const residual = createShootingResidual(problem({ kind: "point", center: [150, 0] }));
+    expect(residual.unreachableTarget).toBeUndefined();
+  });
+
+  it("is present for a raised ring, not just a platform", () => {
+    const residual = createShootingResidual(
+      problem({ kind: "ring", center: [150, 8], radius: 5, tolerance: 1e-3 }),
+    );
+    expect(residual.unreachableTarget?.offset).toBe(8);
+  });
+
+  it("declines over sloped terrain, where the samples cannot speak for the points between them", () => {
+    const slope = new FunctionTerrain((x: number) => 0.1 * x);
+    expect(
+      createShootingResidual(problem(RAISED_PLATFORM, slope)).unreachableTarget,
+    ).toBeUndefined();
+  });
+
+  it("declines when the target's plane touches the terrain anywhere under its footprint", () => {
+    // Terrain flat at 15 m — the platform's own height — so the centre probe
+    // alone would read `g = 0` and decline for the right reason. This is the
+    // control for the sample set: the verdict must not survive a zero.
+    const shelf = new FunctionTerrain(() => 15);
+    expect(
+      createShootingResidual(problem(RAISED_PLATFORM, shelf)).unreachableTarget,
+    ).toBeUndefined();
+  });
+
+  it("declines when the terminal event reads velocity, so one probe cannot speak for another", () => {
+    // `g` here is the ordinary ground indicator plus a velocity term. A probe
+    // at a single velocity would read a constant non-zero value across the
+    // footprint and wrongly declare the target unreachable; the velocity sweep
+    // is what catches it.
+    const base = createPlanarProjectileModel([new GravityForce()]);
+    const velocityDependent: Model = {
+      ...base,
+      events: [
+        {
+          name: "velocity-dependent",
+          g: (_t: number, y: Float64Array) => y[1]! - 15 + 0.001 * y[3]!,
+          terminal: true,
+        },
+      ],
+    };
+    const residual = createShootingResidual({
+      ...problem(RAISED_PLATFORM),
+      model: velocityDependent,
+    });
+    expect(residual.unreachableTarget).toBeUndefined();
+  });
+
+  it("declines when the terminal event surface moves with time", () => {
+    const base = createPlanarProjectileModel([new GravityForce()]);
+    const timeDependent: Model = {
+      ...base,
+      events: [
+        {
+          name: "time-dependent",
+          g: (t: number, y: Float64Array) => y[1]! - 15 - t,
+          terminal: true,
+        },
+      ],
+    };
+    const residual = createShootingResidual({ ...problem(RAISED_PLATFORM), model: timeDependent });
+    expect(residual.unreachableTarget).toBeUndefined();
+  });
+});
+
+describe("newtonShooting on a provably unreachable target", () => {
+  const solve = () =>
+    newtonShooting(createShootingResidual(problem(RAISED_PLATFORM)), { theta: 0.9, speed: 60 });
+
+  it("reports the cause as a status rather than as a stall", () => {
+    const result = solve();
+    expect(result.status).toBe("target-unreachable");
+    expect(result.converged).toBe(false);
+  });
+
+  it("renames the outcome without changing it, which is why the iteration still runs", () => {
+    const result = solve();
+    // Every one of these is the figure `golden-optimizations.json` pinned
+    // while the status read "stalled". The point of relabelling at the end
+    // rather than short-circuiting at the start is that `aim` is the closest
+    // approach the solver can reach and `merit` is the irreducible miss — an
+    // early return would have reported the caller's initial guess instead.
+    expect(result.iterations).toBe(4);
+    expect(result.evaluations).toBe(25);
+    expect(result.aim.theta).toBeCloseTo(1.0313982570525626, 12);
+    expect(result.aim.speed).toBeCloseTo(42.48200172068886, 10);
+    expect(result.merit).toBeCloseTo(14.99999999999999, 10);
+  });
+
+  it("keeps the underlying stall in the failure text rather than discarding it", () => {
+    const failure = solve().failure ?? "";
+    expect(failure).toContain("ground-impact");
+    // The original diagnosis is still there, now as detail under a cause
+    // rather than as the whole answer.
+    expect(failure).toContain('stopped with "stalled"');
+    expect(failure).toContain("rank 1 of 2");
+  });
+
+  it("reports the irreducible miss in the vertical component alone", () => {
+    const result = solve();
+    expect(result.residual.residual?.[0]).toBeCloseTo(0, 6);
+    expect(result.residual.residual?.[1]).toBeCloseTo(-15, 10);
+  });
+});
+
+describe("newtonShooting does not relabel outcomes the proof does not explain", () => {
+  it("leaves a converging ground solve alone", () => {
+    const result = newtonShooting(
+      createShootingResidual(problem({ kind: "point", center: [150, 0] })),
+      { theta: 0.6, speed: 55 },
+    );
+    expect(result.status).toBe("converged");
+    expect(result.converged).toBe(true);
+  });
+
+  it("still converges when the offset is smaller than the residual tolerance", () => {
+    // A target 1e-9 m above the ground is provably off the terminal surface —
+    // the proof is attached — but it is a hit by this solver's own definition,
+    // and calling it unreachable would be wrong.
+    const barelyRaised: Target = { kind: "point", center: [150, 1e-9] };
+    const residual = createShootingResidual(problem(barelyRaised));
+    expect(residual.unreachableTarget?.offset).toBe(1e-9);
+
+    const result = newtonShooting(residual, { theta: 0.6, speed: 55 });
+    expect(result.status).toBe("converged");
+    expect(result.merit).toBeLessThanOrEqual(1e-6);
+  });
+});

@@ -146,8 +146,46 @@ export interface ShootingResidual {
   readonly aim: Aim;
 }
 
-/** A residual function of the aim, with the problem closed over. */
-export type ResidualFunction = (aim: Aim) => ShootingResidual;
+/**
+ * A proof that no aim can hit the target through this problem's terminal
+ * event (P0.105).
+ *
+ * Attached to a {@link ResidualFunction} by {@link createShootingResidual}
+ * when, and only when, it can *prove* the negative — see
+ * {@link createShootingResidual} for the three conditions. A solver that
+ * finds this present can say why it is not going to converge instead of
+ * discovering it as a stall.
+ */
+export interface UnreachableTarget {
+  /** Name of the terminal event whose surface the target sits off. */
+  readonly event: string;
+  /**
+   * `g` evaluated on the target's plane, i.e. the signed distance from the
+   * target to the event surface in the event's own units. Positive means the
+   * target is on the side the projectile approaches from.
+   */
+  readonly offset: number;
+  /** One sentence naming the cause, suitable for a solver's `failure` field. */
+  readonly reason: string;
+}
+
+/**
+ * A residual function of the aim, with the problem closed over.
+ *
+ * Declared as a call signature with an optional property rather than a bare
+ * function type so that {@link createShootingResidual} can hand solvers the
+ * {@link unreachableTarget} proof without a second argument threaded through
+ * every call site. A plain arrow function still satisfies it, which is what
+ * keeps `shootingJacobian` and the test suite's hand-rolled residuals valid.
+ */
+export interface ResidualFunction {
+  (aim: Aim): ShootingResidual;
+  /**
+   * Present only when the target is *provably* unreachable through the
+   * problem's terminal event. Absent means "not proven", never "reachable".
+   */
+  readonly unreachableTarget?: UnreachableTarget;
+}
 
 /**
  * One flown aim, before anything is read off it.
@@ -233,12 +271,174 @@ function launchState(problem: ShootingProblem, aim: Aim, layout: TrajectoryLayou
  * solver that converges linearly, several tasks downstream. Failing at
  * construction is the difference between a five-second error and that.
  */
+/**
+ * Points on the target's own plane, spanning its horizontal footprint.
+ *
+ * Every target shape here is flat, so "the target" is a set of positions at
+ * one height; these are the positions an impact would have to reach to score
+ * a hit. The centre is always included, and each shape contributes its
+ * extremes: the two ends of every horizontal axis for a ring, and every
+ * corner for a platform. Sampling the *extremes* rather than an interior grid
+ * is deliberate — {@link proveTargetUnreachable} accepts a verdict only when
+ * every sample agrees exactly, so a sample set that reaches the boundary is
+ * strictly harder to satisfy than one that does not.
+ */
+function footprintSamples(target: Target, layout: TrajectoryLayout): number[][] {
+  const centre = layout.position.map((_, axis) => target.center[axis]!);
+  const samples: number[][] = [centre];
+  const horizontalAxes = layout.position
+    .map((_, axis) => axis)
+    .filter((axis) => axis !== layout.vertical);
+
+  const offsetAlong = (axis: number, delta: number): void => {
+    const point = [...centre];
+    point[axis] = centre[axis]! + delta;
+    samples.push(point);
+  };
+
+  if (target.kind === "ring") {
+    for (const axis of horizontalAxes) {
+      offsetAlong(axis, target.radius);
+      offsetAlong(axis, -target.radius);
+      const inner = target.innerRadius ?? 0;
+      if (inner > 0) {
+        offsetAlong(axis, inner);
+        offsetAlong(axis, -inner);
+      }
+    }
+  } else if (target.kind === "platform") {
+    // Corners, as the product of ± each half-extent, plus the single-axis
+    // extremes the product already contains for a 1-D footprint.
+    let corners: number[][] = [centre];
+    horizontalAxes.forEach((axis, index) => {
+      const half = target.halfExtents[index]!;
+      corners = corners.flatMap((point) => {
+        const low = [...point];
+        const high = [...point];
+        low[axis] = centre[axis]! - half;
+        high[axis] = centre[axis]! + half;
+        return half === 0 ? [point] : [low, high];
+      });
+    });
+    samples.push(...corners);
+  }
+  return samples;
+}
+
+/** Probe velocities used to establish that an event's `g` ignores velocity. */
+const PROBE_VELOCITIES: readonly number[] = [0, 1, -1, 100];
+/** Probe times used to establish that an event's `g` ignores `t`. */
+const PROBE_TIMES: readonly number[] = [0, 1, 1000];
+
+/**
+ * `g` evaluated at one footprint point, or `null` if it is not a single
+ * well-defined number there — because it varies with velocity, varies with
+ * `t`, is not finite, or threw.
+ */
+function eventValueAt(
+  event: { readonly name: string; g(t: number, y: Float64Array): number },
+  point: readonly number[],
+  dim: number,
+  layout: TrajectoryLayout,
+): number | null {
+  let value: number | null = null;
+  for (const speed of PROBE_VELOCITIES) {
+    const y = new Float64Array(dim);
+    for (let axis = 0; axis < layout.position.length; axis++) {
+      y[layout.position[axis]!] = point[axis]!;
+      y[layout.velocity[axis]!] = speed;
+    }
+    for (const t of PROBE_TIMES) {
+      let probed: number;
+      try {
+        probed = event.g(t, y);
+      } catch {
+        // An event that will not evaluate on a synthetic state tells us
+        // nothing, which is a declined verdict rather than a failure.
+        return null;
+      }
+      if (!Number.isFinite(probed)) return null;
+      if (value === null) value = probed;
+      else if (probed !== value) return null;
+    }
+  }
+  return value;
+}
+
+/**
+ * Proves, or declines to prove, that no aim can hit `problem.target`.
+ *
+ * **The asymmetry is the whole of the correctness argument: this can prove
+ * unreachability and can never conclude reachability.** An impact lies on a
+ * terminal event's surface by construction — that is what `createFlight`'s
+ * `endedOnEvent` discriminator guarantees — and every target shape is flat,
+ * so a hit requires an impact whose position lies on the target's plane. If
+ * some terminal event's `g` is non-zero everywhere on that plane's footprint,
+ * no impact can be there.
+ *
+ * Three conditions must all hold, and each rules out a way a finite probe
+ * could be misread:
+ *
+ * 1. `g` does not vary with velocity, so a probe at one velocity speaks for
+ *    an impact arriving at any other;
+ * 2. `g` does not vary with `t`, so the surface is not moving;
+ * 3. `g` is **exactly equal** at every footprint sample and non-zero, so the
+ *    surface is flat across the footprint — which is what makes a handful of
+ *    samples a statement about the whole of it rather than an extrapolation
+ *    between them.
+ *
+ * Anything else returns `undefined` and every downstream path behaves exactly
+ * as it did before this function existed. That direction matters more than
+ * coverage: a false "unreachable" would turn a solvable problem into a
+ * reported failure, whereas a declined verdict costs only the stall that was
+ * already there. Sloped or wiggly terrain under the footprint is therefore
+ * *not* handled, on purpose — condition 3 fails and the verdict is declined.
+ */
+function proveTargetUnreachable(
+  problem: ShootingProblem,
+  layout: TrajectoryLayout,
+): UnreachableTarget | undefined {
+  const terminalEvents = (problem.model.events ?? []).filter((event) => event.terminal);
+  if (terminalEvents.length === 0) return undefined;
+
+  const samples = footprintSamples(problem.target, layout);
+  const verdicts: UnreachableTarget[] = [];
+
+  // EVERY terminal event must be ruled out. Reaching any one of them ends the
+  // solve and produces an impact, so a single event whose surface the target
+  // might lie on is enough to make the target potentially hittable.
+  for (const event of terminalEvents) {
+    let offset: number | null = null;
+    for (const point of samples) {
+      const value = eventValueAt(event, point, problem.model.dim, layout);
+      // A zero means the target's plane touches this event's surface here, so
+      // an impact could be on it; a null means the probe learned nothing. Both
+      // decline the verdict for the whole problem.
+      if (value === null || value === 0) return undefined;
+      if (offset === null) offset = value;
+      // Unequal samples mean the surface is not flat across the footprint, so
+      // these samples say nothing about the points between them.
+      else if (value !== offset) return undefined;
+    }
+    if (offset === null) return undefined;
+    verdicts.push({
+      event: event.name,
+      offset,
+      reason:
+        `the target's plane lies off the "${event.name}" terminal event surface by ` +
+        `${offset} in the event's own units, and every impact is on that surface by ` +
+        "construction, so no aim can reduce the miss below that offset",
+    });
+  }
+  return verdicts[0];
+}
+
 export function createShootingResidual(problem: ShootingProblem): ResidualFunction {
   const layout = problem.layout ?? PLANAR_LAYOUT;
   validateTarget(problem.target, layout);
   const fly = createFlight(problem);
 
-  return (aim: Aim): ShootingResidual => {
+  const evaluateResidual = (aim: Aim): ShootingResidual => {
     const flight = fly(aim);
     if (!flight.ok || flight.trajectory === null) {
       return {
@@ -261,6 +461,12 @@ export function createShootingResidual(problem: ShootingProblem): ResidualFuncti
       aim,
     };
   };
+
+  // Computed once at construction, not per evaluation: it depends only on the
+  // model and the target, both of which are closed over here.
+  const unreachableTarget = proveTargetUnreachable(problem, layout);
+  if (unreachableTarget === undefined) return evaluateResidual;
+  return Object.assign(evaluateResidual, { unreachableTarget });
 }
 
 /**

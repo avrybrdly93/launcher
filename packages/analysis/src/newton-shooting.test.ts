@@ -391,10 +391,16 @@ describe("newtonShooting with drag and wind (P5.06's validation criterion)", () 
 });
 
 describe("newtonShooting when part of the residual is structurally irreducible", () => {
-  it("stalls with the downrange miss nulled and the vertical one untouched", () => {
+  it("names the target as unreachable, with the downrange miss nulled and the vertical one untouched", () => {
     // A platform 12 m up: a ground-impact solve can never reach it, so F_y is a
     // constant −12 no aim can change. The solver must null the reducible
     // component and stop, rather than exhausting its line search.
+    //
+    // **Re-measured by P0.105, not relaxed.** This assertion read `"stalled"`
+    // until the solver learned to prove this case and name it. Every other
+    // claim below is unchanged and still exact — the iteration still runs to
+    // the same stall and still nulls the same component — which is what makes
+    // the status the only thing that moved.
     const HEIGHT = 12;
     const platform: PlatformTarget = {
       kind: "platform",
@@ -409,13 +415,18 @@ describe("newtonShooting when part of the residual is structurally irreducible",
     );
 
     expect(result.converged).toBe(false);
-    expect(result.status).toBe("stalled");
+    expect(result.status).toBe("target-unreachable");
     // The downrange component is solved to the same accuracy a hittable target
     // would have been.
     expect(Math.abs(result.residual.residual![0]!)).toBeLessThan(1e-6);
     // The vertical one is the whole irreducible height, undisturbed.
     expect(result.residual.residual![1]!).toBeCloseTo(-HEIGHT, 9);
+    // The rank diagnosis that used to be the whole answer is still there, now
+    // as detail underneath the cause. Asserting both is what pins that the new
+    // status *replaced the label* rather than replacing the diagnosis.
     expect(result.failure).toMatch(/rank 1 of 2/);
+    expect(result.failure).toMatch(/stopped with "stalled"/);
+    expect(result.failure).toMatch(/ground-impact/);
   });
 });
 

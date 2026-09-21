@@ -31,7 +31,7 @@
     },
     {
       "id": "newton-raised-platform-unreachable",
-      "status": "stalled",
+      "status": "target-unreachable",
       "converged": false,
       "solution": [1.0313982570525626, 42.48200172068886],
       "objective": 14.99999999999999,

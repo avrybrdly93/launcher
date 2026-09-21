@@ -231,11 +231,18 @@ export const GOLDEN_OPTIMIZATION_CASES: readonly GoldenOptimizationCase[] = [
       "target 15 m up cannot be hit by a model whose terminal event is ground impact: " +
       "`createShootingResidual` reads the miss at the *ground* impact point, so the vertical " +
       "component is pinned at -15 for every aim and no aim reduces it. What is pinned here is " +
-      "that the solver says so -- `stalled`, `converged: false`, merit 15 -- rather than " +
-      "returning an aim with `converged: true`, which is the silent-wrong-answer shape P0.97, " +
-      "P0.99 and P0.101 were each filed for. Filed as P0.105; if that task changes this " +
-      "behaviour, rewrite this entry rather than deleting it, exactly as P0.99's " +
-      "characterization test asks.",
+      "that the solver says so -- `converged: false`, merit 15 -- rather than returning an aim " +
+      "with `converged: true`, which is the silent-wrong-answer shape P0.97, P0.99 and P0.101 " +
+      "were each filed for.\n\n" +
+      "**Rewritten by P0.105 (2026-09-21), which changed exactly one field of this entry: the " +
+      "status, `stalled` -> `target-unreachable`.** The solve now carries a proof that the " +
+      "target's plane lies off the terminal event surface, and reports that as the cause " +
+      "instead of reporting the line search's symptom. Everything else here is byte-identical " +
+      "-- same aim, same merit, same 4 iterations, same 25 evaluations -- and that is the " +
+      "evidence the change was a rename rather than a behaviour change: the iteration is still " +
+      "allowed to run to its own conclusion, so `solution` is still the closest approach " +
+      "reachable and `objective` is still the irreducible miss. A short-circuit at the initial " +
+      "aim would have been cheaper and would have moved all four.",
     RAISED_PLATFORM,
     0.47,
     0,
