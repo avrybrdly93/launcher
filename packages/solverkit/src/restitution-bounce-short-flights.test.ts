@@ -251,18 +251,34 @@ describe("integrate: drag-free bouncing ball against the closed form (P0.98 grou
  * quadratic exactly and the Hermite cubic reproduces it exactly, so the only
  * error is the root find's.
  *
- * **Bounds, not a pinned count, and that is deliberate.** A neighbouring step
- * size does *not* behave this well: at h = 0.4 and h = 0.5 the sequence stops
- * after two impacts and the projectile falls through the ground while the solve
- * still reports `ok`. That is a real defect, measured this run and filed as its
- * own task — the localized impact leaves `y` a hair below the terrain, so the
- * `g0 === 0` test that arms the ladder is false, the scan falls back to its
- * interior samples, and a flight shorter than a quarter step lands before the
- * first of them. Asserting `>=` here means the fix for that task, which
- * resolves *more* impacts, leaves these cases green rather than red.
+ * **Exact counts, derived rather than observed (P0.145).** These blocks carried
+ * `minImpacts` lower bounds of 5 and 6 until the 120th run. They were written
+ * when the resolved count depended on `h` and on the sign of a rounding
+ * residual — at h = 0.4 and h = 0.5 the sequence used to stop after two impacts
+ * and the projectile fell through the ground while the solve still reported
+ * `ok`, so a `>=` bound meant the fix for that (P0.101's surface snap, which
+ * resolves *more* impacts) left these cases green rather than red. That fix has
+ * landed, and a bound that can no longer fail for the reason it was written is
+ * not a test.
  *
- * `report.status` is deliberately not asserted for the same reason: it is `ok`
- * today only because the sequence dies, and any honest fix changes it.
+ * The count is now pinned exactly, and `resolvedBounceCount` below is where it
+ * comes from — **the model, not a previous run's output**. Since the snap the
+ * ball rests exactly on the surface between bounces, so `activeAtStart` holds
+ * and `event-detection.ts` arms the `DEPARTURE_THETAS` ladder. Its finest rung
+ * puts the scan's first sample at `theta_min * h` after the step start, so a
+ * bounce is resolved exactly while its flight outlasts that sample:
+ *
+ *   bounce n is resolved  <=>  2 e^n t0 > theta_min * h
+ *
+ * and the resolved count is the first `n` that fails it. **The rule is a
+ * prediction and not a fit**: it returns 8 at h = 0.12, 0.25 and 0.4 and
+ * **7** at h = 0.5, and the solver returns 8, 8, 8, 7. The h = 0.5 case is
+ * carried below for exactly that reason — a derivation that only ever agreed
+ * with `RESOLVED_IMPACTS` on this file's own two step sizes would be
+ * indistinguishable from the constant 8.
+ *
+ * `report.status` is deliberately not asserted: it is `ok` today only because
+ * the sequence saturates (P0.144), and any honest fix there changes it.
  */
 describe("integrate: fixed-step restitution bounces shorter than a quarter step (P0.98)", () => {
   const H0 = 5;
@@ -305,21 +321,79 @@ describe("integrate: fixed-step restitution bounces shorter than a quarter step 
   const exactFlightBefore = (n: number): number =>
     n === 0 ? Math.sqrt((2 * H0) / G_STD) : 2 * E ** n * Math.sqrt((2 * H0) / G_STD);
 
-  describe.each([
-    { h: 0.12, minImpacts: 5, minShort: 2 },
-    { h: 0.25, minImpacts: 6, minShort: 3 },
-  ])("h = $h", ({ h, minImpacts, minShort }) => {
+  /**
+   * The finest rung of `event-detection.ts`'s `DEPARTURE_THETAS`, written the
+   * same way that file builds it (`INTERIOR_THETAS[0] * 2 ** -k` down to
+   * k = 12) rather than as a decimal, so a change to the ladder shows up here
+   * as a changed prediction instead of a stale constant.
+   */
+  const FINEST_DEPARTURE_THETA = 0.25 * 2 ** -12;
+
+  /**
+   * How many bounces the scan resolves at step `h`, from the model alone: the
+   * first sample of an armed scan sits `FINEST_DEPARTURE_THETA * h` after the
+   * step start, and a bounce is resolved exactly while its flight outlasts it.
+   * No solver output is involved, which is the point — the tests below assert
+   * that the solver agrees with this, not the other way round.
+   */
+  const resolvedBounceCount = (h: number): number => {
+    let n = 0;
+    while (exactFlightBefore(n) > FINEST_DEPARTURE_THETA * h) n++;
+    return n;
+  };
+
+  /** Bounces whose flight is under a quarter step, among the resolved ones. */
+  const shortBounceCount = (h: number): number => {
+    let count = 0;
+    for (let n = 0; n < resolvedBounceCount(h); n++) {
+      if (exactFlightBefore(n) < h / 4) count++;
+    }
+    return count;
+  };
+
+  // The prediction is checked at a step size this file does not otherwise use,
+  // and where it disagrees with RESOLVED_IMPACTS. Without this case the rule
+  // could be the constant 8 and nothing here would notice.
+  it("the closed-form resolved count is a prediction, not a restatement of 8", () => {
+    expect(resolvedBounceCount(0.12)).toBe(RESOLVED_IMPACTS);
+    expect(resolvedBounceCount(0.25)).toBe(RESOLVED_IMPACTS);
+    expect(resolvedBounceCount(0.4)).toBe(RESOLVED_IMPACTS);
+    // h = 0.5 puts the finest rung past the 8th flight, so the model says the
+    // sequence saturates one bounce earlier.
+    expect(resolvedBounceCount(0.5)).toBe(RESOLVED_IMPACTS - 1);
+    expect(new Set(bounceFixedStep(0.5).map((r) => r.t)).size).toBe(RESOLVED_IMPACTS - 1);
+  });
+
+  describe.each([{ h: 0.12 }, { h: 0.25 }])("h = $h", ({ h }) => {
     it("reaches the sub-quarter-step regime the adaptive driver cannot", () => {
       const impacts = bounceFixedStep(h);
-      const short = impacts.filter((_, n) => exactFlightBefore(n) < h / 4);
+      // Indexed over the RESOLVED impacts only: the saturated tail (P0.144)
+      // shares one time and is not a sequence of flights, so numbering those
+      // records as bounces counted 457 of them as sub-quarter-step.
+      const short = impacts
+        .slice(0, RESOLVED_IMPACTS)
+        .filter((_, n) => exactFlightBefore(n) < h / 4);
       // Unlike the adaptive block above, `h` here really is the step in play,
       // so this ratio is the flight-to-step ratio and not a nominal stand-in.
-      expect(short.length).toBeGreaterThanOrEqual(minShort);
-      expect(exactFlightBefore(impacts.length - 1)).toBeLessThan(h / 4);
+      // Five at both step sizes, bounces 3..7: h/4 is 0.03 and 0.0625, and the
+      // flights either side of both are 0.080785 (n = 2) and 0.016157 (n = 3).
+      expect(short.length).toBe(shortBounceCount(h));
+      expect(short.length).toBe(5);
+      // The claim this block exists to make. It read `impacts.length - 1`
+      // until P0.145, which since the snap is index 464, whose closed-form
+      // flight underflows to 0 -- so it asserted 0 < h/4 and could not fail.
+      expect(exactFlightBefore(RESOLVED_IMPACTS - 1)).toBeLessThan(h / 4);
     });
 
     it("resolves every impact of the sequence it reaches", () => {
-      expect(bounceFixedStep(h).length).toBeGreaterThanOrEqual(minImpacts);
+      const impacts = bounceFixedStep(h);
+      // Exact, and both halves matter: the distinct-time count is what
+      // "resolved" means, and `impacts.length` is the total including the
+      // saturated tail. The old `>= minImpacts` bound was read against the
+      // total, so 5 and 6 were loose against 465 rather than against 8.
+      expect(new Set(impacts.map((r) => r.t)).size).toBe(resolvedBounceCount(h));
+      expect(new Set(impacts.map((r) => r.t)).size).toBe(RESOLVED_IMPACTS);
+      expect(impacts.length).toBe(TOTAL_IMPACTS);
     });
 
     it("impact times match the closed form, including the short flights", () => {
