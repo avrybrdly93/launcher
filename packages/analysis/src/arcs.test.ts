@@ -30,7 +30,14 @@ import { PLANAR_LAYOUT, SPATIAL_LAYOUT, type TrajectoryLayout } from "./observab
 import { dragFreeRange } from "./range-root.js";
 import { type Aim, type ShootingProblem, createShootingResidual } from "./shooting-residual.js";
 import type { PointTarget } from "./targets.js";
-import { isIdleEnoughForWallClock, measureCalibrationMs } from "@ballista/solverkit";
+import {
+  calibrationWorkload,
+  elapsedMs,
+  isIdleEnoughForWallClock,
+  LOAD_TRACKING_CALIBRATION_ITERATIONS,
+  measureCalibrationMs,
+  pairedCost,
+} from "@ballista/solverkit";
 
 /**
  * P5.08's validation criterion is "both arcs found for reachable targets;
@@ -606,17 +613,57 @@ describe("P5.21 validation: drag→solution latency", () => {
   const SPEED = 60;
   const BUDGET_MS = 200;
   /**
-   * MEASURED over three runs on the development container: 43.685, 41.444,
-   * 45.150 (median solve ~27-30 ms against a ~0.62-0.67 ms calibration). The
-   * limit of 90 is ~2x the worst observation.
+   * RE-DERIVED AT THE NEW CALIBRATION SIZE (P0.147). The old limit of 90 was
+   * ~2x the worst of three observations taken against the 0.2 ms
+   * `CALIBRATION_ITERATIONS` workload. That denominator is ~14.5x smaller than
+   * the one used here, so 90 is not a number that can be carried across -- it
+   * belongs to the old scale and would be meaningless at this one.
    *
-   * The ratio is large because the thing measured is large: fifteen full
-   * adaptive drag solves, not one render. That is not a problem for the
-   * method -- the ratio is dimensionless and contention cancels out of it at
-   * any scale -- but it does mean this number must be re-derived, not
-   * transplanted, if the solver's cost model changes.
+   * MEASURED over seven runs on the development container, three of them under
+   * the same 8-way sustained load that reliably turned the old wiring red:
+   *
+   * | condition        | median solve | cost |
+   * | ---------------- | -----------: | ---: |
+   * | idle             |    29.18 ms  | 3.27 |
+   * | idle             |    33.44 ms  | 3.43 |
+   * | idle             |    32.76 ms  | 3.37 |
+   * | bursty, 8 procs  |    32.31 ms  | 3.35 |
+   * | sustained, 8     |    80.34 ms  | 3.71 |
+   * | sustained, 8     |    72.97 ms  | 3.99 |
+   * | sustained, 8     |    70.93 ms  | 4.68 |
+   *
+   * THE POINT OF THAT TABLE IS THE SECOND COLUMN AGAINST THE THIRD. The median
+   * solve stretched 2.2-2.8x under load; the ratio moved by 1.39x at worst. The
+   * old pairing, on the same machine and the same solver, went from ~48-56 idle
+   * to 96.7-105.5 loaded and crossed its bound of 90.
+   *
+   * The limit of 9 is 1.9x the worst of those seven, the same ~2x-the-worst
+   * convention the old 90 was set by. KNOWINGLY, per this module's header: it
+   * puts the regression-detection floor at ~2.7x the idle cost, a little above
+   * the ~2.2x P0.123 measured for this approach. A tighter bound would go red
+   * under the contention above, which is the failure this task exists to stop.
+   *
+   * WHICH HALF OF THE FIX ACTUALLY CARRIES IT, SINCE THE CONTROLS DISAGREED
+   * WITH THE DESIGN. Only the calibration SIZE flips this test: restoring the
+   * 0.2M workload under that same sustained load gives a 0.512 ms calibration,
+   * `tracksLoad` false and a ratio of 95.36 — the old failure exactly, now
+   * declined instead of asserted. The median denominator does NOT flip it at
+   * this size; it was measured to roughly halve the load-induced drift (peak
+   * 7.65 of the 9 budget with a minimum denominator against 4.68 with the
+   * median, same load), so it buys margin rather than a red/green change here.
+   * Interleaving is not demonstrated by any control that was run: the attempt
+   * to build one — load stopping partway through the test — failed because the
+   * load window closed before vitest reached the test body and both arms read
+   * idle. It is kept because it costs nothing over a trailing phase and makes
+   * the two series span one window, NOT because a control proved it.
+   *
+   * The ratio is a few units rather than tens because the calibration is now
+   * sized like the thing it calibrates: fifteen full adaptive drag solves
+   * against a workload of comparable cost. It is still dimensionless, and it
+   * must be re-derived rather than transplanted if either the solver's cost
+   * model or {@link LOAD_TRACKING_CALIBRATION_ITERATIONS} changes.
    */
-  const MAX_ARC_SOLVE_COST_IN_CALIBRATIONS = 90;
+  const MAX_ARC_SOLVE_COST_IN_CALIBRATIONS = 9;
 
   /** A planar shot with quadratic drag and a crosswind — the app's default shape. */
   function dragProblem(downrange: number): ShootingProblem {
@@ -650,7 +697,20 @@ describe("P5.21 validation: drag→solution latency", () => {
 
   it("solves a dropped target well inside the 200 ms budget, typically", () => {
     const times: number[] = [];
+    const calibrations: number[] = [];
+
+    // Warm the calibration workload so the first sample is not paying JIT
+    // compile cost, the same thing measureCalibrationMs does before its loop.
+    calibrationWorkload(LOAD_TRACKING_CALIBRATION_ITERATIONS);
+
     for (const downrange of DROPS) {
+      // Interleaved, one per drop, so the two series span the same wall-clock
+      // window and meet the same scheduling. Taking the calibration in a
+      // separate phase afterwards is what P0.147 found had broken this.
+      calibrations.push(
+        elapsedMs(() => void calibrationWorkload(LOAD_TRACKING_CALIBRATION_ITERATIONS)),
+      );
+
       const startedAt = performance.now();
       const pair = solveArcs(dragProblem(downrange), SPEED);
       times.push(performance.now() - startedAt);
@@ -664,28 +724,43 @@ describe("P5.21 validation: drag→solution latency", () => {
     }
 
     const sorted = [...times].sort((a, b) => a - b);
-    const medianMs = sorted[Math.floor(sorted.length / 2)]!;
     const slowest = sorted.at(-1)!;
-    const calibrationMs = measureCalibrationMs();
-    const costInCalibrations = medianMs / calibrationMs;
+    const { medianMs, costInCalibrations, tracksLoad } = pairedCost(times, calibrations);
 
-    // Measured on the development container at the time of writing: median
-    // ~19 ms, slowest ~51 ms over these fifteen drops — an order of magnitude
-    // of headroom on the criterion. The assertion is the criterion, not that
-    // number, so a slower machine still passes while a regression that ate the
-    // headroom would not.
-    // Load-invariant (P0.96): a median over fifteen distinct problems is
-    // robust to a single descheduled solve but not to sustained contention,
-    // so the criterion is carried by a ratio against a same-process
-    // calibration and the raw 200 ms figure is checked only where it means
-    // something.
-    expect(costInCalibrations).toBeLessThan(MAX_ARC_SOLVE_COST_IN_CALIBRATIONS);
-    if (isIdleEnoughForWallClock(calibrationMs)) {
-      expect(medianMs).toBeLessThan(BUDGET_MS);
+    // Load-invariant (P0.96, corrected by P0.147): a median over fifteen
+    // distinct problems is robust to one descheduled solve but not to
+    // sustained contention, so the criterion is carried by a ratio against a
+    // same-process calibration — one that is interleaved with the solves and
+    // summarised by the same median, because a shorter or differently
+    // summarised denominator does not move under load and cancels nothing.
+    //
+    // The assertion is the criterion, not the number: a slower machine still
+    // passes while a regression that ate the headroom would not. A regression
+    // in solveArcs does not move an arithmetic workload, so it cannot make
+    // tracksLoad false and cannot hide behind this gate.
+    if (tracksLoad) {
+      expect(costInCalibrations).toBeLessThan(MAX_ARC_SOLVE_COST_IN_CALIBRATIONS);
+    } else {
+      // The honest outcome when the calibration is too short to have been
+      // preempted — a machine much faster than the one the size was chosen on.
+      // Reported rather than failed: this test must never go red as though
+      // solveArcs regressed when what happened is that it could not measure.
+      console.warn(
+        `P5.21: calibration ${calibrations.length} x ${LOAD_TRACKING_CALIBRATION_ITERATIONS} iterations ` +
+          `came to ${pairedCost(times, calibrations).calibrationMs.toFixed(3)} ms, too short to track load; ` +
+          `cost ratio ${costInCalibrations.toFixed(2)} not asserted. Raise LOAD_TRACKING_CALIBRATION_ITERATIONS.`,
+      );
     }
 
-    // The backstop: ten budgets. Loose on purpose — see this block's note.
-    if (isIdleEnoughForWallClock(calibrationMs)) {
+    // The raw blueprint figure, checked only where it means something. This
+    // gate keeps the smaller CALIBRATION_ITERATIONS workload on purpose: it
+    // asks "is this machine idle", which a minimum over a short workload
+    // answers well, and not "how much load did these samples meet".
+    const idleCalibrationMs = measureCalibrationMs();
+    if (isIdleEnoughForWallClock(idleCalibrationMs)) {
+      expect(medianMs).toBeLessThan(BUDGET_MS);
+
+      // The backstop: ten budgets. Loose on purpose — see this block's note.
       expect(slowest).toBeLessThan(10 * BUDGET_MS);
     }
   });
