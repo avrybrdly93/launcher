@@ -231,6 +231,14 @@ describe("performance (P3.10 validation: 50k-pt stiff run draws fast; recalibrat
     const costInCalibrations = best / calibrationMs;
 
     // Load-invariant (P0.96); see impact-scatter.test.ts for the rationale.
+    // AUDITED BY P0.148 AND KEPT AS IT STANDS; see impact-scatter.test.ts for
+    // the argument, and note that this is the tightest of the four minima.
+    // `best` measured 0.763 ms idle and 0.909 ms under 8-way sustained load --
+    // 1.19x, the only one of the four to move at all -- against a calibration
+    // flat at 0.619 ms, so the ratio moved 1.234 -> 1.469 against a limit of
+    // 4. Still ~4x below the 3.2-9.5 ms boundary where the minimum starts
+    // stretching, but it is the caller with the least headroom and the one to
+    // re-measure if this path gets slower.
     expect(costInCalibrations).toBeLessThan(MAX_DECIMATION_COST_IN_CALIBRATIONS);
     if (isIdleEnoughForWallClock(calibrationMs)) {
       expect(best).toBeLessThan(DECIMATION_PERF_BUDGET_MS);

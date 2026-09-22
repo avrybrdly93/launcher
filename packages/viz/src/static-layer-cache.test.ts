@@ -255,6 +255,12 @@ describe("performance (P3.11 validation: steady-state frame cost < 4 ms)", () =>
     expect(drawCalls).toBe(1);
     expect(cache.redrawCount).toBe(1);
     // Load-invariant (P0.96); see impact-scatter.test.ts for the rationale.
+    // AUDITED BY P0.148 AND KEPT AS IT STANDS; see impact-scatter.test.ts for
+    // the argument. This is the least marginal of the four by a wide margin:
+    // a cache hit costs 0.0003 ms, identical idle and under 8-way sustained
+    // load, four orders of magnitude below the boundary where a minimum starts
+    // stretching. The ratio was 0.0005 in both conditions against a limit of
+    // 0.05.
     expect(costInCalibrations).toBeLessThan(MAX_CACHED_RENDER_COST_IN_CALIBRATIONS);
     if (isIdleEnoughForWallClock(calibrationMs)) {
       expect(best).toBeLessThan(CACHED_RENDER_BUDGET_MS);

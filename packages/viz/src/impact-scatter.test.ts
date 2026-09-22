@@ -376,6 +376,27 @@ describe(`performance (P6.09 validation: 1e4 impact points inside a ${SCATTER_FR
     // preemption but not sustained contention, so the budget is expressed
     // against a same-process calibration and the raw frame figure is checked
     // only where it can mean something.
+    // AUDITED BY P0.148 AND KEPT AS IT STANDS, WITH THE NUMBERS THAT SAY WHY.
+    // The pairing is a minimum over a minimum, and the filing's reason for
+    // trusting that -- "both are minima, so it is symmetric" -- is NOT the
+    // reason it holds. P0.148 measured that the minimum has its own
+    // preemption boundary, between 3.2 ms and 9.5 ms on this container,
+    // roughly 3x above the median's: a median needs a typical sample to
+    // escape preemption and a minimum needs only one of fifteen. Two minima
+    // are therefore symmetric only when they sit on the SAME side of it.
+    //
+    // They do here. `best` measured 0.604 ms idle and 0.598 ms under 8-way
+    // sustained load (0.99x) against a calibration of 0.614 -> 0.621 ms, so
+    // the ratio moved 0.983 -> 0.963 against a limit of 3. Both halves are
+    // ~5x below the boundary.
+    //
+    // THE CAVEAT THAT COMES WITH THAT, because it is the thing a future
+    // change breaks silently: the ratio is invariant here because neither
+    // half moves under load, not because contention cancels. A numerator that
+    // grows past ~3 ms starts stretching ~1.9x while this calibration stays
+    // flat, and the ratio inflates with nothing having regressed -- which is
+    // what P0.147 found in arcs.test.ts and P0.148 found in
+    // chunked-integration.test.ts. The ~5x headroom is the figure to watch.
     expect(costInCalibrations).toBeLessThan(MAX_SCATTER_COST_IN_CALIBRATIONS);
     if (isIdleEnoughForWallClock(calibrationMs)) {
       expect(best).toBeLessThan(SCATTER_FRAME_BUDGET_MS);

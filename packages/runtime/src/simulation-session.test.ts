@@ -150,6 +150,17 @@ describe("SimulationSession", () => {
     // every machine. See MAX_COMMIT_COST_IN_CALIBRATIONS for where the limit
     // comes from.
     const commitCostInCalibrations = bestMs / calibrationMs;
+    // AUDITED BY P0.148 AND KEPT AS IT STANDS. The pairing is a minimum over a
+    // minimum, which the filing hoped was symmetric for being two minima;
+    // P0.148 measured that what actually matters is whether both sit below
+    // the minimum's own preemption boundary, between 3.2 ms and 9.5 ms on
+    // this container. Both do, with room to spare: `bestMs` measured 0.145 ms
+    // idle and 0.141 ms under 8-way sustained load (0.97x) against a
+    // calibration flat at 0.603-0.606 ms, so the ratio moved 0.240 -> 0.234
+    // against a limit of 1. See packages/viz/src/impact-scatter.test.ts for
+    // the full argument and the caveat: the invariance comes from neither
+    // half moving under load, not from contention cancelling, so a numerator
+    // that grows past ~3 ms breaks it silently.
     expect(commitCostInCalibrations).toBeLessThan(MAX_COMMIT_COST_IN_CALIBRATIONS);
 
     // THE BLUEPRINT FIGURE, KEPT AT 16 ms AND CHECKED WHERE IT MEANS
