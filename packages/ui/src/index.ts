@@ -58,3 +58,4 @@ export * from "./monte-carlo-page.js";
 export * from "./webgpu-capability-panel-logic.js";
 export * from "./webgpu-capability-panel.js";
 export * from "./inverse-exercises-page-logic.js";
+export * from "./inverse-exercises-page.js";
