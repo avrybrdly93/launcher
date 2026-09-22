@@ -186,7 +186,12 @@ describe("buildDecimatedTrajectoryPath", () => {
 // GitHub Actions hosted-runner behavior after this change could not be
 // directly reproduced here; only local/sandbox measurements and the CI logs
 // cited above were used to pick the new threshold.
-import { bestOfMs, isIdleEnoughForWallClock, measureCalibrationMs } from "@ballista/solverkit";
+import {
+  bestOfMs,
+  isIdleEnoughForWallClock,
+  measureCalibrationMs,
+  measureIdleGateCalibration,
+} from "@ballista/solverkit";
 const DECIMATION_PERF_BUDGET_MS = 5;
 /**
  * MEASURED over three runs on the development container: 1.446, 0.924, 1.157
@@ -240,7 +245,15 @@ describe("performance (P3.10 validation: 50k-pt stiff run draws fast; recalibrat
     // stretching, but it is the caller with the least headroom and the one to
     // re-measure if this path gets slower.
     expect(costInCalibrations).toBeLessThan(MAX_DECIMATION_COST_IN_CALIBRATIONS);
-    if (isIdleEnoughForWallClock(calibrationMs)) {
+    // REWIRED BY P0.149. The gate used to be handed `calibrationMs` above --
+    // a 0.2M minimum, below both preemption boundaries, which read 1.00x
+    // under 8-way sustained load and so reported "idle" on a fully contended
+    // runner. It now gets its own calibration, long enough to be preempted,
+    // and closes on the dimensionless dispersion. The ratio assertion above
+    // is untouched: that pairing is minimum-over-minimum and P0.148 audited
+    // it as sound at this size.
+    const idleGate = measureIdleGateCalibration();
+    if (isIdleEnoughForWallClock(idleGate)) {
       expect(best).toBeLessThan(DECIMATION_PERF_BUDGET_MS);
     }
   });

@@ -4,13 +4,19 @@ import {
   CALIBRATION_ITERATIONS,
   calibrationWorkload,
   elapsedMs,
+  CALIBRATION_REPEATS,
   IDLE_CALIBRATION_CEILING_MS,
+  IDLE_GATE_CALIBRATION_ITERATIONS,
+  IDLE_GATE_CALIBRATION_REPEATS,
   isIdleEnoughForWallClock,
   LOAD_TRACKING_CALIBRATION_ITERATIONS,
+  MAX_IDLE_CALIBRATION_DISPERSION,
   measureCalibrationMs,
+  measureIdleGateCalibration,
   MIN_LOAD_TRACKING_CALIBRATION_MS,
   pairedCost,
 } from "./load-calibration.js";
+import type { IdleGateCalibration } from "./load-calibration.js";
 
 /**
  * A fake {@link Clock} that charges a scripted cost to each timed interval.
@@ -165,26 +171,137 @@ describe("measureCalibrationMs (P0.96)", () => {
   });
 });
 
-describe("isIdleEnoughForWallClock (P0.96)", () => {
-  it("admits a calibration at or below the ceiling and rejects one above it", () => {
-    expect(isIdleEnoughForWallClock(IDLE_CALIBRATION_CEILING_MS - 0.001)).toBe(true);
-    expect(isIdleEnoughForWallClock(IDLE_CALIBRATION_CEILING_MS)).toBe(true);
-    expect(isIdleEnoughForWallClock(IDLE_CALIBRATION_CEILING_MS + 0.001)).toBe(false);
+/**
+ * A scripted calibration. Every case below builds one of these rather than
+ * measuring, for the same reason the rest of this file does: a module that
+ * exists to keep load-sensitive assertions out of the correctness suite must
+ * not need one in its own tests (P0.96).
+ */
+function calibration(medianMs: number, minMs: number, meanMs = medianMs): IdleGateCalibration {
+  return { medianMs, minMs, meanMs, dispersion: meanMs / minMs };
+}
+
+describe("isIdleEnoughForWallClock (P0.96, both arms P0.149)", () => {
+  it("admits a calibration at or below the slow-machine ceiling and rejects one above it", () => {
+    const flat = (medianMs: number) => calibration(medianMs, medianMs);
+    expect(isIdleEnoughForWallClock(flat(IDLE_CALIBRATION_CEILING_MS - 0.001))).toBe(true);
+    expect(isIdleEnoughForWallClock(flat(IDLE_CALIBRATION_CEILING_MS))).toBe(true);
+    expect(isIdleEnoughForWallClock(flat(IDLE_CALIBRATION_CEILING_MS + 0.001))).toBe(false);
+  });
+
+  it("admits a dispersion at or below the busy-machine limit and rejects one above it", () => {
+    const atDispersion = (d: number) => calibration(10 * d, 10);
+    expect(isIdleEnoughForWallClock(atDispersion(MAX_IDLE_CALIBRATION_DISPERSION - 0.001))).toBe(
+      true,
+    );
+    expect(isIdleEnoughForWallClock(atDispersion(MAX_IDLE_CALIBRATION_DISPERSION))).toBe(true);
+    expect(isIdleEnoughForWallClock(atDispersion(MAX_IDLE_CALIBRATION_DISPERSION + 0.001))).toBe(
+      false,
+    );
+  });
+
+  it("closes on a fast but contended machine, which is the case P0.149 exists to fix", () => {
+    // THE DISCRIMINATING CASE FOR THE NEW ARM, and it is discriminating
+    // because the OTHER arm passes it comfortably. A median of 15 ms is a
+    // third of the 48 ms ceiling, so the pre-P0.149 gate -- a cost test alone
+    // -- admitted exactly this machine and held it to the blueprint figure.
+    // These are the measured 8-way-sustained-load figures, not invented ones.
+    const contended = calibration(15.1, 10.9, 15.6);
+    expect(contended.medianMs).toBeLessThan(IDLE_CALIBRATION_CEILING_MS);
+    expect(isIdleEnoughForWallClock(contended)).toBe(false);
+  });
+
+  it("stays open on a slow machine that is idle, so being slow alone does not lose the figure", () => {
+    // The converse, and it is the reason the busy arm had to be dimensionless.
+    // A machine 4x slower than the development container, with nothing else
+    // running, has a large cost and a flat dispersion. It is still held to the
+    // figure; only the ~5x ceiling excuses it.
+    const slowButIdle = calibration(38.4, 38.0);
+    expect(slowButIdle.dispersion).toBeLessThan(MAX_IDLE_CALIBRATION_DISPERSION);
+    expect(isIdleEnoughForWallClock(slowButIdle)).toBe(true);
+  });
+
+  it("closes when either arm alone says so, never needing both", () => {
+    // Pins the OR rather than an AND: each row fails exactly one arm.
+    const slowOnly = calibration(IDLE_CALIBRATION_CEILING_MS + 1, IDLE_CALIBRATION_CEILING_MS + 1);
+    const busyOnly = calibration(10 * (MAX_IDLE_CALIBRATION_DISPERSION + 0.05), 10);
+    expect(slowOnly.dispersion).toBeLessThanOrEqual(MAX_IDLE_CALIBRATION_DISPERSION);
+    expect(busyOnly.medianMs).toBeLessThan(IDLE_CALIBRATION_CEILING_MS);
+    expect(isIdleEnoughForWallClock(slowOnly)).toBe(false);
+    expect(isIdleEnoughForWallClock(busyOnly)).toBe(false);
   });
 
   it("gates on the calibration alone and never on the measurement it guards", () => {
-    // THE DISCRIMINATING TEST. This is what stops the gate being a way to hide
-    // a regression: the function has no way to see the measured value, so
-    // code that got slower cannot cause its own check to be skipped. A
-    // signature taking the measurement would fail to compile here.
+    // THE DISCRIMINATING TEST, CARRIED THROUGH P0.149'S SIGNATURE CHANGE. This
+    // is what stops the gate being a way to hide a regression: the function
+    // has no way to see the measured value, so code that got slower cannot
+    // cause its own check to be skipped. A signature taking the measurement
+    // would fail to compile here, and the shape assertion pins that the only
+    // inputs are the calibration and its two limits.
     expect(isIdleEnoughForWallClock.length).toBeLessThanOrEqual(2);
-    expect(isIdleEnoughForWallClock(0.5, 3)).toBe(true);
-    expect(isIdleEnoughForWallClock(9_999, 3)).toBe(false);
+    expect(Object.keys(calibration(1, 1)).sort()).toEqual([
+      "dispersion",
+      "meanMs",
+      "medianMs",
+      "minMs",
+    ]);
+    expect(isIdleEnoughForWallClock(calibration(0.5, 0.5), 3)).toBe(true);
+    expect(isIdleEnoughForWallClock(calibration(9_999, 9_999), 3)).toBe(false);
   });
 
-  it("honours an explicit ceiling over the default", () => {
-    expect(isIdleEnoughForWallClock(5, 10)).toBe(true);
-    expect(isIdleEnoughForWallClock(5, 1)).toBe(false);
+  it("honours explicit limits over the defaults", () => {
+    expect(isIdleEnoughForWallClock(calibration(5, 5), 10)).toBe(true);
+    expect(isIdleEnoughForWallClock(calibration(5, 5), 1)).toBe(false);
+    expect(isIdleEnoughForWallClock(calibration(12, 10), 100, 1.5)).toBe(true);
+    expect(isIdleEnoughForWallClock(calibration(12, 10), 100, 1.1)).toBe(false);
+  });
+});
+
+describe("measureIdleGateCalibration (P0.149)", () => {
+  it("reports the median, the minimum and their ratio from one scripted series", () => {
+    // Driven by the file's own scripted clock, so this asserts the ARITHMETIC
+    // of the summary and never a wall-clock threshold -- the rule the whole
+    // file follows. Costs 5, 1, 3, 9, 7 ms: median 5, min 1, dispersion 5.
+    const costs = [5, 1, 3, 9, 7];
+    const c = measureIdleGateCalibration(1, costs.length, scriptedClock(costs).now);
+    expect(c.medianMs).toBe(5);
+    expect(c.minMs).toBe(1);
+    expect(c.meanMs).toBe(5);
+    expect(c.dispersion).toBe(5);
+  });
+
+  it("divides the MEAN by the minimum, not the median, which is what separates load", () => {
+    // THE DISCRIMINATING CASE FOR THE STATISTIC ITSELF. One long preempted
+    // sample among many short ones is the load signature: it moves the mean
+    // and leaves the median alone. Costs 2,2,2,2,20 -> median 2, mean 5.6,
+    // min 2. A median/min pairing reports 1.0 here and sees nothing.
+    const c = measureIdleGateCalibration(1, 5, scriptedClock([2, 2, 2, 2, 20]).now);
+    expect(c.medianMs).toBe(2);
+    expect(c.minMs).toBe(2);
+    expect(c.meanMs).toBeCloseTo(5.6, 10);
+    expect(c.dispersion).toBeCloseTo(2.8, 10);
+    expect(c.medianMs / c.minMs).toBe(1);
+    expect(isIdleEnoughForWallClock(c)).toBe(false);
+  });
+
+  it("reports a dispersion of exactly 1 when every sample costs the same", () => {
+    // The idle limit of the statistic, and the reason the busy arm can sit as
+    // close to 1 as 1.09: with no preemption there is nothing to disperse.
+    const c = measureIdleGateCalibration(1, 6, scriptedClock([4]).now);
+    expect(c.medianMs).toBe(4);
+    expect(c.minMs).toBe(4);
+    expect(c.meanMs).toBe(4);
+    expect(c.dispersion).toBe(1);
+  });
+
+  it("samples a workload long enough to be preempted, which is what the old gate did not", () => {
+    // Not a timing assertion: it pins the SIZE, which is the property P0.147
+    // and P0.148 measured as load-bearing. A gate calibrated at
+    // CALIBRATION_ITERATIONS sits below both preemption boundaries and cannot
+    // report load at all, which was the whole of P0.149.
+    expect(IDLE_GATE_CALIBRATION_ITERATIONS).toBe(LOAD_TRACKING_CALIBRATION_ITERATIONS);
+    expect(IDLE_GATE_CALIBRATION_ITERATIONS).toBeGreaterThan(CALIBRATION_ITERATIONS);
+    expect(IDLE_GATE_CALIBRATION_REPEATS).toBeGreaterThanOrEqual(CALIBRATION_REPEATS);
   });
 });
 

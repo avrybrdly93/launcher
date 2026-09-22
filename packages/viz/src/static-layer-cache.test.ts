@@ -10,7 +10,12 @@ import { buildDecimatedTrajectoryPath } from "./trajectory-decimation.js";
 import { drawAxesLayer, type AxesLayerCanvas } from "./axes-layer.js";
 import type { PathBuilder } from "./trajectory-layer.js";
 import { IDENTITY_CAMERA, type Camera2DState, type Viewport } from "./camera2d.js";
-import { bestOfMs, isIdleEnoughForWallClock, measureCalibrationMs } from "@ballista/solverkit";
+import {
+  bestOfMs,
+  isIdleEnoughForWallClock,
+  measureCalibrationMs,
+  measureIdleGateCalibration,
+} from "@ballista/solverkit";
 
 /** A cached-layer re-render must stay well inside one animation frame. */
 const CACHED_RENDER_BUDGET_MS = 4;
@@ -262,7 +267,15 @@ describe("performance (P3.11 validation: steady-state frame cost < 4 ms)", () =>
     // stretching. The ratio was 0.0005 in both conditions against a limit of
     // 0.05.
     expect(costInCalibrations).toBeLessThan(MAX_CACHED_RENDER_COST_IN_CALIBRATIONS);
-    if (isIdleEnoughForWallClock(calibrationMs)) {
+    // REWIRED BY P0.149. The gate used to be handed `calibrationMs` above --
+    // a 0.2M minimum, below both preemption boundaries, which read 1.00x
+    // under 8-way sustained load and so reported "idle" on a fully contended
+    // runner. It now gets its own calibration, long enough to be preempted,
+    // and closes on the dimensionless dispersion. The ratio assertion above
+    // is untouched: that pairing is minimum-over-minimum and P0.148 audited
+    // it as sound at this size.
+    const idleGate = measureIdleGateCalibration();
+    if (isIdleEnoughForWallClock(idleGate)) {
       expect(best).toBeLessThan(CACHED_RENDER_BUDGET_MS);
     }
   });

@@ -3,6 +3,7 @@ import { PRESET_SCENARIOS, type ScenarioSpec } from "@ballista/engine";
 import {
   bestOfMs,
   isIdleEnoughForWallClock,
+  measureIdleGateCalibration,
   measureCalibrationMs,
   type EventRoot,
 } from "@ballista/solverkit";
@@ -170,7 +171,15 @@ describe("SimulationSession", () => {
     //
     // The gate keys on the CALIBRATION, never on the measurement it guards,
     // so code that got slower cannot cause its own check to be skipped.
-    if (isIdleEnoughForWallClock(calibrationMs)) {
+    // REWIRED BY P0.149. The gate used to be handed `calibrationMs` above --
+    // a 0.2M minimum, below both preemption boundaries, which read 1.00x
+    // under 8-way sustained load and so reported "idle" on a fully contended
+    // runner. It now gets its own calibration, long enough to be preempted,
+    // and closes on the dimensionless dispersion. The ratio assertion above
+    // is untouched: that pairing is minimum-over-minimum and P0.148 audited
+    // it as sound at this size.
+    const idleGate = measureIdleGateCalibration();
+    if (isIdleEnoughForWallClock(idleGate)) {
       expect(bestMs).toBeLessThan(16);
     } else {
       // Say so rather than passing silently: a skipped check that leaves no

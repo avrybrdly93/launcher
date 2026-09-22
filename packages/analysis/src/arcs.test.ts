@@ -35,7 +35,7 @@ import {
   elapsedMs,
   isIdleEnoughForWallClock,
   LOAD_TRACKING_CALIBRATION_ITERATIONS,
-  measureCalibrationMs,
+  measureIdleGateCalibration,
   pairedCost,
 } from "@ballista/solverkit";
 
@@ -700,7 +700,7 @@ describe("P5.21 validation: drag→solution latency", () => {
     const calibrations: number[] = [];
 
     // Warm the calibration workload so the first sample is not paying JIT
-    // compile cost, the same thing measureCalibrationMs does before its loop.
+    // compile cost, the same thing measureIdleGateCalibration does before its loop.
     calibrationWorkload(LOAD_TRACKING_CALIBRATION_ITERATIONS);
 
     for (const downrange of DROPS) {
@@ -756,15 +756,15 @@ describe("P5.21 validation: drag→solution latency", () => {
     // gate keeps the smaller CALIBRATION_ITERATIONS workload on purpose: it
     // asks "is this machine idle", not "how much load did these samples meet".
     //
-    // CORRECTED BY P0.148: the clause that used to end this sentence -- "which
-    // a minimum over a short workload answers well" -- is measured false. That
-    // minimum reads 0.592-0.607 ms under 8-way sustained load against 0.606 ms
-    // idle, so it cannot report a busy machine at all and this gate opens on
-    // one. It is left as it is because changing it changes which machines
-    // every caller of isIdleEnoughForWallClock holds to its blueprint figure;
-    // filed as P0.149.
-    const idleCalibrationMs = measureCalibrationMs();
-    if (isIdleEnoughForWallClock(idleCalibrationMs)) {
+    // CORRECTED BY P0.148 AND FIXED BY P0.149: the clause that used to end
+    // this sentence -- "which a minimum over a short workload answers well" --
+    // is measured false. That minimum reads 0.592-0.607 ms under 8-way
+    // sustained load against 0.606 ms idle, so it could not report a busy
+    // machine at all and this gate opened on one. It now takes a calibration
+    // long enough to be preempted, and the arm that closes it under load is
+    // the dimensionless dispersion rather than the cost.
+    const idleGate = measureIdleGateCalibration();
+    if (isIdleEnoughForWallClock(idleGate)) {
       expect(medianMs).toBeLessThan(BUDGET_MS);
 
       // The backstop: ten budgets. Loose on purpose — see this block's note.

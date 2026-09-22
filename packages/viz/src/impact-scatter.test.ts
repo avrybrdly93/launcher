@@ -343,7 +343,12 @@ describe("buildImpactScatter (P6.09: the spatial model's ground-plane impacts)",
 // hosted runners outran the decimation budget, so that failure mode cannot
 // reach this one, while a real algorithmic regression (losing the O(n) single
 // pass, or emitting one marker per point) still fails it loudly.
-import { bestOfMs, isIdleEnoughForWallClock, measureCalibrationMs } from "@ballista/solverkit";
+import {
+  bestOfMs,
+  isIdleEnoughForWallClock,
+  measureCalibrationMs,
+  measureIdleGateCalibration,
+} from "@ballista/solverkit";
 const SCATTER_FRAME_BUDGET_MS = 16;
 /**
  * MEASURED over three runs on the development container: 0.881, 0.809, 0.805
@@ -398,7 +403,15 @@ describe(`performance (P6.09 validation: 1e4 impact points inside a ${SCATTER_FR
     // what P0.147 found in arcs.test.ts and P0.148 found in
     // chunked-integration.test.ts. The ~5x headroom is the figure to watch.
     expect(costInCalibrations).toBeLessThan(MAX_SCATTER_COST_IN_CALIBRATIONS);
-    if (isIdleEnoughForWallClock(calibrationMs)) {
+    // REWIRED BY P0.149. The gate used to be handed `calibrationMs` above --
+    // a 0.2M minimum, below both preemption boundaries, which read 1.00x
+    // under 8-way sustained load and so reported "idle" on a fully contended
+    // runner. It now gets its own calibration, long enough to be preempted,
+    // and closes on the dimensionless dispersion. The ratio assertion above
+    // is untouched: that pairing is minimum-over-minimum and P0.148 audited
+    // it as sound at this size.
+    const idleGate = measureIdleGateCalibration();
+    if (isIdleEnoughForWallClock(idleGate)) {
       expect(best).toBeLessThan(SCATTER_FRAME_BUDGET_MS);
     }
   });

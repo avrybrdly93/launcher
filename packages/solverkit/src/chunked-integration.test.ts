@@ -14,6 +14,8 @@ import {
 import { median } from "./benchmark-trend.js";
 import {
   IDLE_CALIBRATION_CEILING_MS,
+  MAX_IDLE_CALIBRATION_DISPERSION,
+  measureIdleGateCalibration,
   LOAD_TRACKING_CALIBRATION_ITERATIONS,
   calibrationWorkload,
   elapsedMs,
@@ -372,11 +374,11 @@ describe("chunked cooperative integration (P2.40)", () => {
     // repeat is stretched, so the minimum is stretched too", AND P0.148
     // MEASURED THAT AS FALSE at this size: the 0.2M calibration cost
     // 0.592-0.607 ms under 8-way sustained load against 0.606 ms idle, a
-    // stretch of 1.00x. It is kept only for the idle gate far below, which
-    // asks a different question; the assertion is carried by the interleaved
-    // load-tracking calibration built in the loop underneath.
-    const idleCalibrationMs = measureCalibrationMs();
-    expect(Number.isFinite(idleCalibrationMs)).toBe(true);
+    // stretch of 1.00x. P0.149 took the idle gate off it for exactly that
+    // reason -- see measureIdleGateCalibration far below. The assertion is
+    // carried by the interleaved load-tracking calibration built underneath.
+    const smallCalibrationMs = measureCalibrationMs();
+    expect(Number.isFinite(smallCalibrationMs)).toBe(true);
 
     // Warm the load-tracking workload so the first interleaved sample is not
     // paying JIT compile cost -- the same thing measureCalibrationMs does
@@ -496,18 +498,26 @@ describe("chunked cooperative integration (P2.40)", () => {
     // code that got slower does not move the calibration, so the raw check
     // still runs and still fails. Only a machine that is demonstrably too
     // busy -- or too slow -- for the figure to be meaningful skips it.
-    const machineCanBeHeldToRawBudget = isIdleEnoughForWallClock(idleCalibrationMs);
+    // REWIRED BY P0.149. This used to pass the 0.2M minimum above, which
+    // cannot be descheduled and so reported "idle" on a fully contended
+    // runner. measureIdleGateCalibration samples a workload long enough to be
+    // preempted and reports the dispersion that detects contention.
+    const idleGate = measureIdleGateCalibration();
+    const machineCanBeHeldToRawBudget = isIdleEnoughForWallClock(idleGate);
     if (machineCanBeHeldToRawBudget) {
       expect(medianSliceMs).toBeLessThan(10);
     } else {
       // Say so rather than passing silently: a skipped check that leaves no
       // trace is indistinguishable from one that never existed.
       console.log(
-        `[P0.123] raw 10 ms per-slice check skipped: calibration ${idleCalibrationMs.toFixed(3)} ms ` +
-          `exceeds the ${IDLE_CALIBRATION_CEILING_MS} ms idle ceiling, so this machine is too ` +
-          `busy or too slow for the blueprint figure to measure the code. The load-invariant ` +
+        `[P0.123] raw 10 ms per-slice check skipped: calibration median ` +
+          `${idleGate.medianMs.toFixed(3)} ms (ceiling ${IDLE_CALIBRATION_CEILING_MS}), dispersion ` +
+          `${idleGate.dispersion.toFixed(3)} (limit ${MAX_IDLE_CALIBRATION_DISPERSION}), so this ` +
+          `machine is too busy or too slow for the blueprint figure to measure the code. The load-invariant ` +
           `ratio assertion ran and passed at ${costInCalibrations.toFixed(3)} ` +
-          `(limit ${MAX_SLICE_COST_IN_CALIBRATIONS}); max slice was ${maxSliceMs.toFixed(3)} ms.`,
+          `(limit ${MAX_SLICE_COST_IN_CALIBRATIONS}); median slice was ` +
+          `${medianSliceMs.toFixed(3)} ms and max slice ${maxSliceMs.toFixed(3)} ms against the ` +
+          `10 ms figure this branch would have asserted.`,
       );
     }
   });

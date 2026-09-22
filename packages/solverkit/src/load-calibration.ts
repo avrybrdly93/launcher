@@ -42,6 +42,17 @@ import { median } from "./benchmark-trend.js";
  * does not move the calibration, so the raw check still runs and still fails.
  * Only a demonstrably busy -- or simply slow -- machine skips it.
  *
+ * AND THAT SENTENCE WAS HALF FALSE UNTIL P0.149, WHICH IS THE LAST OF THE FOUR
+ * CORRECTIONS ON THIS HEADER. "Demonstrably busy" never worked: the gate tested
+ * one scalar cost, and a cost cannot separate a SLOW machine from a BUSY one
+ * because both make it larger. {@link isIdleEnoughForWallClock} now takes two
+ * arms -- an absolute ceiling on the median for slow, a dimensionless
+ * dispersion for busy -- and {@link measureIdleGateCalibration} supplies both
+ * from one series. The pattern worth carrying off this module is that one, not
+ * any of its numbers: an absolute question needs an absolute instrument and a
+ * relative one needs a relative instrument, and a measurement that conflates
+ * them answers neither.
+ *
  * WHAT THIS DELIBERATELY DOES NOT DO. A ratio detects a smaller class of
  * regression than a tight wall-clock budget; P0.123 measured its own floor at
  * roughly a 2.2x per-step cost increase. That is a real trade and it is made
@@ -77,12 +88,24 @@ export const CALIBRATION_ITERATIONS = 200_000;
 export const CALIBRATION_REPEATS = 5;
 
 /**
- * Above this calibration cost the machine is too busy -- or simply too slow --
- * for a raw wall-clock figure to say anything about the code. ~5x the idle
- * calibration observed on the development container (0.59-0.62 ms), so a
- * genuinely idle but slower machine is still held to the figure.
+ * THE SLOW-MACHINE ARM of {@link isIdleEnoughForWallClock}. Above this
+ * calibration cost the machine is simply too slow for a raw wall-clock figure
+ * from the blueprint to say anything about the code. ~5x the idle cost of
+ * {@link IDLE_GATE_CALIBRATION_ITERATIONS} on the development container
+ * (9.56-10.04 ms over sixteen clean samples), which is the same ~5x convention
+ * the old 3 ms was set by against the old 0.59-0.62 ms calibration.
+ *
+ * P0.149 RESIZED THIS AND IT IS NOT A TIGHTENING. The figure moved from 3 to
+ * 48 only because the workload it measures moved from 0.2M to 3M iterations;
+ * the multiple of an idle machine's cost is unchanged, so exactly the same
+ * class of slow machine opts out as before.
+ *
+ * THIS ARM STILL CANNOT DETECT LOAD AND IS NOT ASKED TO. Under 8-way sustained
+ * load on this 4-core container the 3M median reached only 13.43-16.48 ms,
+ * a third of the way to this ceiling. Load is the other arm's job --
+ * see {@link MAX_IDLE_CALIBRATION_DISPERSION}.
  */
-export const IDLE_CALIBRATION_CEILING_MS = 3;
+export const IDLE_CALIBRATION_CEILING_MS = 48;
 
 /**
  * A source of monotonically non-decreasing milliseconds. Defaults to
@@ -153,6 +176,60 @@ export function measureCalibrationMs(
   return best;
 }
 
+/** What {@link measureIdleGateCalibration} reports. */
+export interface IdleGateCalibration {
+  /** Median of the calibration series, ms — the cost this process typically got. */
+  readonly medianMs: number;
+  /** Minimum of the same series, ms — what this machine can do when it gets the CPU. */
+  readonly minMs: number;
+  /** Mean of the same series, ms — every preemption that landed, carried. */
+  readonly meanMs: number;
+  /** `meanMs / minMs` — dimensionless, and the arm that detects contention. */
+  readonly dispersion: number;
+}
+
+/**
+ * This machine's current state, as the pair {@link isIdleEnoughForWallClock}
+ * needs: how fast it is, and how much of it this process is actually getting.
+ *
+ * WHY THIS IS NOT {@link measureCalibrationMs}. That one returns a minimum
+ * over a 0.2M workload, ~0.6 ms, below both preemption boundaries in
+ * {@link MIN_PREEMPTION_BOUNDARY_NOTE}, so it cannot be descheduled and cannot
+ * report load — which is precisely the defect P0.148 measured and P0.149
+ * fixed. Both halves of the pair below need a workload long enough to be
+ * preempted, so this samples at {@link IDLE_GATE_CALIBRATION_ITERATIONS}.
+ *
+ * Warms once, then summarises the whole series rather than collapsing it to
+ * one number: the minimum, the mean and the median of the SAME samples are
+ * what make the dispersion a comparison of one machine against itself. The
+ * median is reported too because the slow-machine arm reads it, and because a
+ * skip message that names only a ratio tells nobody how slow the machine was.
+ */
+export function measureIdleGateCalibration(
+  iterations: number = IDLE_GATE_CALIBRATION_ITERATIONS,
+  repeats: number = IDLE_GATE_CALIBRATION_REPEATS,
+  now: Clock = performance.now.bind(performance),
+): IdleGateCalibration {
+  calibrationWorkload(iterations);
+
+  const samples: number[] = [];
+  let acc = 0;
+  for (let r = 0; r < repeats; r++) {
+    samples.push(
+      elapsedMs(() => {
+        acc += calibrationWorkload(iterations);
+      }, now),
+    );
+  }
+  // Consume the accumulator so the loop above cannot be optimised away.
+  if (!Number.isFinite(acc)) throw new Error("calibration workload did not run");
+
+  const medianMs = median(samples);
+  const minMs = Math.min(...samples);
+  const meanMs = samples.reduce((a, b) => a + b, 0) / samples.length;
+  return { medianMs, minMs, meanMs, dispersion: meanMs / minMs };
+}
+
 /**
  * Whether a raw wall-clock budget is meaningful on this machine right now.
  *
@@ -160,22 +237,37 @@ export function measureCalibrationMs(
  * ratio, so a busy runner loses the figure but never loses the regression
  * check.
  *
- * KNOWN DEFECT, MEASURED BY P0.148 AND FILED AS P0.149: THIS CANNOT FIRE FROM
- * LOAD. It compares a {@link measureCalibrationMs} minimum -- ~0.6 ms, below
- * both boundaries in {@link MIN_PREEMPTION_BOUNDARY_NOTE} -- against a 3 ms
- * ceiling, and that figure measured 0.592-0.607 ms under 8-way sustained load
- * on a 4-core container against 0.606 ms idle. So "a busy runner loses the
- * figure" does not happen: a fully contended runner reports idle and is held
- * to the raw budget. What this actually detects is a machine that is SLOW,
- * which is half of its documented job. Left as it is here on purpose --
- * changing the ceiling or the workload changes which machines every caller
- * holds to its blueprint figure, which is wider than P0.148's audit.
+ * TWO ARMS, BECAUSE THE TWO QUESTIONS NEED DIFFERENT INSTRUMENTS, AND THIS IS
+ * THE WHOLE OF P0.149. The doc on this function used to promise that "a
+ * demonstrably busy -- or simply slow -- machine skips it" while testing one
+ * scalar, and P0.148 measured that the busy half had never worked: a 0.6 ms
+ * minimum read 0.592-0.607 ms under 8-way sustained load against 0.606 ms
+ * idle. The reason it could not work is not the size, which is what the filing
+ * first supposed. It is that ONE COST CANNOT SEPARATE SLOW FROM BUSY, because
+ * both make the number bigger. So:
+ *
+ * - {@link IDLE_CALIBRATION_CEILING_MS} against the MEDIAN answers "is this
+ *   machine slow" — an absolute cost, which is the right instrument for an
+ *   absolute question.
+ * - {@link MAX_IDLE_CALIBRATION_DISPERSION} against the DISPERSION answers "is
+ *   this machine busy" — a dimensionless self-comparison, which is the right
+ *   instrument for a question that must not depend on how fast the machine is.
+ *
+ * Either arm alone closes the gate. Both tables of measurements are on those
+ * two constants.
+ *
+ * THE GATE STILL KEYS ON THE CALIBRATION, NEVER ON THE MEASUREMENT IT GUARDS,
+ * and that property is what the resize must not have cost. It has not: both
+ * arms read a fixed arithmetic workload that no change to the code under test
+ * can move, so slower code cannot cause its own check to be skipped. The
+ * signature is the enforcement — there is no way to pass the measured value in.
  */
 export function isIdleEnoughForWallClock(
-  calibrationMs: number,
+  calibration: IdleGateCalibration,
   ceilingMs: number = IDLE_CALIBRATION_CEILING_MS,
+  maxDispersion: number = MAX_IDLE_CALIBRATION_DISPERSION,
 ): boolean {
-  return calibrationMs <= ceilingMs;
+  return calibration.medianMs <= ceilingMs && calibration.dispersion <= maxDispersion;
 }
 
 // NOTE: no `median` here on purpose. `benchmark-trend.ts` already exports one
@@ -261,6 +353,81 @@ export const LOAD_TRACKING_CALIBRATION_ITERATIONS = 3_000_000;
  */
 export const MIN_PREEMPTION_BOUNDARY_NOTE =
   "minimum stretches 1.00x at 0.6 ms, 1.00x at 3.2 ms, 1.85x at 9.5 ms, 1.9x at 28.7 ms (P0.148)";
+
+/** Iterations for the idle gate's own calibration; see {@link measureIdleGateCalibration}. */
+export const IDLE_GATE_CALIBRATION_ITERATIONS = LOAD_TRACKING_CALIBRATION_ITERATIONS;
+
+/**
+ * Repeats the idle gate's calibration series takes. Fifteen, and the number
+ * was chosen by comparison rather than taste. Over 18 idle and 12 loaded
+ * series the separation {@link MAX_IDLE_CALIBRATION_DISPERSION} depends on
+ * widens monotonically with the count -- 1.095x at nine, 1.204x at twelve,
+ * 1.255x at fifteen -- because the statistic needs enough samples for the
+ * minimum to find an unpreempted one. Fifteen costs ~154 ms per gated test on
+ * the development container, ~0.9 s across the six callers, which is the price
+ * recorded rather than hidden.
+ */
+export const IDLE_GATE_CALIBRATION_REPEATS = 15;
+
+/**
+ * THE BUSY-MACHINE ARM of {@link isIdleEnoughForWallClock}, and the whole of
+ * what P0.149 fixes.
+ *
+ * WHY A DISPERSION AND NOT A COST. A cost in milliseconds cannot tell a SLOW
+ * machine from a BUSY one, because both produce one larger number. P0.149
+ * measured what that costs in practice: the idle and 8-way-loaded medians of
+ * the 3M workload are 9.56-10.04 ms and 13.43-16.48 ms, so they are separated
+ * by only 1.34x, while the speed spread between CI runner classes is larger
+ * than that. Any fixed millisecond ceiling placed in that gap is therefore
+ * wrong on some machine -- either it calls a slow idle runner busy, or it
+ * calls a fast busy one idle.
+ *
+ * WHAT A DISPERSION DOES INSTEAD. `mean / minimum` over one calibration
+ * series is DIMENSIONLESS, so it divides the machine's speed out entirely. The
+ * minimum is the least-preempted sample -- what this machine can do when it
+ * gets the CPU -- and the mean carries every preemption that landed on the
+ * other samples. On an idle machine the two coincide however fast or slow it
+ * is; under contention they separate. Measured on this 4-core container,
+ * fifteen repeats at 3M, one controlled batch, spinners verified alive before
+ * and after every series:
+ *
+ * | condition                |  series | median ms     | mean/min      |
+ * | ------------------------ | ------: | ------------: | ------------: |
+ * | idle                     |      18 |  9.58 - 9.77  | 1.006 - 1.069 |
+ * | 8-way sustained, 4 cores |      12 | 12.99 - 21.34 | 1.343 - 1.985 |
+ *
+ * 1.2 is the GEOMETRIC MIDPOINT of the worst idle observation (1.069) and the
+ * weakest loaded one (1.343), so it carries ~1.12x of margin on each side and
+ * the two groups do not overlap.
+ *
+ * THE STATISTIC WAS CHOSEN BY COMPARISON, AND THE REJECTED ONE IS RECORDED
+ * BECAUSE THAT IS THE PART A LATER READER CANNOT RECONSTRUCT. `median / min`
+ * is the obvious pairing and it was what this constant first shipped as. On
+ * the same 30 series it separates 1.024 against 1.174 -- a 1.146x gap against
+ * this one's 1.255x -- and a nine-sample idle series measured in a separate
+ * batch reached 1.068 on it, which would have sat inside the margin. The mean
+ * wins for the reason a robustness argument would normally count against it:
+ * it is sensitive to the occasional long preempted sample, and that sample IS
+ * the signal here. `p75/p25` (1.185x) and `max/min` (1.045x) were also
+ * measured and are worse; `p90/p10` separates best of all at 1.362x and was
+ * declined for needing percentile machinery this module does not otherwise
+ * have, which is a judgement and not a measurement.
+ *
+ * WHAT IT DELIBERATELY DOES NOT DETECT, AND THIS IS MEASURED, NOT ASSUMED.
+ * 4-way sustained load on 4 cores does not move this figure -- or the median
+ * cost either. That is not a miss: at 1x oversubscription this process was
+ * still getting a whole core, so its own timings were not stretched and the
+ * raw budget it guards is still meaningful. The gate fires at roughly 2x
+ * oversubscription and above, which is where the measured work starts
+ * stretching too (P0.147: 2.19-2.53x under exactly this condition).
+ *
+ * WHICH WAY IT ERRS. Toward closing. An idle-but-jittery machine -- a GC
+ * pause, a noisy neighbour, a shared runner -- raises the dispersion and loses
+ * the raw figure, and that is the cheap direction: the load-invariant ratio
+ * assertion always runs, so no regression check is ever lost, only the
+ * blueprint number as a literal check.
+ */
+export const MAX_IDLE_CALIBRATION_DISPERSION = 1.2;
 
 /**
  * Below this, a calibration is too short to have been preempted and cannot
