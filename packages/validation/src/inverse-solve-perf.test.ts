@@ -289,6 +289,35 @@ describe("P5.30: inverse-solve performance over the scenario library", () => {
       expect(live.nonConverged).toEqual([]);
     });
 
+    it("counts the same residual evaluations newtonShooting counts (P0.109)", () => {
+      // measureWork() throws on disagreement, so reaching this line is already
+      // the assertion for all 20 targets. Restated here so the guarantee has a
+      // name in the report rather than only a throw site in the harness.
+      const work = cases.map((c) => c.measureWork());
+      expect(work.map((w) => w.id)).toEqual(SCENARIO_LIBRARY.map((s) => s.id));
+      for (const w of work) expect(w.residualEvals).toBeGreaterThan(0);
+    });
+
+    it("counts work deterministically, unlike the timings beside it (P0.109)", () => {
+      // The property the whole work artifact rests on. Wall-clock is
+      // machine-specific and the artifact says so; step counts are not, so they
+      // can be asserted exactly and compared across machines and across runs.
+      // If this ever fails, the artifact's numbers stop being reproducible and
+      // every attribution derived from them has to be re-measured.
+      const first = cases.map((c) => c.measureWork());
+      const second = cases.map((c) => c.measureWork());
+      expect(second).toEqual(first);
+    });
+
+    it("does not let the counting wrapper touch the timed path (P0.109)", () => {
+      // `solve` and `measureWork` must be different functions over the same
+      // problem. If someone "simplifies" this by making solve() delegate to
+      // measureWork(), the instrumentation cost lands inside the recorded
+      // wall-clock numbers and the artifact's shape -- the thing its provenance
+      // says must not move without an explanation -- moves silently.
+      for (const c of cases) expect(c.solve).not.toBe(c.measureWork);
+    });
+
     it("solves within a few Newton iterations on every target", () => {
       // P5.06/P5.07 measured <= 8. A solve that started taking 40 iterations
       // would still converge and would blow the budget; this separates "slow

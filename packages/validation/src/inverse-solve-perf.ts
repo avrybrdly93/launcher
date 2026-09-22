@@ -20,8 +20,10 @@ import {
   type Aim,
   PLANAR_LAYOUT,
   type PointTarget,
+  type ResidualFunction,
   SPATIAL_LAYOUT,
   type ShootingProblem,
+  type ShootingResidual,
   type TrajectoryLayout,
   createShootingResidual,
   newtonShooting,
@@ -169,6 +171,50 @@ function problemFor(entry: LibraryEntry, target: PointTarget): ShootingProblem {
 }
 
 /**
+ * The integration work one solve performed, counted rather than timed (P0.109).
+ *
+ * Every field here is read off reports the solve *already* produced:
+ * `SolveReport` carries `nSteps`, `nRHS` and `nRejected`, `createFlight`
+ * returns it on every `Flight`, and `ShootingResidual` carries it through. So
+ * this is instrumentation over the existing harness, not a second one -- which
+ * matters, because a second harness could disagree with the first about what
+ * "a solve" is and the two numbers would stop being comparable.
+ *
+ * **Why this exists.** The wall-clock artifact says *which* targets are slow.
+ * It cannot say *why*, and the three candidate causes -- many steps, expensive
+ * steps, or a harder solve -- are not distinguishable from a millisecond count.
+ * Steps and rhs evaluations separate the first two; `iterations` (already in
+ * the timing rows) rules out the third.
+ */
+export interface SolveWork {
+  readonly id: string;
+  /**
+   * Residual evaluations, counted by the wrapper. Cross-checked against
+   * `newtonShooting`'s own `evaluations` field, which is derived independently
+   * -- see {@link InverseSolvePerfCase.measureWork}.
+   */
+  readonly residualEvals: number;
+  /** Accepted integration steps, summed over every residual evaluation. */
+  readonly nSteps: number;
+  /** Right-hand-side evaluations, summed the same way. */
+  readonly nRHS: number;
+  /** Rejected steps, summed the same way. A stiff problem rejects many. */
+  readonly nRejected: number;
+  readonly iterations: number;
+  readonly status: string;
+  /**
+   * Time of flight of the *converged* solve, in seconds.
+   *
+   * Carried here because it is what turns a step count into a step *size*, and
+   * that is the difference between the two innocent explanations for a large
+   * `nSteps`: a long trajectory taken in ordinary steps, or a short one the
+   * controller is forced to crawl through. Both look identical in a
+   * millisecond count and in `nSteps` alone.
+   */
+  readonly timeOfFlightS: number;
+}
+
+/**
  * One library target, with its problem already built and its initial guess
  * already computed -- i.e. everything the timed region must *not* pay for.
  */
@@ -176,6 +222,23 @@ export interface InverseSolvePerfCase {
   readonly id: string;
   /** Runs the solve exactly as {@link measureSolves} times it. */
   readonly solve: () => { status: string; iterations: number; downrangeMiss: number };
+  /**
+   * Runs the *same* solve through a counting wrapper and returns its work.
+   *
+   * **This is deliberately a separate entry point rather than a flag on
+   * {@link solve}, and the separation is the load-bearing part.** The wrapper
+   * adds a closure call and four additions per residual evaluation. Folding it
+   * into the timed path would put that cost inside the artifact's wall-clock
+   * numbers, and the artifact's provenance note says its *shape* -- which
+   * targets are slow, relative to each other -- is what must not move without
+   * an explanation. An instrumentation tax that scales with evaluation count
+   * would move exactly that shape, since the slow targets evaluate most.
+   *
+   * Counting and timing therefore run as two passes over the same built
+   * problem. They are comparable because the problem, the residual and the
+   * initial aim are the same objects; only the wrapper differs.
+   */
+  readonly measureWork: () => SolveWork;
 }
 
 /**
@@ -214,6 +277,59 @@ export function libraryPerfCases(): InverseSolvePerfCase[] {
           // shot (P5.05), so convergence is judged on the reducible part, as
           // `smart-init.test.ts` judges it.
           downrangeMiss: Math.abs(result.residual.residual?.[0] ?? Number.POSITIVE_INFINITY),
+        };
+      },
+      measureWork: () => {
+        let residualEvals = 0;
+        let nSteps = 0;
+        let nRHS = 0;
+        let nRejected = 0;
+
+        // `unreachableTarget` is carried across the wrap, as
+        // `constraints.ts`'s `penalizedResidual` carries it: `newtonShooting`
+        // reads it off the function object to relabel a non-convergent status,
+        // so a wrapper that dropped it would silently change the outcome for
+        // an unreachable target into a plain stall.
+        const counting: ResidualFunction = Object.assign(
+          (aim: Aim): ShootingResidual => {
+            const evaluation = residual(aim);
+            residualEvals += 1;
+            nSteps += evaluation.report.nSteps;
+            nRHS += evaluation.report.nRHS;
+            nRejected += evaluation.report.nRejected;
+            return evaluation;
+          },
+          residual.unreachableTarget === undefined
+            ? {}
+            : { unreachableTarget: residual.unreachableTarget },
+        );
+
+        const result = newtonShooting(counting, initial);
+
+        // `newtonShooting` counts its own evaluations, from the Jacobian's
+        // reported count plus its line-search calls -- a derivation that shares
+        // no code with the wrapper above. Disagreement means one of them is
+        // wrong, and a silently miscounted denominator would make every
+        // per-evaluation figure below it wrong too, so it fails loudly here
+        // rather than being reconciled in the artifact.
+        if (residualEvals !== result.evaluations) {
+          throw new Error(
+            `${id}: the counting wrapper saw ${residualEvals} residual evaluations but ` +
+              `newtonShooting reported ${result.evaluations}. One of the two counts is ` +
+              "wrong; the per-step figures derived from them cannot be trusted until it " +
+              "is resolved.",
+          );
+        }
+
+        return {
+          id,
+          residualEvals,
+          nSteps,
+          nRHS,
+          nRejected,
+          iterations: result.iterations,
+          status: result.status,
+          timeOfFlightS: result.residual.timeOfFlight ?? Number.NaN,
         };
       },
     };
