@@ -754,8 +754,15 @@ describe("P5.21 validation: drag→solution latency", () => {
 
     // The raw blueprint figure, checked only where it means something. This
     // gate keeps the smaller CALIBRATION_ITERATIONS workload on purpose: it
-    // asks "is this machine idle", which a minimum over a short workload
-    // answers well, and not "how much load did these samples meet".
+    // asks "is this machine idle", not "how much load did these samples meet".
+    //
+    // CORRECTED BY P0.148: the clause that used to end this sentence -- "which
+    // a minimum over a short workload answers well" -- is measured false. That
+    // minimum reads 0.592-0.607 ms under 8-way sustained load against 0.606 ms
+    // idle, so it cannot report a busy machine at all and this gate opens on
+    // one. It is left as it is because changing it changes which machines
+    // every caller of isIdleEnoughForWallClock holds to its blueprint figure;
+    // filed as P0.149.
     const idleCalibrationMs = measureCalibrationMs();
     if (isIdleEnoughForWallClock(idleCalibrationMs)) {
       expect(medianMs).toBeLessThan(BUDGET_MS);

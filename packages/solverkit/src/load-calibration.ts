@@ -25,9 +25,17 @@ import { median } from "./benchmark-trend.js";
  * and under 8-way sustained load it stretched 0.99x while the work it was
  * calibrating stretched 2.19-2.53x. Below a timeslice the ratio cancels
  * nothing. {@link LOAD_TRACKING_CALIBRATION_ITERATIONS} carries the measured
- * table and {@link pairedCost} is the pairing that holds under load; the
- * smaller size is still correct where it is paired with {@link bestOfMs},
- * because a minimum over a minimum is symmetric.
+ * table and {@link pairedCost} is the pairing that holds under load.
+ *
+ * AND THE CONDITION *THAT* SILENTLY DEPENDS ON, WHICH P0.148 MEASURED. The
+ * line above used to end "the smaller size is still correct where it is paired
+ * with {@link bestOfMs}, because a minimum over a minimum is symmetric". Two
+ * minima are not symmetric for being minima. The minimum has its own
+ * preemption boundary about 3x above the median's --
+ * {@link MIN_PREEMPTION_BOUNDARY_NOTE} has the curve -- so the pairing holds
+ * only while BOTH sides sit below it, which for this calibration means a
+ * numerator of at most a few ms. That is a size test, not a statistic test,
+ * and it is the test P0.148 audited every caller against.
  *
  * THE GATE KEYS ON THE CALIBRATION, NEVER ON THE MEASUREMENT IT GUARDS. That
  * distinction is what stops this being a way to hide a regression: slower code
@@ -104,16 +112,26 @@ export function elapsedMs(fn: () => void, now: Clock = performance.now.bind(perf
  * minimum is a preemption-AVOIDING statistic by construction, and at the
  * default size each repeat is shorter than a timeslice, so under 8-way
  * sustained load this returned 0.6398 ms against 0.6067 ms idle -- 1.05x,
- * while the work being calibrated stretched 2.19-2.53x. Even at 9M iterations
- * the interleaved minimum stretched 1.17x where the median of the same samples
- * stretched 2.18x.
+ * while the work being calibrated stretched 2.19-2.53x.
  *
- * So this remains sound ONLY against a numerator that is itself a minimum --
- * which is how {@link bestOfMs}'s callers use it, and is why they have not
- * failed. Against a median, or any statistic that includes preemption, use
- * {@link pairedCost}. Behaviour is deliberately unchanged here: the sizing is
- * wrong for load tracking in every caller, which is a wider audit than P0.147
- * and is filed as P0.148.
+ * P0.148 THEN CORRECTED THE OTHER HALF OF THAT, AND IT IS THE HALF THAT
+ * DECIDES WHETHER A CALLER IS SOUND. P0.147's write-up added that "even at 9M
+ * iterations the interleaved minimum stretched 1.17x", which reads as though a
+ * minimum is preemption-avoiding at any size. It is not, and 1.17x does not
+ * reproduce: four runs across two sampling patterns give 1.97x and 1.98x
+ * interleaved with three other sizes, and 1.87x and 1.90x measured alone.
+ * {@link MIN_PREEMPTION_BOUNDARY_NOTE} carries the measured curve. THE
+ * MINIMUM HAS ITS OWN BOUNDARY, roughly 3x above the median's: a median needs
+ * a typical sample to escape preemption, a minimum needs only one of fifteen,
+ * so the minimum survives about 3x longer and then stops surviving.
+ *
+ * So this is sound against a numerator that is itself a minimum AND is small
+ * enough to sit below that boundary -- which is how {@link bestOfMs}'s four
+ * callers use it, at 0.0003-0.763 ms, and is why they have not failed. It is
+ * NOT sound merely because both statistics are minima: that is a size
+ * question, not a statistic question. Against a median, or any statistic that
+ * includes preemption, or a minimum over a workload of a few ms or more, use
+ * {@link pairedCost}.
  */
 export function measureCalibrationMs(
   iterations: number = CALIBRATION_ITERATIONS,
@@ -141,6 +159,17 @@ export function measureCalibrationMs(
  * Callers use this to gate the blueprint figure while always enforcing the
  * ratio, so a busy runner loses the figure but never loses the regression
  * check.
+ *
+ * KNOWN DEFECT, MEASURED BY P0.148 AND FILED AS P0.149: THIS CANNOT FIRE FROM
+ * LOAD. It compares a {@link measureCalibrationMs} minimum -- ~0.6 ms, below
+ * both boundaries in {@link MIN_PREEMPTION_BOUNDARY_NOTE} -- against a 3 ms
+ * ceiling, and that figure measured 0.592-0.607 ms under 8-way sustained load
+ * on a 4-core container against 0.606 ms idle. So "a busy runner loses the
+ * figure" does not happen: a fully contended runner reports idle and is held
+ * to the raw budget. What this actually detects is a machine that is SLOW,
+ * which is half of its documented job. Left as it is here on purpose --
+ * changing the ceiling or the workload changes which machines every caller
+ * holds to its blueprint figure, which is wider than P0.148's audit.
  */
 export function isIdleEnoughForWallClock(
   calibrationMs: number,
@@ -207,6 +236,33 @@ export function bestOfMs(
 export const LOAD_TRACKING_CALIBRATION_ITERATIONS = 3_000_000;
 
 /**
+ * THE SECOND BOUNDARY, WHICH IS THE ONE AN AUDIT OF {@link bestOfMs}'s CALLERS
+ * TURNS ON. The table above is the MEDIAN's; P0.148 measured the MINIMUM's on
+ * the same container, two sampling patterns -- interleaved with three other
+ * sizes, and alone in its own process -- two runs each, idle against 8-way
+ * sustained load on 4 cores:
+ *
+ * | iterations | idle cost | minimum stretch | median stretch |
+ * | ---------: | --------: | --------------: | -------------: |
+ * |       0.2M |   0.61 ms |           1.00x |          0.99x |
+ * |         1M |   3.17 ms |           1.00x |    2.29-3.47x  |
+ * |         3M |   9.47 ms |           1.85x |    2.24-2.64x  |
+ * |         9M |  28.69 ms |     1.87-1.98x  |    2.23-2.91x  |
+ *
+ * The median's transition sits between 0.6 ms and 3.2 ms and the minimum's
+ * between 3.2 ms and 9.5 ms. The mechanism is the obvious one -- a median needs
+ * a typical sample to escape preemption and a minimum needs one of fifteen --
+ * and the consequence is that "minimum over minimum" is symmetric only when
+ * both sides are below ~3 ms, not because both are minima.
+ *
+ * This is a documentation constant. It is exported so the callers audited by
+ * P0.148 can cite one place for the curve instead of restating it, and so a
+ * future reader finds the measurement rather than the conclusion.
+ */
+export const MIN_PREEMPTION_BOUNDARY_NOTE =
+  "minimum stretches 1.00x at 0.6 ms, 1.00x at 3.2 ms, 1.85x at 9.5 ms, 1.9x at 28.7 ms (P0.148)";
+
+/**
  * Below this, a calibration is too short to have been preempted and cannot
  * report load — see {@link LOAD_TRACKING_CALIBRATION_ITERATIONS}'s table. 1M
  * already tracked load at 3.2 ms, so 2 ms leaves a machine roughly 4x faster
@@ -241,11 +297,13 @@ export interface PairedCost {
  * sensitivity; `tracksLoad` is the honest report of that case.
  *
  * *Both series must be summarised by the SAME statistic.* The minimum is a
- * preemption-*avoiding* statistic by construction, so pairing a minimum
+ * preemption-*avoiding* statistic at small sizes, so pairing a minimum
  * calibration with a median measurement compares a machine's best case against
- * a process's typical one. Measured at 9M iterations under sustained load, the
- * interleaved minimum stretched 1.17x while the median of those very same
- * samples stretched 2.18x. Hence median over median here.
+ * a process's typical one. At 3M iterations under 8-way sustained load the
+ * minimum stretched 1.85x while the median of those same samples stretched
+ * 2.24-2.64x; at 0.2M the minimum stretched 1.00x and the median 0.99x, so the
+ * gap between the two statistics is itself size-dependent. Hence median over
+ * median here, at a size past both boundaries.
  *
  * The caller interleaves: one calibration per sample, in the same loop, so the
  * two series span the same wall-clock window. Taking them in separate phases
