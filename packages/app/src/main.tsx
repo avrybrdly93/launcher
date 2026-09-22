@@ -9,6 +9,7 @@ import { ModelRegistryRoute } from "./model-registry-route.js";
 import { StabilityExplorerRoute } from "./stability-explorer-route.js";
 import { TerrainEditorRoute } from "./terrain-editor-route.js";
 import { InverseSolverRoute } from "./inverse-solver-route.js";
+import { InverseExercisesRoute } from "./inverse-exercises-route.js";
 import { MonteCarloRoute } from "./monte-carlo-route.js";
 import { BenchmarkRoute } from "./benchmark-route.js";
 
@@ -51,6 +52,9 @@ function renderRoute(root: HTMLElement): void {
       return;
     case "#/inverse-solver":
       render(<InverseSolverRoute />, root);
+      return;
+    case "#/inverse-exercises":
+      render(<InverseExercisesRoute />, root);
       return;
     case "#/monte-carlo":
       render(<MonteCarloRoute />, root);
