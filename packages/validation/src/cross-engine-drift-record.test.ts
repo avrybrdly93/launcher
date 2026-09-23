@@ -65,12 +65,15 @@ function assertBuiltWorkspace(output: string): void {
   throw new Error(
     `The workspace is not built, so this test cannot run.\n` +
       `  missing: ${missing[1]}\n` +
-      `  fix:     pnpm build\n` +
+      `  fix:     pnpm typecheck   (or pnpm test, which now runs it first)\n` +
       `\n` +
       `${SCRIPT} spawns a scripts/ fixture that imports built dist/ entry points ` +
-      `by design, so \`pnpm test\` needs \`pnpm build\` to have run at least once ` +
-      `on a fresh clone. This is P0.137; before it, the same condition reported ` +
-      `as three unrelated-looking assertion failures against a Node resolver stack.`,
+      `by design. P0.111 gave the root package.json a \`pretest\` hook running ` +
+      `\`pnpm typecheck\`, so \`pnpm test\` emits that dist itself and reaching this ` +
+      `message means the hook was bypassed — a bare \`vitest\`/\`npx vitest\` run, ` +
+      `\`--ignore-scripts\`, or \`enablePrePostScripts: false\` in pnpm-workspace.yaml. ` +
+      `This is P0.137; before it, the same condition reported as three ` +
+      `unrelated-looking assertion failures against a Node resolver stack.`,
   );
 }
 
