@@ -34,7 +34,7 @@
     "lint:deps": "depcruise --config .dependency-cruiser.cjs packages",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "verify": "pnpm typecheck && pnpm lint && pnpm lint:deps && pnpm test",
+    "verify": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm lint:deps && pnpm test && pnpm check:backend-equivalence && pnpm check:gpu-rk4-agreement && pnpm check:gpu-observables && pnpm --filter=@ballista/engine run docs && pnpm --filter=@ballista/solverkit run docs && pnpm --filter=@ballista/app build && pnpm --filter=@ballista/app check-bundle-size",
     "prepare": "husky",
     "check:gpu-observables": "node scripts/measure-gpu-observables.mjs",
     "update:precision-study": "UPDATE_GOLDENS=1 vitest run packages/runtime/src/planar-precision-results.test.ts && prettier --write packages/runtime/src/planar-precision-results.json",
