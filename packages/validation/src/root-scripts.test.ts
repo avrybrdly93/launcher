@@ -297,3 +297,59 @@ describe("the pre-push gate tracks ci.yml (P0.110)", () => {
     expect(gateSteps.filter((s) => SETUP_RUNS.includes(s))).toEqual([]);
   });
 });
+
+// P0.111 regression guard: `pnpm test` must not need a build step nobody mentions.
+//
+// The defect. `packages/validation/src/cross-engine-drift-record.test.ts` shells
+// out to a scripts/ fixture that imports built `packages/<name>/dist` entry
+// points by design. On a fresh clone there is no dist, so `pnpm install &&
+// pnpm test` was red — and it was red only there, because ci.yml happens to run
+// Typecheck before Test and `tsc -b` emits dist as a side effect. Filed by the
+// 45th run after the 38th had already recorded it in a commit message; the 45th
+// rediscovered it seven runs later at the cost of a 103 s suite run.
+//
+// The fix is a `pretest` hook rather than a line of documentation, for the
+// reason P0.110 landed one seq earlier: a doc is not self-synchronising, a test
+// is. `pnpm typecheck` rather than `pnpm build` because it emits the same dist
+// in 15.0 s cold and 1.045 s warm, against a recursive build that also runs the
+// app's vite bundle — so inside `pnpm verify` and inside CI, where typecheck has
+// already run, the hook is a ~1 s incremental no-op and not a second build.
+//
+// Which makes the hook's own *enablement* the load-bearing fact, and the second
+// assertion is for that. It reads `pnpm-workspace.yaml`, and the reason it reads
+// that file rather than `.npmrc` or `pnpm config get` is measured, not assumed:
+// on the pnpm this repo pins (11.9.0), `enable-pre-post-scripts=false` in an
+// `.npmrc` is INERT — a throwaway prefoo/foo pair still ran both — while
+// `enablePrePostScripts: false` in `pnpm-workspace.yaml` really does suppress
+// the hook, and `pnpm config get enable-pre-post-scripts` answers `undefined`
+// under all three states, so it cannot tell them apart. The first draft of this
+// guard asked `pnpm config get`, passed while pre-scripts were disabled, and was
+// caught by running the control rather than by reading the code.
+//
+// A line scan rather than a YAML parse, for P0.110's reason: `@ballista/validation`
+// declares no YAML dependency and `.dependency-cruiser.cjs` would reject one
+// added for a test.
+describe("`pnpm test` does not need an undeclared build step (P0.111)", () => {
+  /** Root scripts that emit `packages/<name>/dist` as a side effect of running. */
+  const DIST_EMITTING = ["typecheck", "build"];
+
+  it("runs a dist-emitting script before the suite", () => {
+    const pretest = rootScripts.pretest;
+    expect(pretest, "without this, `pnpm install && pnpm test` is red on a fresh clone").toBeTypeOf(
+      "string",
+    );
+    expect(
+      DIST_EMITTING.map((s) => `pnpm ${s}`),
+      "the hook has to run something that actually writes dist, not merely something that passes",
+    ).toContain(pretest);
+  });
+
+  it("is not disabled in pnpm-workspace.yaml", () => {
+    const workspaceYaml = readFileSync(join(REPO_ROOT, "pnpm-workspace.yaml"), "utf8");
+    const disabled = /^\s*enablePrePostScripts\s*:\s*false\s*$/m.test(workspaceYaml);
+    expect(
+      disabled,
+      "with pre-scripts off the pretest hook never runs and this task silently re-opens",
+    ).toBe(false);
+  });
+});
