@@ -169,14 +169,14 @@ function ciRunSteps(): CiStep[] {
   const steps: CiStep[] = [];
   let pendingName = "";
   for (const line of CI_WORKFLOW.split("\n")) {
-    const name = /^\s*-?\s*name:\s*(.+?)\s*$/.exec(line);
-    if (name) {
-      pendingName = name[1];
+    const name = /^\s*-?\s*name:\s*(.+?)\s*$/.exec(line)?.[1];
+    if (name !== undefined) {
+      pendingName = name;
       continue;
     }
-    const run = /^\s*-?\s*run:\s*(.+?)\s*$/.exec(line);
-    if (run) {
-      steps.push({ name: pendingName, run: run[1] });
+    const run = /^\s*-?\s*run:\s*(.+?)\s*$/.exec(line)?.[1];
+    if (run !== undefined) {
+      steps.push({ name: pendingName, run });
       pendingName = "";
     }
   }
