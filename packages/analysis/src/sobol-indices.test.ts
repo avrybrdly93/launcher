@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { MAX_SOBOL_INDEX_INPUTS, type SobolIndexProblem, sobolIndices } from "./sobol-indices.js";
+import {
+  MAX_SOBOL_INDEX_INPUTS,
+  type SobolIndex,
+  type SobolIndexProblem,
+  sobolIndices,
+} from "./sobol-indices.js";
 
 /**
  * P6.19's criterion is "indices on an additive test function match analytics
@@ -326,5 +331,362 @@ describe("sobolIndices structural guarantees", () => {
     expect(() => sobolIndices(additiveProblem(ADDITIVE_COEFFICIENTS), { seed: -1 })).toThrow(
       /non-negative integer/,
     );
+  });
+});
+
+/**
+ * P0.113: the randomised-QMC error bar, and the measurement that says it is
+ * one.
+ *
+ * **What was wrong.** `sobolIndices` reports its standard errors from the plain
+ * i.i.d. formula, which is the right quantity only under `sampling: "random"`.
+ * The default is `sampling: "sobol"`, whose points are negatively correlated on
+ * purpose, so the figure there is an indicator of scale rather than a
+ * confidence interval.
+ *
+ * **Why a coverage measurement and not an inequality.** It would be easy, and
+ * wrong, to assert only that the new bar is *smaller* than the old one. A bar
+ * can be smaller and still not be a standard error. The quantity that settles
+ * it is the ratio of the *reported* error to the error the estimator *actually*
+ * makes against a reference whose indices are known in closed form — one for an
+ * honest bar, and whatever it happens to be for a dishonest one — together with
+ * how often the interval actually contains the analytic value. Both are
+ * measured below, on both references, and the numbers are recorded beside the
+ * assertions they justify.
+ *
+ * Every seed here is fixed, so each number is a deterministic property of this
+ * code rather than a hope about a random draw.
+ */
+
+/** The R = 16 configuration every measurement in this section shares. */
+const RQMC_REPLICATES = 16;
+const RQMC_BASE_SAMPLES = 256;
+/** Independent studies per measurement — the sample the coverage is counted over. */
+const RQMC_TRIALS = 40;
+/** Student-t 97.5% point at R − 1 = 15 degrees of freedom. */
+const T_975_AT_15_DOF = 2.131449545;
+
+interface Calibration {
+  /** RMS deviation of the estimates from the analytic value. */
+  readonly actualRms: number;
+  /** Mean of the reported standard errors. */
+  readonly reportedMean: number;
+  /** `reportedMean / actualRms`. One for an honest bar. */
+  readonly ratio: number;
+  /** Share of trials whose nominal-95% interval contained the analytic value. */
+  readonly coverage: number;
+}
+
+/**
+ * Runs `RQMC_TRIALS` independent studies and calibrates the reported error
+ * against the error actually made.
+ *
+ * Trial `m` takes seeds `base + m·R … base + m·R + R − 1`, so the replicates
+ * within a trial are distinct and no two trials share one.
+ */
+function calibrate(
+  problem: SobolIndexProblem,
+  analytic: readonly number[],
+  select: (i: SobolIndex) => { value: number; standardError: number },
+  options: { base: number; replicates: number; baseSamples: number; sampling?: "sobol" | "random" },
+): Calibration[] {
+  const estimates: number[][] = [];
+  const errors: number[][] = [];
+  for (let m = 0; m < RQMC_TRIALS; m++) {
+    const result = sobolIndices(problem, {
+      baseSamples: options.baseSamples,
+      seed: options.base + m * RQMC_REPLICATES,
+      ...(options.replicates > 1 ? { replicates: options.replicates } : {}),
+      ...(options.sampling === undefined ? {} : { sampling: options.sampling }),
+    });
+    estimates.push(result.indices.map((i) => select(i).value));
+    errors.push(result.indices.map((i) => select(i).standardError));
+  }
+  return analytic.map((target, k) => {
+    const est = estimates.map((row) => row[k]!);
+    const se = errors.map((row) => row[k]!);
+    const actualRms = Math.sqrt(
+      est.reduce((acc, v) => acc + (v - target) * (v - target), 0) / est.length,
+    );
+    const reportedMean = se.reduce((acc, v) => acc + v, 0) / se.length;
+    let inside = 0;
+    for (let m = 0; m < est.length; m++) {
+      if (Math.abs(est[m]! - target) <= T_975_AT_15_DOF * se[m]!) inside += 1;
+    }
+    return {
+      actualRms,
+      reportedMean,
+      ratio: reportedMean / actualRms,
+      coverage: inside / est.length,
+    };
+  });
+}
+
+describe("P0.113: the replicate error bar is calibrated, and the measurement says so", () => {
+  const additiveAnalytic = additiveAnalytics(ADDITIVE_COEFFICIENTS);
+  const ishigami = ishigamiAnalytics();
+
+  /**
+   * The headline. Measured over 40 trials at R = 16, N = 256, the ratio of
+   * reported error to actual RMS error came out:
+   *
+   * ```
+   * additive  first  0.985 / 0.879 / 0.952      total  0.957 / 0.887 / 0.939
+   * Ishigami  first  0.991 / 1.016 / 1.078      total  0.793 / 1.183 / 0.976
+   * ```
+   *
+   * — twelve numbers between 0.79 and 1.18 across two references and both
+   * index families. The bracket asserted is [0.5, 2.0]: wide enough that a
+   * different machine's floating point cannot move it, and narrow enough that
+   * the i.i.d. bar on this same path fails it by two orders of magnitude, which
+   * the control below measures rather than assumes.
+   */
+  it("reports an error within a factor of two of the error it actually makes, on both references", () => {
+    const cases: Array<{ label: string; calibration: Calibration[] }> = [
+      {
+        label: "additive first",
+        calibration: calibrate(
+          additiveProblem(ADDITIVE_COEFFICIENTS),
+          additiveAnalytic,
+          (i) => ({ value: i.first, standardError: i.firstStandardError }),
+          { base: 10000, replicates: RQMC_REPLICATES, baseSamples: RQMC_BASE_SAMPLES },
+        ),
+      },
+      {
+        label: "additive total",
+        calibration: calibrate(
+          additiveProblem(ADDITIVE_COEFFICIENTS),
+          additiveAnalytic,
+          (i) => ({ value: i.total, standardError: i.totalStandardError }),
+          { base: 10000, replicates: RQMC_REPLICATES, baseSamples: RQMC_BASE_SAMPLES },
+        ),
+      },
+      {
+        label: "Ishigami first",
+        calibration: calibrate(
+          ishigamiProblem,
+          ishigami.first,
+          (i) => ({ value: i.first, standardError: i.firstStandardError }),
+          { base: 20000, replicates: RQMC_REPLICATES, baseSamples: RQMC_BASE_SAMPLES },
+        ),
+      },
+      {
+        label: "Ishigami total",
+        calibration: calibrate(
+          ishigamiProblem,
+          ishigami.total,
+          (i) => ({ value: i.total, standardError: i.totalStandardError }),
+          { base: 20000, replicates: RQMC_REPLICATES, baseSamples: RQMC_BASE_SAMPLES },
+        ),
+      },
+    ];
+    for (const { label, calibration } of cases) {
+      for (let k = 0; k < calibration.length; k++) {
+        expect(calibration[k]!.ratio, `${label} k=${k}`).toBeGreaterThan(0.5);
+        expect(calibration[k]!.ratio, `${label} k=${k}`).toBeLessThan(2);
+      }
+    }
+  });
+
+  /**
+   * Coverage, counted rather than assumed. At a nominal 95% the measured shares
+   * were 0.925-1.000 on the additive first-order indices and 0.900-0.975 on its
+   * total indices, 0.925-0.950 on Ishigami's first-order indices, and
+   * **0.825-0.975 on Ishigami's total indices** — the 0.825 being a real, mild
+   * undercoverage on `S_T₁`, which is recorded here rather than tuned away.
+   *
+   * It is the expected direction: the t-interval assumes the R replicate
+   * estimates are normal, and Jansen's estimator is a mean of squares and so
+   * skewed, which bites hardest on the largest total index. The honest summary
+   * is that this bar is a good error bar and not an exact one, and the
+   * assertion is set at 0.75 to say exactly that — a bar that had no coverage
+   * at all would sit near zero, not near 0.8.
+   */
+  it("covers the analytic value at close to the nominal rate, including where it falls short", () => {
+    const calibration = calibrate(
+      ishigamiProblem,
+      ishigami.total,
+      (i) => ({ value: i.total, standardError: i.totalStandardError }),
+      { base: 20000, replicates: RQMC_REPLICATES, baseSamples: RQMC_BASE_SAMPLES },
+    );
+    for (let k = 0; k < calibration.length; k++) {
+      expect(calibration[k]!.coverage, `Ishigami total k=${k}`).toBeGreaterThanOrEqual(0.75);
+    }
+    const additive = calibrate(
+      additiveProblem(ADDITIVE_COEFFICIENTS),
+      additiveAnalytic,
+      (i) => ({ value: i.first, standardError: i.firstStandardError }),
+      { base: 10000, replicates: RQMC_REPLICATES, baseSamples: RQMC_BASE_SAMPLES },
+    );
+    for (let k = 0; k < additive.length; k++) {
+      expect(additive[k]!.coverage, `additive first k=${k}`).toBeGreaterThanOrEqual(0.75);
+    }
+  });
+
+  /**
+   * The control that makes the assertion above mean something: the same
+   * calibration applied to the i.i.d. bar at a **matched evaluation budget**
+   * (one study of `R·N` points rather than R studies of N).
+   *
+   * Measured ratios: **349 / 181 / 138** on the additive reference and
+   * **3.7 / 8.1 / 2.7** on Ishigami. Both are overstatements, and the size of
+   * the overstatement is a property of the integrand rather than a constant —
+   * which is precisely why P0.113's filing refused to call "overstates" a
+   * bound. Coverage on this path is 1.000 everywhere, and that is the trap
+   * this whole section exists to avoid: **a bar that is far too wide covers
+   * perfectly and is still not a standard error.**
+   */
+  it("fails that calibration on the i.i.d. bar at a matched budget, by two orders of magnitude", () => {
+    const iid = calibrate(
+      additiveProblem(ADDITIVE_COEFFICIENTS),
+      additiveAnalytic,
+      (i) => ({ value: i.first, standardError: i.firstStandardError }),
+      { base: 10000, replicates: 1, baseSamples: RQMC_BASE_SAMPLES * RQMC_REPLICATES },
+    );
+    for (let k = 0; k < iid.length; k++) {
+      expect(iid[k]!.ratio, `iid additive k=${k}`).toBeGreaterThan(20);
+      // …and it covers perfectly while doing so, which is the point.
+      expect(iid[k]!.coverage, `iid additive k=${k}`).toBe(1);
+    }
+  });
+
+  /**
+   * The second control, and the one that says the divergence above is the
+   * sampler's doing rather than a bug in the replicate machinery.
+   *
+   * Under `sampling: "random"` the i.i.d. formula is exactly right, so the two
+   * bars estimate the same quantity and must agree. Measured at a matched
+   * budget, the i.i.d. bar is **1.072 / 1.065 / 1.027** times the replicate
+   * bar, and the replicate bar's own calibration ratio is 1.116 / 0.965 /
+   * 0.953 with coverage 0.950 / 1.000 / 0.925. So the new code reproduces the
+   * old answer exactly where the old answer is right, and departs from it by
+   * two orders of magnitude exactly where it is wrong.
+   */
+  it("agrees with the i.i.d. bar under sampling: 'random', where the i.i.d. bar is correct", () => {
+    const replicate = calibrate(
+      additiveProblem(ADDITIVE_COEFFICIENTS),
+      additiveAnalytic,
+      (i) => ({ value: i.first, standardError: i.firstStandardError }),
+      {
+        base: 50000,
+        replicates: RQMC_REPLICATES,
+        baseSamples: RQMC_BASE_SAMPLES,
+        sampling: "random",
+      },
+    );
+    const iid = calibrate(
+      additiveProblem(ADDITIVE_COEFFICIENTS),
+      additiveAnalytic,
+      (i) => ({ value: i.first, standardError: i.firstStandardError }),
+      {
+        base: 50000,
+        replicates: 1,
+        baseSamples: RQMC_BASE_SAMPLES * RQMC_REPLICATES,
+        sampling: "random",
+      },
+    );
+    for (let k = 0; k < replicate.length; k++) {
+      const agreement = iid[k]!.reportedMean / replicate[k]!.reportedMean;
+      expect(agreement, `random k=${k}`).toBeGreaterThan(0.5);
+      expect(agreement, `random k=${k}`).toBeLessThan(2);
+      expect(replicate[k]!.ratio, `random k=${k}`).toBeGreaterThan(0.5);
+      expect(replicate[k]!.ratio, `random k=${k}`).toBeLessThan(2);
+    }
+  });
+});
+
+describe("P0.113: replicates is opt-in and says so", () => {
+  it("leaves the default path bit-for-bit unchanged", () => {
+    // The reason replicates defaults to 1 rather than to a useful R: raising it
+    // would multiply every existing caller's cost, and paying for it out of N
+    // would degrade every existing estimate. Neither should happen to someone
+    // who did not ask.
+    const implicit = sobolIndices(additiveProblem(ADDITIVE_COEFFICIENTS), {
+      baseSamples: 128,
+      seed: 3,
+    });
+    const explicit = sobolIndices(additiveProblem(ADDITIVE_COEFFICIENTS), {
+      baseSamples: 128,
+      seed: 3,
+      replicates: 1,
+    });
+    expect(JSON.stringify(implicit)).toBe(JSON.stringify(explicit));
+    expect(implicit.replicates).toBe(1);
+    expect(implicit.standardErrorMethod).toBe("iid");
+  });
+
+  it("names the method on the result rather than leaving it to be inferred", () => {
+    const result = sobolIndices(additiveProblem(ADDITIVE_COEFFICIENTS), {
+      baseSamples: 64,
+      seed: 11,
+      replicates: 4,
+    });
+    expect(result.standardErrorMethod).toBe("replicate");
+    expect(result.replicates).toBe(4);
+  });
+
+  it("charges R times the evaluations rather than dividing N by R", () => {
+    const single = sobolIndices(additiveProblem(ADDITIVE_COEFFICIENTS), {
+      baseSamples: 64,
+      seed: 11,
+    });
+    const many = sobolIndices(additiveProblem(ADDITIVE_COEFFICIENTS), {
+      baseSamples: 64,
+      seed: 11,
+      replicates: 4,
+    });
+    expect(many.evaluations).toBe(4 * single.evaluations);
+    expect(many.baseSamples).toBe(single.baseSamples);
+  });
+
+  it("averages exactly the replicates its seeds name", () => {
+    // The aggregate must be the mean of the studies a caller could have run by
+    // hand at seeds s … s+R−1, not of some other set. Checked against those
+    // studies rather than against a recomputation of the same arithmetic.
+    const R = 5;
+    const seed = 41;
+    const many = sobolIndices(additiveProblem(ADDITIVE_COEFFICIENTS), {
+      baseSamples: 64,
+      seed,
+      replicates: R,
+    });
+    const byHand: number[][] = [];
+    for (let r = 0; r < R; r++) {
+      const one = sobolIndices(additiveProblem(ADDITIVE_COEFFICIENTS), {
+        baseSamples: 64,
+        seed: seed + r,
+      });
+      byHand.push(one.indices.map((i) => i.first));
+    }
+    for (let k = 0; k < many.indices.length; k++) {
+      const column = byHand.map((row) => row[k]!);
+      const mean = column.reduce((a, v) => a + v, 0) / R;
+      expect(many.indices[k]!.first).toBeCloseTo(mean, 12);
+      const m2 = column.reduce((a, v) => a + (v - mean) * (v - mean), 0);
+      expect(many.indices[k]!.firstStandardError).toBeCloseTo(Math.sqrt(m2 / (R - 1) / R), 12);
+    }
+  });
+
+  it("refuses replicate seeds that would alias onto each other", () => {
+    // Aliased seeds do not fail loudly — they produce duplicate "independent"
+    // replicates, shrinking the spread and reporting an error bar that is too
+    // small. That is the one failure mode of this feature that would look like
+    // a better result, so it throws.
+    expect(() =>
+      sobolIndices(additiveProblem(ADDITIVE_COEFFICIENTS), {
+        baseSamples: 32,
+        seed: 0xffffffff - 1,
+        replicates: 4,
+      }),
+    ).toThrow(/alias/);
+  });
+
+  it("rejects a replicate count that is not a positive integer", () => {
+    expect(() =>
+      sobolIndices(additiveProblem(ADDITIVE_COEFFICIENTS), { baseSamples: 32, replicates: 0 }),
+    ).toThrow(/at least 1/);
+    expect(() =>
+      sobolIndices(additiveProblem(ADDITIVE_COEFFICIENTS), { baseSamples: 32, replicates: 2.5 }),
+    ).toThrow(/at least 1/);
   });
 });
