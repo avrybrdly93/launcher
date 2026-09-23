@@ -56,6 +56,8 @@ const TORNADO: Tornado = {
 
 const SOBOL: SobolIndices = {
   baseSamples: 1024,
+  replicates: 1,
+  standardErrorMethod: "iid",
   evaluations: 4096,
   failures: 0,
   censored: false,

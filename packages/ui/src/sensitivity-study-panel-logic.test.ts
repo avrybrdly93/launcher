@@ -65,6 +65,8 @@ function sobolOf(
   const firstOrderSum = full.reduce((s, i) => s + i.first, 0);
   return {
     baseSamples: 1024,
+    replicates: 1,
+    standardErrorMethod: "iid",
     evaluations: 1024 * (full.length + 2),
     failures: 0,
     censored: false,

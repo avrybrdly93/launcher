@@ -86,17 +86,41 @@
  * the standard construction, and the reason this module is bounded to ten
  * inputs (the generator carries {@link MAX_SOBOL_DIMENSIONS} = 21 dimensions).
  *
- * The standard errors reported alongside each index are the plain i.i.d.
- * formula: each estimator is a mean over `i`, so its standard error is the
- * term-wise sample standard deviation over `√N`, divided by `V`. **That
- * formula is exact only under `sampling: "random"`.** A scrambled Sobol'
- * sample is deliberately *not* independent — that is the whole point of it —
- * and its true error is usually smaller, but "usually smaller" is an empirical
- * observation and not a bound, so the number is an indicator of scale and not
- * a confidence interval. The honest error bar under randomised QMC comes from
- * independent scrambles of the same sequence, which is filed as P0.113 rather
- * than done here. The `V` in the denominator is treated as known; its own
- * sampling error is not propagated.
+ * Two standard errors are available, and {@link SobolIndices.standardErrorMethod}
+ * says which one a given result carries. **The choice is the caller's, because
+ * at a fixed evaluation budget the two knobs trade against each other** — see
+ * {@link SobolIndexOptions.replicates}.
+ *
+ * - **`"iid"` (the default, `replicates: 1`).** Each estimator is a mean over
+ *   `i`, so its standard error is the term-wise sample standard deviation over
+ *   `√N`, divided by `V`. **That formula is exact only under
+ *   `sampling: "random"`.** A scrambled Sobol' sample is deliberately *not*
+ *   independent — that is the whole point of it — so under the default
+ *   `sampling: "sobol"` the figure is an indicator of scale and not a
+ *   confidence interval. Its true error is *usually* smaller, but "usually
+ *   smaller" is an empirical observation and not a bound: measured on the
+ *   additive reference at `N = 4096`, the i.i.d. figure overstates the actual
+ *   deviation by roughly two orders of magnitude, and on an integrand of
+ *   unbounded variation it can go the other way. This path also treats `V` as
+ *   known and does not propagate the variance estimate's own uncertainty.
+ * - **`"replicate"` (randomised QMC, `replicates: R ≥ 2`).** `R` independent
+ *   randomisations of the *same* construction are run — independent scrambles
+ *   of the Sobol' sequence, or independent pseudo-random streams — and each
+ *   index is reported as the mean of the `R` per-replicate estimates, with the
+ *   sample standard deviation of those estimates over `√R` as its standard
+ *   error. This is the standard randomised-QMC error bar (Owen), and it is
+ *   honest under `sampling: "sobol"` precisely because the thing being averaged
+ *   *is* independent across replicates even though the points inside one
+ *   replicate are not. It also fixes the `V` gap for free: every replicate
+ *   forms its own `V` and its own ratio, so the denominator's sampling error is
+ *   propagated by construction rather than assumed away.
+ *
+ * **The coverage of the `"replicate"` bar is measured rather than asserted.**
+ * `sobol-indices.test.ts` runs many independent studies against the additive
+ * and Ishigami references, whose indices are known in closed form, and counts
+ * how often the analytic value falls inside the reported interval. That is the
+ * only way to say an error bar is an error bar; the numbers it comes back with
+ * are recorded in that file next to the assertion they justify.
  *
  * **Independence is an assumption, not a detail.** The variance decomposition
  * above is unique only for independent inputs. Every input here is drawn
@@ -145,6 +169,16 @@ export interface SobolIndexProblem {
   evaluate(unitPoint: readonly number[]): number | null;
 }
 
+/**
+ * Which formula produced a result's standard errors.
+ *
+ * `"iid"` is the plain independent-sample formula, exact only under
+ * `sampling: "random"`. `"replicate"` is the randomised-QMC bar taken across
+ * independent randomisations, which is the honest one under the default
+ * scrambled-Sobol' sampler. The module header sets out both.
+ */
+export type StandardErrorMethod = "iid" | "replicate";
+
 /** One input's pair of indices. */
 export interface SobolIndex {
   /** The input's name, echoed from the problem. */
@@ -168,25 +202,52 @@ export interface SobolIndex {
    * {@link ./tornado.js} cannot see at any sample size.
    */
   readonly interaction: number;
-  /** i.i.d. standard error of {@link first}. See the module header. */
+  /**
+   * Standard error of {@link first}, by whichever method
+   * {@link SobolIndices.standardErrorMethod} names. See the module header for
+   * what each one does and does not mean — under `"iid"` with the default
+   * `sampling: "sobol"` it is an indicator of scale rather than a confidence
+   * interval.
+   */
   readonly firstStandardError: number;
-  /** i.i.d. standard error of {@link total}. See the module header. */
+  /**
+   * Standard error of {@link total}, by whichever method
+   * {@link SobolIndices.standardErrorMethod} names. The same caveat applies.
+   */
   readonly totalStandardError: number;
 }
 
 /** The decomposition, plus what its sums say about the model. */
 export interface SobolIndices {
-  /** `N` — rows in each of `A` and `B`. */
+  /** `N` — rows in each of `A` and `B`, **per replicate**. */
   readonly baseSamples: number;
-  /** `N(d + 2)` — evaluations requested. */
+  /** `R` — independent randomisations averaged. `1` for a single study. */
+  readonly replicates: number;
+  /**
+   * Which error bar {@link SobolIndex.firstStandardError} and
+   * {@link SobolIndex.totalStandardError} carry. `"iid"` when `R = 1`,
+   * `"replicate"` when `R ≥ 2`. Read it rather than inferring it from the
+   * options you passed — the two mean different things, and only one of them
+   * is a confidence interval under the default sampler.
+   */
+  readonly standardErrorMethod: StandardErrorMethod;
+  /** `R · N(d + 2)` — evaluations requested. */
   readonly evaluations: number;
   /** Evaluations that returned `null`. */
   readonly failures: number;
   /** Whether any evaluation failed, in which case the indices are conditional. */
   readonly censored: boolean;
-  /** Sample mean of the pooled `f_A ∪ f_B`. */
+  /**
+   * Sample mean of the pooled `f_A ∪ f_B`, averaged over the replicates when
+   * there is more than one.
+   */
   readonly mean: number;
-  /** Population variance of the pooled `f_A ∪ f_B` — the shared denominator. */
+  /**
+   * Population variance of the pooled `f_A ∪ f_B` — the shared denominator —
+   * averaged over the replicates when there is more than one. **It is a
+   * summary, not the divisor**: under `"replicate"` each replicate divides by
+   * its own `V`, which is what propagates the denominator's own uncertainty.
+   */
   readonly variance: number;
   /** One entry per input, in the problem's own order. */
   readonly indices: readonly SobolIndex[];
@@ -224,10 +285,41 @@ export interface SobolIndexOptions {
   readonly sampling?: "sobol" | "random";
   /** Seed for the scramble or the PCG32 stream. The same seed reproduces exactly. */
   readonly seed?: number;
+  /**
+   * `R`, the number of independent randomisations to average. Default `1`.
+   *
+   * **`1` is the default deliberately, and the trade is the caller's to make.**
+   * At `R = 1` this function behaves exactly as it always has and reports the
+   * i.i.d. standard error, which under the default `sampling: "sobol"` is an
+   * indicator of scale rather than a confidence interval. At `R ≥ 2` it runs
+   * `R` independent randomisations at seeds `seed … seed + R − 1`, costing
+   * `R · N(d + 2)` evaluations, and reports the randomised-QMC error bar.
+   *
+   * **The two knobs trade against each other at a fixed budget**: for a given
+   * number of evaluations, a larger `R` buys a better *error bar* and a larger
+   * `N` buys a better *estimate*. Neither is the right answer in general, which
+   * is why neither is chosen for you. `R` between 10 and 30 is the usual range
+   * when an error bar is what you came for; the sample standard deviation of
+   * fewer than ~10 replicates is itself too noisy to lean on.
+   *
+   * Raising `R` does **not** silently shrink `N` — the cost goes up instead, so
+   * an existing caller's estimate never degrades because of a knob they did not
+   * touch.
+   */
+  readonly replicates?: number;
 }
 
 const DEFAULT_BASE_SAMPLES = 4096;
 const DEFAULT_SEED = 1;
+const DEFAULT_REPLICATES = 1;
+/**
+ * The largest scramble seed the generator distinguishes.
+ *
+ * `scrambleKey` reduces its input modulo 2^32, so seeds above this alias onto
+ * earlier ones -- which matters only for the replicate path, where two aliased
+ * seeds would be two identical "independent" randomisations.
+ */
+const MAX_SCRAMBLE_SEED = 0xffffffff;
 
 /** Draws the `N × 2d` matrix of uniforms the construction is built from. */
 function drawUniforms(
@@ -290,48 +382,36 @@ function meanAndStandardError(terms: readonly number[]): { mean: number; standar
   return { mean, standardError: Math.sqrt(variance / n) };
 }
 
+/** What one randomisation of the construction produces, before averaging. */
+interface StudyOutcome {
+  mean: number;
+  variance: number;
+  failures: number;
+  /** `S_k` for each input. */
+  first: number[];
+  /** `S_T_k` for each input. */
+  total: number[];
+  /** The i.i.d. standard error of each `S_k`. */
+  firstStandardError: number[];
+  /** The i.i.d. standard error of each `S_T_k`. */
+  totalStandardError: number[];
+}
+
 /**
- * The P6.19 decomposition: first-order and total Sobol' indices for every
- * input, in `N(d + 2)` evaluations.
+ * One randomisation: the pick-and-freeze estimators at a single seed.
  *
- * @throws If there are no inputs, if there are more than
- *   {@link MAX_SOBOL_INDEX_INPUTS}, if `baseSamples` is not an integer of at
- *   least 2, if `seed` is not a non-negative integer, if any evaluation
- *   returns a non-finite number (return `null` for "no answer" instead, so it
- *   is counted as censoring rather than poisoning the moments), or if the
- *   pooled output variance is zero — a constant output has no variance to
- *   apportion and every index would be `0/0`.
+ * Factored out of {@link sobolIndices} so the randomised-QMC path can run it
+ * `R` times at independent seeds without duplicating the estimator. Every
+ * argument is already validated by the caller.
  */
-export function sobolIndices(
+function runStudy(
   problem: SobolIndexProblem,
-  options: SobolIndexOptions = {},
-): SobolIndices {
+  dimension: number,
+  baseSamples: number,
+  sampling: "sobol" | "random",
+  seed: number,
+): StudyOutcome {
   const { inputs } = problem;
-  const dimension = inputs.length;
-  if (dimension === 0) {
-    throw new Error("sobolIndices: no inputs; there is nothing to apportion variance to");
-  }
-  if (dimension > MAX_SOBOL_INDEX_INPUTS) {
-    throw new Error(
-      `sobolIndices: ${dimension} inputs; the pick-and-freeze construction needs 2d ` +
-        `independent coordinates and the generator carries ${MAX_SOBOL_DIMENSIONS}, ` +
-        `so at most ${MAX_SOBOL_INDEX_INPUTS} are supported`,
-    );
-  }
-
-  const baseSamples = options.baseSamples ?? DEFAULT_BASE_SAMPLES;
-  if (!Number.isInteger(baseSamples) || baseSamples < 2) {
-    throw new Error(
-      `sobolIndices: baseSamples ${baseSamples} is not an integer of at least 2; ` +
-        "a variance needs two draws",
-    );
-  }
-  const sampling = options.sampling ?? "sobol";
-  const seed = options.seed ?? DEFAULT_SEED;
-  if (!Number.isInteger(seed) || seed < 0) {
-    throw new Error(`sobolIndices: seed ${seed} is not a non-negative integer`);
-  }
-
   const uniforms = drawUniforms(baseSamples, dimension, sampling, seed);
 
   let failures = 0;
@@ -387,9 +467,10 @@ export function sobolIndices(
     );
   }
 
-  const indices: SobolIndex[] = [];
-  let firstOrderSum = 0;
-  let totalSum = 0;
+  const first: number[] = [];
+  const total: number[] = [];
+  const firstStandardError: number[] = [];
+  const totalStandardError: number[] = [];
 
   const pointK = new Array<number>(dimension);
   for (let k = 0; k < dimension; k++) {
@@ -429,24 +510,152 @@ export function sobolIndices(
 
     const firstStat = meanAndStandardError(firstTerms);
     const totalStat = meanAndStandardError(totalTerms);
-    const first = firstStat.mean / variance;
-    const total = totalStat.mean / variance;
-    firstOrderSum += first;
-    totalSum += total;
+    first.push(firstStat.mean / variance);
+    total.push(totalStat.mean / variance);
+    firstStandardError.push(firstStat.standardError / variance);
+    totalStandardError.push(totalStat.standardError / variance);
+  }
+
+  return { mean, variance, failures, first, total, firstStandardError, totalStandardError };
+}
+
+/** Mean of a sample, and the standard error of that mean across the sample. */
+function acrossReplicates(values: readonly number[]): { mean: number; standardError: number } {
+  const r = values.length;
+  let mean = 0;
+  for (const v of values) mean += v;
+  mean /= r;
+  let m2 = 0;
+  for (const v of values) {
+    const d = v - mean;
+    m2 += d * d;
+  }
+  // Bessel-corrected across the R replicate estimates, then the standard error
+  // of their mean. This is the whole randomised-QMC argument: the R estimates
+  // are independent of each other even though the N points inside each one are
+  // deliberately not, so the ordinary formula applies at this level and only at
+  // this level.
+  return { mean, standardError: Math.sqrt(m2 / (r - 1) / r) };
+}
+
+/**
+ * The P6.19 decomposition: first-order and total Sobol' indices for every
+ * input, in `R · N(d + 2)` evaluations (`R = 1` unless you ask otherwise).
+ *
+ * Pass {@link SobolIndexOptions.replicates} `≥ 2` to get the randomised-QMC
+ * error bar described in the module header — the one that means what a
+ * standard error is supposed to mean under the default scrambled-Sobol'
+ * sampler. It costs `R` times as much; see that option for the trade.
+ *
+ * @throws If there are no inputs, if there are more than
+ *   {@link MAX_SOBOL_INDEX_INPUTS}, if `baseSamples` is not an integer of at
+ *   least 2, if `replicates` is not an integer of at least 1, if `seed` is not
+ *   a non-negative integer, if the requested replicate seeds would run past the
+ *   32-bit range the scrambler keys on (they would silently alias, giving
+ *   duplicate "independent" replicates and an error bar that is too small), if
+ *   any evaluation returns a non-finite number (return `null` for "no answer"
+ *   instead, so it is counted as censoring rather than poisoning the moments),
+ *   or if the pooled output variance is zero — a constant output has no
+ *   variance to apportion and every index would be `0/0`.
+ */
+export function sobolIndices(
+  problem: SobolIndexProblem,
+  options: SobolIndexOptions = {},
+): SobolIndices {
+  const { inputs } = problem;
+  const dimension = inputs.length;
+  if (dimension === 0) {
+    throw new Error("sobolIndices: no inputs; there is nothing to apportion variance to");
+  }
+  if (dimension > MAX_SOBOL_INDEX_INPUTS) {
+    throw new Error(
+      `sobolIndices: ${dimension} inputs; the pick-and-freeze construction needs 2d ` +
+        `independent coordinates and the generator carries ${MAX_SOBOL_DIMENSIONS}, ` +
+        `so at most ${MAX_SOBOL_INDEX_INPUTS} are supported`,
+    );
+  }
+
+  const baseSamples = options.baseSamples ?? DEFAULT_BASE_SAMPLES;
+  if (!Number.isInteger(baseSamples) || baseSamples < 2) {
+    throw new Error(
+      `sobolIndices: baseSamples ${baseSamples} is not an integer of at least 2; ` +
+        "a variance needs two draws",
+    );
+  }
+  const sampling = options.sampling ?? "sobol";
+  const seed = options.seed ?? DEFAULT_SEED;
+  if (!Number.isInteger(seed) || seed < 0) {
+    throw new Error(`sobolIndices: seed ${seed} is not a non-negative integer`);
+  }
+  const replicates = options.replicates ?? DEFAULT_REPLICATES;
+  if (!Number.isInteger(replicates) || replicates < 1) {
+    throw new Error(
+      `sobolIndices: replicates ${replicates} is not an integer of at least 1; ` +
+        "one randomisation is the minimum, and two are the minimum for a spread",
+    );
+  }
+  // The scramble key is taken modulo 2^32, so seeds that wrap give the *same*
+  // scramble. That would make two "independent" replicates identical, which
+  // does not fail loudly -- it quietly shrinks the spread and reports an error
+  // bar that is too small. Refuse instead.
+  if (seed + replicates - 1 > MAX_SCRAMBLE_SEED) {
+    throw new Error(
+      `sobolIndices: replicates ${replicates} at seed ${seed} would need seeds up to ` +
+        `${seed + replicates - 1}, past the ${MAX_SCRAMBLE_SEED} the scrambler keys on; ` +
+        "they would alias onto earlier ones and understate the spread",
+    );
+  }
+
+  const studies: StudyOutcome[] = [];
+  for (let r = 0; r < replicates; r++) {
+    studies.push(runStudy(problem, dimension, baseSamples, sampling, seed + r));
+  }
+
+  const single = replicates === 1;
+  const standardErrorMethod: StandardErrorMethod = single ? "iid" : "replicate";
+
+  let failures = 0;
+  let mean = 0;
+  let variance = 0;
+  for (const study of studies) {
+    failures += study.failures;
+    mean += study.mean;
+    variance += study.variance;
+  }
+  mean /= replicates;
+  variance /= replicates;
+
+  const indices: SobolIndex[] = [];
+  let firstOrderSum = 0;
+  let totalSum = 0;
+  for (let k = 0; k < dimension; k++) {
+    // At R = 1 there is no spread to take, so the i.i.d. figures the single
+    // study already computed are passed straight through and the R = 1 result
+    // is bit-for-bit what it was before replicates existed.
+    const firstStat = single
+      ? { mean: studies[0]!.first[k]!, standardError: studies[0]!.firstStandardError[k]! }
+      : acrossReplicates(studies.map((s) => s.first[k]!));
+    const totalStat = single
+      ? { mean: studies[0]!.total[k]!, standardError: studies[0]!.totalStandardError[k]! }
+      : acrossReplicates(studies.map((s) => s.total[k]!));
+    firstOrderSum += firstStat.mean;
+    totalSum += totalStat.mean;
     indices.push({
       input: inputs[k]!,
       index: k,
-      first,
-      total,
-      interaction: total - first,
-      firstStandardError: firstStat.standardError / variance,
-      totalStandardError: totalStat.standardError / variance,
+      first: firstStat.mean,
+      total: totalStat.mean,
+      interaction: totalStat.mean - firstStat.mean,
+      firstStandardError: firstStat.standardError,
+      totalStandardError: totalStat.standardError,
     });
   }
 
   return {
     baseSamples,
-    evaluations: baseSamples * (dimension + 2),
+    replicates,
+    standardErrorMethod,
+    evaluations: replicates * baseSamples * (dimension + 2),
     failures,
     censored: failures > 0,
     mean,
