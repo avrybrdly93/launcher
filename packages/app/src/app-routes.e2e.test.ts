@@ -138,29 +138,20 @@ async function openInstrumentedPage(browser: Browser): Promise<{
   const consoleErrors: string[] = [];
   const pageErrors: string[] = [];
   const webSockets: string[] = [];
+  // Every console error counts, with nothing filtered. Until P0.116 this
+  // handler dropped anything matching "Failed to load resource: ... 404",
+  // because `index.html` declared no icon and the browser asked for
+  // `/favicon.ico` on every load unprompted. That filter matched the generic
+  // resource-load message, so it swallowed a genuinely missing asset just as
+  // readily as the favicon -- a test learning to ignore a line of noise, which
+  // is what the row was filed to stop. The icon now exists, so the noise is
+  // gone at the source and the filter is gone with it.
   page.on("console", (message: ConsoleMessage) => {
-    if (message.type() === "error" && !isFaviconNoise(message.text())) {
-      consoleErrors.push(message.text());
-    }
+    if (message.type() === "error") consoleErrors.push(message.text());
   });
   page.on("pageerror", (error: Error) => pageErrors.push(error.message));
   page.on("websocket", (socket: WebSocket) => webSockets.push(socket.url()));
   return { page, consoleErrors, pageErrors, webSockets };
-}
-
-/**
- * The browser asks for `/favicon.ico` on its own and `index.html` declares no
- * icon, so every page load logs one "Failed to load resource: 404". It is not
- * the app failing: the request is issued by the browser process, so it never
- * even appears in Playwright's request events, and no code path here can
- * prevent it. Filtered rather than asserted away, and filed as **P0.116** so
- * the missing favicon is a decision someone makes rather than a line of noise
- * a test learns to ignore. Deliberately narrow -- it matches the generic
- * resource-load message and nothing else, so a real failed import still fails
- * these tests.
- */
-function isFaviconNoise(text: string): boolean {
-  return /Failed to load resource: the server responded with a status of 404/.test(text);
 }
 
 async function readRunStatus(page: Page): Promise<{ points: number; duration: number }> {
