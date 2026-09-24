@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { Browser, Page } from "playwright";
+import type { Browser, Page, WebSocket } from "playwright";
 import { build, preview, type PreviewServer } from "vite";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { BROWSER_TARGETS, tryLaunch } from "./e2e-browser.js";
@@ -23,6 +23,23 @@ import { BROWSER_TARGETS, tryLaunch } from "./e2e-browser.js";
  * the captured URL, comparing the re-run's trajectory point count and
  * duration against the original (a deterministic scenario+seed always
  * reproduces the same solve, so any mismatch is a real regression).
+ *
+ * Every case also asserts that its page opened **zero websockets**, which
+ * is P0.117's half of P0.125's criterion and is not redundant with it.
+ * P0.125 removed the websocket surface from `app-routes.e2e.test.ts`,
+ * because that is the suite all eleven sightings of the playwright-core
+ * Firefox assert (`assert` <- `FFPage._onWebSocketOpened`) were attributed
+ * to. But this suite is the same shape -- the same `BROWSER_TARGETS` loop,
+ * so the same Firefox target, against the same kind of vite server -- and
+ * nothing here asserted the surface was absent. It happens to be absent
+ * today because this suite has always previewed built assets rather than
+ * served dev, and preview opens no sockets. "Happens to be absent" is the
+ * state P0.125 was filed about: the defect it closed arrived when a suite
+ * served dev, and a change that gave this one a dev server, or a
+ * dependency that opened a socket of its own, would reopen the same
+ * unhandled rejection here with P0.125's guard looking the other way. The
+ * assertion is what makes that a red test instead of a red CI run with
+ * every test passing.
  */
 
 const appRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -67,6 +84,22 @@ afterAll(async () => {
   if (outDir) rmSync(outDir, { recursive: true, force: true });
 });
 
+/**
+ * A page that records every websocket it opens.
+ *
+ * P0.117: the count is assertion material, not a diagnostic. See the header
+ * -- a socket reaching a Firefox page in this suite is the precondition for
+ * the playwright-core assert that reddens CI with every test passing, and it
+ * is unreachable from application code, so no assertion inside a test can
+ * catch it once it happens.
+ */
+async function openPage(browser: Browser): Promise<{ page: Page; webSockets: string[] }> {
+  const page = await browser.newPage();
+  const webSockets: string[] = [];
+  page.on("websocket", (socket: WebSocket) => webSockets.push(socket.url()));
+  return { page, webSockets };
+}
+
 async function readRunStatus(page: Page): Promise<{ points: number; duration: number }> {
   await page.waitForSelector('[data-testid="run-status"]');
   const text = await page.locator('[data-testid="run-status"]').textContent();
@@ -97,12 +130,13 @@ for (const target of BROWSER_TARGETS) {
 
     it("loads and runs the default scenario with no explicit Run button", async () => {
       if (!browser) return;
-      const page = await browser.newPage();
+      const { page, webSockets } = await openPage(browser);
       try {
         await page.goto(appUrl);
         await page.waitForSelector('[data-testid="world-canvas"]');
         const { points } = await readRunStatus(page);
         expect(points).toBeGreaterThan(0);
+        expect(webSockets, "P0.117: the page opened a websocket").toEqual([]);
       } finally {
         await page.close();
       }
@@ -110,7 +144,7 @@ for (const target of BROWSER_TARGETS) {
 
     it("scrubbing the playback slider updates the time readout via pure lookup", async () => {
       if (!browser) return;
-      const page = await browser.newPage();
+      const { page, webSockets } = await openPage(browser);
       try {
         await page.goto(appUrl);
         const scrubber = page.locator('[data-testid="playback-scrubber"]');
@@ -134,6 +168,7 @@ for (const target of BROWSER_TARGETS) {
             expected,
           expectedText,
         );
+        expect(webSockets, "P0.117: the page opened a websocket").toEqual([]);
       } finally {
         await page.close();
       }
@@ -141,7 +176,7 @@ for (const target of BROWSER_TARGETS) {
 
     it("pinning the committed trajectory renders it in the compare legend", async () => {
       if (!browser) return;
-      const page = await browser.newPage();
+      const { page, webSockets } = await openPage(browser);
       try {
         await page.goto(appUrl);
         await readRunStatus(page);
@@ -152,6 +187,7 @@ for (const target of BROWSER_TARGETS) {
         await page.waitForSelector('[data-testid="compare-legend"]');
         const rows = page.locator('[data-testid^="compare-legend-row-"]');
         expect(await rows.count()).toBe(1);
+        expect(webSockets, "P0.117: the page opened a websocket").toEqual([]);
       } finally {
         await page.close();
       }
@@ -159,7 +195,7 @@ for (const target of BROWSER_TARGETS) {
 
     it("a share URL round-trips through a fresh session to the same trajectory (§8.5)", async () => {
       if (!browser) return;
-      const originalPage = await browser.newPage();
+      const { page: originalPage, webSockets: originalSockets } = await openPage(browser);
       let sharedUrl: string;
       let original: { points: number; duration: number };
       try {
@@ -170,15 +206,17 @@ for (const target of BROWSER_TARGETS) {
         await originalPage.waitForSelector('[data-testid="share-url-output"]');
         sharedUrl = await originalPage.locator('[data-testid="share-url-output"]').inputValue();
         expect(sharedUrl).toMatch(/#s=[A-Za-z0-9_-]+$/);
+        expect(originalSockets, "P0.117: the page opened a websocket").toEqual([]);
       } finally {
         await originalPage.close();
       }
 
-      const freshPage = await browser.newPage();
+      const { page: freshPage, webSockets: freshSockets } = await openPage(browser);
       try {
         await freshPage.goto(sharedUrl);
         const reloaded = await readRunStatus(freshPage);
         expect(reloaded).toEqual(original);
+        expect(freshSockets, "P0.117: the fresh session opened a websocket").toEqual([]);
       } finally {
         await freshPage.close();
       }
