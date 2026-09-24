@@ -69,6 +69,19 @@ let dev: ServerProbe;
 let built: ServerProbe;
 let outDir: string;
 
+/**
+ * Cuts a server's keep-alive sockets where it can. Vite types `httpServer` as
+ * a union that includes `Http2SecureServer`, which declares no
+ * `closeAllConnections`, so this narrows at runtime rather than asserting a
+ * cast that would be a lie under an http2 server. Without this the teardown
+ * below does not complete -- see the header.
+ */
+function cutKeepAliveSockets(server: unknown): void {
+  const close = (server as { closeAllConnections?: unknown } | null | undefined)
+    ?.closeAllConnections;
+  if (typeof close === "function") close.call(server);
+}
+
 /** The `href` of the document's first `<link rel="icon">`, or `undefined`. */
 function iconHref(html: string): string | undefined {
   const link = html.match(/<link\b[^>]*\brel="icon"[^>]*>/i)?.[0];
@@ -107,7 +120,7 @@ beforeAll(async () => {
   try {
     dev = await probeServer(devUrl);
   } finally {
-    devServer.httpServer?.closeAllConnections();
+    cutKeepAliveSockets(devServer.httpServer);
     await devServer.close();
   }
 
@@ -134,7 +147,7 @@ beforeAll(async () => {
     built = await probeServer(previewUrl);
   } finally {
     const httpServer = previewServer.httpServer;
-    httpServer.closeAllConnections();
+    cutKeepAliveSockets(httpServer);
     await new Promise<void>((resolve, reject) =>
       httpServer.close((err) => (err ? reject(err) : resolve())),
     );
