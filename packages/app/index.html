@@ -4,6 +4,15 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Ballista</title>
+    <!--
+      Relative href, like every other asset URL here: vite.config.ts sets
+      base "./" because the build gets embedded at arbitrary subpaths, and a
+      root-relative "/favicon.svg" would 404 at every one of them. Declaring
+      any icon is also what stops the browser requesting /favicon.ico on its
+      own (P0.116) -- that request comes from the browser process, so no
+      application code can suppress it.
+    -->
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
   </head>
   <body>
     <div id="app"></div>
