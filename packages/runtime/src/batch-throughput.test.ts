@@ -289,13 +289,23 @@ describe("sampledVerdict: the statistic P0.122 replaced a single timing with", (
     const verdict = sampledVerdict(rung(7_916.57), [resample(8_871.89), resample(15_423.96)]);
 
     expect(verdict.unanimous).toBe(false);
+    expect(verdict.state).toBe("indeterminate");
     expect(verdict.spreadRatio).toBeCloseTo(15_423.96 / 7_916.57, 10);
+  });
+
+  it("keeps state indeterminate even though the best sample clears the budget", () => {
+    // The footgun this field exists to remove: meetsBudget is true here,
+    // and anything reading that boolean alone is back to reporting one draw.
+    const verdict = sampledVerdict(rung(9_400), [resample(10_600), resample(9_800)]);
+    expect(verdict.meetsBudget).toBe(true);
+    expect(verdict.state).toBe("indeterminate");
   });
 
   it("is unanimous when every sample clears the budget", () => {
     const verdict = sampledVerdict(rung(12_000), [resample(13_500), resample(11_200)]);
     expect(verdict.unanimous).toBe(true);
     expect(verdict.meetsBudget).toBe(true);
+    expect(verdict.state).toBe("meets");
   });
 
   it("is unanimous when every sample misses it, so a slow machine still reports a verdict", () => {
@@ -304,6 +314,7 @@ describe("sampledVerdict: the statistic P0.122 replaced a single timing with", (
     const verdict = sampledVerdict(rung(7_900), [resample(8_100), resample(6_400)]);
     expect(verdict.unanimous).toBe(true);
     expect(verdict.meetsBudget).toBe(false);
+    expect(verdict.state).toBe("misses");
   });
 
   it("treats a lone sample as unanimous with a spread of exactly 1", () => {

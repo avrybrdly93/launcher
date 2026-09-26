@@ -336,6 +336,17 @@ export interface SampledVerdict {
    * {@link meetsBudget}, which would be reporting one draw.
    */
   readonly unanimous: boolean;
+  /**
+   * The single field a reader should look at, and the reason it exists
+   * rather than leaving {@link meetsBudget} as the headline.
+   *
+   * `meetsBudget` is still a boolean and a boolean has no way to say "this
+   * machine could not tell". Publishing one next to `unanimous: false`
+   * leaves a footgun: anything that reads the boolean alone is back to
+   * reporting a single draw, which is the defect P0.122 is about. `state`
+   * cannot be misread that way.
+   */
+  readonly state: "meets" | "misses" | "indeterminate";
 }
 
 /**
@@ -370,6 +381,9 @@ export function sampledVerdict(
   const worst = Math.min(...samples);
   const clears = samples.map((rate) => rate >= THROUGHPUT_BUDGET_TRAJECTORIES_PER_SECOND);
 
+  const meetsBudget = best >= THROUGHPUT_BUDGET_TRAJECTORIES_PER_SECOND;
+  const unanimous = clears.every((c) => c === clears[0]);
+
   return {
     stepSize: rung.stepSize,
     relativeRangeError: rung.relativeRangeError,
@@ -379,7 +393,8 @@ export function sampledVerdict(
     best,
     worst,
     spreadRatio: best / worst,
-    meetsBudget: best >= THROUGHPUT_BUDGET_TRAJECTORIES_PER_SECOND,
-    unanimous: clears.every((c) => c === clears[0]),
+    meetsBudget,
+    unanimous,
+    state: !unanimous ? "indeterminate" : meetsBudget ? "meets" : "misses",
   };
 }

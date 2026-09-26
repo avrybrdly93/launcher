@@ -319,6 +319,7 @@ async function main() {
           spreadRatio: verdict.spreadRatio,
           meetsBudget: verdict.meetsBudget,
           unanimous: verdict.unanimous,
+          state: verdict.state,
         }
       : null,
   };
