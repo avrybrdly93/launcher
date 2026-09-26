@@ -81,8 +81,16 @@ export function ConvergenceTracePanel({ job, runOptimize }: ConvergenceTracePane
 
   const running = isRunning(state);
   // Recomputed per render rather than memoized: the sequence is one pass over
-  // ~20 rows, and `LazyPlotlyView` re-renders on spec identity anyway, so a
-  // `useMemo` here would buy nothing and add a dependency array to keep right.
+  // ~20 rows, so a `useMemo` here would buy nothing and add a dependency array
+  // to keep right.
+  //
+  // The second half of that sentence used to read "and `LazyPlotlyView`
+  // re-renders on spec identity anyway", which was true and was the defect
+  // P0.124 was filed for -- a fresh array here meant a fresh figure spec, and a
+  // full Plotly purge + newPlot on every render of this panel. Since P0.124 the
+  // view compares the spec BY VALUE, so a recomputed-but-identical array costs
+  // one comparison and no remount, and this local staying unmemoized is now a
+  // real choice rather than a consequence.
   const points = traceMeritPoints(state.rows);
 
   return (

@@ -398,6 +398,63 @@ describe("the log‖F‖ vs iteration plot (P5.19)", () => {
     );
   });
 
+  /**
+   * P0.124's validation criterion for this panel, as call counts rather than
+   * inspection: `buildNewtonTraceFigure([...])` was built inline at the JSX
+   * site, so every re-render was a fresh spec and a full Plotly purge + newPlot
+   * against an unchanged trace.
+   *
+   * These clear the mocks themselves rather than relying on a total: this file
+   * has no `clearAllMocks` in `afterEach`, so counts accumulate across its
+   * tests and only a locally-zeroed count means anything.
+   */
+  it("does not remount the pane when re-rendered with an unchanged trace", async () => {
+    const { runner, emit } = createControllableRunner();
+    const root = mount(<ConvergenceTracePanel job={JOB} runOptimize={runner} />);
+    click(root, "convergence-trace-solve");
+    await flush();
+    emit(iteration(0, 3.042));
+    emit(iteration(1, 5.472e-3));
+    await flush();
+
+    renderLazyPlotlyPane.mockClear();
+    disposeLazyPlotlyPane.mockClear();
+
+    // Three re-renders with the same props. The rows live in the panel's own
+    // reducer state, so `traceMeritPoints` produces the same numbers each time
+    // -- in a new array, which is exactly what made this remount.
+    for (let pass = 0; pass < 3; pass += 1) {
+      render(<ConvergenceTracePanel job={JOB} runOptimize={runner} />, root);
+      await flush();
+    }
+
+    expect(renderLazyPlotlyPane).not.toHaveBeenCalled();
+    expect(disposeLazyPlotlyPane).not.toHaveBeenCalled();
+    expect(root.querySelector('[data-testid="convergence-trace-plot"]')).not.toBeNull();
+  });
+
+  it("does remount when a further iteration extends the trace", async () => {
+    const { runner, emit } = createControllableRunner();
+    const root = mount(<ConvergenceTracePanel job={JOB} runOptimize={runner} />);
+    click(root, "convergence-trace-solve");
+    await flush();
+    emit(iteration(0, 3.042));
+    emit(iteration(1, 5.472e-3));
+    await flush();
+
+    renderLazyPlotlyPane.mockClear();
+    disposeLazyPlotlyPane.mockClear();
+
+    emit(iteration(2, 9.1e-9));
+    await flush();
+
+    // The point of the fix is fewer remounts, not none: a trace that grew by a
+    // point is a different figure and must reach the pane.
+    expect(renderLazyPlotlyPane).toHaveBeenCalledTimes(1);
+    expect(disposeLazyPlotlyPane).toHaveBeenCalledTimes(1);
+    expect(renderLazyPlotlyPane.mock.calls.at(-1)![1].traces[0]!.x).toEqual([0, 1, 2, 3]);
+  });
+
   it("keeps the plot after a cancel, showing what the solve reached before it stopped", async () => {
     const { runner, emit } = createControllableRunner();
     const root = mount(<ConvergenceTracePanel job={JOB} runOptimize={runner} />);

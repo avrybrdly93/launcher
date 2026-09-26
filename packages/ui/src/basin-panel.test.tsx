@@ -138,6 +138,54 @@ describe("BasinPanel (P5.20)", () => {
     expect(query(root, "basin-status")!.textContent).toContain("4 low, 4 high");
   });
 
+  /**
+   * P0.124's validation criterion for this panel, stated as call counts rather
+   * than as inspection: the panel built `buildBasinFigure(grid)` inline at the
+   * JSX site, so every re-render was a fresh spec object and a full Plotly purge
+   * + newPlot even though the grid had not moved.
+   */
+  it("does not remount the Plotly pane when re-rendered with an unchanged grid", async () => {
+    const runner: BasinSweepRunner = async () => gridOf("LLHH", "LLHH");
+    const root = mount(runner);
+
+    (query(root, "basin-sweep") as HTMLButtonElement).click();
+    await flush();
+    expect(renderLazyPlotlyPane).toHaveBeenCalledTimes(1);
+
+    // Three re-renders with the same props. The grid lives in the panel's own
+    // reducer state, so the figure is identical each time and the pane must be
+    // left alone.
+    for (let pass = 0; pass < 3; pass += 1) {
+      render(<BasinPanel runSweep={runner} />, root);
+      await flush();
+    }
+
+    expect(renderLazyPlotlyPane).toHaveBeenCalledTimes(1);
+    expect(disposeLazyPlotlyPane).not.toHaveBeenCalled();
+    // And the map is still on screen, which is the failure a too-eager
+    // comparison would produce instead.
+    expect(query(root, "basin-map")).not.toBeNull();
+  });
+
+  it("does remount when a second sweep lands a different grid", async () => {
+    let grid = gridOf("LLHH", "LLHH");
+    const runner: BasinSweepRunner = async () => grid;
+    const root = mount(runner);
+
+    (query(root, "basin-sweep") as HTMLButtonElement).click();
+    await flush();
+    expect(renderLazyPlotlyPane).toHaveBeenCalledTimes(1);
+
+    grid = gridOf("HHLL", "HHLL");
+    (query(root, "basin-sweep") as HTMLButtonElement).click();
+    await flush();
+
+    expect(renderLazyPlotlyPane).toHaveBeenCalledTimes(2);
+    expect(renderLazyPlotlyPane.mock.calls.at(-1)![1]).not.toEqual(
+      renderLazyPlotlyPane.mock.calls[0]![1],
+    );
+  });
+
   it("hands the real figure spec to the pane, axes on the initial guess", async () => {
     const root = mount(async () => gridOf("LH"));
 
