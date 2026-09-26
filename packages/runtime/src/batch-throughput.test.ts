@@ -7,11 +7,14 @@ import {
   THROUGHPUT_WORKERS,
   benchmarkReferenceStudy,
   benchmarkStudy,
+  THROUGHPUT_VERDICT_SAMPLES,
   meetsBudget,
   partitionReplicates,
+  sampledVerdict,
   throughputFrom,
   verdictRung,
   type LadderRung,
+  type ThroughputMeasurement,
 } from "./batch-throughput.js";
 import { createMcColumns, runMcRange, runMcReplicate } from "./mc-job.js";
 
@@ -243,5 +246,85 @@ describe("meetsBudget", () => {
     } satisfies LadderRung;
     expect(meetsBudget(at)).toBe(true);
     expect(meetsBudget({ ...at, trajectoriesPerSecond: 9_999.9 })).toBe(false);
+  });
+});
+
+describe("sampledVerdict: the statistic P0.122 replaced a single timing with", () => {
+  function rung(rate: number): LadderRung {
+    return {
+      stepSize: 0.05,
+      relativeRangeError: 1.3262690391304223e-9,
+      replicates: 40_000,
+      workers: 4,
+      elapsedSeconds: 40_000 / rate,
+      trajectoriesPerSecond: rate,
+    };
+  }
+
+  function resample(rate: number, overrides: Partial<ThroughputMeasurement> = {}) {
+    return { ...rung(rate), ...overrides } satisfies ThroughputMeasurement;
+  }
+
+  it("reads the verdict from the fastest sample, not the first one taken", () => {
+    // The ladder pass supplies the first sample and it is deliberately the
+    // slow one here: a verdict that still tracked the ladder's own timing
+    // would report false on this set.
+    const verdict = sampledVerdict(rung(7_916.57), [
+      resample(8_871.89),
+      resample(15_423.96),
+      resample(9_100),
+      resample(10_800),
+    ]);
+
+    expect(verdict.samples).toHaveLength(THROUGHPUT_VERDICT_SAMPLES);
+    expect(verdict.best).toBe(15_423.96);
+    expect(verdict.worst).toBe(7_916.57);
+    expect(verdict.meetsBudget).toBe(true);
+  });
+
+  it("reports a straddling job as not unanimous, which is the whole point of the row", () => {
+    // These are P0.122's three real CI readings at the same rung with the
+    // same relativeRangeError to every digit. A single draw from this set
+    // reports the machine; the set reports that the machine cannot decide.
+    const verdict = sampledVerdict(rung(7_916.57), [resample(8_871.89), resample(15_423.96)]);
+
+    expect(verdict.unanimous).toBe(false);
+    expect(verdict.spreadRatio).toBeCloseTo(15_423.96 / 7_916.57, 10);
+  });
+
+  it("is unanimous when every sample clears the budget", () => {
+    const verdict = sampledVerdict(rung(12_000), [resample(13_500), resample(11_200)]);
+    expect(verdict.unanimous).toBe(true);
+    expect(verdict.meetsBudget).toBe(true);
+  });
+
+  it("is unanimous when every sample misses it, so a slow machine still reports a verdict", () => {
+    // Unanimity is not a synonym for passing. A machine that is honestly too
+    // slow has decided something, and the artifact should say so.
+    const verdict = sampledVerdict(rung(7_900), [resample(8_100), resample(6_400)]);
+    expect(verdict.unanimous).toBe(true);
+    expect(verdict.meetsBudget).toBe(false);
+  });
+
+  it("treats a lone sample as unanimous with a spread of exactly 1", () => {
+    const verdict = sampledVerdict(rung(12_000), []);
+    expect(verdict.samples).toEqual([12_000]);
+    expect(verdict.spreadRatio).toBe(1);
+    expect(verdict.unanimous).toBe(true);
+  });
+
+  it("refuses a resample of a different workload rather than calling it the best", () => {
+    // A coarser step is faster by construction, so admitting one here would
+    // make "best" mean "cheapest configuration" -- P0.122's own failure in
+    // different clothes.
+    expect(() => sampledVerdict(rung(9_000), [resample(20_000, { stepSize: 0.1 })])).toThrow(
+      /does not match the verdict rung/,
+    );
+    expect(() => sampledVerdict(rung(9_000), [resample(20_000, { workers: 8 })])).toThrow(
+      /does not match the verdict rung/,
+    );
+    expect(() => sampledVerdict(rung(9_000), [resample(20_000, { replicates: 100 })])).toThrow(
+      /does not match the verdict rung/,
+    );
   });
 });

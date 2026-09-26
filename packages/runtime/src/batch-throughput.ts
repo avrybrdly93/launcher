@@ -254,3 +254,132 @@ export function verdictRung(rungs: readonly LadderRung[]): LadderRung | undefine
 export function meetsBudget(rung: LadderRung): boolean {
   return rung.trajectoriesPerSecond >= THROUGHPUT_BUDGET_TRAJECTORIES_PER_SECOND;
 }
+
+/**
+ * How many times the verdict rung is measured inside one job before the
+ * budget verdict is read. The verdict takes the **best** sample.
+ *
+ * **Why this exists (P0.122).** A single timing was reporting which machine
+ * CI drew rather than whether the code is fast enough. Three jobs at the
+ * same h=0.05 rung, with `relativeRangeError` identical to every digit --
+ * so the identical workload -- reported 7916.57, 8871.89 and 15423.96
+ * traj/s. About 1.05x of that spread was a real code change, measured
+ * locally as 8 interleaved A/B pairs; the remaining ~1.65x was not. The
+ * budget of 1e4 sits inside a 1.95x spread, so the same commit passed or
+ * failed depending on the draw.
+ *
+ * **Why the best sample and not the mean or the median.** A benchmark
+ * sample can only be slowed down by interference, never sped up by it, so
+ * the distribution's fast tail is the machine and its slow tail is
+ * everything else running on the machine. The maximum is therefore the
+ * least contaminated estimate, not the luckiest one. This repository
+ * already reasons that way: P0.116 takes a per-sample minimum in
+ * `Query.test.ts` for exactly this reason.
+ *
+ * **What this does NOT fix, stated here because the number would otherwise
+ * overclaim.** Sampling inside one job removes contention *within* that
+ * job. It cannot remove a runner that is uniformly slower than another
+ * runner, and P0.122's evidence is three separate jobs, so an unknown share
+ * of that 1.65x is machine class rather than a noisy neighbour. That is why
+ * {@link sampledVerdict} also reports {@link SampledVerdict.unanimous} and
+ * why a straddling sample set is published as indeterminate: when a job's
+ * own samples disagree about the budget, the honest output is that this
+ * machine cannot decide, not a coin flip dressed as a verdict.
+ *
+ * **The two options not taken, named here as P0.122 requires.**
+ *
+ * - *(b) Normalise against a cheap in-job calibration loop*, so the verdict
+ *   is work-per-unit-of-that-machine rather than wall clock -- decision
+ *   0023's in-process-control pattern. This is the most correct option and
+ *   the only one that addresses machine class directly. It is not taken
+ *   here because it needs a reference calibration constant, and that
+ *   constant decides where the verdict lands exactly the way the step size
+ *   does. Choosing it after seeing a throughput number is the integrity
+ *   risk this module's header is written against, so it needs its own row
+ *   and its own measurement campaign rather than a corner of this one.
+ * - *(c) Keep the absolute number but require it on two consecutive runs.*
+ *   Cheapest of the three, and it is still a coin flip -- twice. Two draws
+ *   from a 1.95x spread agreeing is an event with a probability, not a
+ *   property of the code, which is the same mistake P0.122 was filed to
+ *   correct: the 71st and 72nd runs read two consistent measurements as a
+ *   property of the runner class and they were two draws from a wide
+ *   distribution.
+ *
+ * Five samples rather than three: the cost is five timings of one rung in a
+ * job that already times four rungs, and three samples of a noisy statistic
+ * is not many. It is not derived from a target hit rate, and no run should
+ * raise it until a measurement says the sample count is what is limiting.
+ */
+export const THROUGHPUT_VERDICT_SAMPLES = 5;
+
+/** The verdict rung's throughput, read across several samples rather than one. */
+export interface SampledVerdict {
+  readonly stepSize: number;
+  readonly relativeRangeError: number;
+  readonly replicates: number;
+  readonly workers: number;
+  /** Every sample's throughput, in the order measured. Never empty. */
+  readonly samples: readonly number[];
+  /** The fastest sample: the estimate the verdict is read from. */
+  readonly best: number;
+  /** The slowest sample, published so the spread is visible rather than implied. */
+  readonly worst: number;
+  /** `best / worst`. 1 means the job was quiet; a large value means it was not. */
+  readonly spreadRatio: number;
+  /** Whether the best sample clears §2.6's budget. */
+  readonly meetsBudget: boolean;
+  /**
+   * Whether every sample landed on the same side of the budget.
+   *
+   * `false` means this job straddled the threshold and cannot support a
+   * verdict at all -- the caller must report that rather than
+   * {@link meetsBudget}, which would be reporting one draw.
+   */
+  readonly unanimous: boolean;
+}
+
+/**
+ * Builds the sampled verdict from the ladder pass's measurement of the
+ * verdict rung plus its resamples.
+ *
+ * Throws when a resample describes a different workload. Comparing samples
+ * taken at different step sizes, replicate counts or worker counts would
+ * produce a "best" that is merely the cheapest configuration, which is the
+ * failure this whole row is about wearing different clothes.
+ */
+export function sampledVerdict(
+  rung: LadderRung,
+  resamples: readonly ThroughputMeasurement[],
+): SampledVerdict {
+  for (const resample of resamples) {
+    if (
+      resample.stepSize !== rung.stepSize ||
+      resample.replicates !== rung.replicates ||
+      resample.workers !== rung.workers
+    ) {
+      throw new Error(
+        `sampledVerdict: resample (h=${resample.stepSize}, ${resample.replicates} replicates, ` +
+          `${resample.workers} workers) does not match the verdict rung ` +
+          `(h=${rung.stepSize}, ${rung.replicates} replicates, ${rung.workers} workers)`,
+      );
+    }
+  }
+
+  const samples = [rung.trajectoriesPerSecond, ...resamples.map((r) => r.trajectoriesPerSecond)];
+  const best = Math.max(...samples);
+  const worst = Math.min(...samples);
+  const clears = samples.map((rate) => rate >= THROUGHPUT_BUDGET_TRAJECTORIES_PER_SECOND);
+
+  return {
+    stepSize: rung.stepSize,
+    relativeRangeError: rung.relativeRangeError,
+    replicates: rung.replicates,
+    workers: rung.workers,
+    samples,
+    best,
+    worst,
+    spreadRatio: best / worst,
+    meetsBudget: best >= THROUGHPUT_BUDGET_TRAJECTORIES_PER_SECOND,
+    unanimous: clears.every((c) => c === clears[0]),
+  };
+}
