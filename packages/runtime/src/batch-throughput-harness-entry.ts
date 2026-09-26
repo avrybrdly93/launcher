@@ -14,11 +14,13 @@ export {
   ACCURACY_CEILING,
   THROUGHPUT_BUDGET_TRAJECTORIES_PER_SECOND,
   THROUGHPUT_STEP_LADDER,
+  THROUGHPUT_VERDICT_SAMPLES,
   THROUGHPUT_WORKERS,
   benchmarkReferenceStudy,
   benchmarkStudy,
   meetsBudget,
   partitionReplicates,
+  sampledVerdict,
   throughputFrom,
   verdictRung,
 } from "./batch-throughput.js";

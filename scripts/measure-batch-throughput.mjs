@@ -33,6 +33,25 @@
 // reader can see what any other step would have given, and a future run
 // cannot quietly move the constant that decides the outcome.
 //
+// THE VERDICT RUNG IS MEASURED N TIMES, NOT ONCE, AND THE BEST SAMPLE WINS
+// (P0.122). One timing was reporting which machine CI drew rather than
+// whether the code is fast enough: three jobs at the same rung, with
+// relativeRangeError identical to every digit, reported 7916.57, 8871.89 and
+// 15423.96 traj/s, and the 1e4 budget sits inside that 1.95x spread. Only
+// the verdict rung is resampled -- the other rungs are there so a reader can
+// see the trade-off and none of them decides anything. The accuracy leg is
+// not resampled at all: it is deterministic, and those same three CI
+// readings agreed on it to every digit while disagreeing 1.95x on rate.
+//
+// AND WHEN THE SAMPLES DISAGREE, THE ARTIFACT SAYS SO INSTEAD OF PICKING.
+// `verdict.unanimous` is false when the samples straddle the budget, and the
+// script prints INDETERMINATE rather than a pass or a fail. Best-of-N
+// removes contention within one job; it cannot remove a runner that is
+// uniformly slower, so a straddling set means this machine did not decide
+// and neither should the log line. The full sample list, the worst sample
+// and the spread ratio are all published, so the next reader can see the
+// distribution rather than the one number it collapsed to.
+//
 // SOFT-WARN, LIKE THIS REPOSITORY'S OTHER TWO PERF CHECKS. A missed budget
 // prints `::warning::` and exits 0. Absolute throughput on a shared CI runner
 // is not a signal a build should be gated on -- the same reasoning
@@ -53,6 +72,9 @@
 //
 // Usage:
 //   node scripts/measure-batch-throughput.mjs [--record] [--replicates N] [--workers W]
+//
+// A full run is four ladder rungs plus THROUGHPUT_VERDICT_SAMPLES-1 resamples
+// of the verdict rung.
 
 import { mkdtempSync, rmSync, writeFileSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -181,6 +203,7 @@ async function main() {
   const outDir = mkdtempSync(join(tmpdir(), "ballista-throughput-"));
   let rungs;
   let definition;
+  const resamples = [];
   try {
     const definitionFile = await bundle(
       outDir,
@@ -221,11 +244,48 @@ async function main() {
           `${formatRate(measurement.trajectoriesPerSecond)}  (${elapsedSeconds.toFixed(2)} s)`,
       );
     }
+
+    // P0.122. The ladder pass above gives ONE timing of the verdict rung,
+    // and one timing was reporting which machine CI drew rather than
+    // whether the code is fast enough. Resample that rung only -- the other
+    // rungs exist so a reader can see the trade-off, and none of them
+    // decides anything, so paying for four extra timings of each would buy
+    // nothing. The accuracy leg is not resampled either: it is
+    // deterministic, and P0.122's three CI readings agreed on
+    // relativeRangeError to every digit while disagreeing 1.95x on rate.
+    const ladderVerdict = definition.verdictRung(rungs);
+    if (ladderVerdict) {
+      const extra = definition.THROUGHPUT_VERDICT_SAMPLES - 1;
+      console.log(
+        `  resampling the verdict rung h=${ladderVerdict.stepSize} ${extra} more time(s) (P0.122)`,
+      );
+      for (let sample = 0; sample < extra; sample++) {
+        const { elapsedSeconds } = await measureRung(
+          definition,
+          workerFile,
+          ladderVerdict.stepSize,
+          args.replicates,
+          args.workers,
+        );
+        const measurement = definition.throughputFrom(
+          ladderVerdict.stepSize,
+          args.replicates,
+          args.workers,
+          elapsedSeconds,
+        );
+        resamples.push(measurement);
+        console.log(
+          `    sample ${sample + 2}/${definition.THROUGHPUT_VERDICT_SAMPLES}  ` +
+            `${formatRate(measurement.trajectoriesPerSecond)}  (${elapsedSeconds.toFixed(2)} s)`,
+        );
+      }
+    }
   } finally {
     rmSync(outDir, { recursive: true, force: true });
   }
 
-  const verdict = definition.verdictRung(rungs);
+  const rung = definition.verdictRung(rungs);
+  const verdict = rung ? definition.sampledVerdict(rung, resamples) : undefined;
   const record = {
     task: "P6.26",
     budget: {
@@ -244,12 +304,21 @@ async function main() {
     replicates: args.replicates,
     workers: args.workers,
     ladder: rungs,
+    verdictSamples: definition.THROUGHPUT_VERDICT_SAMPLES,
     verdict: verdict
       ? {
           stepSize: verdict.stepSize,
-          trajectoriesPerSecond: verdict.trajectoriesPerSecond,
+          // The best sample, which is what the verdict is read from. Kept
+          // under the same key it has always had so the field means the
+          // same thing to a reader comparing artifacts across runs: the
+          // number the budget is judged against.
+          trajectoriesPerSecond: verdict.best,
           relativeRangeError: verdict.relativeRangeError,
-          meetsBudget: definition.meetsBudget(verdict),
+          samples: verdict.samples,
+          worst: verdict.worst,
+          spreadRatio: verdict.spreadRatio,
+          meetsBudget: verdict.meetsBudget,
+          unanimous: verdict.unanimous,
         }
       : null,
   };
@@ -258,13 +327,22 @@ async function main() {
     console.log(
       `::warning::No step on the ladder reached the ${definition.ACCURACY_CEILING.toExponential(0)} accuracy ceiling, so there is no throughput to compare against §2.6. This is not a budget failure -- it is a ladder that cannot support a verdict.`,
     );
-  } else if (definition.meetsBudget(verdict)) {
+  } else if (!verdict.unanimous) {
+    // P0.122's actual finding, reported rather than resolved. The samples
+    // straddle the budget, so this machine has not decided anything and
+    // printing either verdict would be printing one draw. Soft-warn like
+    // the other two outcomes: an indeterminate measurement is not a build
+    // failure, it is a measurement that says so.
     console.log(
-      `::notice::Batch throughput ${formatRate(verdict.trajectoriesPerSecond)} on ${args.workers} workers at h=${verdict.stepSize} (relative range error ${verdict.relativeRangeError.toExponential(3)}) meets §2.6's ${definition.THROUGHPUT_BUDGET_TRAJECTORIES_PER_SECOND} traj/s budget.`,
+      `::warning::Batch throughput is INDETERMINATE on this machine at h=${verdict.stepSize}: ${definition.THROUGHPUT_VERDICT_SAMPLES} samples spanned ${formatRate(verdict.worst)} to ${formatRate(verdict.best)} (${verdict.spreadRatio.toFixed(2)}x), which straddles §2.6's ${definition.THROUGHPUT_BUDGET_TRAJECTORIES_PER_SECOND} traj/s budget. Reporting either verdict would be reporting the runner draw, which is what P0.122 was filed about.`,
+    );
+  } else if (verdict.meetsBudget) {
+    console.log(
+      `::notice::Batch throughput ${formatRate(verdict.best)} on ${args.workers} workers at h=${verdict.stepSize} (best of ${definition.THROUGHPUT_VERDICT_SAMPLES}, spread ${verdict.spreadRatio.toFixed(2)}x, relative range error ${verdict.relativeRangeError.toExponential(3)}) meets §2.6's ${definition.THROUGHPUT_BUDGET_TRAJECTORIES_PER_SECOND} traj/s budget, and every sample cleared it.`,
     );
   } else {
     console.log(
-      `::warning::Batch throughput ${formatRate(verdict.trajectoriesPerSecond)} on ${args.workers} workers at h=${verdict.stepSize} is BELOW §2.6's ${definition.THROUGHPUT_BUDGET_TRAJECTORIES_PER_SECOND} traj/s budget. Soft-warn: absolute throughput on a shared runner is not a build gate; the artifact is the record.`,
+      `::warning::Batch throughput ${formatRate(verdict.best)} on ${args.workers} workers at h=${verdict.stepSize} is BELOW §2.6's ${definition.THROUGHPUT_BUDGET_TRAJECTORIES_PER_SECOND} traj/s budget, and every one of ${definition.THROUGHPUT_VERDICT_SAMPLES} samples missed it (spread ${verdict.spreadRatio.toFixed(2)}x), so this is the machine's verdict and not one draw. Soft-warn: absolute throughput on a shared runner is not a build gate; the artifact is the record.`,
     );
   }
 
@@ -284,7 +362,7 @@ async function main() {
     try {
       const previous = JSON.parse(readFileSync(ARTIFACT_PATH, "utf8"));
       if (previous.verdict && verdict) {
-        const ratio = verdict.trajectoriesPerSecond / previous.verdict.trajectoriesPerSecond;
+        const ratio = verdict.best / previous.verdict.trajectoriesPerSecond;
         console.log(
           `Committed record: ${formatRate(previous.verdict.trajectoriesPerSecond)} at h=${previous.verdict.stepSize} (${previous.environment?.cpus ?? "?"} CPUs). This run is ${ratio.toFixed(2)}x that.`,
         );
