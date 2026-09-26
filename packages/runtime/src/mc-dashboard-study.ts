@@ -31,10 +31,13 @@
  *
  * **What it does not do: workers, and streaming.** This is a synchronous
  * reduction that a caller runs wherever it likes -- a test, a worker entry, a
- * batch script. P6.25 is the task that moves it off the UI thread and makes
- * the estimates tighten live; until then a caller on the main thread should
- * keep `replicates` modest, which is why {@link DEFAULT_DASHBOARD_REPLICATES}
- * is 512 rather than the 1e4 P6.04 sized its columns for.
+ * batch script. P6.25 made the estimates tighten live and P0.119 moved the
+ * drain off the UI thread: `WorkerPool.runMc` runs
+ * {@link mcDashboardStudySteps} inside a worker, so the dashboard no longer
+ * calls this module from the main thread at all. A caller that still does
+ * should keep `replicates` modest, which is why
+ * {@link DEFAULT_DASHBOARD_REPLICATES} is 512 rather than the 1e4 P6.04 sized
+ * its columns for.
  */
 
 import {
@@ -59,8 +62,13 @@ import { resolveModel, resolveSolverConfig, resolveStepper } from "./scenario-re
  * Replicates a dashboard study runs when the caller does not say.
  *
  * **Far below the 1e4 P6.04's columns were sized for, and deliberately.**
- * Until P6.25 moves this to a worker it runs on whichever thread called it,
- * and a study that blocks a UI thread for ten seconds is not a dashboard. 512
+ * This runs on whichever thread called it -- P0.119 moved the *dashboard* into
+ * a worker, not this function -- and a study that blocks a UI thread is not a
+ * dashboard. (The ten seconds this comment used to assert was never measured:
+ * P0.119 timed 2048 replicates of the golf drive at about 320 ms in this
+ * container, so the figure was pessimistic by well over an order of magnitude.
+ * The constant is left where it is: a conservative default costs nothing and
+ * re-deriving it is not this task.) 512
  * planar replicates put the range standard error at roughly `sigma/22`, which
  * is enough for the histogram to have a shape and for the Wilson interval to
  * be narrow enough to read.

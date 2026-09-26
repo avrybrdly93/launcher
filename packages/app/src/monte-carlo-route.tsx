@@ -8,29 +8,34 @@
  * integrating anything, and this module is where the integration actually
  * happens.
  *
- * **The study runs on this thread, and the driver is what keeps Cancel
- * honest.** P6.25 is the task that moves it to a worker and streams partial
- * results; until then the work is CPU-bound JavaScript on the UI thread, and
- * a single synchronous `runMcDashboardStudy` call would block the event loop
- * for its whole duration -- during which the Cancel click cannot be
- * delivered, the progress bar cannot paint, and the `AbortSignal` cannot
- * become aborted. A Cancel button wired to that would be decoration. So this
- * drives `mcDashboardStudySteps` instead and yields to the event loop every
- * {@link YIELD_EVERY} replicates, which is what makes the button, and the
- * bar, real.
+ * **The study runs in a worker (P0.119), which is what makes Cancel and the
+ * progress bar real.** The work is CPU-bound JavaScript, so a synchronous
+ * `runMcDashboardStudy` call on this thread would block the event loop for its
+ * whole duration -- during which the Cancel click cannot be delivered, the bar
+ * cannot paint, and the `AbortSignal` cannot become aborted. A Cancel button
+ * wired to that would be decoration.
+ *
+ * Until P0.119 this route drove `mcDashboardStudySteps` itself and hopped a
+ * macrotask every few replicates, which made the button real but left the
+ * integrations on the UI thread between hops. `pool.runMc` moves the whole
+ * drain into a worker instead: the same generator, the same steps, the same
+ * partial estimates, on a thread that cannot stall a frame. Cancel is now a
+ * worker termination rather than a loop that checks a flag -- see
+ * `WorkerPool.runMc` for why a busy worker cannot be asked politely.
  */
 
 import { useCallback, useEffect, useMemo, useState } from "preact/hooks";
 import {
+  createWorkerPool,
   DEFAULT_FAN_REPLICATES,
   detectComputeCapability,
-  mcDashboardStudySteps,
   type ComputeCapabilityReport,
-  type McDashboardResult,
+  type McDashboardStudySpec,
 } from "@ballista/runtime";
 import { uncertainScenarioSpecSchema, type UncertainScenarioSpec } from "@ballista/engine";
 import type { Target } from "@ballista/analysis";
 import { MonteCarloPage, WebGpuCapabilityPanel, type McStudyRunner } from "@ballista/ui";
+import { createMcWorker } from "./mc-worker-factory.js";
 import { PRESET_SCENARIO_OPTIONS } from "./preset-scenario-options.js";
 import "./solver-lab-route.css";
 
@@ -107,60 +112,22 @@ export const GOLF_DRIVE_TARGET: Target = { kind: "point", center: [250, 0], tole
 export const GOLF_DRIVE_TARGET_LABEL = "a 15 m circle, 250 m downrange";
 
 /**
- * Replicates between yields to the event loop.
+ * The study spec for one run at `replicates`, exactly as it crosses into the
+ * worker.
  *
- * Small enough that a Cancel click waits at most a handful of integrations,
- * large enough that the yields themselves are not the cost: a macrotask hop
- * is on the order of a millisecond, so yielding every replicate would roughly
- * double the wall time of a study whose replicates take about that long.
+ * Exported for its test: the route's own value is the one thing a fake worker
+ * cannot check, so the suite asserts the spec is a valid, varying golf-drive
+ * study rather than trusting that it is.
  */
-const YIELD_EVERY = 16;
-
-/** One macrotask hop, so queued input and a repaint can happen. */
-function yieldToEventLoop(): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, 0));
+export function golfDriveStudySpec(replicates: number): McDashboardStudySpec {
+  return {
+    study: { ...GOLF_DRIVE_UNCERTAINTY_STUDY, replicates },
+    target: GOLF_DRIVE_TARGET,
+  };
 }
 
-/**
- * Drives the study generator, yielding periodically and honouring `signal`.
- *
- * Exported for its test: this is where "the button works" actually lives, and
- * it is ordinary async code that a test can drive without a DOM.
- */
-export async function runGolfDriveStudy(options: {
-  readonly replicates: number;
-  readonly signal?: AbortSignal;
-  readonly onProgress?: Parameters<McStudyRunner>[0]["onProgress"];
-  /** Injected by the test so it need not integrate 512 trajectories. */
-  readonly study?: UncertainScenarioSpec;
-  readonly yieldEvery?: number;
-}): Promise<McDashboardResult> {
-  const study = options.study ?? GOLF_DRIVE_UNCERTAINTY_STUDY;
-  const yieldEvery = options.yieldEvery ?? YIELD_EVERY;
-  const steps = mcDashboardStudySteps(
-    { study: { ...study, replicates: options.replicates }, target: GOLF_DRIVE_TARGET },
-    { fanReplicates: DEFAULT_FAN_REPLICATES },
-  );
-
-  let sinceYield = 0;
-  for (;;) {
-    if (options.signal?.aborted === true) {
-      // `return` rather than `throw` into the generator: the study is
-      // abandoned, and the finally-less generator simply stops. The rejection
-      // is what the pane reads as a cancel.
-      steps.return(undefined as never);
-      throw new DOMException("study cancelled", "AbortError");
-    }
-    const next = steps.next();
-    if (next.done === true) return next.value;
-    options.onProgress?.(next.value);
-    sinceYield += 1;
-    if (sinceYield >= yieldEvery) {
-      sinceYield = 0;
-      await yieldToEventLoop();
-    }
-  }
-}
+/** Study knobs the dashboard runs with, forwarded into the worker. */
+export const GOLF_DRIVE_STUDY_OPTIONS = { fanReplicates: DEFAULT_FAN_REPLICATES } as const;
 
 /**
  * P7.13's capability report, mounted here because this is the route whose work
@@ -188,14 +155,23 @@ function useComputeCapability(): ComputeCapabilityReport | null {
 
 export function MonteCarloRoute() {
   const capability = useComputeCapability();
+
+  // One worker, created once for the route's lifetime and terminated with it,
+  // exactly as `inverse-solver-route.tsx` does. Size 1 because a study is a
+  // sequential reduction -- see `WorkerPool.runMc` for why there is nothing
+  // here to fan out. A cancelled study terminates this worker and the pool
+  // refills the slot, so the route survives a Cancel without remounting.
+  const pool = useMemo(() => createWorkerPool({ createWorker: createMcWorker, size: 1 }), []);
+  useEffect(() => () => pool.terminate(), [pool]);
+
   const runStudy = useCallback<McStudyRunner>(
     ({ replicates, signal, onProgress }) =>
-      runGolfDriveStudy({
-        replicates,
+      pool.runMc(golfDriveStudySpec(replicates), {
+        studyOptions: GOLF_DRIVE_STUDY_OPTIONS,
         ...(signal === undefined ? {} : { signal }),
         ...(onProgress === undefined ? {} : { onProgress }),
       }),
-    [],
+    [pool],
   );
 
   // Stable across renders so the pane's `useCallback` dependency does not
@@ -215,9 +191,9 @@ export function MonteCarloRoute() {
         illustrative round numbers, not measurements of any golfer.
       </p>
       <p>
-        The study runs on this thread, so it yields between batches of replicates rather than
-        blocking &mdash; which is what lets the progress bar move and Cancel take effect. Moving it
-        to a worker, with estimates that tighten live, is P6.25.
+        The study runs in a worker, so the page stays responsive while it works &mdash; the progress
+        bar keeps moving, the estimate below it tightens as replicates accumulate, and Cancel takes
+        effect immediately rather than at the end of a batch.
       </p>
       <MonteCarloPage runStudy={runStudy} targetLabel={label} initialReplicates={256} />
       <WebGpuCapabilityPanel report={capability} />

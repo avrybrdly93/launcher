@@ -4,27 +4,102 @@
  * UI", and this is the end-to-end half: the pane's own suite fakes its runner,
  * so nothing there integrates a trajectory or proves the wiring is real.
  *
- * Two things are checked that only this layer can check. First that the study
- * this route hands the pane is a *valid, varying* golf-drive study whose
- * numbers come out of a real integration. Second that `runGolfDriveStudy` --
- * the driver that makes the pane's Cancel button mean something -- actually
- * yields to the event loop and actually stops when the signal fires. A
- * synchronous driver would pass every assertion the pane's suite makes and
- * still freeze the tab.
+ * **jsdom has no `Worker`, so the factory is stubbed with an in-process fake
+ * that runs the real `postMcResult`** -- the same shared definition a real
+ * `mc-worker-entry.ts` calls -- one message per macrotask, exactly as
+ * `inverse-solver-route.test.tsx` does for optimize. That makes this an
+ * end-to-end check of the actual wiring (route -> pool -> study -> streamed
+ * steps -> pane -> DOM) with only the thread faked.
+ *
+ * **What this layer therefore CANNOT prove, and where it is proved instead.**
+ * The fake worker computes the study synchronously inside `postMessage`, so
+ * every assertion here would hold just as well if the study still ran on the
+ * calling thread. P0.119's criterion is that the UI thread stays responsive
+ * under a 2048-replicate run, and that is a claim about real threads:
+ * `worker-pool.e2e.test.ts` asserts it in a real Chromium page with a
+ * heartbeat long-task probe, the same way P3.39's sweep criterion is asserted.
+ * Nothing in this file should be read as evidence for it.
  */
 import { render } from "preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { uncertainScenarioSpecSchema } from "@ballista/engine";
 import { isHit } from "@ballista/analysis";
-import type { McDashboardProgress } from "@ballista/runtime";
-
 import {
+  createWorkerPool,
+  McCancelledError,
+  postMcResult,
+  type McDashboardOptions,
+  type McDashboardProgress,
+  type McDashboardResult,
+  type McRequest,
+  type WorkerLike,
+} from "@ballista/runtime";
+
+/** Every fake worker this suite's factory has handed out, newest last. */
+const fakes: Array<{ terminated: () => boolean; requests: McRequest[] }> = [];
+
+function createFakeMcWorker(): WorkerLike {
+  let terminated = false;
+  const requests: McRequest[] = [];
+  fakes.push({ terminated: () => terminated, requests });
+  const worker: WorkerLike = {
+    postMessage(message) {
+      const request = message as McRequest;
+      requests.push(request);
+      const queue: unknown[] = [];
+      postMcResult((out) => queue.push(out), request);
+      const drain = (index: number): void => {
+        if (terminated || index >= queue.length) return;
+        setTimeout(() => {
+          if (terminated) return;
+          worker.onmessage?.({ data: queue[index] });
+          drain(index + 1);
+        }, 0);
+      };
+      drain(0);
+    },
+    terminate() {
+      terminated = true;
+    },
+    onmessage: null,
+    onerror: null,
+  };
+  return worker;
+}
+
+vi.mock("./mc-worker-factory.js", () => ({ createMcWorker: () => createFakeMcWorker() }));
+
+const {
+  GOLF_DRIVE_STUDY_OPTIONS,
   GOLF_DRIVE_TARGET,
   GOLF_DRIVE_TARGET_LABEL,
   GOLF_DRIVE_UNCERTAINTY_STUDY,
   MonteCarloRoute,
-  runGolfDriveStudy,
-} from "./monte-carlo-route.js";
+  golfDriveStudySpec,
+} = await import("./monte-carlo-route.js");
+
+/**
+ * Runs one study through the same path the route uses -- the real pool, the
+ * real `postMcResult`, the route's own spec builder -- with only the thread
+ * faked. Every assertion below that used to drive the route's main-thread
+ * driver now drives this, so the behaviour is asserted at the seam that
+ * actually ships.
+ */
+function runStudyInFakeWorker(options: {
+  readonly replicates: number;
+  readonly signal?: AbortSignal;
+  readonly onProgress?: (progress: McDashboardProgress) => void;
+  readonly studyOptions?: McDashboardOptions;
+}): Promise<McDashboardResult> {
+  const pool = createWorkerPool({ createWorker: createFakeMcWorker, size: 1 });
+  return pool
+    .runMc(golfDriveStudySpec(options.replicates), {
+      studyOptions: options.studyOptions ?? GOLF_DRIVE_STUDY_OPTIONS,
+      ...(options.signal === undefined ? {} : { signal: options.signal }),
+      ...(options.onProgress === undefined ? {} : { onProgress: options.onProgress }),
+    })
+    .finally(() => pool.terminate());
+}
 
 let host: HTMLDivElement | undefined;
 
@@ -57,10 +132,31 @@ describe("MonteCarloRoute (P6.24)", () => {
     expect(root.querySelector('[data-testid="mc-status"]')!.textContent).toBe("No study run yet.");
   });
 
-  it("says out loud that the study runs on this thread", () => {
-    // The honesty requirement this route carries: a reader should not have to
-    // discover from a frozen tab that the work is not in a worker.
-    expect(mount().textContent).toContain("runs on this thread");
+  it("says out loud that the study runs in a worker (P0.119)", () => {
+    // The honesty requirement this route carries, now pointing the other way:
+    // before P0.119 this asserted the page admitted the work was on the UI
+    // thread. The sentence had to change with the behaviour -- a page still
+    // claiming the old thing would be the defect.
+    const text = mount().textContent;
+    expect(text).toContain("runs in a worker");
+    expect(text).not.toContain("runs on this thread");
+  });
+
+  it("actually constructs a worker and sends it an mc request when a study is asked for", async () => {
+    // The wiring assertion the pane's own suite cannot make: the pane is given
+    // a runner and cannot tell what is behind it. This checks the route's
+    // runner reaches a Worker at all, rather than quietly still draining the
+    // generator on this thread.
+    const before = fakes.length;
+    const root = mount();
+    expect(fakes.length).toBe(before + 1);
+
+    root.querySelector<HTMLButtonElement>('[data-testid="mc-run"]')!.click();
+    await vi.waitFor(() => {
+      expect(fakes[before]!.requests.length).toBe(1);
+    });
+    expect(fakes[before]!.requests[0]!.kind).toBe("mc");
+    expect(fakes[before]!.requests[0]!.spec.target).toEqual(GOLF_DRIVE_TARGET);
   });
 });
 
@@ -121,7 +217,7 @@ describe("the golf-drive study is a real, varying study", () => {
   });
 
   it("produces an ensemble with real spread when actually integrated", async () => {
-    const result = await runGolfDriveStudy({ replicates: 12, yieldEvery: 1000 });
+    const result = await runStudyInFakeWorker({ replicates: 12 });
     expect(result.stats.count).toBe(12);
     expect(result.stats.landedCount).toBe(12);
     expect(result.stats.range.variance).toBeGreaterThan(0);
@@ -132,7 +228,7 @@ describe("the golf-drive study is a real, varying study", () => {
   });
 
   it("scores the hit probability against the documented target, not a reinvented one", async () => {
-    const result = await runGolfDriveStudy({ replicates: 12, yieldEvery: 1000 });
+    const result = await runStudyInFakeWorker({ replicates: 12 });
     // Recount the hits from the columns using targets.ts' own predicate, and
     // by a *different* route to the impact point than the study takes: the
     // study reads `impactPoint` off the observable sink, this rebuilds it as
@@ -158,21 +254,23 @@ describe("the golf-drive study is a real, varying study", () => {
   });
 });
 
-describe("runGolfDriveStudy keeps Cancel honest", () => {
-  it("yields to the event loop rather than running the study in one block", async () => {
-    // The assertion that a synchronous driver fails. A macrotask queued
-    // *before* the study starts must be able to run *during* it; if the driver
-    // never yielded, the study would finish first and the flag would still be
-    // false when the first progress report arrives after it.
+describe("Cancel stops the study (P0.119: it terminates the worker)", () => {
+  it("the study reaches the caller a step at a time, not all at the end", async () => {
+    // Before P0.119 this asserted the main-thread driver yielded to the event
+    // loop. Yielding is no longer what makes Cancel real -- the work is on
+    // another thread -- but the streaming still has to be genuine: a macrotask
+    // queued before the run must be able to run before the last progress
+    // report arrives. This is the strongest thing an in-process fake can say;
+    // the responsiveness claim itself belongs to the e2e heartbeat probe (see
+    // this file's header).
     let macrotaskRan = false;
     setTimeout(() => {
       macrotaskRan = true;
     }, 0);
 
     let flagAtEnd = false;
-    await runGolfDriveStudy({
+    await runStudyInFakeWorker({
       replicates: 12,
-      yieldEvery: 2,
       onProgress: () => {
         flagAtEnd = macrotaskRan;
       },
@@ -180,23 +278,29 @@ describe("runGolfDriveStudy keeps Cancel honest", () => {
     expect(flagAtEnd).toBe(true);
   });
 
-  it("rejects with an AbortError when the signal fires mid-study", async () => {
+  it("rejects with McCancelledError and terminates the worker when the signal fires mid-study", async () => {
     const controller = new AbortController();
     const seen: McDashboardProgress[] = [];
+    const before = fakes.length;
 
-    const promise = runGolfDriveStudy({
+    const promise = runStudyInFakeWorker({
       replicates: 400,
-      yieldEvery: 2,
       signal: controller.signal,
       onProgress: (progress) => {
         seen.push(progress);
-        if (progress.completed === 6) controller.abort();
+        // Abort on the second report rather than at a fixed `completed`:
+        // progress is throttled now, so no particular count is guaranteed to
+        // be delivered.
+        if (seen.length === 2) controller.abort();
       },
     });
 
-    await expect(promise).rejects.toMatchObject({ name: "AbortError" });
-    // And it really stopped: a driver that only checked the signal at the end
-    // would have reported all 400 ensemble steps before rejecting.
+    // Not an AbortError any more, and the pane is unaffected: it decides a run
+    // was cancelled from `controller.signal.aborted`, not from the error's name.
+    await expect(promise).rejects.toBeInstanceOf(McCancelledError);
+    expect(fakes[before]!.terminated()).toBe(true);
+    // And it really stopped: a study that only checked the signal at the end
+    // would have reported the whole 400-replicate ensemble before rejecting.
     expect(seen.length).toBeLessThan(50);
   });
 
@@ -204,15 +308,19 @@ describe("runGolfDriveStudy keeps Cancel honest", () => {
     const controller = new AbortController();
     controller.abort();
     const seen: McDashboardProgress[] = [];
+    const before = fakes.length;
 
     await expect(
-      runGolfDriveStudy({
+      runStudyInFakeWorker({
         replicates: 12,
         signal: controller.signal,
         onProgress: (progress) => seen.push(progress),
       }),
-    ).rejects.toMatchObject({ name: "AbortError" });
+    ).rejects.toBeInstanceOf(McCancelledError);
     expect(seen).toHaveLength(0);
+    // Nothing was even posted to the worker, which is what "does not start"
+    // has to mean now that the work is on the other side of a message.
+    expect(fakes[before]!.requests).toHaveLength(0);
   });
 
   it("runs the N it is given, not the number the spec happens to carry", async () => {
@@ -220,7 +328,7 @@ describe("runGolfDriveStudy keeps Cancel honest", () => {
     // what decides the run. A route that forgot to override it would quietly
     // integrate 512 trajectories every time.
     expect(GOLF_DRIVE_UNCERTAINTY_STUDY.replicates).toBe(512);
-    const result = await runGolfDriveStudy({ replicates: 10, yieldEvery: 1000 });
+    const result = await runStudyInFakeWorker({ replicates: 10 });
     expect(result.stats.count).toBe(10);
   });
 });
@@ -230,9 +338,8 @@ describe("P6.25 the route streams live estimates from a real study", () => {
     // End to end on the real golf drive: the criterion is about what reaches
     // the pane, and the pane is fed by exactly this callback.
     const partials: NonNullable<McDashboardProgress["partial"]>[] = [];
-    await runGolfDriveStudy({
+    await runStudyInFakeWorker({
       replicates: 32,
-      yieldEvery: 1000,
       onProgress: (progress) => {
         if (progress.partial !== undefined) partials.push(progress.partial);
       },
@@ -249,9 +356,8 @@ describe("P6.25 the route streams live estimates from a real study", () => {
     // If these differed, the number on screen would jump at the instant the
     // run completed, for no reason a reader could account for.
     let last: NonNullable<McDashboardProgress["partial"]> | undefined;
-    const result = await runGolfDriveStudy({
+    const result = await runStudyInFakeWorker({
       replicates: 24,
-      yieldEvery: 1000,
       onProgress: (progress) => {
         if (progress.partial !== undefined) last = progress.partial;
       },
@@ -264,9 +370,8 @@ describe("P6.25 the route streams live estimates from a real study", () => {
 
   it("the interval is tighter at the end of a run than at its first estimate", async () => {
     const partials: NonNullable<McDashboardProgress["partial"]>[] = [];
-    await runGolfDriveStudy({
+    await runStudyInFakeWorker({
       replicates: 64,
-      yieldEvery: 1000,
       onProgress: (progress) => {
         if (progress.partial !== undefined) partials.push(progress.partial);
       },
