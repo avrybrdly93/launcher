@@ -13,11 +13,16 @@
  */
 import { describe, expect, it } from "vitest";
 import { plotlyFigureSpecsEqual } from "./plotly-figure-spec-equality.js";
-import type {
-  PlotlyContourTrace,
-  PlotlyFigureSpec,
-  PlotlyHeatmapTrace,
-  PlotlyScatterTrace,
+import {
+  buildBasinFigure,
+  buildConvergenceFigure,
+  buildEnergyDriftFigure,
+  buildNewtonTraceFigure,
+  buildStabilityRegionFigure,
+  type PlotlyContourTrace,
+  type PlotlyFigureSpec,
+  type PlotlyHeatmapTrace,
+  type PlotlyScatterTrace,
 } from "./lazy-plotly-pane.js";
 
 const SCATTER: PlotlyScatterTrace = { name: "a", x: [1, 2, 3], y: [4, 5, 6] };
@@ -262,5 +267,83 @@ describe("plotlyFigureSpecsEqual", () => {
         ),
       ).toBe(false);
     });
+  });
+});
+
+/**
+ * The assumption the whole of P0.124's fix rests on, and the one nothing else
+ * checks: `LazyPlotlyView` only avoids a remount if the builder, called twice
+ * with the same inputs, produces two *value-equal* specs. A builder that
+ * embedded a timestamp, a counter, an id, or anything else varying would leave
+ * the fix silently doing nothing, and the symptom would be indistinguishable
+ * from the defect it was meant to remove.
+ *
+ * Every builder reachable from a `LazyPlotlyView` call site is covered, which is
+ * why this block names five and not the two panels in the row's criterion.
+ */
+describe("the figure builders are deterministic, which is what makes the fix work", () => {
+  it("buildConvergenceFigure", () => {
+    const curves = [{ method: "rk4", hs: [0.02, 0.01], errors: [1e-4, 6e-6] }];
+    expect(
+      plotlyFigureSpecsEqual(buildConvergenceFigure(curves), buildConvergenceFigure(curves)),
+    ).toBe(true);
+  });
+
+  it("buildEnergyDriftFigure", () => {
+    // Fresh Float64Arrays on each call, since that is what a page re-render
+    // hands it -- `Array.from` inside the builder must not make them differ.
+    const curvesOf = () => [
+      {
+        method: "velocity-verlet",
+        t: new Float64Array([0, 0.1, 0.2]),
+        relativeEnergyError: new Float64Array([0, 1e-9, -2e-9]),
+      },
+    ];
+    expect(
+      plotlyFigureSpecsEqual(
+        buildEnergyDriftFigure(curvesOf()),
+        buildEnergyDriftFigure(curvesOf()),
+      ),
+    ).toBe(true);
+  });
+
+  it("buildNewtonTraceFigure", () => {
+    const curves = [
+      {
+        label: "‖F‖",
+        points: [
+          { iteration: 0, merit: 30.42 },
+          { iteration: 1, merit: 3.042 },
+        ],
+      },
+    ];
+    expect(
+      plotlyFigureSpecsEqual(buildNewtonTraceFigure(curves), buildNewtonTraceFigure(curves)),
+    ).toBe(true);
+  });
+
+  it("buildBasinFigure", () => {
+    const grid = {
+      thetas: [0, 0.1],
+      speeds: [50, 51],
+      outcomes: [
+        ["low", "high"],
+        ["unconverged", "low"],
+      ],
+    } as const;
+    expect(plotlyFigureSpecsEqual(buildBasinFigure(grid), buildBasinFigure(grid))).toBe(true);
+  });
+
+  it("buildStabilityRegionFigure, which samples a grid rather than copying one", () => {
+    // The one builder that computes its own z on every call. If
+    // `sampleStabilityRegionGrid` were not deterministic, the stability
+    // explorer would remount on every keystroke regardless of this fix.
+    const args = [4, "RK4", [-4, 2], [-3, 3], [{ re: -0.5, im: 1.2 }]] as const;
+    expect(
+      plotlyFigureSpecsEqual(
+        buildStabilityRegionFigure(...args),
+        buildStabilityRegionFigure(...args),
+      ),
+    ).toBe(true);
   });
 });
