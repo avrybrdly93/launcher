@@ -1,14 +1,24 @@
 import { MessageChannel } from "node:worker_threads";
 import { describe, expect, it, vi } from "vitest";
-import { PRESET_SCENARIOS, type ScenarioSpec } from "@ballista/engine";
+import {
+  PRESET_SCENARIOS,
+  uncertainScenarioSpecSchema,
+  type ScenarioSpec,
+  type UncertainScenarioSpec,
+} from "@ballista/engine";
+import { runMcDashboardStudy, type McDashboardStudySpec } from "./mc-dashboard-study.js";
 import { runOptimizeJob, type OptimizeJob } from "./optimize-job.js";
 import { runSweepPoint, sweepPointCount, type SweepJob } from "./sweep-job.js";
 import {
   createWorkerPool,
   handleSweepChunkRequest,
+  McCancelledError,
   OptimizeCancelledError,
+  postMcResult,
   postOptimizeResult,
   postSweepChunkResult,
+  type McProgressMessage,
+  type McRequest,
   type OptimizeRequest,
   type SweepChunkRequest,
   type WorkerLike,
@@ -385,5 +395,236 @@ describe("createWorkerPool: optimize jobs (P5.18)", () => {
     // Aborting after the fact must not reach into a settled job.
     expect(() => controller.abort()).not.toThrow();
     expect(fake.terminated()).toBe(false);
+  });
+});
+
+// --- mc jobs (P0.119) ------------------------------------------------------ //
+
+const MC_GOLF_DRIVE = PRESET_SCENARIOS.find((scenario) =>
+  scenario.model.forceIds.includes("magnus"),
+)!;
+
+/** A study small enough for a unit test but with the same shape the dashboard runs. */
+function mcStudy(replicates: number): UncertainScenarioSpec {
+  return uncertainScenarioSpecSchema.parse({
+    schemaVersion: 1,
+    base: {
+      ...MC_GOLF_DRIVE,
+      initialConditions: { ...MC_GOLF_DRIVE.initialConditions, x0: 0, y0: 0 },
+    },
+    overlays: [
+      {
+        path: "initialConditions.vx0",
+        distribution: {
+          kind: "normal",
+          mean: MC_GOLF_DRIVE.initialConditions.vx0,
+          stdDev: 1.5,
+        },
+      },
+    ],
+    replicates,
+    seed: 20260926,
+  });
+}
+
+function mcSpec(replicates: number): McDashboardStudySpec {
+  return {
+    study: mcStudy(replicates),
+    target: { kind: "point", center: [180, 0], tolerance: 1e4 },
+  };
+}
+
+const MC_STUDY_OPTIONS = { fanReplicates: 4, fanGridPoints: 16 } as const;
+
+/**
+ * An in-process fake `WorkerLike` for mc studies, built exactly like
+ * {@link createFakeOptimizeWorker} and for its reason: it runs the same
+ * {@link postMcResult} a real `mc-worker-entry.ts` would, delivering one
+ * message per macrotask so that a cancel can land *between* two messages. A
+ * fake that delivered the whole queue at once would make cancellation
+ * unobservable, which is the behaviour most worth testing here.
+ */
+function createFakeMcWorker(): {
+  worker: WorkerLike;
+  terminated: () => boolean;
+  delivered: () => number;
+} {
+  let terminated = false;
+  let delivered = 0;
+  const worker: WorkerLike = {
+    postMessage(message) {
+      const request = message as McRequest;
+      const queue: unknown[] = [];
+      postMcResult((out) => queue.push(out), request);
+      const drain = (index: number): void => {
+        if (terminated || index >= queue.length) return;
+        setTimeout(() => {
+          if (terminated) return;
+          delivered++;
+          worker.onmessage?.({ data: queue[index] });
+          drain(index + 1);
+        }, 0);
+      };
+      drain(0);
+    },
+    terminate() {
+      terminated = true;
+    },
+    onmessage: null,
+    onerror: null,
+  };
+  return { worker, terminated: () => terminated, delivered: () => delivered };
+}
+
+/** Collects everything {@link postMcResult} posts for one request, without a pool. */
+function collectMcPosts(request: McRequest): unknown[] {
+  const posted: unknown[] = [];
+  postMcResult((message) => posted.push(message), request);
+  return posted;
+}
+
+describe("createWorkerPool: mc studies (P0.119)", () => {
+  it("runs a study through a worker and returns the same result the study produces in-process", async () => {
+    const fake = createFakeMcWorker();
+    const pool = createWorkerPool({ size: 1, createWorker: () => fake.worker });
+
+    const result = await pool.runMc(mcSpec(12), { studyOptions: MC_STUDY_OPTIONS });
+
+    // The pool moves the work; it must not change the answer. Replicate i is a
+    // pure function of the seed and i (P6.03), so this is an exact comparison
+    // rather than a tolerance.
+    const inProcess = runMcDashboardStudy(mcSpec(12), MC_STUDY_OPTIONS);
+    expect(Array.from(result.columns.range)).toEqual(Array.from(inProcess.columns.range));
+    expect(result.hit.pHat).toBe(inProcess.hit.pHat);
+    expect(result.stats.count).toBe(inProcess.stats.count);
+    expect(result.cost.total).toBe(inProcess.cost.total);
+  });
+
+  it("streams progress to onProgress, in order, before the result resolves", async () => {
+    const fake = createFakeMcWorker();
+    const pool = createWorkerPool({ size: 1, createWorker: () => fake.worker });
+
+    const completed: number[] = [];
+    let resolved = false;
+    const promise = pool.runMc(mcSpec(16), {
+      studyOptions: MC_STUDY_OPTIONS,
+      onProgress: (progress) => {
+        // Progress arriving only after the promise settled would make the bar
+        // and the live estimate useless.
+        expect(resolved).toBe(false);
+        completed.push(progress.completed);
+      },
+    });
+    const result = await promise;
+    resolved = true;
+
+    expect(completed.length).toBeGreaterThan(1);
+    expect([...completed].sort((a, b) => a - b)).toEqual(completed);
+    expect(completed[completed.length - 1]!).toBeLessThanOrEqual(result.cost.total);
+  });
+
+  it("cancelling mid-study rejects, terminates the worker, and stops delivering progress", async () => {
+    const fake = createFakeMcWorker();
+    let created = 0;
+    const pool = createWorkerPool({
+      size: 1,
+      createWorker: () => {
+        if (created++ === 0) return fake.worker;
+        return createFakeMcWorker().worker;
+      },
+    });
+
+    const controller = new AbortController();
+    let seen = 0;
+    const promise = pool.runMc(mcSpec(64), {
+      studyOptions: MC_STUDY_OPTIONS,
+      signal: controller.signal,
+      onProgress: () => {
+        seen += 1;
+        if (seen === 2) controller.abort();
+      },
+    });
+
+    await expect(promise).rejects.toBeInstanceOf(McCancelledError);
+    expect(fake.terminated()).toBe(true);
+
+    const atCancel = seen;
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    // Terminating is what makes this true: the worker's queue still held
+    // messages, and none of them reached the caller.
+    expect(seen).toBe(atCancel);
+
+    // The slot was refilled, so the pool still works afterwards.
+    const after = await pool.runMc(mcSpec(8), { studyOptions: MC_STUDY_OPTIONS });
+    expect(after.cost.ensemble).toBe(8);
+  });
+
+  it("rejects immediately when the signal is already aborted, without touching the worker", async () => {
+    const fake = createFakeMcWorker();
+    const pool = createWorkerPool({ size: 1, createWorker: () => fake.worker });
+    const controller = new AbortController();
+    controller.abort();
+
+    await expect(pool.runMc(mcSpec(8), { signal: controller.signal })).rejects.toBeInstanceOf(
+      McCancelledError,
+    );
+    expect(fake.delivered()).toBe(0);
+    expect(fake.terminated()).toBe(false);
+  });
+});
+
+describe("postMcResult: throttles progress but never drops a partial (P0.119)", () => {
+  it("posts far fewer progress messages than the study has steps", () => {
+    const request: McRequest = { kind: "mc", spec: mcSpec(64), options: MC_STUDY_OPTIONS };
+    const posted = collectMcPosts(request);
+    const progress = posted.filter(
+      (message): message is McProgressMessage =>
+        (message as McProgressMessage).kind === "mc-progress",
+    );
+    const steps = runMcDashboardStudy(mcSpec(64), MC_STUDY_OPTIONS).cost.total;
+
+    expect(steps).toBe(68);
+    // Without throttling this would be one per step. The bound is generous on
+    // purpose: partial-bearing steps are exempt, so the exact count is a
+    // function of `partialEvery`, and pinning it would make this test fail on
+    // a cadence change that is not a defect.
+    expect(progress.length).toBeLessThan(steps / 2);
+    expect(progress.length).toBeGreaterThan(1);
+  });
+
+  it("posts EVERY partial-bearing step even when the cadence lands off the throttle grid", () => {
+    // 5 is chosen because it is coprime with the throttle of 8: partials land
+    // on 5, 10, 15, 20, ... and only every eighth step is otherwise posted, so
+    // a handler relying on the throttle alone would drop most of them. At the
+    // default cadence of 16 every partial is already a multiple of 8 and this
+    // test would pass on the broken code -- which is exactly why it does not
+    // use the default.
+    const options = { ...MC_STUDY_OPTIONS, partialEvery: 5 };
+    const spec = mcSpec(40);
+    const posted = collectMcPosts({ kind: "mc", spec, options });
+    const postedPartials = posted.filter(
+      (message): message is McProgressMessage =>
+        (message as McProgressMessage).kind === "mc-progress" &&
+        (message as McProgressMessage).progress.partial !== undefined,
+    ).length;
+
+    // What the study itself produces, counted independently of the handler.
+    let studyPartials = 0;
+    runMcDashboardStudy(spec, options, {
+      onProgress: (progress) => {
+        if (progress.partial !== undefined) studyPartials += 1;
+      },
+    });
+
+    expect(studyPartials).toBeGreaterThan(4);
+    expect(postedPartials).toBe(studyPartials);
+  });
+
+  it("posts exactly one terminal result, last", () => {
+    const posted = collectMcPosts({ kind: "mc", spec: mcSpec(16), options: MC_STUDY_OPTIONS });
+    const kinds = posted.map((message) => (message as { kind: string }).kind);
+
+    expect(kinds.filter((kind) => kind === "mc-result")).toEqual(["mc-result"]);
+    expect(kinds[kinds.length - 1]).toBe("mc-result");
   });
 });
