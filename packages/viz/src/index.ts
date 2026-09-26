@@ -21,6 +21,7 @@ export * from "./streamline-layer.js";
 export * from "./plot-pane.js";
 export * from "./phase-portrait.js";
 export * from "./lazy-plotly-pane.js";
+export * from "./plotly-figure-spec-equality.js";
 export * from "./derivation-markdown.js";
 export * from "./lazy-katex-pane.js";
 export * from "./hud-readout.js";
