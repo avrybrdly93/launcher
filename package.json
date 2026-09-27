@@ -21,6 +21,7 @@
     "bench:profile": "node scripts/profile-hotspots.mjs",
     "bench:decomposition": "node scripts/measure-ensemble-step-decomposition.mjs",
     "bench:dispatch": "node scripts/measure-force-dispatch.mjs",
+    "bench:cd-dispatch": "node scripts/measure-cd-dispatch.mjs",
     "bench:dispatch-crossover": "node scripts/measure-dispatch-crossover.mjs",
     "bench:memory": "node scripts/measure-ensemble-memory.mjs",
     "bench:simd": "node scripts/measure-simd-speedup.mjs",
