@@ -140,10 +140,25 @@ function measure(run, stepsPerCall, { warmup = 3, trials = 7 } = {}) {
   return rates[Math.floor(rates.length / 2)];
 }
 
+// P0.128: `Environment`'s constructor is (atmosphere, gravity, wind, rotation)
+// and both fixtures below used to pass gravity first, with a stray 1.225 handed
+// to `ConstantAtmosphere`, which declares no constructor. It was silent because
+// this file is untyped .mjs, and it was harmless for a reason worth recording
+// rather than re-deriving: `Environment.sample` calls the atmosphere and the
+// gravity model unconditionally with identical arities, and they write DISJOINT
+// `EnvSample` fields (rho/T/p/eta/c versus g), so swapping them changed only
+// the order two disjoint writes happened in. Measured at three (t, x, y) points
+// before the fix: every one of the 11 fields bit-identical under the swap and
+// under the stray argument, against a negative control (g0 = 1.0) that the same
+// comparison did detect. P0.127's figures above are therefore unaffected.
+//
+// The stray 1.225 also looked plausible, which is part of why it survived:
+// `ConstantAtmosphere` already reports rho = ISA.rho0 = 1.225, so the argument
+// named the value the class was going to produce anyway.
 function projectileFixture(m) {
   const environment = new m.Environment(
+    new m.ConstantAtmosphere(),
     new m.UniformGravity(m.G_STD),
-    new m.ConstantAtmosphere(1.225),
     new m.ZeroWind(),
   );
   const params = m.createSphericalProjectileParams({
@@ -171,8 +186,8 @@ function trivialFixture(m, dim) {
     },
     ctx: m.createEvalContext(
       new m.Environment(
+        new m.ConstantAtmosphere(),
         new m.UniformGravity(m.G_STD),
-        new m.ConstantAtmosphere(1.225),
         new m.ZeroWind(),
       ),
       m.createSphericalProjectileParams({
