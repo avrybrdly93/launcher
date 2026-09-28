@@ -1067,9 +1067,9 @@ Hard realities the design already respects, restated as budgets: 16.6 ms frame b
 | P7.11 | Backend equivalence CI: TS vs WASM golden comparison suite | 20m | M | max rel. diff < 1e-12 documented |
 | P7.12 | Threads assessment: SharedArrayBuffer + COOP/COEP headers on host; wasm threads behind flag | 30m | H | 4-thread WASM scales ≥2.5× (or documented decision to defer) |
 | P7.13 | WebGPU detection + capability report UI (fallback story explicit) | 20m | E | unsupported browsers get graceful CPU path |
-| P7.14 | WGSL RK4 kernel: one thread = one trajectory, fixed step, f32 | 30m | H | 1e4 trajectories match CPU f32 mode within 1e-4 rel (per §4.7 expectations) |
+| P7.14 | WGSL RK4 kernel: one thread = one trajectory, fixed step, f32 | 30m | H | 1e4 trajectories match a true-f32 CPU RK4 reference within 64 ULP per state channel, with max absolute error per channel recorded; relative error is documentation, not the gate (P0.134; §4.7) |
 | P7.15 | GPU parameter upload: storage buffers for param/IC arrays; workgroup sizing sweep | 25m | M | best workgroup size recorded per adapter class |
-| P7.16 | GPU observables reduction on-device (range, apex via per-thread event capture) | 30m | H | matches CPU observables within f32 tolerance |
+| P7.16 | GPU observables reduction on-device (range, apex via per-thread event capture) | 30m | H | matches the f32 CPU observables reduction within 256 ULP per observable and exactly on the impacted flag, with max absolute error per observable recorded; relative error is documentation, not the gate (P0.134) |
 | P7.17 | Precision study: f32 GPU vs f64 CPU error budget per scenario class; document scenarios where f32 inadequate | 30m | H | published table; stiff scenario flagged CPU-only |
 | P7.18 | Compensated-f32 (two-float) accumulation option for position update | 30m | H | error reduced ≥10× vs plain f32 on long flight |
 | P7.19 | GPU event handling: in-kernel bisection for ground impact (fixed iteration count, branch-uniform) | 30m | H | impact x within 1e-3 m of CPU on 1e4 batch |
