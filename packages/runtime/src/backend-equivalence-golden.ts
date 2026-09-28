@@ -49,7 +49,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { WASM_ARTIFACT_PATH, WASM_SIMD_ARTIFACT_PATH } from "@ballista/wasm-core";
+import { WASM_ARTIFACT_PATH, WASM_SIMD_ARTIFACT_PATH } from "@ballista/wasm-core/node";
 import {
   ENSEMBLE_OBS_COUNT,
   runTsEnsembleRange,

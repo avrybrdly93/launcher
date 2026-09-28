@@ -7,6 +7,7 @@ import {
 } from "@ballista/engine";
 import { ClassicalRK4Stepper, RK4_TABLEAU, createStepResult } from "@ballista/solverkit";
 import { OBS, PARAM, WasmRk4Kernel, wasmSimdSupported } from "@ballista/wasm-core";
+import { instantiateBestNodeKernel, instantiateNodeKernel } from "@ballista/wasm-core/node";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { partitionReplicates } from "./batch-throughput.js";
 import {
@@ -190,8 +191,8 @@ let wasmBestBackend: EnsembleBackend;
 let tsReference: Float64Array;
 
 beforeAll(async () => {
-  scalarKernel = await WasmRk4Kernel.instantiate();
-  bestKernel = await WasmRk4Kernel.instantiateBest();
+  scalarKernel = await instantiateNodeKernel();
+  bestKernel = await instantiateBestNodeKernel();
   tsBackend = createTsEnsembleBackend();
   wasmScalarBackend = createWasmEnsembleBackend(scalarKernel, {
     id: "wasm-scalar",
@@ -427,7 +428,7 @@ describe("one job, split across both backends in a single run", () => {
 
 describe("the WASM backend's use of one arena across many chunks", () => {
   it("grows linear memory at most once for a run, and not per chunk", async () => {
-    const kernel = await WasmRk4Kernel.instantiate();
+    const kernel = await instantiateNodeKernel();
     const backend = createWasmEnsembleBackend(kernel, { id: "arena", useSimd: false });
     const executor = createHeterogeneousExecutor({ backends: [backend], chunks: 9 });
 
@@ -441,7 +442,7 @@ describe("the WASM backend's use of one arena across many chunks", () => {
   });
 
   it("returns rows copied out of the arena, not a live view the next chunk overwrites", async () => {
-    const kernel = await WasmRk4Kernel.instantiate();
+    const kernel = await instantiateNodeKernel();
     const backend = createWasmEnsembleBackend(kernel, { id: "copy", useSimd: false });
     const first = await backend.runRange(JOB, 0, 4);
     const snapshot = Float64Array.from(first.rows);
@@ -450,7 +451,7 @@ describe("the WASM backend's use of one arena across many chunks", () => {
   });
 
   it("refuses to promise SIMD it does not have", async () => {
-    const kernel = await WasmRk4Kernel.instantiate();
+    const kernel = await instantiateNodeKernel();
     expect(() => createWasmEnsembleBackend(kernel, { useSimd: true })).toThrow(/scalar artifact/);
   });
 });

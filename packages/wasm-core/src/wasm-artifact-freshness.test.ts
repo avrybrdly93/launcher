@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { WASM_ARTIFACT_PATH, WASM_SIMD_ARTIFACT_PATH } from "./wasm-rk4-backend.js";
+import { WASM_ARTIFACT_PATH, WASM_SIMD_ARTIFACT_PATH } from "./wasm-artifact-node.js";
 
 /**
  * The committed `.wasm` is a build output living in version control (P7.07), so

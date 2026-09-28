@@ -11,11 +11,16 @@ export {
 export {
   OBS,
   PARAM,
-  WASM_ARTIFACT_PATH,
-  WASM_SIMD_ARTIFACT_PATH,
   WasmRk4Kernel,
-  readWasmArtifact,
-  readWasmSimdArtifact,
   wasmSimdSupported,
+  type WasmArtifactSource,
   type WasmKernelParams,
 } from "./wasm-rk4-backend.js";
+export {
+  DEFAULT_WASM_ARTIFACT_URLS,
+  createFetchWasmArtifactSource,
+  instantiateBestBrowserKernel,
+  instantiateBrowserKernel,
+  type FetchLike,
+  type WasmArtifactUrls,
+} from "./wasm-artifact-browser.js";

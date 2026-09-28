@@ -13,6 +13,7 @@ import {
 import { ClassicalRK4Stepper, createStepResult } from "@ballista/solverkit";
 import { beforeAll, describe, expect, it } from "vitest";
 import { WasmRk4Kernel } from "./wasm-rk4-backend.js";
+import { instantiateNodeKernel } from "./wasm-artifact-node.js";
 
 /**
  * P7.07's validation criterion: "WASM result matches TS within 1e-15 per step
@@ -76,7 +77,7 @@ function makeTsSide(): {
 }
 
 async function makeWasmSide(rho: number, g: number): Promise<WasmRk4Kernel> {
-  const kernel = await WasmRk4Kernel.instantiate();
+  const kernel = await instantiateNodeKernel();
   const params = createSphericalProjectileParams({
     mass: MASS,
     radius: RADIUS,

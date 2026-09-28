@@ -12,14 +12,13 @@ import {
 } from "@ballista/engine";
 import { ClassicalRK4Stepper, createStepResult } from "@ballista/solverkit";
 import { beforeAll, describe, expect, it } from "vitest";
+import { OBS, WasmRk4Kernel, wasmSimdSupported } from "./wasm-rk4-backend.js";
 import {
-  OBS,
   WASM_ARTIFACT_PATH,
-  WasmRk4Kernel,
+  instantiateBestNodeKernel,
   readWasmArtifact,
   readWasmSimdArtifact,
-  wasmSimdSupported,
-} from "./wasm-rk4-backend.js";
+} from "./wasm-artifact-node.js";
 
 /**
  * P7.09's correctness half: the f64x2 batch path against the scalar one.
@@ -207,7 +206,7 @@ describe("the simd128 feature detect", () => {
 
 describe("artifact selection", () => {
   it("gives instantiateBest a kernel whose own report matches the detect", async () => {
-    const kernel = await WasmRk4Kernel.instantiateBest();
+    const kernel = await instantiateBestNodeKernel();
     // `hasSimd` reads the module's `simd_enabled` export, not the detect, so
     // this compares two independent sources: what the engine can run, and what
     // was actually loaded. A selection bug makes them disagree.

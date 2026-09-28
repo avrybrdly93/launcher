@@ -1,6 +1,3 @@
-import { readFile } from "node:fs/promises";
-import { fileURLToPath } from "node:url";
-
 /**
  * Host side of the `ballista-core` WASM kernel (P7.07).
  *
@@ -30,6 +27,17 @@ import { fileURLToPath } from "node:url";
  * {@link WasmRk4Kernel.batchInit} rebuilds when, and only when, the buffer or
  * the capacity actually changed. A caller that caches `kernel.state` in a local
  * across a `batchInit` is holding a detached view; re-read the getter.
+ *
+ * **This module names no environment, and that is the whole of P0.133.** It
+ * previously read the committed `.wasm` off disk with `node:fs/promises`, which
+ * made every consumer Node-only by construction -- not merely awkward to
+ * bundle, but unbundleable, because a browser chunk containing a `node:`
+ * specifier fails to resolve rather than degrading. The bytes now arrive from a
+ * {@link WasmArtifactSource} the *caller* supplies: `wasm-artifact-node.ts`
+ * reads them with `node:fs`, `wasm-artifact-browser.ts` fetches them, and
+ * neither is reachable from here. Nothing in this file imports a `node:`
+ * builtin, and `wasm-rk4-backend.browser.test.ts` asserts that by reading the
+ * source rather than trusting this sentence.
  */
 
 /** Slot indices into the parameter block, mirroring the crate's `ParamSlot`. */
@@ -107,21 +115,30 @@ interface KernelExports {
 /** Stand-in for the batch views before the first `batchInit`. Never grows. */
 const EMPTY = new Float64Array(0);
 
-/** Path to the committed scalar `.wasm`, which is what CI runs against (it has no Rust). */
-export const WASM_ARTIFACT_PATH = fileURLToPath(
-  new URL("./generated/ballista-core.wasm", import.meta.url),
-);
-
 /**
- * Path to the committed simd128 `.wasm` (P7.09).
+ * Where the two committed artifacts' bytes come from (P0.133).
  *
- * A separate binary rather than a runtime branch inside one: a module carrying
- * simd128 instructions fails *validation* on an engine without the proposal, so
- * the choice has to be made before the bytes are compiled, not inside them.
+ * Two methods rather than one taking a discriminator, because the *two
+ * artifacts are two files* and a caller that can only serve one of them should
+ * fail to implement this interface rather than fail at the call. The simd128
+ * build is a separate binary and not a runtime branch inside the scalar one: a
+ * module carrying simd128 instructions fails *validation* on an engine without
+ * the proposal, so the choice has to be made before the bytes are compiled, not
+ * inside them.
+ *
+ * Both methods hand back bytes rather than a `Response`, which forgoes
+ * `WebAssembly.instantiateStreaming` in the browser. That is deliberate and it
+ * is not a performance judgement: P0.133 is a reachability task, streaming
+ * would put an environment-shaped type in an environment-free module, and the
+ * artifacts are a few kB. If streaming is ever wanted it belongs in a second
+ * method here, added with a measurement rather than on principle.
  */
-export const WASM_SIMD_ARTIFACT_PATH = fileURLToPath(
-  new URL("./generated/ballista-core.simd.wasm", import.meta.url),
-);
+export interface WasmArtifactSource {
+  /** Bytes of the committed scalar `.wasm`, which is what CI runs against (it has no Rust). */
+  readScalar(): Promise<Uint8Array>;
+  /** Bytes of the committed simd128 `.wasm` (P7.09). */
+  readSimd(): Promise<Uint8Array>;
+}
 
 /**
  * A 43-byte module whose only body is `v128.const 0; drop`.
@@ -159,16 +176,6 @@ export function wasmSimdSupported(): boolean {
   const supported = WebAssembly.validate(SIMD_PROBE_MODULE);
   simdSupport = supported;
   return supported;
-}
-
-/** Reads the committed scalar artifact's bytes. */
-export async function readWasmArtifact(): Promise<Uint8Array> {
-  return new Uint8Array(await readFile(WASM_ARTIFACT_PATH));
-}
-
-/** Reads the committed simd128 artifact's bytes. */
-export async function readWasmSimdArtifact(): Promise<Uint8Array> {
-  return new Uint8Array(await readFile(WASM_SIMD_ARTIFACT_PATH));
 }
 
 /**
@@ -299,27 +306,37 @@ export class WasmRk4Kernel {
   }
 
   /**
-   * Compiles and instantiates the kernel from `bytes`, or from the committed
-   * artifact when no bytes are given.
+   * Compiles and instantiates the kernel from `bytes`.
    *
    * The kernel imports nothing, so the import object is empty -- there is no
    * host function it could call and therefore no way for its results to depend
    * on the host beyond the numbers written into `params` and `state`.
    */
-  static async instantiate(bytes?: Uint8Array): Promise<WasmRk4Kernel> {
-    const source = bytes ?? (await readWasmArtifact());
+  static async instantiate(bytes: Uint8Array): Promise<WasmRk4Kernel> {
     // `BufferSource` wants a plain ArrayBuffer; Node may hand back a view onto
     // a pooled one, so slice to the exact bytes.
     const { instance } = await WebAssembly.instantiate(
-      source.buffer.slice(source.byteOffset, source.byteOffset + source.byteLength),
+      bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
       {},
     );
     return new WasmRk4Kernel(instance.exports as unknown as KernelExports);
   }
 
   /**
-   * Instantiates the simd128 artifact where the engine supports it and the
-   * scalar one where it does not (P7.09).
+   * Instantiates the scalar artifact from `source` (P0.133).
+   *
+   * `bytes` used to be optional and the module read the file itself when it was
+   * omitted. That convenience is what made every caller Node-only, so it is
+   * gone rather than defaulted: there is no environment this module could pick
+   * that would be right in the other one.
+   */
+  static async instantiateFrom(source: WasmArtifactSource): Promise<WasmRk4Kernel> {
+    return WasmRk4Kernel.instantiate(await source.readScalar());
+  }
+
+  /**
+   * Instantiates the simd128 artifact from `source` where the engine supports
+   * it and the scalar one where it does not (P7.09).
    *
    * The two produce **bit-identical** results -- the SIMD path's lanes are
    * independent replicates and simd128 has no FMA, so there is no reassociation
@@ -327,9 +344,9 @@ export class WasmRk4Kernel {
    * do silently. If that ever stopped being true this would have to become an
    * explicit choice by the caller instead.
    */
-  static async instantiateBest(): Promise<WasmRk4Kernel> {
+  static async instantiateBestFrom(source: WasmArtifactSource): Promise<WasmRk4Kernel> {
     return WasmRk4Kernel.instantiate(
-      wasmSimdSupported() ? await readWasmSimdArtifact() : await readWasmArtifact(),
+      wasmSimdSupported() ? await source.readSimd() : await source.readScalar(),
     );
   }
 
@@ -433,7 +450,7 @@ export class WasmRk4Kernel {
    * @throws TypeError if this instance is the scalar artifact -- loudly, rather
    * than silently falling back, because a caller reaching for this wants to
    * know it did not get it. Use {@link hasSimd} to choose, or
-   * {@link instantiateBest} and {@link batchRun} to not have to.
+   * {@link instantiateBestFrom} and {@link batchRun} to not have to.
    * @throws RangeError if `n` exceeds the reserved capacity.
    */
   batchRunSimd(t0: number, h: number, steps: number, n: number): void {

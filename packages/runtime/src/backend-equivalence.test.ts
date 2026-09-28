@@ -6,12 +6,13 @@ import {
   createPlanarProjectileModel,
 } from "@ballista/engine";
 import { RK4_TABLEAU } from "@ballista/solverkit";
+import { wasmSimdSupported } from "@ballista/wasm-core";
 import {
   WASM_ARTIFACT_PATH,
   WASM_SIMD_ARTIFACT_PATH,
-  WasmRk4Kernel,
-  wasmSimdSupported,
-} from "@ballista/wasm-core";
+  instantiateBestNodeKernel,
+  instantiateNodeKernel,
+} from "@ballista/wasm-core/node";
 import { beforeAll, describe, expect, it } from "vitest";
 import {
   ASSERTED_TOLERANCE_ULP,
@@ -103,7 +104,7 @@ beforeAll(async () => {
   golden = readGolden();
   goldenRows = Float64Array.from(golden.observables.rows);
 
-  const scalarKernel = await WasmRk4Kernel.instantiate();
+  const scalarKernel = await instantiateNodeKernel();
   const scalarBackend = createWasmEnsembleBackend(scalarKernel, { useSimd: false });
   scalarRows = (await scalarBackend.runRange(job, 0, job.replicates.length)).rows;
 
@@ -112,7 +113,7 @@ beforeAll(async () => {
   // the scalar module where it does not, and comparing that to itself would
   // report a green that means nothing.
   if (wasmSimdSupported()) {
-    const simdKernel = await WasmRk4Kernel.instantiateBest();
+    const simdKernel = await instantiateBestNodeKernel();
     if (simdKernel.hasSimd) {
       const simdBackend = createWasmEnsembleBackend(simdKernel, { useSimd: true });
       simdRows = (await simdBackend.runRange(job, 0, job.replicates.length)).rows;

@@ -13,6 +13,7 @@ import {
 import { ClassicalRK4Stepper, createStepResult } from "@ballista/solverkit";
 import { beforeAll, describe, expect, it } from "vitest";
 import { OBS, PARAM, WasmRk4Kernel } from "./wasm-rk4-backend.js";
+import { instantiateNodeKernel } from "./wasm-artifact-node.js";
 
 /**
  * P7.08's validation criterion: "1e4 batch round-trip; no per-call allocation".
@@ -115,7 +116,7 @@ describe("the WASM batch API round-trips 1e4 replicates", () => {
 
   beforeAll(async () => {
     ts = makeTsSide();
-    kernel = await WasmRk4Kernel.instantiate();
+    kernel = await instantiateNodeKernel();
     bytesBeforeInit = kernel.memoryBytes;
     staleStateView = kernel.state;
     kernel.batchInit(REPLICATES);
@@ -298,7 +299,7 @@ describe("the WASM batch API agrees with the TypeScript stepper", () => {
     // heterogeneous-parameter case is covered against the single-state path
     // above, which P7.07 proved equal to this same stepper.
     const ts = makeTsSide();
-    const kernel = await WasmRk4Kernel.instantiate();
+    const kernel = await instantiateNodeKernel();
     const n = 8;
     const steps = 200;
     const h = 1 / 100;
@@ -332,7 +333,7 @@ describe("the WASM batch API's edges", () => {
   let kernel: WasmRk4Kernel;
 
   beforeAll(async () => {
-    kernel = await WasmRk4Kernel.instantiate();
+    kernel = await instantiateNodeKernel();
   });
 
   it("starts with empty batch views and zero capacity", () => {
