@@ -31,21 +31,28 @@
  * globals, and it is deliberately the only part of this module that cannot be
  * unit-tested on its own.
  *
- * **The available CPU backends are an input, not a constant, because the
- * browser's honest answer is not the repository's.** This is the finding P7.13
- * turned up and the reason {@link BROWSER_CPU_BACKENDS} exists. The repository
- * has three CPU ensemble backends -- `createWasmEnsembleBackend` over the
- * simd128 kernel, the same over the scalar kernel, and
- * `createTsEnsembleBackend` -- but **only the last of them is reachable from a
- * browser today**, because `@ballista/wasm-core` reads its committed artifact
- * with `node:fs/promises` at module scope. `heterogeneous-executor.ts` imports
- * it `import type` precisely to keep that out of the bundle, and
- * `runtime/src/index.ts` does not re-export `backend-equivalence-golden.ts` for
- * the same reason. A capability panel that told a browser user "your fallback
- * is WebAssembly SIMD" would therefore be **stating something that cannot
- * happen in the deployed app** -- an explicit fallback story that is false is
- * worse than none, since it is the kind that gets believed. Filed as P0.133;
- * this task reports the truth rather than fixing it.
+ * **The available CPU backends are an input, not a constant, and the browser's
+ * answer is no longer a shorter list than the repository's.** P7.13 found that
+ * it was: the repository has three CPU ensemble backends --
+ * `createWasmEnsembleBackend` over the simd128 kernel, the same over the scalar
+ * kernel, and `createTsEnsembleBackend` -- and for a long time only the last was
+ * reachable from a browser, because `@ballista/wasm-core` read its committed
+ * artifact with `node:fs/promises` at module scope. **P0.133 removed that**:
+ * the artifact bytes now come from an injected source, `@ballista/wasm-core`
+ * carries no `node:` import, and `wasm-core-browser.bundle.test.ts` builds a
+ * real consumer and runs the built bundle to prove both kernels instantiate
+ * there.
+ *
+ * **{@link BROWSER_CPU_BACKENDS} is still `["ts"]` anyway, and the reason it is
+ * changed completely.** It is no longer a packaging limit. It is now the only
+ * thing keeping this panel's prose true, because **nothing in the application
+ * routes on `plan.backendId`** -- `selectExecutionPlan` is advisory, no route
+ * instantiates a kernel, and every result really is computed by
+ * `createTsEnsembleBackend`. Widening the constant therefore does not make the
+ * app faster; it makes the panel say "Running on: WebAssembly SIMD (f64x2)"
+ * about a path nothing executes, which is precisely the false fallback story
+ * the paragraph above calls worse than none. Filed as P0.163, with P0.133 left
+ * open on this half.
  *
  * **The structural `GpuLike` types are hand-written, and no `@webgpu/types`
  * dependency is added.** This module touches three members of the WebGPU
@@ -177,16 +184,27 @@ export type ExecutionBackendId = "webgpu" | "wasm-simd" | "wasm" | "ts";
 export const CPU_BACKEND_PREFERENCE = ["wasm-simd", "wasm", "ts"] as const;
 
 /**
- * What a browser can actually reach today: the TypeScript stepper, and nothing
- * else.
+ * What a browser actually runs: the TypeScript stepper, and nothing else.
  *
- * Not a simplification and not a placeholder -- see this module's header.
- * `@ballista/wasm-core` reads its artifact through `node:fs/promises`, so the
- * two WASM backends are Node-side today and naming either of them to a browser
- * user would be a false fallback story. Filed as P0.133. When that is fixed,
- * this constant changes and `webgpu-capability.test.ts`'s assertion about it
- * fails, which is the point of it being a constant with a test rather than a
- * sentence in a comment.
+ * **Read the reason before changing this, because the reason is no longer the
+ * one the comment used to give.** Until P0.133 this was a PACKAGING limit:
+ * `@ballista/wasm-core` read its artifact with `node:fs/promises`, so the two
+ * WASM backends could not be bundled for a browser at all. That is fixed --
+ * `wasm-core-browser.bundle.test.ts` builds a real consumer and instantiates
+ * both kernels out of the built bundle -- and the value did not change with it.
+ *
+ * What holds it at `["ts"]` now is that **nothing routes on the plan.**
+ * `plan.backendId` has no consumer outside tests: no route instantiates a
+ * kernel, and every result in the app is computed by `createTsEnsembleBackend`.
+ * So this constant is what keeps the panel's "This is the path every result in
+ * this application is currently computed on" true. Widen it and that sentence
+ * becomes false for every user, which is the exact failure mode this module's
+ * header argues is worse than saying nothing.
+ *
+ * **P0.163 is the row that unblocks it**, and it has to come first: either wire
+ * the ensemble path to the selected backend, or change the panel to distinguish
+ * what is reachable from what is running. P0.133's remaining half is gated on
+ * that, not on packaging.
  */
 export const BROWSER_CPU_BACKENDS = ["ts"] as const satisfies readonly ExecutionBackendId[];
 

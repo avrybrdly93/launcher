@@ -139,8 +139,19 @@ describe("WebGpuCapabilityPanel on a machine with no WebGPU", () => {
     // "TypeScript reference stepper x 4 workers" would read as a claim about
     // the page in front of you, and on the Monte Carlo route -- which runs on
     // the UI thread until P6.25 -- that claim would be false.
+    //
+    // The matcher is a word-boundary regex rather than `not.toContain("4")`,
+    // and the change is a correction kept from P0.133's first attempt rather
+    // than a relaxation. The substring form asserted that the digit 4 appears
+    // nowhere in the headline, which is stricter than the claim and was only
+    // ever satisfied by accident: the moment the named backend is one whose
+    // LABEL contains a digit -- `WebAssembly SIMD (f64x2)` does, and P0.163
+    // would make it the default -- it failed while the headline stated no
+    // worker count at all. `\b4\b` is the claim: the standalone number 4 must
+    // not appear. It still matches "x 4 workers" and "4 workers", which is the
+    // failure this case exists to catch.
     const root = mount(<WebGpuCapabilityPanel report={unsupportedReport("no-navigator-gpu")} />);
-    expect(q(root, "capability-headline")?.textContent).not.toContain("4");
+    expect(q(root, "capability-headline")?.textContent).not.toMatch(/\b4\b/);
     expect(q(root, "capability-parallelism")?.textContent).toContain("up to 4 worker threads");
   });
 

@@ -222,12 +222,15 @@ function bestAvailableCpuBackend(cpu: CpuCapabilities): ExecutionBackendId {
  *
  * **The blueprint's "small -> main TS" is instantiated as "main thread, best
  * reachable CPU backend", and the difference is deliberate.** In a browser
- * those are the same sentence, because `BROWSER_CPU_BACKENDS` is exactly
- * `["ts"]` (P0.133: `@ballista/wasm-core` reads its artifact through
- * `node:fs/promises`). Naming `"ts"` unconditionally would hard-code that
- * browser limitation into a Node caller's routing, telling a process that CAN
- * reach the SIMD kernel to use the reference stepper instead -- the mirror
- * image of the false-fallback mistake `BROWSER_CPU_BACKENDS` exists to prevent.
+ * those are still the same sentence, because `BROWSER_CPU_BACKENDS` is
+ * `["ts"]` -- though no longer for P0.133's packaging reason, which is fixed,
+ * but because nothing routes on the plan and widening it would make the
+ * capability panel describe a path nothing executes (P0.163). Naming `"ts"`
+ * unconditionally here would still be wrong: it would hard-code whatever
+ * today's narrowest environment happens to be into a Node caller's routing,
+ * telling a process that CAN reach the SIMD kernel to use the reference
+ * stepper instead -- the mirror image of the false-fallback mistake
+ * `BROWSER_CPU_BACKENDS` exists to prevent.
  * What the small tier fixes is the PARALLELISM (one chunk, nothing spawned),
  * which is what the measurement was about; which CPU backend runs that chunk is
  * an availability question and is answered the same way everywhere else.

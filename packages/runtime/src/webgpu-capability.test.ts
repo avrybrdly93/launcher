@@ -8,12 +8,15 @@
  *
  * 1. **`probeWebGpu` never rejects, for any of its four failure modes.** That
  *    is the criterion restated -- a probe that throws is the un-graceful path.
- * 2. **`BROWSER_CPU_BACKENDS` is exactly `["ts"]`.** The repository has three
- *    CPU backends and a browser can reach one of them, because
- *    `@ballista/wasm-core` reads its artifact via `node:fs/promises`. That is
- *    P0.133. Asserting it means the day it is fixed, this test fails and the
- *    panel's prose is revisited, rather than the app quietly continuing to tell
- *    users their fallback is a backend they cannot reach.
+ * 2. **`BROWSER_CPU_BACKENDS` is exactly `["ts"]`, and the REASON changed under
+ *    it while the value did not.** It used to be a packaging fact:
+ *    `@ballista/wasm-core` read its artifact via `node:fs/promises` and could
+ *    not be bundled for a browser. P0.133 fixed that, and this assertion did
+ *    its job -- it failed, and the prose was revisited. It holds at `["ts"]`
+ *    for a second reason nobody had written down: **nothing routes on
+ *    `plan.backendId`**, so widening it would make the panel name a backend no
+ *    code path executes. That is P0.163. Asserting the value still stops the
+ *    app telling users their fallback is a backend they do not get.
  */
 
 import { describe, expect, it } from "vitest";
@@ -264,11 +267,13 @@ describe("selectExecutionPlan always names a backend that will actually run", ()
 });
 
 describe("what a browser can actually reach", () => {
-  it("is the TypeScript stepper and nothing else, until P0.133 is fixed", () => {
-    // Not a simplification. `@ballista/wasm-core` reads its artifact with
-    // `node:fs/promises`, so the two WASM backends cannot be bundled for a
-    // browser. When that changes, this assertion fails on purpose and the
-    // panel's prose gets revisited with it.
+  it("is the TypeScript stepper and nothing else, though no longer for P0.133's reason", () => {
+    // The value is unchanged and the justification behind it is not. P0.133
+    // removed the packaging limitation -- `@ballista/wasm-core` holds no
+    // `node:` import and `wasm-core-browser.bundle.test.ts` instantiates both
+    // kernels out of a built bundle. What holds this at `["ts"]` now is that
+    // nothing routes on `plan.backendId`, so a wider set would make the panel
+    // name a backend no code path runs. P0.163.
     expect([...BROWSER_CPU_BACKENDS]).toEqual(["ts"]);
     expect([...NODE_CPU_BACKENDS]).toEqual(["wasm-simd", "wasm", "ts"]);
   });
