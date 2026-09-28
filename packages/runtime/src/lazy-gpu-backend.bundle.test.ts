@@ -152,27 +152,45 @@ describe("lazy GPU backend bundle splitting (P7.30)", () => {
   it("keeps @ballista/wasm-core out of the bundle entirely, which is stronger than lazy", async () => {
     const chunks = await buildFixture("lazy-gpu-backend.bundle-fixture.ts");
 
-    // P0.133: wasm-rk4-backend.ts imports node:fs/promises at module top level,
-    // so it cannot be lazy-loaded into a browser either -- a dynamic chunk
-    // containing it would simply fail to resolve there. The available property
-    // is total absence, and absence is what is asserted. This is the guard that
-    // would fire if someone "fixed" the title's WASM half with an import() that
-    // cannot work.
+    // The absence still holds and is still worth asserting, but READ THE
+    // REASON, because P0.133 changed it. This used to be impossibility:
+    // wasm-rk4-backend.ts imported node:fs/promises at module top level, so a
+    // dynamic chunk containing it could not resolve in a browser and total
+    // absence was the only available property. That import is gone. What this
+    // now pins is that THIS fixture does not reach wasm-core -- a property of
+    // the fixture, not of the package -- so it still catches a stray eager
+    // import into the GPU path while no longer standing in for "the kernel is
+    // unbundleable". Lazy-loading the kernel for real is P0.139.
     for (const chunk of chunks) {
       expect(chunk.moduleIds.some((id) => id.includes("wasm-core"))).toBe(false);
       expect(chunk.code).not.toContain("node:fs/promises");
     }
   }, 90_000);
 
-  it("pins the top-level node: imports that make wasm-core un-lazy-loadable", () => {
-    // The claim above is about a file this test does not build, so it is read
-    // and asserted rather than restated. If wasm-core ever loses its node-only
-    // imports, this fails and the absence argument has to be re-derived instead
-    // of being inherited from a comment.
+  it("pins that wasm-core has no top-level node: import, which is what P0.133 changed", () => {
+    // This case used to assert the opposite -- `toContain('from "node:fs/promises"')`
+    // -- so that the day wasm-core lost its node-only imports, the absence
+    // argument above would have to be re-derived rather than inherited from a
+    // comment. That day was P0.133 and this is the re-derivation.
+    //
+    // The file is read rather than imported because importing it from vitest
+    // proves nothing: Node resolves `node:fs` perfectly well, so a module that
+    // had quietly regained the import would still load here. The regex matches
+    // an import/export specifier, not the string `node:` in the prose above it,
+    // which that file's own header contains several times.
     const backend = readFileSync(
       path.join(here, "..", "..", "wasm-core", "src", "wasm-rk4-backend.ts"),
       "utf8",
     );
-    expect(backend).toContain('from "node:fs/promises"');
+    expect(backend).not.toMatch(/\bfrom\s*["']node:/);
+
+    // And the node-only reader still exists, in the file that is allowed to
+    // have it. Without this the assertion above would also pass if someone
+    // deleted the Node path outright.
+    const nodeLoader = readFileSync(
+      path.join(here, "..", "..", "wasm-core", "src", "wasm-artifact-node.ts"),
+      "utf8",
+    );
+    expect(nodeLoader).toMatch(/\bfrom\s*["']node:fs\/promises["']/);
   });
 });

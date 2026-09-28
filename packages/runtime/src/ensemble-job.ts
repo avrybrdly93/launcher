@@ -49,9 +49,11 @@ export const ENSEMBLE_DIM = 4;
  * Slot order of one replicate's lowered parameter row.
  *
  * This **mirrors `PARAM` in `@ballista/wasm-core`** rather than importing it.
- * The import would have to be a value import, which would put
- * `wasm-rk4-backend.ts` -- and its `node:fs/promises` import -- into every
- * browser bundle that touches `@ballista/runtime`, for seven integers. The
+ * The import would have to be a value import, which would pull
+ * `wasm-rk4-backend.ts` into every browser bundle that touches
+ * `@ballista/runtime`, for seven integers. Until P0.133 that also dragged in a
+ * `node:fs/promises` import and so was not merely wasteful but unbundleable;
+ * the second objection is gone and the first still stands. The
  * mirror is pinned instead: `heterogeneous-executor.test.ts` asserts this
  * object still equals the kernel's own `PARAM` and that
  * {@link ENSEMBLE_PARAM_COUNT} still equals its `param_count()`, so a drift

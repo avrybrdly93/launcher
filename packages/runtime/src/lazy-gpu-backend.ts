@@ -26,16 +26,17 @@
  * chunk, and that is a property of the call site rather than of how this module
  * is itself imported -- so a static import of *this* file does not undo it.
  *
- * **There is deliberately no WASM half here, and its absence is the honest
- * outcome rather than an omission.** `@ballista/wasm-core`'s
- * `wasm-rk4-backend.ts` imports `node:fs/promises` and `node:url` at module top
- * level (P0.133, the reason `BROWSER_CPU_BACKENDS` is exactly `["ts"]`), so a
- * dynamic `import()` of it from a browser bundle would emit a chunk that cannot
- * resolve in a browser. For that package the available property is not lazy
- * loading but total absence from the bundle, which is strictly stronger, and
- * `lazy-gpu-backend.bundle.test.ts` asserts it directly. A browser-side loader
- * (`fetch` + `WebAssembly.instantiateStreaming`) is new functionality rather
- * than a bundle strategy and is filed as P0.139.
+ * **There is still no WASM half here, but the reason changed under it and the
+ * new reason is weaker.** It used to be impossibility: `@ballista/wasm-core`
+ * imported `node:fs/promises` and `node:url` at module top level, so a dynamic
+ * `import()` of it from a browser bundle emitted a chunk that could not
+ * resolve, and total absence from the bundle was the only available property.
+ * **P0.133 removed those imports**, so lazy-loading the kernel is now possible
+ * and is simply not done yet. `lazy-gpu-backend.bundle.test.ts` still asserts
+ * the absence, which still holds -- nothing in that fixture references
+ * wasm-core -- but it now records a fact about the fixture rather than a
+ * property of the package. Doing for the kernel what this module does for the
+ * WGSL sources is P0.139.
  */
 
 /**

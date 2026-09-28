@@ -41,9 +41,10 @@ import {
 } from "./ensemble-job.js";
 import { partitionReplicates } from "./batch-throughput.js";
 import type { WorkerLike } from "./worker-pool.js";
-// Type-only, deliberately: a value import would pull `wasm-rk4-backend.ts` --
-// and its `node:fs/promises` import, which exists to read the committed
-// artifact from disk -- into every browser bundle that touches this package.
+// Type-only, deliberately: a value import would pull `wasm-rk4-backend.ts`
+// into every browser bundle that touches this package, for a type. Before
+// P0.133 it would also have dragged in a `node:fs/promises` import and made
+// those bundles unresolvable; that half is fixed and this half still holds.
 // `.dependency-cruiser.cjs` still has to allow runtime -> wasm-core for it,
 // because `tsPreCompilationDeps` sees type imports; that entry is P7.10's, and
 // the comment in that file has anticipated it since P7.07.
@@ -214,7 +215,8 @@ export interface WasmEnsembleBackendOptions {
   readonly id?: string;
   /**
    * Whether to run chunks through the f64x2 path. Defaults to whether *this
-   * instance* has one, so a caller that used `WasmRk4Kernel.instantiateBest()`
+   * instance* has one, so a caller that used `instantiateBestNodeKernel()` or
+   * `instantiateBestBrowserKernel()`
    * gets P7.09's speedup without asking for it.
    *
    * Defaulting rather than forcing is safe only because P7.09 measured the two
@@ -234,10 +236,10 @@ export interface WasmEnsembleBackendOptions {
  * **The kernel is injected rather than instantiated here, for the same reason
  * `worker-pool.ts` takes a `WorkerFactory`**: obtaining one means reading a
  * committed `.wasm` off disk (Node) or fetching it (browser), and this package
- * is DOM-free and bundler-agnostic by construction. `WasmRk4Kernel.
- * instantiateBest()` already picks the SIMD artifact where the engine supports
- * it, so backend selection is the caller's one-line decision and not a second
- * feature detect in here.
+ * is DOM-free and bundler-agnostic by construction. The environment-specific
+ * `instantiateBestNodeKernel()` / `instantiateBestBrowserKernel()` already pick
+ * the SIMD artifact where the engine supports it, so backend selection is the
+ * caller's one-line decision and not a second feature detect in here.
  *
  * `batchInit` is called lazily and only when a chunk needs more capacity than
  * is reserved, because it is the one call that can grow linear memory -- which
