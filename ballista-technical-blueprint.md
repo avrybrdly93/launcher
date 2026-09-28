@@ -1056,9 +1056,9 @@ Hard realities the design already respects, restated as budgets: 16.6 ms frame b
 |---|---|---|---|---|
 | P7.01 | Profiling baseline: flamegraphs of interactive solve + MC batch; hotspots documented | 30m | M | report artifact; top-3 hotspots named |
 | P7.02 | SoA ensemble state layout: `Float64Array` blocks [param | state] per replicate batch | 30m | M | batch RK4 produces bit-identical results to per-replicate loop |
-| P7.03 | Batched RK4 kernel over ensembles (structure-of-arrays inner loops) | 30m | H | ≥3× throughput vs naive loop (measured) |
+| P7.03 | Batched RK4 kernel over ensembles (structure-of-arrays inner loops) | 30m | H | bit-identical to stepEnsembleReference across tableaus and batch sizes; throughput measured and recorded against the naive loop (no threshold — P0.127 measured 3× to be above this task’s structural ceiling) |
 | P7.04 | JIT-friendliness pass: monomorphic call sites, no megamorphic force dispatch in batch (specialized compiled RHS) | 30m | H | deopt log clean; +% throughput recorded |
-| P7.05 | RHS specializer: compile enabled-force list into single flat function (codegen or hand fusion) | 30m | H | specialized ≡ generic (hash); ≥1.5× RHS speedup |
+| P7.05 | RHS specializer: compile enabled-force list into single flat function (codegen or hand fusion) | 30m | H | specialized ≡ generic (hash); RHS throughput measured and recorded against the post-P7.04 baseline (no threshold — P0.129 measured ≥1.5× to be above the branchless ceiling for any fused composer) |
 | P7.06 | Memory audit for 1e5-replicate study; pooled buffers | 25m | M | peak < 300 MB; zero GC major collections mid-run |
 | P7.07 | WASM toolchain spike: Rust crate `ballista-core` with RK4 + quad-drag RHS, wasm-bindgen | 30m | H | WASM result matches TS within 1e-15 per step (same order of ops) |
 | P7.08 | WASM batch API: init(paramsBuf) / run(n) / read(observablesBuf) with zero-copy views | 30m | H | 1e4 batch round-trip; no per-call allocation |
