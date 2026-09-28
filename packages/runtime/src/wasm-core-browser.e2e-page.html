@@ -1,0 +1,18 @@
+<!doctype html>
+<!--
+  P0.139's browser fixture. Loaded by `wasm-core-browser.e2e.test.ts` from a
+  real `vite preview` server.
+
+  Deliberately empty of everything but the module script: this page is not
+  about rendering, and a stylesheet or a framework here would put failures
+  between the engine and the kernel that have nothing to do with either.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>ballista wasm-core browser probe</title>
+  </head>
+  <body>
+    <script type="module" src="./wasm-core-browser.e2e-entry.ts"></script>
+  </body>
+</html>
