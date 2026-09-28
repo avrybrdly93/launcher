@@ -440,8 +440,11 @@ describe("true f32 and storage-rounded f32 are different objects", () => {
 
   it("nevertheless agree far inside 1e-4, which falsifies the claim's T4", () => {
     // T4 predicted these two modes would differ by MORE than the 1e-4 relative
-    // bound P7.14's criterion names. **They do not, and the prediction is
-    // recorded as wrong rather than quietly dropped.** Measured across the
+    // bound P7.14's criterion named at the time. **They do not, and the
+    // prediction is recorded as wrong rather than quietly dropped.** (P0.134
+    // has since restated that criterion on ULP; the 1e-4 figure survives here
+    // as the bound T4 was made against, which is what makes it checkable.)
+    // Measured across the
     // sweep below: worst 1.50e-6, at h=0.001 / 2000 steps on `vy` -- roughly
     // 66x inside the gate, and most fixtures are two orders better still.
     //
@@ -516,10 +519,15 @@ describe("P7.14's 1e-4 RELATIVE gate is not a property of the kernel", () => {
    *
    * So "1e4 trajectories match CPU f32 mode within 1e-4 rel" is met or missed
    * according to where a fixture's last step happens to land relative to apex.
-   * That is not a statement about a GPU kernel, and P7.14 should not be gated
-   * on it as written. The recommendation carried into the task's notes is the
-   * one P7.11 already adopted for the same reason: gate on absolute error per
-   * channel, or on ULP, and keep the relative figure as documentation.
+   * That is not a statement about a GPU kernel.
+   *
+   * **This is now history rather than a recommendation, and the sweep below is
+   * kept because it is the evidence.** The 99th run gated the measurement on
+   * ULP (64, in `scripts/gpu-rk4-agreement-results.json`) without the row
+   * following, and P0.134 (141st run) restated P7.14 itself the same way --
+   * ULP per state channel, absolute per channel reported, relative kept as
+   * documentation, which is what P7.11 adopted for the same reason. Deleting
+   * this study would remove the only live derivation of why.
    */
   const H_FINE = 0.001;
 

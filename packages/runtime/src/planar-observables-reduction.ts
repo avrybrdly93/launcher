@@ -18,9 +18,15 @@
  *
  * ## Why the reference is parameterised by precision rather than written twice
  *
- * P7.16's criterion is "matches CPU observables within f32 tolerance", and the
- * 101st run's claim commit settled which of three possible comparisons that
- * names. The gate is the device reduction against **this module at
+ * P7.16's criterion named "f32 tolerance" without saying what that measured,
+ * and the 101st run's claim commit settled which of three possible comparisons
+ * it meant. P0.134 (141st run) then restated the row on what the measurement
+ * had always enforced -- **256 ULP per observable, exact on the impacted
+ * flag, with absolute error reported and relative error kept as documentation
+ * only** -- so the written criterion and the running gate are now one
+ * sentence. The reading below is unchanged by that restatement; it is what
+ * "CPU observables" refers to. The gate is the device reduction against
+ * **this module at
  * `round = toF32`**: same algorithm, same trajectory, same precision, so a
  * disagreement is about the device and nothing else. Comparing instead against
  * `@ballista/analysis`'s f64 `apex`/`range` over an f64 adaptive solve would
