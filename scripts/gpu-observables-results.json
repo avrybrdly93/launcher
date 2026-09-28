@@ -1,6 +1,6 @@
 {
   "task": "P7.16",
-  "criterion": "matches CPU observables within f32 tolerance",
+  "criterion": "matches the f32 CPU observables reduction within 256 ULP per observable and exactly on the impacted flag, with max absolute error per observable recorded; relative error is documentation, not the gate (P0.134)",
   "criterionReading": "Reading (iii), settled in the 101st run's claim commit: the device reduction against an f32 CPU reduction of the same algorithm over the same f32 fixed-step trajectory. The weaker check against @ballista/analysis's f64 observables lives in planar-observables-reduction.test.ts and is what keeps this from comparing a transcription to its own twin.",
   "provenance": "Correctness only. The adapter is recorded below; where it is software, these numbers say what a conformant implementation computes and say NOTHING about throughput or about the bandwidth saving the on-device reduction exists for. That is P7.20.",
   "measuredAt": "2026-09-13T22:41:59.827Z",

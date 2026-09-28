@@ -1,5 +1,7 @@
-// GPU/CPU agreement for the WGSL observables reduction (P7.16's validation
-// criterion: "matches CPU observables within f32 tolerance").
+// GPU/CPU agreement for the WGSL observables reduction, against P7.16's
+// validation criterion. The criterion was restated by P0.134 (141st run) onto
+// the ULP budget this script has always enforced; the relative figure it also
+// reports is documentation and has never been the gate here.
 //
 // Runs one ensemble two ways -- the f32 CPU reduction under Node, and the
 // observables kernel on a real WebGPU device inside Playwright Chromium -- and
@@ -393,7 +395,13 @@ console.log(`PASS: worst numeric ULP ${worstUlp} <= ${ULP_BUDGET}, impacted flag
 if (shouldRecord) {
   const record = {
     task: "P7.16",
-    criterion: "matches CPU observables within f32 tolerance",
+    // Quotes ROADMAP.json's P7.16 row verbatim. It is a QUOTE, not a
+    // measurement: when the row is restated the quote follows it, and nothing
+    // recorded below moves. P0.160 is the row for making a test say so.
+    criterion:
+      "matches the f32 CPU observables reduction within 256 ULP per observable and " +
+      "exactly on the impacted flag, with max absolute error per observable recorded; " +
+      "relative error is documentation, not the gate (P0.134)",
     criterionReading:
       "Reading (iii), settled in the 101st run's claim commit: the device reduction against " +
       "an f32 CPU reduction of the same algorithm over the same f32 fixed-step trajectory. " +

@@ -31,7 +31,16 @@ function isSoftwareAdapter(info: { architecture: string | null; vendor: string |
 describe("the recorded run describes the task it claims to answer", () => {
   it("is filed under P7.16 and its own criterion", () => {
     expect(results.task).toBe("P7.16");
-    expect(results.criterion).toBe("matches CPU observables within f32 tolerance");
+    // The criterion is quoted from ROADMAP.json's P7.16 row. P0.134 (141st run)
+    // restated that row onto the ULP budget the measurement always enforced, so
+    // this string moved with it while every recorded number stayed put -- the
+    // run still passes, at 0 ULP, under either wording. Nothing yet asserts this
+    // matches ROADMAP.json; that is P0.160.
+    expect(results.criterion).toBe(
+      "matches the f32 CPU observables reduction within 256 ULP per observable and " +
+        "exactly on the impacted flag, with max absolute error per observable recorded; " +
+        "relative error is documentation, not the gate (P0.134)",
+    );
   });
 
   it("names which of the three readings of 'CPU observables' it measured", () => {
