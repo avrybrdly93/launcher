@@ -242,8 +242,29 @@ describe.each(BROWSER_TARGETS)("wasm-core in a real browser (P0.139): $name", (t
     );
     // The page, its entry chunk, and both artifacts.
     expect(fixtureResources.length).toBeGreaterThanOrEqual(4);
+    // 200 OR 304, and the second one is not a loosening. The three cases in
+    // this describe block share one browser, so each opens a page against a
+    // server that has already served these files once; Firefox revalidates
+    // from its HTTP cache and is answered `304 Not Modified`, which means the
+    // request reached the server and the resource is current. Chromium in the
+    // sandbox this was written in serves them fresh each time and never
+    // produced one, which is why the first version of this assertion said
+    // `toBe(200)` and was green locally while red on CI, where ci.yml installs
+    // a Firefox binary and `tryLaunch` therefore does not skip.
+    //
+    // This is the same lesson as the `/favicon.ico` one three paragraphs up,
+    // applied a second time: an assertion a browser's caching conventions can
+    // trip is an assertion about the browser, not about the code under test.
+    // What the case exists to catch is a resource the deployment did not
+    // serve -- a 404 surfacing downstream as a WebAssembly magic-number
+    // complaint -- and 404, 403, 500 and a missing entry all still fail here.
     for (const url of fixtureResources) {
-      expect(run.statuses.get(url), `${url} was requested but got no response`).toBe(200);
+      const status = run.statuses.get(url);
+      expect(status, `${url} was requested but got no response`).not.toBeUndefined();
+      expect(
+        [200, 304],
+        `${url} was requested but was not served (got ${String(status)}; expected 200, or 304 from a revalidated cache)`,
+      ).toContain(status);
     }
     // Kept as a diagnostic rather than an assertion: an error mentioning one
     // of the fixture's own resources would already have failed above.
