@@ -107,9 +107,22 @@ const RK4_STEP_SIZE: Record<GoldenPresetId, number> = {
 };
 
 /**
- * Fixed integration horizon for every golden entry. v1 deliberately records a numerical
- * snapshot rather than a physically-terminated flight: no ground-impact event detection is
- * wired into this store, so every preset just integrates for the same fixed duration.
+ * Fixed integration horizon for every golden entry, v1 and v2 alike.
+ *
+ * THE STORE RECORDS A FIXED-SPAN NUMERICAL SNAPSHOT, NOT A PHYSICALLY-TERMINATED FLIGHT.
+ * That is the store's contract and it is now enforced rather than merely asserted: every
+ * solve here passes `events: "off"`, so no entry's endpoint depends on whether its stepper
+ * happens to own an interpolant. Until P0.142 this sentence was true of the classical-rk4
+ * entries and false of the dopri5 ones, which stopped at the declared ground impact -- the
+ * asymmetry that row was filed for.
+ *
+ * Why this side and not the other: a golden's job is to detect a numerical regression, and
+ * a fixed span compares like with like across steppers and across engine versions. A
+ * physically-terminated flight makes the comparison's own endpoint a computed quantity, so
+ * a change in event localisation and a change in the right-hand side are indistinguishable
+ * in the recorded hash. The physically-terminated reading is the right one for a study
+ * about a flight -- `runEnergyDriftStudy` is exactly that, and resolves the opposite way
+ * for that reason, with its reference solve now declaring `events: "require"`.
  */
 export const GOLDEN_T_FINAL = 2;
 
@@ -122,16 +135,13 @@ function buildStepperAndConfig(
   if (kind === "classical-rk4") {
     return {
       stepper: new ClassicalRK4Stepper(),
-      // events: "off" (P0.99) preserves the recorded goldens bit-for-bit:
+      // events: "off" (P0.99) preserved the recorded goldens bit-for-bit:
       // ClassicalRK4 has no interpolant, so these trajectories have always
       // integrated the full GOLDEN_T_FINAL span straight through the declared
-      // ground-impact event. The dopri5 branch below HAS an interpolant and so
-      // has always stopped AT the impact -- the same preset recorded under two
-      // steppers disagrees about whether the ground is a boundary, decided
-      // only by which stepper the golden happens to use. That asymmetry is
-      // real, pre-dates this change, and is filed as P0.142; changing it here
-      // would rewrite the golden set, which CLAUDE.md and blueprint §8.4 put
-      // behind a deliberate, separately-argued change.
+      // ground-impact event. As of P0.142 the dopri5 branch below says the
+      // same thing, so this is the store's rule rather than this branch's
+      // accident -- see GOLDEN_T_FINAL for why the store resolves to a fixed
+      // span.
       cfg: {
         stepper: "classical-rk4",
         h: RK4_STEP_SIZE[presetId],
@@ -142,7 +152,29 @@ function buildStepperAndConfig(
   }
   return {
     stepper: createDormandPrince54Stepper(),
-    cfg: { stepper: "dopri5", rtol: 1e-10, atol: 1e-12, controller: "PI", maxSteps: 200_000 },
+    // events: "off" (P0.142), and this one DID move numbers -- three of the
+    // six dopri5 entries were recorded as truncated flights. DOPRI5 carries
+    // its own interpolant, so with `events` unset `integrate` armed the
+    // declared ground impact and these goldens stopped AT it, while the
+    // classical-rk4 branch above (no interpolant) integrated the full
+    // GOLDEN_T_FINAL span straight through. Same preset, same model, same
+    // declared event, opposite answers -- decided by nothing but which
+    // stepper the golden happened to use.
+    //
+    // The store's own contract, stated at GOLDEN_T_FINAL and again at
+    // runGoldenScenario, is a fixed-span numerical snapshot. That is the side
+    // this resolves to: the declaration was already made and the code is what
+    // disagreed with it. Re-recorded under blueprint 8.4 with the reason in
+    // CHANGELOG.md; the three entries that moved are shot-put, table-tennis
+    // -ball and dust-grain, all dopri5.
+    cfg: {
+      stepper: "dopri5",
+      rtol: 1e-10,
+      atol: 1e-12,
+      controller: "PI",
+      maxSteps: 200_000,
+      events: "off",
+    },
   };
 }
 
@@ -364,6 +396,13 @@ const GOLDEN_V2_SOLVER: SolverConfig = {
   atol: 1e-12,
   controller: "PI",
   maxSteps: 200_000,
+  // events: "off" (P0.142), for the store-wide reason at GOLDEN_T_FINAL. This
+  // moved three of the eleven v2 entries -- table-tennis-topspin-decay,
+  // vortex-crossing and buoyancy-visible -- which were recorded as truncated
+  // flights while runGoldenScenario's own doc said no ground-impact event was
+  // wired in. The doc was false in the harmful direction, not harmlessly
+  // imprecise, which is the question P0.142 filed as unmeasured.
+  events: "off",
 };
 
 /**
@@ -378,7 +417,9 @@ const V2_USES_LIBRARY_SOLVER: ReadonlySet<string> = new Set(["energy-drift-gravi
  * Integrates one v2 library scenario over the shared {@link GOLDEN_T_FINAL} horizon, from a
  * freshly built Model/EvalContext/Stepper (sharing nothing across calls, same contract as
  * {@link runGoldenTrajectory}). The horizon is v1's, not the scenario's: the store records a
- * numerical snapshot, not a physically-terminated flight -- no ground-impact event is wired in.
+ * numerical snapshot, not a physically-terminated flight -- see {@link GOLDEN_T_FINAL}. Note
+ * that `energy-drift-gravity-only` reaches this through its library solver spec, which
+ * already states `events: "off"`, and every other entry through {@link GOLDEN_V2_SOLVER}.
  *
  * `y0Override` exists for the tolerance review ({@link measureFinalStateSensitivity}) and is
  * not used when recording; passing it changes nothing else about the run.

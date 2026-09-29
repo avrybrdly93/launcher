@@ -5,9 +5,10 @@
  * the gravity-only `DEFAULT_SCENARIO` at a shared *fixed RHS-evaluation
  * budget* (§4.8: "fixed cost budget (equal RHS evaluations)"), each landing
  * at the same `tFinal` (a tight-tolerance DOPRI5 reference solve's own
- * natural landing time, mirroring `solver-lab.ts`'s reference-solve
- * pattern) via a per-method `h` chosen so `nSteps * rhsPerStep ===
- * RHS_BUDGET`. Each method's trace is `E(t)/E(0) - 1` (`mechanicalEnergy`,
+ * natural landing time -- the ground-impact event, armed by an explicit
+ * `events: "require"` since P0.142 because it is what defines the window,
+ * mirroring `solver-lab.ts`'s reference-solve pattern) via a per-method `h`
+ * chosen so `nSteps * rhsPerStep === RHS_BUDGET`. Each method's trace is `E(t)/E(0) - 1` (`mechanicalEnergy`,
  * `@ballista/engine`) sampled at every accepted step -- these are genuine
  * solver runs ("pinned runs"), not canned fixture data, so this task's
  * validation criterion ("four-method E(t) traces render from pinned runs")
@@ -131,9 +132,26 @@ export function runEnergyDriftStudy(scenario: ScenarioSpec = DEFAULT_SCENARIO): 
       rtol: REFERENCE_RTOL,
       atol: REFERENCE_ATOL,
       maxSteps: Number.MAX_SAFE_INTEGER,
+      // events: "require" (P0.142). THE GROUND-IMPACT EVENT IS THIS SOLVE'S
+      // ENTIRE PURPOSE: `tFinal` below is the flight's landing time, and it
+      // is what every fixed-step trace is then budgeted against. Until this
+      // line the event was armed by accident -- an adaptive config selects
+      // DOPRI5, DOPRI5 owns an interpolant, so `integrate` armed it with
+      // nothing in the source saying that was intended. Stating it is the
+      // point: with `events` unset, swapping this reference to any stepper
+      // without an interpolant would silently turn `tFinal` into
+      // T_MAX_SECONDS and change every trace in the exhibit. It now throws
+      // instead.
+      //
+      // This is the OPPOSITE resolution to the golden store's, deliberately
+      // and for a stated reason (golden-trajectory-store.ts, GOLDEN_T_FINAL):
+      // a golden is a fixed-span numerical snapshot, and this is a study of a
+      // flight, so the flight's end is the window.
+      events: "require",
     },
     referenceStepper,
   );
+  /** The flight's landing time, localized by the ground-impact event above. */
   const tFinal = referenceReport.tFinal;
 
   const e0 = mechanicalEnergy(y0, ctx);
@@ -155,11 +173,13 @@ export function runEnergyDriftStudy(scenario: ScenarioSpec = DEFAULT_SCENARIO): 
         // [0, tFinal] window at a fixed h on an equal-rhs budget; truncating it
         // at the ground-impact event would cut each method's trace at a
         // different step index and destroy the comparison §4.8 is making.
-        // NOTE the asymmetry this makes visible, filed as P0.142: the
-        // *reference* solve above is adaptive, so it runs on DOPRI5, which HAS
-        // an interpolant and therefore has always had the ground-impact event
-        // armed -- tFinal is the impact time. Only the fixed-step traces ran
-        // without events, and before P0.99 nothing said so.
+        // The reference solve above arms the same event, on purpose and now in
+        // writing (P0.142): it is what CHOSE tFinal. The two are not in
+        // conflict -- the window is defined once, by the reference, and then
+        // integrated through by every method including the reference's own
+        // stepper if it were re-run here. What P0.142 removed is the version
+        // of this where the reference's behaviour followed from its stepper
+        // rather than from a statement.
         { stepper: id, h, maxSteps: Number.MAX_SAFE_INTEGER, events: "off" },
         stepper,
         [recorder],
