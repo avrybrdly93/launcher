@@ -214,6 +214,50 @@ describe("golden-trajectory store (v1 P2.52, v2 P4.37)", () => {
     },
   );
 
+  /**
+   * P0.142's invariant, and the reason it is asserted on a RECOMPUTATION rather than on the
+   * fixture's `tFinal` field.
+   *
+   * A golden here is a fixed-span numerical snapshot: the span is a property of the store, not
+   * of whichever stepper an entry happens to use. That was the store's stated intent from v1,
+   * in `GOLDEN_T_FINAL`'s doc comment and again in `runGoldenScenario`'s, but only the
+   * fixed-step branches implemented it -- an omitted `cfg.events` ARMS a model's declared
+   * ground impact for any stepper carrying an interpolant (ADR-016), so every dopri5 entry
+   * stopped at the ground while the classical-rk4 recording of the same preset ran the full
+   * span. Six of the twenty-three entries were event-terminated flights, one of them
+   * (`table-tennis-topspin-decay`) covering 9.7% of its declared 2 s.
+   *
+   * The fixture recorded `tFinal: GOLDEN_T_FINAL` for all of them, which is exactly why
+   * asserting the fixture field would prove nothing: it was already 2 while the arrays
+   * underneath it ended at 0.194. This integrates instead and reads the last sample, so it
+   * fails if the code stops early whatever the metadata says.
+   *
+   * It is a real guard rather than a restatement of the config, because the failure mode does
+   * not need anyone to edit an `events` literal. A fixed-step stepper that ACQUIRES an
+   * interpolant -- or an entry moved onto a stepper that has one -- silently re-arms the
+   * event and re-opens the split. That is how it arrived the first time.
+   */
+  it.each(GOLDEN_PRESET_IDS.flatMap((id) => STEPPERS.map((k) => [id, k] as const)))(
+    "v1 %s/%s integrates the full fixed span, so the ground is not a boundary here",
+    (presetId, stepper) => {
+      const trajectory = runGoldenTrajectory(presetId, stepper);
+      expect(trajectory.t[trajectory.nSteps - 1]).toBeCloseTo(GOLDEN_T_FINAL, 12);
+    },
+  );
+
+  it.each(GOLDEN_V2_SCENARIO_IDS.map((id) => [id] as const))(
+    "v2 %s integrates the full fixed span, so the ground is not a boundary here",
+    (scenarioId) => {
+      const trajectory = runGoldenScenario(scenarioId);
+      expect(trajectory.t[trajectory.nSteps - 1]).toBeCloseTo(GOLDEN_T_FINAL, 12);
+    },
+  );
+
+  it("every recorded entry agrees with the span the store declares", () => {
+    for (const entry of fixture.entries) expect(entry.tFinal).toBe(GOLDEN_T_FINAL);
+    for (const entry of fixture.v2Entries) expect(entry.tFinal).toBe(GOLDEN_T_FINAL);
+  });
+
   it("every v2 tolerance is at or above §8.4's floor, and is the recorded amplification's own decade", () => {
     for (const entry of fixture.v2Entries) {
       expect(entry.tolerance).toBeGreaterThanOrEqual(RELATIVE_TOLERANCE);

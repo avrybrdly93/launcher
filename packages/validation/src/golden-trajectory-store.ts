@@ -107,9 +107,20 @@ const RK4_STEP_SIZE: Record<GoldenPresetId, number> = {
 };
 
 /**
- * Fixed integration horizon for every golden entry. v1 deliberately records a numerical
- * snapshot rather than a physically-terminated flight: no ground-impact event detection is
- * wired into this store, so every preset just integrates for the same fixed duration.
+ * Fixed integration horizon for every golden entry, v1 and v2 alike. This store records a
+ * numerical snapshot rather than a physically-terminated flight: declared ground-impact
+ * events are armed `"off"` on every branch, so every entry integrates the same fixed
+ * duration straight through the ground.
+ *
+ * P0.142 settled that this is a property of the STORE rather than of whichever stepper an
+ * entry happens to use, and made the code say so. Until then the sentence above was written
+ * here and in {@link runGoldenScenario} but was only true of the fixed-step branches: an
+ * omitted `cfg.events` means ARMED for a stepper that carries an interpolant (ADR-016), so
+ * every dopri5 entry silently stopped at its ground impact while the classical-rk4 recording
+ * of the same preset ran the full span. Six of the twenty-three entries were truncated
+ * flights that this comment said were not -- see {@link runGoldenScenario} for the measured
+ * list. The span is asserted in `golden-trajectories.test.ts` so a future stepper cannot
+ * re-introduce the split by acquiring an interpolant.
  */
 export const GOLDEN_T_FINAL = 2;
 
@@ -122,16 +133,14 @@ function buildStepperAndConfig(
   if (kind === "classical-rk4") {
     return {
       stepper: new ClassicalRK4Stepper(),
-      // events: "off" (P0.99) preserves the recorded goldens bit-for-bit:
-      // ClassicalRK4 has no interpolant, so these trajectories have always
-      // integrated the full GOLDEN_T_FINAL span straight through the declared
-      // ground-impact event. The dopri5 branch below HAS an interpolant and so
-      // has always stopped AT the impact -- the same preset recorded under two
-      // steppers disagrees about whether the ground is a boundary, decided
-      // only by which stepper the golden happens to use. That asymmetry is
-      // real, pre-dates this change, and is filed as P0.142; changing it here
-      // would rewrite the golden set, which CLAUDE.md and blueprint §8.4 put
-      // behind a deliberate, separately-argued change.
+      // events: "off" (P0.99), and now for the store's stated reason rather
+      // than because ClassicalRK4 has no interpolant: a golden is a fixed-span
+      // numerical snapshot, so NEITHER branch stops at the ground. P0.142
+      // closed the asymmetry where this branch ran the full GOLDEN_T_FINAL
+      // span while the dopri5 recording of the same preset stopped at impact,
+      // making "is the ground a boundary" an answer decided by stepper choice.
+      // The same literal is on the dopri5 branch below, and it moved three of
+      // these six presets' recorded numbers -- see GOLDEN_T_FINAL.
       cfg: {
         stepper: "classical-rk4",
         h: RK4_STEP_SIZE[presetId],
@@ -142,7 +151,22 @@ function buildStepperAndConfig(
   }
   return {
     stepper: createDormandPrince54Stepper(),
-    cfg: { stepper: "dopri5", rtol: 1e-10, atol: 1e-12, controller: "PI", maxSteps: 200_000 },
+    cfg: {
+      stepper: "dopri5",
+      rtol: 1e-10,
+      atol: 1e-12,
+      controller: "PI",
+      maxSteps: 200_000,
+      // events: "off" (P0.142). DOPRI5 carries its own interpolant, so an
+      // omitted `events` arms the declared ground impact (ADR-016) and this
+      // branch used to stop there -- the classical-rk4 branch above, same
+      // preset, same model, same declared event, ran the full span. The span
+      // is a property of this store, not of the stepper, so it is stated here
+      // too. This literal is what re-recorded shot-put, table-tennis-ball and
+      // dust-grain; the other three v1 presets never reached the ground inside
+      // GOLDEN_T_FINAL and are bit-identical.
+      events: "off",
+    },
   };
 }
 
@@ -364,6 +388,12 @@ const GOLDEN_V2_SOLVER: SolverConfig = {
   atol: 1e-12,
   controller: "PI",
   maxSteps: 200_000,
+  // events: "off" (P0.142), for the same reason as v1's two branches: a golden
+  // is a fixed-span numerical snapshot. This is also the literal that made
+  // `runGoldenScenario`'s own doc comment true -- it claimed no ground-impact
+  // event was wired in, while an omitted `events` armed one on every entry
+  // recorded with this solver.
+  events: "off",
 };
 
 /**
@@ -378,7 +408,26 @@ const V2_USES_LIBRARY_SOLVER: ReadonlySet<string> = new Set(["energy-drift-gravi
  * Integrates one v2 library scenario over the shared {@link GOLDEN_T_FINAL} horizon, from a
  * freshly built Model/EvalContext/Stepper (sharing nothing across calls, same contract as
  * {@link runGoldenTrajectory}). The horizon is v1's, not the scenario's: the store records a
- * numerical snapshot, not a physically-terminated flight -- no ground-impact event is wired in.
+ * numerical snapshot, not a physically-terminated flight -- declared ground-impact events are
+ * armed `"off"` by {@link GOLDEN_V2_SOLVER}.
+ *
+ * THAT LAST SENTENCE WAS FALSE FOR THREE ENTRIES UNTIL P0.142 MEASURED IT, which is why it
+ * now names the mechanism instead of asserting the outcome. `GOLDEN_V2_SOLVER` omitted
+ * `events`, and an omitted `events` ARMS the declared impact for a stepper with an
+ * interpolant (ADR-016), so these v2 entries were event-terminated flights recorded under a
+ * comment saying no event was wired in:
+ *
+ * | entry                       | recorded span before P0.142 | of a declared 2 s |
+ * | --------------------------- | --------------------------- | ----------------- |
+ * | `table-tennis-topspin-decay`| 0.194311083 s               | 9.7%              |
+ * | `buoyancy-visible`          | 0.797053466 s               | 39.9%             |
+ * | `vortex-crossing`           | 1.408975549 s               | 70.4%             |
+ *
+ * The 114th run filed this as "harmlessly imprecise if none reaches the ground, a truncated
+ * flight if one does" and declined to guess which. Three do, and `buoyancy-visible`'s
+ * truncation cost it 60% of the span over which buoyancy -- the entry's whole subject -- was
+ * being pinned. The fixture's own `tFinal` field recorded `GOLDEN_T_FINAL` for all of them,
+ * so the metadata disagreed with the numbers underneath it as well.
  *
  * `y0Override` exists for the tolerance review ({@link measureFinalStateSensitivity}) and is
  * not used when recording; passing it changes nothing else about the run.
