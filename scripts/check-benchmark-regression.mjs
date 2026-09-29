@@ -54,7 +54,39 @@ const {
 
 const REFERENCE_METHOD = "explicit-euler";
 const REGRESSION_THRESHOLD_PCT = 15;
-const MIN_DURATION_MS = 300;
+
+// P0.140. 1000, not 300, and the number is measured rather than picked.
+//
+// At 300 ms the 15% gate below sat BELOW this metric's own same-machine noise,
+// so a warning was a matter of which afternoon the run landed on. Seven repeats
+// of this script on one commit, one machine, minutes apart, no code change
+// between them (2026-09-29, linux-x64-4cpu-xeon-2.10ghz-node22):
+//
+//   duration x trials   worst full spread        worst DOWNWARD deviation
+//   300 ms  x 3         22.4% (dopri5)           19.3% (dopri5)
+//   1000 ms x 3         15.5% (velocity-verlet)   5.6% (velocity-verlet)
+//   1000 ms x 5         11.5% (dopri5)            7.9% (position-verlet)
+//
+// Two things that measurement settles:
+//
+//   * THE DOWNWARD DEVIATION IS THE STATISTIC THIS GATE CARES ABOUT, not the
+//     full spread. `regressionPct` below is positive only when a ratio falls
+//     BELOW the baseline, and best-of-N biases each sample upward, so the two
+//     numbers are not interchangeable. At 300 ms they were close (19.3 vs
+//     22.4) -- the asymmetry the filing predicted was real but far too small
+//     to rescue a 15% threshold.
+//   * THE FIX IS DURATION, NOT TRIAL COUNT. 1000 x 3 already collapses the
+//     downward deviation from 19.3% to 5.6%; spending five trials instead of
+//     three buys nothing beyond it (7.9%, i.e. noise on n=7). So the gate
+//     costs ~27 s of measurement instead of ~8 s, not ~45 s.
+//
+// 300 ms was not a quiet measurement of a steady state; it was a measurement
+// taken before one. Every method's median ratio MOVES between 300 ms and
+// 1000 ms by far more than the noise at either setting (dopri5 0.1699 ->
+// 0.2985, classical-rk4 0.3519 -> 0.4673), while 1000 x 3 and 1000 x 5 agree
+// to within noise. That shift is a property of the metric, not of this gate,
+// and P0.165 is filed about what it means for the committed baseline.
+const MIN_DURATION_MS = 1000;
 const WARMUP_STEPS = 20_000;
 const TRIALS_PER_METHOD = 3;
 
