@@ -243,6 +243,37 @@ describe("golden-trajectory store (v1 P2.52, v2 P4.37)", () => {
     },
   );
 
+  it("every recorded entry runs the full GOLDEN_T_FINAL span, whatever its stepper (P0.142)", () => {
+    // THE STORE'S CONTRACT, ASSERTED RATHER THAN DOCUMENTED. `GOLDEN_T_FINAL`
+    // says the store records a fixed-span numerical snapshot and not a
+    // physically-terminated flight. Before P0.142 that was true of the
+    // classical-rk4 entries and false of six others -- three v1 dopri5 and
+    // three v2 -- which stopped at the declared ground impact because their
+    // stepper happened to own an interpolant and nothing said `events: "off"`.
+    //
+    // This case is what makes the contract a property of the STORE rather than
+    // a consequence of stepper choice, which is P0.142's criterion in as many
+    // words. Dropping `events: "off"` from either the v1 dopri5 branch or
+    // GOLDEN_V2_SOLVER fails it here as well as failing six recorded hashes,
+    // and this one says WHY in its name.
+    //
+    // The endpoint is compared exactly, not within a tolerance: `integrate`
+    // lands on `tFinal` exactly when it is not truncated by an event, and an
+    // "almost 2" would mean something had localized a root.
+    for (const presetId of GOLDEN_PRESET_IDS) {
+      for (const stepper of STEPPERS) {
+        const trajectory = runGoldenTrajectory(presetId, stepper);
+        expect(trajectory.t[trajectory.nSteps - 1], `${presetId} / ${stepper}`).toBe(
+          GOLDEN_T_FINAL,
+        );
+      }
+    }
+    for (const scenarioId of GOLDEN_V2_SCENARIO_IDS) {
+      const trajectory = runGoldenScenario(scenarioId);
+      expect(trajectory.t[trajectory.nSteps - 1], scenarioId).toBe(GOLDEN_T_FINAL);
+    }
+  });
+
   it("the full-array entry's stored trajectory matches a fresh recomputation exactly", () => {
     const golden = fixture.entries.find(
       (e) => e.presetId === FULL_ARRAY_ENTRY.presetId && e.stepper === FULL_ARRAY_ENTRY.stepper,
