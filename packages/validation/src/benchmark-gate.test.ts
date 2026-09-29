@@ -42,8 +42,9 @@ const MEASURED_SUFFICIENT_DURATION_MS = 1000;
 
 function readNumericConst(name: string): number {
   const match = SCRIPT.match(new RegExp(`^const ${name} = (\\d[\\d_]*);`, "m"));
-  expect(match, `${name} is no longer a plain numeric const in ${SCRIPT_PATH}`).not.toBeNull();
-  return Number(match![1].replace(/_/g, ""));
+  const literal = match?.[1];
+  expect(literal, `${name} is no longer a plain numeric const in ${SCRIPT_PATH}`).toBeDefined();
+  return Number((literal ?? "").replace(/_/g, ""));
 }
 
 describe("the benchmark regression gate stays above its measured noise floor (P0.140)", () => {
