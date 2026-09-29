@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { G_STD } from "@ballista/engine";
 import { runEnergyDriftStudy, type EnergyDriftMethodTrace } from "./energy-drift-study.js";
 import { DEFAULT_SCENARIO } from "./simulation-session.js";
 
@@ -39,6 +40,46 @@ function trendCorrelation(method: EnergyDriftMethodTrace): number {
   }
   return cov / Math.sqrt(vt * ve);
 }
+
+/**
+ * P0.142. `tFinal` is the reference solve's GROUND-IMPACT TIME, and this asserts it against a
+ * closed form rather than against the code that produced it.
+ *
+ * The study holds every method to one window so their energy traces are comparable, and that
+ * window's endpoint is the landing time (blueprint §4.8, "a reference solve's own natural
+ * landing time"). Until P0.142 nothing said so: `cfg.events` was omitted on the reference
+ * solve, DOPRI5 happens to carry an interpolant, and an omitted `events` arms a model's
+ * declared impact for such a stepper (ADR-016) -- so the endpoint was chosen by an event that
+ * only the reference could see, while the fixed-step traces below it ran `events: "off"`. The
+ * intent is now stated on both sides ("require" and "off"), and this pins the half that is a
+ * physical claim.
+ *
+ * Asserting `tFinal < T_MAX_SECONDS` alone would be far too weak -- it passes for any early
+ * exit, including a `maxSteps` bail. `DEFAULT_SCENARIO` is gravity-only, so its exact landing
+ * time from `y0 = [0, 1, 21.213, 21.213]` is available in closed form,
+ * `t = (v_y0 + sqrt(v_y0^2 + 2*g*y0)) / g`, and the reference (DOPRI5 at rtol 1e-12) hits it
+ * to one ulp. The `forceIds` assertion is not decoration: add drag to this scenario and the
+ * closed form stops applying, so this fails loudly rather than comparing against the wrong
+ * reference value.
+ */
+describe("runEnergyDriftStudy tFinal is the ground impact (P0.142)", () => {
+  /** The 60 s backstop in `energy-drift-study.ts`; nothing physical should ever reach it. */
+  const T_MAX_SECONDS = 60;
+
+  it("is the closed-form drag-free landing time, not the backstop", () => {
+    expect(DEFAULT_SCENARIO.model.forceIds).toEqual(["gravity"]);
+
+    const { y0, vy0 } = {
+      y0: DEFAULT_SCENARIO.initialConditions.y0,
+      vy0: DEFAULT_SCENARIO.initialConditions.vy0,
+    };
+    const expected = (vy0 + Math.sqrt(vy0 * vy0 + 2 * G_STD * y0)) / G_STD;
+
+    const { tFinal } = runEnergyDriftStudy();
+    expect(tFinal).toBeLessThan(T_MAX_SECONDS);
+    expect(Math.abs(tFinal - expected) / expected).toBeLessThan(1e-12);
+  });
+});
 
 describe("runEnergyDriftStudy (P3.44)", () => {
   it("produces one trace per flagship method, each a genuine pinned run with a finite E(t)/E(0)-1 series starting at 0", () => {

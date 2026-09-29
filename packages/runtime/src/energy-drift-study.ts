@@ -5,9 +5,10 @@
  * the gravity-only `DEFAULT_SCENARIO` at a shared *fixed RHS-evaluation
  * budget* (§4.8: "fixed cost budget (equal RHS evaluations)"), each landing
  * at the same `tFinal` (a tight-tolerance DOPRI5 reference solve's own
- * natural landing time, mirroring `solver-lab.ts`'s reference-solve
- * pattern) via a per-method `h` chosen so `nSteps * rhsPerStep ===
- * RHS_BUDGET`. Each method's trace is `E(t)/E(0) - 1` (`mechanicalEnergy`,
+ * natural landing time -- the ground-impact event, armed deliberately since
+ * P0.142 and asserted in `energy-drift-study.test.ts`, mirroring
+ * `solver-lab.ts`'s reference-solve pattern) via a per-method `h` chosen so
+ * `nSteps * rhsPerStep === RHS_BUDGET`. Each method's trace is `E(t)/E(0) - 1` (`mechanicalEnergy`,
  * `@ballista/engine`) sampled at every accepted step -- these are genuine
  * solver runs ("pinned runs"), not canned fixture data, so this task's
  * validation criterion ("four-method E(t) traces render from pinned runs")
@@ -131,9 +132,32 @@ export function runEnergyDriftStudy(scenario: ScenarioSpec = DEFAULT_SCENARIO): 
       rtol: REFERENCE_RTOL,
       atol: REFERENCE_ATOL,
       maxSteps: Number.MAX_SAFE_INTEGER,
+      // events: "require" (P0.142). THE LANDING TIME IS THE POINT OF THIS
+      // SOLVE, and saying so is the whole change: T_MAX_SECONDS is a 60 s
+      // backstop, not the window, and `tFinal` below is the ground-impact
+      // time that every fixed-step trace is then held to. Until P0.142 that
+      // was true only as a side effect -- `events` was omitted, DOPRI5 happens
+      // to carry an interpolant, and an omitted `events` arms the declared
+      // impact for such a stepper (ADR-016). So the endpoint of the comparison
+      // window was chosen by an event that only the reference could see, and
+      // nothing in the source said it was chosen at all.
+      //
+      // "require" rather than a hypothetical "on" because it is the only value
+      // that STATES "arm the events", and it costs nothing here: the
+      // HermiteDenseOutputStepper wrapper it authorises is applied only to a
+      // stepper with no interpolant of its own, which DOPRI5 is not. Every
+      // number this function returns is unchanged by this literal, which is
+      // why no golden moved with it.
+      events: "require",
     },
     referenceStepper,
   );
+  /**
+   * The reference solve's ground-impact time -- a stated property of the
+   * scenario, now that the event above is armed deliberately rather than by
+   * accident of stepper capability. Every method below runs `[0, tFinal]` at
+   * its own fixed `h`, which is what makes the traces comparable.
+   */
   const tFinal = referenceReport.tFinal;
 
   const e0 = mechanicalEnergy(y0, ctx);
@@ -155,11 +179,15 @@ export function runEnergyDriftStudy(scenario: ScenarioSpec = DEFAULT_SCENARIO): 
         // [0, tFinal] window at a fixed h on an equal-rhs budget; truncating it
         // at the ground-impact event would cut each method's trace at a
         // different step index and destroy the comparison §4.8 is making.
-        // NOTE the asymmetry this makes visible, filed as P0.142: the
-        // *reference* solve above is adaptive, so it runs on DOPRI5, which HAS
-        // an interpolant and therefore has always had the ground-impact event
-        // armed -- tFinal is the impact time. Only the fixed-step traces ran
-        // without events, and before P0.99 nothing said so.
+        //
+        // P0.142 resolved the asymmetry this used to flag, and resolved it
+        // toward "state both intents" rather than toward equalising them. The
+        // two really do want opposite things and that is correct: the
+        // reference solve above wants the impact, because the impact IS the
+        // window it is computing, and these traces want to run through it.
+        // What was wrong was that only one of the two said so. Both now do --
+        // "require" above, "off" here -- so the split is a stated property of
+        // the study rather than a consequence of which stepper is adaptive.
         { stepper: id, h, maxSteps: Number.MAX_SAFE_INTEGER, events: "off" },
         stepper,
         [recorder],
