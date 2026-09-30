@@ -214,9 +214,14 @@ describe("SolveReport.terminus: the resting contact is distinguishable from the 
     cancel();
     const result = continuation.runSlice(4);
 
+    // `IntegrationSliceResult` is a discriminated union and only the `done:
+    // true` arm carries a report, so narrow rather than reaching for `?.` --
+    // an optional chain here would make a missing report pass as `undefined`
+    // rather than fail, which is the opposite of what this case is for.
     expect(result.done).toBe(true);
-    expect(result.report?.status).toBe("canceled");
-    expect(result.report?.terminus).toBe("cancellation");
+    if (!result.done) throw new Error("expected the canceled slice to be done");
+    expect(result.report.status).toBe("canceled");
+    expect(result.report.terminus).toBe("cancellation");
   });
 
   it("never disagrees with `status`", () => {
