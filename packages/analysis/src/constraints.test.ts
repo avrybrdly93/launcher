@@ -271,6 +271,11 @@ describe("withBoundsPenalty", () => {
       ok: false,
       report: {
         status: "failed",
+        // P0.143: `SolveReport` now says where a solve stopped, and a failure
+        // stopped at no terminus at all -- `tFinal`/`yFinal` are the last-good
+        // state. This stub asserts nothing about the field; it is here because
+        // the field is required, which is the point of it being required.
+        terminus: "failure",
         tFinal: 0,
         yFinal: new Float64Array(4),
         nSteps: 0,

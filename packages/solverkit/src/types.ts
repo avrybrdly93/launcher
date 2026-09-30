@@ -240,9 +240,60 @@ export interface SolveFailure {
   readonly y: Float64Array;
 }
 
+/**
+ * Why a solve stopped where it did (§5.1, P0.143). `status` says whether the
+ * solve succeeded; this says *where it ended*, which is a different question
+ * and was previously unanswerable from the report.
+ *
+ * Three of `integrate`'s endings report `status: "ok"`, and a caller reading
+ * `yFinal` could not tell them apart. That mattered most for the ending this
+ * type was added for. ADR-021 ends a bouncing trajectory at its resting
+ * contact: `v_y` is zeroed, `v_x` keeps its `muF` factor, and the solve stops.
+ * So a ball with `muF = 1` finishes sitting on the ground **still moving
+ * sideways**, with no force in the model accounting for it -- rolling, sliding
+ * and the normal contact force are unmodelled, and ADR-021 says so. Nothing
+ * `integrate` reports is wrong; it reports exactly what it integrated. But
+ * `"time-span"` and `"event-stop"` are not the same kind of final state, and
+ * before this field a caller had no way to know which one it was holding.
+ *
+ * - `"time-span"` -- the requested `tspan` ran out. `yFinal` is the state at
+ *   `t_f` and the model has nothing further to say about it.
+ * - `"terminal-event"` -- a terminal event with no `action` ended the solve
+ *   (§4.9), e.g. ground impact used as a stopping condition. `tFinal` is the
+ *   localized root, not a step boundary.
+ * - `"event-stop"` -- a terminal event's `action` returned `"stop"` (ADR-021).
+ *   `yFinal` is the *post*-action state. **The trajectory ended at a condition
+ *   the model does not continue past**, so `yFinal` is a boundary of the
+ *   model's validity rather than a physical terminus, and any quantity read
+ *   from it (a resting ball's `v_x` above all) is the last thing the integrator
+ *   computed and not a state the model claims to have evolved to.
+ * - `"failure"` -- `status: "failed"`; see `failure` for the typed reason.
+ *   `tFinal`/`yFinal` are the last-good state, not a terminus at all.
+ * - `"cancellation"` -- `status: "canceled"` (P2.41); same, last-good state.
+ *
+ * The last two overlap with `status` by design rather than by oversight: the
+ * field is a total account of how the loop exited, and leaving two exits
+ * unlabelled would make the absence of a label carry meaning.
+ *
+ * This is a *label on an ending that already happened*. Nothing here changes a
+ * trajectory, and option (a) of P0.143 -- modelling the contact with a real
+ * force and a normal reaction -- remains open as the physics task it always
+ * was. Blueprint §4.9 covers "stop or reflect" and nothing past it, so that
+ * needs a blueprint change and its own ADR.
+ */
+export type SolveTerminus =
+  "time-span" | "terminal-event" | "event-stop" | "failure" | "cancellation";
+
 /** Outcome of an {@link integrate} run (§5.1). */
 export interface SolveReport {
   readonly status: "ok" | "failed" | "canceled";
+  /**
+   * Where the solve stopped (P0.143). Required, not optional: this field
+   * exists to be read, and an optional one is a field callers may ignore.
+   * See {@link SolveTerminus} -- in particular `"event-stop"`, which marks a
+   * `yFinal` that sits on a boundary of the model rather than at a terminus.
+   */
+  readonly terminus: SolveTerminus;
   readonly tFinal: number;
   readonly yFinal: Float64Array;
   readonly nSteps: number;

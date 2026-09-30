@@ -366,6 +366,7 @@ function* runIntegrationSteps(
   ): SolveReport {
     const report: SolveReport = {
       status: "failed",
+      terminus: "failure",
       tFinal: failT,
       yFinal: y,
       nSteps,
@@ -381,6 +382,7 @@ function* runIntegrationSteps(
   function cancel(atT: number, y: Float64Array): SolveReport {
     const report: SolveReport = {
       status: "canceled",
+      terminus: "cancellation",
       tFinal: atT,
       yFinal: y,
       nSteps,
@@ -575,6 +577,10 @@ function* runIntegrationSteps(
           if (outcome === "stop") {
             const report: SolveReport = {
               status: "ok",
+              // P0.143: the ending this discriminant was added for. `yFinal` is
+              // the post-action state -- a ball at rest on the ground that may
+              // still carry `v_x` -- and nothing in the model continues past it.
+              terminus: "event-stop",
               tFinal: t,
               yFinal: current,
               nSteps,
@@ -596,6 +602,7 @@ function* runIntegrationSteps(
         for (const sink of sinks) sink.accept?.(t, current, out);
         const report: SolveReport = {
           status: "ok",
+          terminus: "terminal-event",
           tFinal: t,
           yFinal: current,
           nSteps,
@@ -616,6 +623,7 @@ function* runIntegrationSteps(
 
   const report: SolveReport = {
     status: "ok",
+    terminus: "time-span",
     tFinal: t,
     yFinal: current,
     nSteps,
