@@ -158,6 +158,33 @@ sliding and a normal contact force are a constraint problem the blueprint
 does not have and this ADR does not invent — filed as its own task
 (P0.143) rather than improvised here.
 
+> **Half resolved, 147th run (P0.143), and the half that landed is the
+> reporting half.** "The API says so" was true of this document and of
+> `RestitutionParams`' doc comment, and false of the thing a caller actually
+> holds: `SolveReport` carried `status`, `tFinal`, `yFinal` and the counters,
+> and **three of `integrate`'s endings reported `status: "ok"`** — the span
+> ran out, a plain terminal event fired, and an `action` returned `"stop"`.
+> A caller reading `yFinal` could not tell a ball resting at a contact from a
+> ball still in flight when the clock ran out, which is a different statement
+> from the one this section made.
+>
+> `SolveReport` now carries a required `terminus: SolveTerminus`, and the
+> resting contact reports `"event-stop"`: `yFinal` sits on a **boundary of the
+> model's validity** rather than at a physical terminus, so a resting ball's
+> $v_x$ is the last thing the integrator computed and not a state the model
+> claims to have evolved to. `packages/solverkit/src/solve-terminus.test.ts`
+> pins that a drop with $\mu_f = 1$ ends with $y$ and $v_y$ exactly zero and
+> $v_x$ exactly at its launch value, and that all five endings are mutually
+> distinguishable.
+>
+> **Nothing physical was added and no number moved.** P0.143 offered three
+> fixes and its criterion admitted two; this is the reporting one. The physics
+> one — rolling resistance or sliding friction as a real `ForceModel` with a
+> normal reaction — is still open and still needs what this ADR said it needs:
+> a constrained phase the driver has no notion of, a blueprint change past
+> §4.9's "stop or reflect", and its own ADR. Naming the boundary is not
+> modelling past it, and this note is not a claim that it was.
+
 **One tunnelling configuration survives this ADR and is a different bug.**
 Under the adaptive driver a drag-free bouncing ball resolved exactly *one*
 impact and then free-fell, whatever `vRest` said, because the impact was
